@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
 import { Copy, Crop, Download } from 'lucide-react'
 
 interface ToolbarPosition {
   top: number
-  right: number
+  left: number
 }
 
 interface ImageToolbarProps {
@@ -21,6 +21,27 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
   const toolbarRef = useRef<HTMLDivElement>(null)
   const cropStartRef = useRef<{ x: number; y: number } | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const portalContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // 创建 portal 容器
+  useEffect(() => {
+    const portal = document.createElement('div')
+    portal.style.position = 'fixed'
+    portal.style.top = '0'
+    portal.style.left = '0'
+    portal.style.width = '100%'
+    portal.style.height = '100%'
+    portal.style.pointerEvents = 'none'
+    portal.style.zIndex = '9999'
+    portal.id = 'image-toolbar-portal'
+    document.body.appendChild(portal)
+    portalContainerRef.current = portal
+
+    return () => {
+      document.body.removeChild(portal)
+      portalContainerRef.current = null
+    }
+  }, [])
 
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current) {
@@ -39,6 +60,32 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
     }, 200)
   }, [clearHideTimer])
 
+  // 计算工具栏位置（相对于视口）
+  const updatePosition = useCallback(() => {
+    if (!target || !containerRef.current) return
+
+    const imgRect = target.getBoundingClientRect()
+    const toolbarHeight = 36 // 估计高度
+    const toolbarWidth = 100 // 估计宽度
+
+    // 工具栏显示在图片上方
+    let top = imgRect.top - toolbarHeight - 8
+    let left = imgRect.right - toolbarWidth
+
+    // 边界检查：确保不超出视口
+    if (top < 8) {
+      top = imgRect.bottom + 8 // 如果上方空间不够，显示在下方
+    }
+    if (left < 8) {
+      left = 8
+    }
+    if (left + toolbarWidth > window.innerWidth - 8) {
+      left = window.innerWidth - toolbarWidth - 8
+    }
+
+    setPos({ top, left })
+  }, [target, containerRef])
+
   useEffect(() => {
     const el = containerRef.current
     if (!el || !editable) return
@@ -48,12 +95,8 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
       if (!img || !el.contains(img)) return
       clearHideTimer()
       setTarget(img)
-      const containerRect = el.getBoundingClientRect()
-      const imgRect = img.getBoundingClientRect()
-      setPos({
-        top: imgRect.top - containerRect.top + 6,
-        right: containerRect.right - imgRect.right + 6,
-      })
+      // 使用 requestAnimationFrame 确保 DOM 更新后再计算位置
+      requestAnimationFrame(updatePosition)
     }
 
     const handleMouseOut = (e: MouseEvent) => {
@@ -62,14 +105,33 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
       scheduleHide()
     }
 
+    // 监听滚动和窗口变化，更新工具栏位置
+    const handleScroll = () => {
+      if (target) {
+        updatePosition()
+      }
+    }
+
     el.addEventListener('mouseover', handleMouseOver)
     el.addEventListener('mouseout', handleMouseOut)
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleScroll)
+
     return () => {
       el.removeEventListener('mouseover', handleMouseOver)
       el.removeEventListener('mouseout', handleMouseOut)
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleScroll)
       clearHideTimer()
     }
-  }, [containerRef, editable, clearHideTimer, scheduleHide])
+  }, [containerRef, editable, clearHideTimer, scheduleHide, target, updatePosition])
+
+  // 当目标变化时更新位置
+  useLayoutEffect(() => {
+    if (target) {
+      updatePosition()
+    }
+  }, [target, updatePosition])
 
   const handleToolbarMouseEnter = useCallback(() => clearHideTimer(), [clearHideTimer])
   const handleToolbarMouseLeave = useCallback(() => scheduleHide(), [scheduleHide])
@@ -176,7 +238,7 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
     setCropRect(null)
   }, [])
 
-  if (!target || !pos) return null
+  if (!target || !pos || !portalContainerRef.current) return null
 
   const isDark = theme === 'dark'
   const btnStyle: React.CSSProperties = {
@@ -193,17 +255,17 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
     padding: 0,
   }
 
-  return (
+  const toolbarContent = (
     <>
       <div
         ref={toolbarRef}
         onMouseEnter={handleToolbarMouseEnter}
         onMouseLeave={handleToolbarMouseLeave}
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: pos.top,
-          right: pos.right,
-          zIndex: 50,
+          left: pos.left,
+          zIndex: 9999,
           display: 'flex',
           gap: 2,
           padding: 3,
@@ -227,18 +289,16 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
       </div>
 
       {cropping && target && (() => {
-        const containerEl = containerRef.current
-        if (!containerEl) return null
-        const containerRect = containerEl.getBoundingClientRect()
         const imgRect = target.getBoundingClientRect()
         const overlayStyle: React.CSSProperties = {
-          position: 'absolute',
-          top: imgRect.top - containerRect.top,
-          left: imgRect.left - containerRect.left,
+          position: 'fixed',
+          top: imgRect.top,
+          left: imgRect.left,
           width: imgRect.width,
           height: imgRect.height,
-          zIndex: 60,
+          zIndex: 10000,
           cursor: 'crosshair',
+          pointerEvents: 'auto',
         }
         return (
           <div style={overlayStyle} onMouseDown={handleCropMouseDown}>
@@ -301,6 +361,13 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
           </div>
         )
       })()}
+    </>
+  )
+
+  // 使用 portal 渲染到 body
+  return (
+    <>
+      {toolbarContent}
     </>
   )
 }

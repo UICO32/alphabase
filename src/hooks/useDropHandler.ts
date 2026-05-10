@@ -1,22 +1,98 @@
 import { useCallback } from 'react'
 import { type Node } from '@xyflow/react'
+import type { ReactFlowInstance } from '@xyflow/react'
+import type { MediaNodeData } from '../components/canvas/MediaNode'
+import type { CardNodeData } from '../components/canvas/CardNode'
 import { useCardStore } from '../utils/cardStore'
+import { fileToDataUrl, generateId } from '../utils/fileUtils'
 
 interface UseDropHandlerOptions {
-  nodes: Node[]
+  reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void
 }
 
-export function useDropHandler({ nodes, setNodes }: UseDropHandlerOptions) {
-  const addCard = useCardStore((s) => s.addCard)
+function isImageFile(file: File) {
+  if (file.type.toLowerCase().startsWith('image/')) return true
+  return /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i.test(file.name)
+}
 
-  const handleDrop = useCallback((event: React.DragEvent) => {
-    // TODO: 实现拖拽处理
-    // 1. 检测是否从卡片库拖拽
-    // 2. 获取放置位置坐标
-    // 3. 创建新卡片节点
-    console.log('Drop event:', event)
-  }, [nodes, setNodes, addCard])
+interface CardDragData {
+  type: 'card'
+  cardId: string
+  isNewInstance: boolean
+}
 
-  return { handleDrop }
+export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOptions) {
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }, [])
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      const instance = reactFlowInstance.current
+      if (!instance) return
+
+      event.preventDefault()
+
+      const position = instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+
+      const files = event.dataTransfer?.files
+      if (files && files.length > 0) {
+        const imageFiles = Array.from(files).filter(isImageFile)
+        if (imageFiles.length > 0) {
+          imageFiles.forEach((file, i) => {
+            fileToDataUrl(file).then((url) => {
+              const node: Node<MediaNodeData> = {
+                id: generateId('media'),
+                type: 'media',
+                position: { x: position.x + i * 40, y: position.y + i * 40 },
+                data: { url, type: 'image' },
+                width: 100,
+                height: 100,
+              }
+              setNodes((nds) => [...nds, node])
+            })
+          })
+          return
+        }
+      }
+
+      const jsonData = event.dataTransfer?.getData('application/json')
+      if (jsonData) {
+        try {
+          const dragData: CardDragData = JSON.parse(jsonData)
+          if (dragData.type === 'card') {
+            const card = useCardStore.getState().cards[dragData.cardId]
+            if (card) {
+              let cardId = dragData.cardId
+              if (dragData.isNewInstance) {
+                const newCard = { ...card, id: crypto.randomUUID(), createdAt: Date.now(), updatedAt: Date.now() }
+                useCardStore.getState().addCard(newCard)
+                cardId = newCard.id
+              }
+              const node: Node<CardNodeData> = {
+                id: cardId,
+                type: 'card',
+                position,
+                data: {
+                  cardId,
+                  color: card.color,
+                  variant: card.variant,
+                  collapsed: card.collapsed,
+                  fixedHeight: card.fixedHeight,
+                },
+              }
+              setNodes((nds) => [...nds, node])
+            }
+          }
+        } catch {
+          // ignore malformed JSON
+        }
+      }
+    },
+    [reactFlowInstance, setNodes],
+  )
+
+  return { handleDragOver, handleDrop }
 }

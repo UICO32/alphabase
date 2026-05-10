@@ -1,23 +1,57 @@
-import { useCallback } from 'react'
-import { type Node, type Edge } from '@xyflow/react'
-import { useCardStore } from '../utils/cardStore'
+import { useEffect } from 'react'
+import { type Node } from '@xyflow/react'
+import type { ReactFlowInstance } from '@xyflow/react'
+import type { MediaNodeData } from '../components/canvas/MediaNode'
+import { fileToDataUrl, generateId } from '../utils/fileUtils'
 
 interface UseCanvasPasteOptions {
-  nodes: Node[]
+  reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void
-  setEdges: (edges: Edge[] | ((prev: Edge[]) => Edge[])) => void
+  lastMousePosRef: React.RefObject<{ x: number; y: number } | null>
 }
 
-export function useCanvasPaste({ nodes, setNodes, setEdges }: UseCanvasPasteOptions) {
-  const addCard = useCardStore((s) => s.addCard)
+function makeMediaNode(url: string, position: { x: number; y: number }): Node<MediaNodeData> {
+  return {
+    id: generateId('media'),
+    type: 'media',
+    position,
+    data: { url, type: 'image' },
+    width: 100,
+    height: 100,
+  }
+}
 
-  const handlePaste = useCallback((event: ClipboardEvent) => {
-    // TODO: 实现粘贴处理
-    // 1. 检测是否粘贴卡片内容
-    // 2. 创建新卡片节点
-    // 3. 添加到画布
-    console.log('Paste event:', event)
-  }, [nodes, setNodes, setEdges, addCard])
+export function useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef }: UseCanvasPasteOptions) {
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('.card-blocknote-editor, input, textarea, [contenteditable]')) return
 
-  return { handlePaste }
+      const items = e.clipboardData?.items
+      if (!items) return
+
+      const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'))
+      if (!imageItem) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      const file = imageItem.getAsFile()
+      if (!file) return
+
+      const instance = reactFlowInstance.current
+      if (!instance) return
+
+      const url = await fileToDataUrl(file)
+
+      const pos = lastMousePosRef.current
+        ? instance.screenToFlowPosition(lastMousePosRef.current)
+        : instance.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+
+      setNodes((nds) => [...nds, makeMediaNode(url, pos)])
+    }
+
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  }, [reactFlowInstance, setNodes, lastMousePosRef])
 }

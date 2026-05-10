@@ -14,10 +14,10 @@ export type PanelSurface = {
 export function getPanelSurface(isDarkMode: boolean): PanelSurface {
   return isDarkMode
     ? {
-        appBg: '#111827',
+        appBg: '#0a0f1a',
         panelBg: '#0f172a',
         panelAlt: '#111c31',
-        surface: '#111827',
+        surface: '#1e293b',
         card: '#0b1220',
         cardBorder: 'rgba(51,65,85,0.9)',
         text: '#e5e7eb',
