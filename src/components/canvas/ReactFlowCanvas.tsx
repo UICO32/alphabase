@@ -128,6 +128,21 @@ export function ReactFlowCanvas() {
     [setEdges],
   )
 
+  const onNodeDrag = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.source === node.id || e.target === node.id ? { ...e } : e,
+        ),
+      )
+    },
+    [setEdges],
+  )
+
+  const onNodeDragStop = useCallback(() => {
+    setEdges((eds) => [...eds])
+  }, [setEdges])
+
   const connectionLineComponent = useCallback(
     (props: Parameters<typeof CustomConnectionLine>[0]) => (
       <CustomConnectionLine {...props} />
@@ -152,6 +167,8 @@ export function ReactFlowCanvas() {
         onConnect={onConnect}
         onPaneClick={onPaneClick}
         onNodeClick={onNodeClick}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         onReconnect={onReconnect}
         onReconnectEnd={onReconnectEnd}
         edgesReconnectable

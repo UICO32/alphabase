@@ -86,6 +86,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
+  const handleBaseClass =
+    '!w-3 !h-3 !bg-gray-400 !border-2 !border-white transition-all duration-150 hover:!bg-green-500'
+
   const outlineWidth = selected ? 2 : 1
   const outlineColor = selected
     ? '#3b82f6'
@@ -117,7 +120,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* 连接图标 - 卡片外部顶部中央 */}
+      {/* 连接图标 - 卡片外部右上角 */}
       <Handle
         type="source"
         position={Position.Top}
@@ -125,13 +128,52 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         className="absolute w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold transition-opacity duration-150 cursor-crosshair z-10 hover:bg-blue-600 shadow-sm !border-0"
         style={{
           top: -22,
-          left: '50%',
-          transform: 'translateX(-50%)',
+          right: 0,
+          left: 'auto',
+          transform: 'translateX(50%)',
           opacity: showHandles ? 1 : 0,
         }}
       >
         +
       </Handle>
+
+      {/* 四角吸附点 - target only */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="top-target"
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom-target"
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-target"
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-target"
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
+      />
 
       {/* 卡片头部 */}
       <div
