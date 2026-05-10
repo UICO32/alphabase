@@ -122,15 +122,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         type="source"
         position={Position.Top}
         id="connection-icon-source"
-        className="!opacity-0"
-        style={{
-          top: -12,
-          left: '50%',
-          transform: 'translateX(-50%)',
-        }}
-      />
-      <div
-        className="absolute w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold transition-opacity duration-150 cursor-crosshair z-10 hover:bg-blue-600 shadow-sm"
+        className="absolute w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold transition-opacity duration-150 cursor-crosshair z-10 hover:bg-blue-600 shadow-sm !border-0"
         style={{
           top: -22,
           left: '50%',
@@ -139,7 +131,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         }}
       >
         +
-      </div>
+      </Handle>
 
       {/* 卡片头部 */}
       <div
