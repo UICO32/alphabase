@@ -57,7 +57,24 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     (e: React.MouseEvent) => {
       if (isConnectionTarget) {
         e.stopPropagation()
-        connectionMediator.complete(data.cardId, 'top')
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        const clickX = e.clientX - rect.left
+        const clickY = e.clientY - rect.top
+        const w = rect.width
+        const h = rect.height
+        const centerX = w / 2
+        const centerY = h / 2
+        const dx = clickX - centerX
+        const dy = clickY - centerY
+        const absDx = Math.abs(dx)
+        const absDy = Math.abs(dy)
+        let targetHandle = 'top-target'
+        if (absDx * h > absDy * w) {
+          targetHandle = dx > 0 ? 'right-target' : 'left-target'
+        } else {
+          targetHandle = dy > 0 ? 'bottom-target' : 'top-target'
+        }
+        connectionMediator.complete(data.cardId, targetHandle)
       }
     },
     [isConnectionTarget, data.cardId],
@@ -160,6 +177,34 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         type="source"
         position={Position.Right}
         id="right"
+        className={handleClassName}
+        style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="top-target"
+        className={handleClassName}
+        style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom-target"
+        className={handleClassName}
+        style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-target"
+        className={handleClassName}
+        style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-target"
         className={handleClassName}
         style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
       />
