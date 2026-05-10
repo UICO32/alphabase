@@ -358,13 +358,21 @@ const CardBlockNoteEditorInner = (
     useImageColumnDrop(containerRef, editor as any, editable)
 
     return (
-      <div ref={containerRef} style={{ position: 'relative' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`}>
+      <div ref={containerRef} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`}>
+        <style>{`
+          .card-blocknote-editor .bn-container,
+          .card-blocknote-editor .ProseMirror,
+          .card-blocknote-editor .mantine-RichTextEditor-root,
+          .card-blocknote-editor .mantine-RichTextEditor-content {
+            font-size: inherit !important;
+            line-height: inherit !important;
+          }
+        `}</style>
         <BlockNoteView
           editor={editor}
           editable={editable}
           theme={theme}
           slashMenu={editable}
-          style={{ fontSize: '13px' }}
         >
           {showSideMenu && editable && (
             <SideMenuController

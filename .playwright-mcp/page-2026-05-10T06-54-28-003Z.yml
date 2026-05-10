@@ -1,0 +1,46 @@
+- application [ref=e5]:
+  - generic [ref=e7]:
+    - generic:
+      - generic:
+        - img:
+          - group "Edge from card-1 to card-2" [ref=e8] [cursor=pointer]
+        - img:
+          - group "Edge from card-2 to card-3" [ref=e15] [cursor=pointer]
+      - generic:
+        - group [ref=e22]:
+          - generic [ref=e23]:
+            - generic [ref=e24]: +
+            - generic [ref=e25]: 欢迎卡片
+            - generic [ref=e27]:
+              - heading "欢迎使用 Heptabase Canvas" [level=2] [ref=e28]
+              - paragraph [ref=e29]: 这是一个基于 React Flow 的画布知识管理应用。
+        - group [ref=e30]:
+          - generic [ref=e31]:
+            - generic [ref=e32]: +
+            - generic [ref=e33]: 功能特性
+            - generic [ref=e35]:
+              - heading "功能特性" [level=2] [ref=e36]
+              - list [ref=e37]:
+                - listitem [ref=e38]: 拖拽卡片
+                - listitem [ref=e39]: 创建连接
+                - listitem [ref=e40]: 分区管理
+        - group [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: +
+            - generic [ref=e44]: 快速开始
+            - generic [ref=e46]:
+              - heading "快速开始" [level=2] [ref=e47]
+              - paragraph [ref=e48]: 点击卡片进入编辑模式，拖拽空白处移动画布。
+  - img
+  - generic "Control Panel" [ref=e49]:
+    - button "Zoom In" [ref=e50] [cursor=pointer]:
+      - img [ref=e51]
+    - button "Zoom Out" [ref=e53] [cursor=pointer]:
+      - img [ref=e54]
+    - button "Fit View" [ref=e56] [cursor=pointer]:
+      - img [ref=e57]
+    - button "Toggle Interactivity" [ref=e59] [cursor=pointer]:
+      - img [ref=e60]
+  - link "React Flow attribution" [ref=e63] [cursor=pointer]:
+    - /url: https://reactflow.dev
+    - text: React Flow

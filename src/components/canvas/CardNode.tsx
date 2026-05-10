@@ -23,6 +23,8 @@ type CardNodeType = Node<CardNodeData, 'card'>
 const DEFAULT_CARD_WIDTH = 280
 const DEFAULT_CARD_HEIGHT = 200
 
+const handleClassName = '!opacity-0 !pointer-events-none !w-3 !h-3 !border-0'
+
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const [isEditing, setIsEditing] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -39,28 +41,27 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     connectionMediator.subscribe.bind(connectionMediator),
     () => connectionMediator.isConnectingFrom(data.cardId),
   )
-  const isConnectionTarget = useSyncExternalStore(
-    connectionMediator.subscribe.bind(connectionMediator),
-    () => connectionMediator.isTargetNode(data.cardId),
-  )
+  const isConnectionTarget = isConnecting && !isConnectingSource
 
   const showConnectionIcon = selected || isHovered || isConnecting
-  const showSnapPoints = isConnectionTarget
 
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
   const handleConnectionIconClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    connectionMediator.start(data.cardId, 'connection-icon-source')
+    connectionMediator.start(data.cardId, 'top')
   }, [data.cardId])
 
-  const handleTargetClick = useCallback((e: React.MouseEvent) => {
-    if (isConnectionTarget) {
-      e.stopPropagation()
-      connectionMediator.complete(data.cardId, '')
-    }
-  }, [isConnectionTarget, data.cardId])
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (isConnectionTarget) {
+        e.stopPropagation()
+        connectionMediator.complete(data.cardId, 'top')
+      }
+    },
+    [isConnectionTarget, data.cardId],
+  )
 
   const handleDoubleClick = useCallback(() => {
     if (!card) return
@@ -131,7 +132,38 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleCardClick}
     >
+      {/* 四边连接锚点 - 不可见，仅作为连接点 */}
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top"
+        className={handleClassName}
+        style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom"
+        className={handleClassName}
+        style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        className={handleClassName}
+        style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        className={handleClassName}
+        style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
+      />
+
       {/* 连接图标 - 卡片外部右上角 */}
       <Handle
         type="source"
@@ -149,56 +181,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       >
         +
       </Handle>
-
-      {/* 四角吸附点 - 仅在拖线接近时显示 */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="top-target"
-        className={
-          showSnapPoints
-            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
-        onClick={handleTargetClick}
-      />
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        id="bottom-target"
-        className={
-          showSnapPoints
-            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
-        onClick={handleTargetClick}
-      />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left-target"
-        className={
-          showSnapPoints
-            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
-        onClick={handleTargetClick}
-      />
-      <Handle
-        type="target"
-        position={Position.Right}
-        id="right-target"
-        className={
-          showSnapPoints
-            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
-        onClick={handleTargetClick}
-      />
 
       {/* 卡片头部 */}
       <div

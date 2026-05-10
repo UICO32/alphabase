@@ -1,7 +1,6 @@
 export interface PendingConnection {
   sourceNodeId: string
   sourceHandleId: string
-  targetNodeId: string | null
 }
 
 export interface ConnectionRequest {
@@ -20,15 +19,8 @@ let completeHandler: CompleteHandler | null = null
 
 export const connectionMediator = {
   start(sourceNodeId: string, sourceHandleId: string) {
-    pending = { sourceNodeId, sourceHandleId, targetNodeId: null }
+    pending = { sourceNodeId, sourceHandleId }
     listeners.forEach((fn) => fn())
-  },
-
-  setTarget(targetNodeId: string | null) {
-    if (pending) {
-      pending.targetNodeId = targetNodeId
-      listeners.forEach((fn) => fn())
-    }
   },
 
   getPending(): PendingConnection | null {
@@ -46,10 +38,6 @@ export const connectionMediator = {
 
   isConnectingFrom(nodeId: string): boolean {
     return pending?.sourceNodeId === nodeId
-  },
-
-  isTargetNode(nodeId: string): boolean {
-    return pending?.targetNodeId === nodeId
   },
 
   complete(targetNodeId: string, targetHandleId: string) {

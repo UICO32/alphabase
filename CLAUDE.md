@@ -177,6 +177,36 @@ GitHub: https://github.com/UICO32/-base.git
 
 ---
 
+## AI 行为约束
+
+### 文件访问限制
+
+**禁止读取以下目录/文件：**
+- `node_modules/` — 依赖包，无需查看
+- `dist/`、`build/`、`.vite/` — 构建产物
+- `.git/` — Git 内部数据
+- `*.lock`、`package-lock.json`、`pnpm-lock.yaml` — 锁文件
+- `.cache/`、`*.log` — 缓存和日志
+
+**例外情况（需用户明确要求）：**
+- 排查依赖问题时可查看 `package.json`
+- 构建配置问题时可查看 `vite.config.ts`、`tsconfig.json`
+
+### 搜索范围限制
+
+使用 `SearchCodebase`、`Grep`、`Glob` 时：
+- 默认在 `src/`、`electron/`、`tests/` 目录搜索
+- 避免全项目搜索导致命中 `node_modules`
+- 使用 `target_directories` 参数限定范围
+
+### 代码修改原则
+
+- **优先编辑现有文件**，而非创建新文件
+- **不主动创建文档**（*.md、README），除非用户明确要求
+- **不添加注释**，除非用户明确要求或代码逻辑复杂需要解释
+
+---
+
 ## 参考文档
 
 - `PROMPT.md` - 项目背景、技术栈、开发顺序

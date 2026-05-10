@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { renderBlocksToHTML } from './renderBlocks'
 import type { CardColor, CardVariant } from '../types/card'
 
 export interface GlobalCard {
@@ -25,12 +26,19 @@ interface CardStore {
   loadCardsFromDB: () => Promise<void>
 }
 
+function ensurePreviewHTML(card: GlobalCard): GlobalCard {
+  if (!card.previewHTML && card.content) {
+    return { ...card, previewHTML: renderBlocksToHTML(card.content) }
+  }
+  return card
+}
+
 export const useCardStore = create<CardStore>()((set, get) => ({
   cards: {},
   isLoaded: false,
 
   addCard: (card) => {
-    set((state) => ({ cards: { ...state.cards, [card.id]: card } }))
+    set((state) => ({ cards: { ...state.cards, [card.id]: ensurePreviewHTML(card) } }))
   },
 
   updateCard: (id, props) => {
@@ -38,6 +46,9 @@ export const useCardStore = create<CardStore>()((set, get) => ({
       const existing = state.cards[id]
       if (!existing) return state
       const updated = { ...existing, ...props }
+      if ('content' in props) {
+        updated.previewHTML = renderBlocksToHTML(updated.content)
+      }
       return { cards: { ...state.cards, [id]: updated } }
     })
   },
@@ -52,7 +63,11 @@ export const useCardStore = create<CardStore>()((set, get) => ({
 
   importCards: (cards) => {
     set((state) => {
-      const merged = { ...state.cards, ...cards }
+      const withPreviews: Record<string, GlobalCard> = {}
+      for (const [id, card] of Object.entries(cards)) {
+        withPreviews[id] = ensurePreviewHTML(card)
+      }
+      const merged = { ...state.cards, ...withPreviews }
       return { cards: merged }
     })
   },

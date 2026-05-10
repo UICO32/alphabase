@@ -24,7 +24,6 @@ export function useWorkspaceLifecycle({ setNodes, setEdges }: UseWorkspaceLifecy
         variant: 'solid' as const,
         createdAt: Date.now(),
         title: '欢迎卡片',
-        previewHTML: '<h2>欢迎使用 Heptabase Canvas</h2><p>这是一个基于 React Flow 的画布知识管理应用。</p>',
       },
       {
         id: 'card-2',
@@ -33,7 +32,6 @@ export function useWorkspaceLifecycle({ setNodes, setEdges }: UseWorkspaceLifecy
         variant: 'glass' as const,
         createdAt: Date.now() - 1000,
         title: '功能特性',
-        previewHTML: '<h2>功能特性</h2><ul><li>拖拽卡片</li><li>创建连接</li><li>分区管理</li></ul>',
       },
       {
         id: 'card-3',
@@ -42,7 +40,6 @@ export function useWorkspaceLifecycle({ setNodes, setEdges }: UseWorkspaceLifecy
         variant: 'outline' as const,
         createdAt: Date.now() - 2000,
         title: '快速开始',
-        previewHTML: '<h2>快速开始</h2><p>点击卡片进入编辑模式，拖拽空白处移动画布。</p>',
       },
     ]
 
