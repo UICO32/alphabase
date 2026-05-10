@@ -39,10 +39,13 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     connectionMediator.subscribe.bind(connectionMediator),
     () => connectionMediator.isConnectingFrom(data.cardId),
   )
-  const isConnectionTarget = isConnecting && !isConnectingSource
+  const isConnectionTarget = useSyncExternalStore(
+    connectionMediator.subscribe.bind(connectionMediator),
+    () => connectionMediator.isTargetNode(data.cardId),
+  )
 
-  const showHandles = selected || isHovered || isConnecting
-  const isBackground = !selected && !isHovered && !isConnecting
+  const showConnectionIcon = selected || isHovered || isConnecting
+  const showSnapPoints = isConnectionTarget
 
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
@@ -98,15 +101,12 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
-  const handleBaseClass =
-    '!w-3 !h-3 !bg-gray-400 !border-2 !border-white transition-all duration-150 hover:!bg-green-500'
-
   const outlineWidth = selected ? 2 : 1
   const outlineColor = selected
     ? '#3b82f6'
-    : isBackground
-      ? 'rgba(0,0,0,0.08)'
-      : styles.border
+    : isHovered
+      ? 'rgba(0,0,0,0.12)'
+      : 'rgba(0,0,0,0.08)'
 
   return (
     <div
@@ -143,20 +143,22 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           right: 0,
           left: 'auto',
           transform: 'translateX(50%)',
-          opacity: showHandles ? 1 : 0,
+          opacity: showConnectionIcon ? 1 : 0,
         }}
         onClick={handleConnectionIconClick}
       >
         +
       </Handle>
 
-      {/* 四角吸附点 - target only */}
+      {/* 四角吸附点 - 仅在拖线接近时显示 */}
       <Handle
         type="target"
         position={Position.Top}
         id="top-target"
         className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+          showSnapPoints
+            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
+            : '!opacity-0 !pointer-events-none'
         }
         style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
         onClick={handleTargetClick}
@@ -166,7 +168,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         position={Position.Bottom}
         id="bottom-target"
         className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+          showSnapPoints
+            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
+            : '!opacity-0 !pointer-events-none'
         }
         style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
         onClick={handleTargetClick}
@@ -176,7 +180,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         position={Position.Left}
         id="left-target"
         className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+          showSnapPoints
+            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
+            : '!opacity-0 !pointer-events-none'
         }
         style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
         onClick={handleTargetClick}
@@ -186,7 +192,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         position={Position.Right}
         id="right-target"
         className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+          showSnapPoints
+            ? '!w-3 !h-3 !bg-green-500 !border-2 !border-white !opacity-100 !pointer-events-auto transition-all duration-150'
+            : '!opacity-0 !pointer-events-none'
         }
         style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
         onClick={handleTargetClick}

@@ -1,8 +1,10 @@
 import { getBezierPath, BaseEdge, type Node, type ConnectionLineComponentProps } from '@xyflow/react'
+import { connectionMediator } from '../../utils/connectionMediator'
 
 const SNAP_THRESHOLD = 50
 
 let nodesRef: Node[] = []
+let lastTargetNodeId: string | null = null
 
 export function setNodesRef(nodes: Node[]) {
   nodesRef = nodes
@@ -40,11 +42,16 @@ export function CustomConnectionLine({
   toPosition,
   fromNode,
 }: ConnectionLineComponentProps<Node>) {
-  const { near: isNearTarget } = isNearNode(
+  const { near: isNearTarget, nodeId: targetNodeId } = isNearNode(
     toX,
     toY,
     fromNode?.id ?? '',
   )
+
+  if (targetNodeId !== lastTargetNodeId) {
+    lastTargetNodeId = targetNodeId || null
+    connectionMediator.setTarget(targetNodeId || null)
+  }
 
   const [edgePath] = getBezierPath({
     sourceX: fromX,
