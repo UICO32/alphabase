@@ -3,6 +3,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ConnectionMode,
   useNodesState,
   useEdgesState,
   type Node,
@@ -33,6 +34,7 @@ export function ReactFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const editingNodeIdRef = useRef<string | null>(null)
+  const reconnectSuccessRef = useRef(false)
 
   useWorkspaceLifecycle({ setNodes, setEdges })
   useBoardSync({ nodes, edges })
@@ -45,6 +47,8 @@ export function ReactFlowCanvas() {
           id: `edge-${params.source}-${params.target}-${Date.now()}`,
           source: params.source!,
           target: params.target!,
+          sourceHandle: params.sourceHandle ?? undefined,
+          targetHandle: params.targetHandle ?? undefined,
           type: 'connection',
         }
         return addEdge(edge, eds)
@@ -70,9 +74,32 @@ export function ReactFlowCanvas() {
     []
   )
 
-  const onEdgeClick = useCallback(
-    (_event: React.MouseEvent, edge: Edge) => {
-      setEdges((eds) => eds.filter((e) => e.id !== edge.id))
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      reconnectSuccessRef.current = true
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.id === oldEdge.id
+            ? {
+                ...e,
+                source: newConnection.source!,
+                target: newConnection.target!,
+                sourceHandle: newConnection.sourceHandle ?? undefined,
+                targetHandle: newConnection.targetHandle ?? undefined,
+              }
+            : e
+        )
+      )
+    },
+    [setEdges]
+  )
+
+  const onReconnectEnd = useCallback(
+    (_event: MouseEvent | TouchEvent, edge: Edge) => {
+      if (!reconnectSuccessRef.current) {
+        setEdges((eds) => eds.filter((e) => e.id !== edge.id))
+      }
+      reconnectSuccessRef.current = false
     },
     [setEdges]
   )
@@ -87,7 +114,10 @@ export function ReactFlowCanvas() {
         onConnect={onConnect}
         onPaneClick={onPaneClick}
         onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
+        onReconnect={onReconnect}
+        onReconnectEnd={onReconnectEnd}
+        edgesReconnectable
+        connectionMode={ConnectionMode.Loose}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
