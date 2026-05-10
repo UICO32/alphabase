@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import {
   ReactFlow,
   Background,
@@ -9,6 +9,7 @@ import {
   type Node,
   type Edge,
   type Connection,
+  type IsValidConnection,
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -16,10 +17,12 @@ import '@xyflow/react/dist/style.css'
 import { CardNode } from './CardNode'
 import { SectionNode } from './SectionNode'
 import { ConnectionEdge } from './ConnectionEdge'
+import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
 
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle'
 import { useBoardSync } from '../../hooks/useBoardSync'
 import { useSectionSync } from '../../hooks/useSectionSync'
+import { connectionMediator } from '../../utils/connectionMediator'
 
 const nodeTypes = {
   card: CardNode,
@@ -36,9 +39,29 @@ export function ReactFlowCanvas() {
   const editingNodeIdRef = useRef<string | null>(null)
   const reconnectSuccessRef = useRef(false)
 
+  useEffect(() => {
+    setNodesRef(nodes)
+  }, [nodes])
+
   useWorkspaceLifecycle({ setNodes, setEdges })
   useBoardSync({ nodes, edges })
   useSectionSync({ nodes, setNodes })
+
+  useEffect(() => {
+    connectionMediator.onComplete((request) => {
+      setEdges((eds) => {
+        const edge: Edge = {
+          id: `edge-${request.sourceNodeId}-${request.targetNodeId}-${Date.now()}`,
+          source: request.sourceNodeId,
+          target: request.targetNodeId,
+          sourceHandle: request.sourceHandleId,
+          targetHandle: request.targetHandleId || undefined,
+          type: 'connection',
+        }
+        return addEdge(edge, eds)
+      })
+    })
+  }, [setEdges])
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -54,15 +77,16 @@ export function ReactFlowCanvas() {
         return addEdge(edge, eds)
       })
     },
-    [setEdges]
+    [setEdges],
   )
 
   const onPaneClick = useCallback(() => {
+    connectionMediator.clear()
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
         selected: false,
-      }))
+      })),
     )
     editingNodeIdRef.current = null
   }, [setNodes])
@@ -71,7 +95,7 @@ export function ReactFlowCanvas() {
     (_event: React.MouseEvent, node: Node) => {
       editingNodeIdRef.current = node.id
     },
-    []
+    [],
   )
 
   const onReconnect = useCallback(
@@ -87,11 +111,11 @@ export function ReactFlowCanvas() {
                 sourceHandle: newConnection.sourceHandle ?? undefined,
                 targetHandle: newConnection.targetHandle ?? undefined,
               }
-            : e
-        )
+            : e,
+        ),
       )
     },
-    [setEdges]
+    [setEdges],
   )
 
   const onReconnectEnd = useCallback(
@@ -101,8 +125,22 @@ export function ReactFlowCanvas() {
       }
       reconnectSuccessRef.current = false
     },
-    [setEdges]
+    [setEdges],
   )
+
+  const connectionLineComponent = useCallback(
+    (props: Parameters<typeof CustomConnectionLine>[0]) => (
+      <CustomConnectionLine {...props} />
+    ),
+    [],
+  )
+
+  const isValidConnection: IsValidConnection = useCallback((connection) => {
+    if ('source' in connection && 'target' in connection) {
+      return (connection as Connection).source !== (connection as Connection).target
+    }
+    return true
+  }, [])
 
   return (
     <div className="w-full h-full">
@@ -120,6 +158,8 @@ export function ReactFlowCanvas() {
         connectionMode={ConnectionMode.Loose}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        connectionLineComponent={connectionLineComponent}
+        isValidConnection={isValidConnection}
         fitView
       >
         <Background />

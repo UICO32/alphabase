@@ -1,8 +1,11 @@
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore } from '../../utils/cardStore'
 import { getCardVariantStyles } from '../../theme/cardVariantStyles'
+import { connectionMediator } from '../../utils/connectionMediator'
+import { CardBlockNoteEditor, type BlockNoteEditorHandle } from '../editor/BlockNoteEditor'
+import { renderBlocksToHTML } from '../../utils/renderBlocks'
 import type { CardColor, CardVariant } from '../../types/card'
 
 export interface CardNodeData extends Record<string, unknown> {
@@ -22,45 +25,66 @@ const DEFAULT_CARD_HEIGHT = 200
 
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const [isEditing, setIsEditing] = useState(false)
-  const [editTitle, setEditTitle] = useState('')
-  const [editContent, setEditContent] = useState('')
   const [isHovered, setIsHovered] = useState(false)
+  const editorRef = useRef<BlockNoteEditorHandle>(null)
   const card = useCardStore((s) => s.cards[data.cardId])
   const updateCard = useCardStore((s) => s.updateCard)
   const styles = getCardVariantStyles(data.color, data.variant, false, !!selected)
 
+  const isConnecting = useSyncExternalStore(
+    connectionMediator.subscribe.bind(connectionMediator),
+    connectionMediator.isConnecting.bind(connectionMediator),
+  )
+  const isConnectingSource = useSyncExternalStore(
+    connectionMediator.subscribe.bind(connectionMediator),
+    () => connectionMediator.isConnectingFrom(data.cardId),
+  )
+  const isConnectionTarget = isConnecting && !isConnectingSource
+
+  const showHandles = selected || isHovered || isConnecting
+  const isBackground = !selected && !isHovered && !isConnecting
+
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
-  const showHandles = selected || isHovered
+
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (isConnectionTarget) {
+        e.stopPropagation()
+        connectionMediator.complete(data.cardId, '')
+      }
+    },
+    [isConnectionTarget, data.cardId],
+  )
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+  }, [])
 
   const handleDoubleClick = useCallback(() => {
     if (!card) return
-    setEditTitle(card.title || '')
-    setEditContent(card.content || '')
     setIsEditing(true)
   }, [card])
 
-  const handleSave = useCallback(() => {
-    if (card) {
+  const handleContentChange = useCallback(
+    (content: string) => {
       updateCard(data.cardId, {
-        title: editTitle,
-        content: editContent,
+        content,
+        previewHTML: renderBlocksToHTML(content),
       })
-    }
-    setIsEditing(false)
-  }, [card, data.cardId, editTitle, editContent, updateCard])
+    },
+    [data.cardId, updateCard],
+  )
 
-  const handleCancel = useCallback(() => {
+  const handleEditorBlur = useCallback(() => {
     setIsEditing(false)
   }, [])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      handleSave()
-    } else if (e.key === 'Escape') {
-      handleCancel()
+  useEffect(() => {
+    if (isEditing && editorRef.current) {
+      requestAnimationFrame(() => editorRef.current!.focus())
     }
-  }, [handleSave, handleCancel])
+  }, [isEditing])
 
   if (!card) {
     return (
@@ -76,32 +100,159 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
+  const handleBaseClass =
+    '!w-4 !h-4 !bg-gray-400 !border-2 !border-white transition-all duration-150 hover:!bg-blue-500'
+
+  const outlineWidth = selected ? 2 : 1
+  const outlineColor = selected
+    ? '#3b82f6'
+    : isBackground
+      ? 'rgba(0,0,0,0.08)'
+      : styles.border
+
   return (
     <div
-      className="rounded-2xl overflow-hidden shadow-sm transition-shadow"
+      className="relative rounded-2xl shadow-sm transition-shadow"
       style={{
         width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
         height: (data.height ?? DEFAULT_CARD_HEIGHT) as number,
         backgroundColor: styles.cardBg,
-        border: styles.border,
-        boxShadow: selected ? `0 0 0 2px #3b82f6` : styles.boxShadow,
+        outline: `${outlineWidth}px solid ${outlineColor}`,
+        outlineOffset: 0,
+        boxShadow: isConnectingSource
+          ? '0 0 0 3px rgba(59,130,246,0.45), 0 4px 16px rgba(59,130,246,0.2)'
+          : isConnectionTarget && isHovered
+            ? '0 0 0 2px rgba(34,197,94,0.4), 0 4px 16px rgba(34,197,94,0.15)'
+          : isHovered
+            ? '0 8px 28px rgba(15,23,42,0.14)'
+            : selected
+              ? '0 8px 24px rgba(59,130,246,0.15)'
+              : '0 2px 8px rgba(0,0,0,0.06)',
+        cursor: isConnectionTarget ? 'crosshair' : 'grab',
       }}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleCardClick}
     >
+      {/* 连接图标 - 顶部中央 */}
+      <div
+        className="absolute w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs transition-opacity duration-150 cursor-crosshair z-10"
+        style={{
+          top: -8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          opacity: showHandles ? 1 : 0,
+        }}
+      >
+        +
+      </div>
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="connection-icon-source"
+        className="!opacity-0 !pointer-events-auto"
+        style={{
+          top: -8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+        }}
+      />
+
       {/* 顶部连接点 */}
       <Handle
         type="target"
         position={Position.Top}
         id="top-target"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(-50%, -50%)' }}
+        onMouseDown={handleMouseDown}
       />
       <Handle
         type="source"
         position={Position.Top}
         id="top-source"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
+        className={
+          showHandles
+            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
+            : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(-50%, -50%)' }}
+        onMouseDown={handleMouseDown}
+      />
+
+      {/* 底部连接点 */}
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom-target"
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(-50%, 50%)' }}
+        onMouseDown={handleMouseDown}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom-source"
+        className={
+          showHandles
+            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
+            : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(-50%, 50%)' }}
+        onMouseDown={handleMouseDown}
+      />
+
+      {/* 左侧连接点 */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="left-target"
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(-50%, -50%)' }}
+        onMouseDown={handleMouseDown}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-source"
+        className={
+          showHandles
+            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
+            : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(-50%, -50%)' }}
+        onMouseDown={handleMouseDown}
+      />
+
+      {/* 右侧连接点 */}
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-target"
+        className={
+          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(50%, -50%)' }}
+        onMouseDown={handleMouseDown}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right-source"
+        className={
+          showHandles
+            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
+            : '!opacity-0 !pointer-events-none'
+        }
+        style={{ transform: 'translate(50%, -50%)' }}
+        onMouseDown={handleMouseDown}
       />
 
       {/* 卡片头部 */}
@@ -121,87 +272,38 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         }}
       >
         {isEditing ? (
-          <div className="flex flex-col gap-2 h-full">
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="标题"
-              className="w-full px-2 py-1 text-sm rounded border border-gray-300 focus:outline-none focus:border-blue-500"
-              style={{ backgroundColor: styles.cardBg, color: styles.textColor }}
-              autoFocus
+          <div
+            className="h-full overflow-y-auto"
+            style={{ fontSize: '13px', lineHeight: '1.5' }}
+          >
+            <CardBlockNoteEditor
+              ref={editorRef}
+              content={card.content}
+              onChange={handleContentChange}
+              onBlur={handleEditorBlur}
+              theme="light"
+              editable={true}
+              showSideMenu={false}
+              enforceInitialHeading={card.enforceInitialHeading}
             />
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              placeholder="内容..."
-              className="flex-1 w-full px-2 py-1 text-sm rounded border border-gray-300 focus:outline-none focus:border-blue-500 resize-none"
-              style={{ backgroundColor: styles.cardBg, color: styles.textColor }}
-              onKeyDown={handleKeyDown}
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={handleCancel}
-                className="px-2 py-1 text-xs rounded border border-gray-300 hover:bg-gray-100"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600"
-              >
-                保存
-              </button>
-            </div>
           </div>
         ) : (
-          <div className="text-sm whitespace-pre-wrap break-words">
-            {card.content || <span className="opacity-50">双击编辑...</span>}
-          </div>
+          <div
+            className="h-full overflow-y-auto"
+            style={{
+              fontSize: '13px',
+              lineHeight: '1.5',
+              wordBreak: 'break-word',
+            }}
+            dangerouslySetInnerHTML={{
+              __html:
+                card.previewHTML ||
+                renderBlocksToHTML(card.content) ||
+                '<span style="opacity:0.5">双击编辑...</span>',
+            }}
+          />
         )}
       </div>
-
-      {/* 底部连接点 */}
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        id="bottom-target"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom-source"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
-      />
-
-      {/* 左侧连接点 */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left-target"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
-      />
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="left-source"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
-      />
-
-      {/* 右侧连接点 */}
-      <Handle
-        type="target"
-        position={Position.Right}
-        id="right-target"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right-source"
-        className={showHandles ? '!w-3 !h-3 !bg-gray-400 !border-2 !border-white' : '!opacity-0 !pointer-events-none'}
-      />
     </div>
   )
 })
