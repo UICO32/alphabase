@@ -47,20 +47,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
-  const handleCardClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (isConnectionTarget) {
-        e.stopPropagation()
-        connectionMediator.complete(data.cardId, '')
-      }
-    },
-    [isConnectionTarget, data.cardId],
-  )
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-  }, [])
-
   const handleDoubleClick = useCallback(() => {
     if (!card) return
     setIsEditing(true)
@@ -100,9 +86,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
-  const handleBaseClass =
-    '!w-4 !h-4 !bg-gray-400 !border-2 !border-white transition-all duration-150 hover:!bg-blue-500'
-
   const outlineWidth = selected ? 2 : 1
   const outlineColor = selected
     ? '#3b82f6'
@@ -133,13 +116,23 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={handleCardClick}
     >
-      {/* 连接图标 - 顶部中央 */}
-      <div
-        className="absolute w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs transition-opacity duration-150 cursor-crosshair z-10"
+      {/* 连接图标 - 卡片外部顶部中央 */}
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="connection-icon-source"
+        className="!opacity-0"
         style={{
-          top: -8,
+          top: -12,
+          left: '50%',
+          transform: 'translateX(-50%)',
+        }}
+      />
+      <div
+        className="absolute w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold transition-opacity duration-150 cursor-crosshair z-10 hover:bg-blue-600 shadow-sm"
+        style={{
+          top: -22,
           left: '50%',
           transform: 'translateX(-50%)',
           opacity: showHandles ? 1 : 0,
@@ -147,113 +140,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       >
         +
       </div>
-      <Handle
-        type="source"
-        position={Position.Top}
-        id="connection-icon-source"
-        className="!opacity-0 !pointer-events-auto"
-        style={{
-          top: -8,
-          left: '50%',
-          transform: 'translateX(-50%)',
-        }}
-      />
-
-      {/* 顶部连接点 */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="top-target"
-        className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(-50%, -50%)' }}
-        onMouseDown={handleMouseDown}
-      />
-      <Handle
-        type="source"
-        position={Position.Top}
-        id="top-source"
-        className={
-          showHandles
-            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(-50%, -50%)' }}
-        onMouseDown={handleMouseDown}
-      />
-
-      {/* 底部连接点 */}
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        id="bottom-target"
-        className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(-50%, 50%)' }}
-        onMouseDown={handleMouseDown}
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom-source"
-        className={
-          showHandles
-            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(-50%, 50%)' }}
-        onMouseDown={handleMouseDown}
-      />
-
-      {/* 左侧连接点 */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left-target"
-        className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(-50%, -50%)' }}
-        onMouseDown={handleMouseDown}
-      />
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="left-source"
-        className={
-          showHandles
-            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(-50%, -50%)' }}
-        onMouseDown={handleMouseDown}
-      />
-
-      {/* 右侧连接点 */}
-      <Handle
-        type="target"
-        position={Position.Right}
-        id="right-target"
-        className={
-          showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(50%, -50%)' }}
-        onMouseDown={handleMouseDown}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right-source"
-        className={
-          showHandles
-            ? `${handleBaseClass} ${isConnectingSource ? '!bg-blue-500' : ''}`
-            : '!opacity-0 !pointer-events-none'
-        }
-        style={{ transform: 'translate(50%, -50%)' }}
-        onMouseDown={handleMouseDown}
-      />
 
       {/* 卡片头部 */}
       <div
