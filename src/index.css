@@ -6,6 +6,27 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* 允许 ReactFlow viewport 内的弹出层不被裁切 */
+.react-flow,
+.react-flow__renderer,
+.react-flow__pane {
+  overflow: visible !important;
+}
+
+.react-flow__renderer,
+.react-flow__viewport {
+  background: transparent !important;
+}
+
+/* 全局隐藏滚动条，保留滚动功能 */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   margin: 0;
   padding: 0;

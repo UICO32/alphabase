@@ -16,10 +16,12 @@ type CompleteHandler = (request: ConnectionRequest) => void
 let pending: PendingConnection | null = null
 let listeners = new Set<Listener>()
 let completeHandler: CompleteHandler | null = null
+let _nearbyTargetId: string | null = null
 
 export const connectionMediator = {
   start(sourceNodeId: string, sourceHandleId: string) {
     pending = { sourceNodeId, sourceHandleId }
+    _nearbyTargetId = null
     listeners.forEach((fn) => fn())
   },
 
@@ -29,6 +31,7 @@ export const connectionMediator = {
 
   clear() {
     pending = null
+    _nearbyTargetId = null
     listeners.forEach((fn) => fn())
   },
 
@@ -49,6 +52,7 @@ export const connectionMediator = {
       targetHandleId,
     })
     pending = null
+    _nearbyTargetId = null
     listeners.forEach((fn) => fn())
     return true
   },
@@ -60,5 +64,16 @@ export const connectionMediator = {
   subscribe(fn: Listener): () => void {
     listeners.add(fn)
     return () => { listeners.delete(fn) }
+  },
+
+  setNearbyTarget(nodeId: string | null) {
+    if (_nearbyTargetId !== nodeId) {
+      _nearbyTargetId = nodeId
+      listeners.forEach((fn) => fn())
+    }
+  },
+
+  getNearbyTarget(): string | null {
+    return _nearbyTargetId
   },
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle, type ForwardedRef } from 'react'
 import { dropCursor } from '@tiptap/pm/dropcursor'
+import { TextSelection } from '@tiptap/pm/state'
 import { useCreateBlockNote, SideMenuController } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import '@blocknote/core/fonts/inter.css'
@@ -243,21 +244,26 @@ const CardBlockNoteEditorInner = (
       focusAtCoords: ({ x, y }: { x: number; y: number }) => {
         editor.isEditable = true
         requestAnimationFrame(() => {
-          const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as {
-            posAtCoords: (p: { left: number; top: number }) => { pos: number } | null
-            state: { doc: { resolve: (pos: number) => { pos: number } }; tr: { setSelection: (sel: unknown) => unknown } }
-            dispatch: (tr: unknown) => void
-            focus: () => void
-          } | undefined
-          if (!pm) return
-          const pos = pm.posAtCoords({ left: x, top: y })?.pos
-          if (pos != null) {
-            const resolvedPos = pm.state.doc.resolve(pos)
-            const { TextSelection } = require('@tiptap/pm/state')
-            const selection = TextSelection.near(resolvedPos)
-            pm.dispatch(pm.state.tr.setSelection(selection))
-          }
-          pm.focus()
+          requestAnimationFrame(() => {
+            const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as {
+              posAtCoords: (p: { left: number; top: number }) => { pos: number } | null
+              state: { doc: { resolve: (pos: number) => any }; tr: { setSelection: (sel: unknown) => unknown } }
+              dispatch: (tr: unknown) => void
+              focus: () => void
+            } | undefined
+            console.debug('[BlockNote] focusAtCoords', { x, y, hasPm: !!pm })
+            if (!pm) return
+            const posAtCoordsResult = pm.posAtCoords({ left: x, top: y })
+            console.debug('[BlockNote] posAtCoords result', posAtCoordsResult)
+            if (posAtCoordsResult?.pos != null) {
+              const resolvedPos = pm.state.doc.resolve(posAtCoordsResult.pos)
+              const selection = TextSelection.near(resolvedPos)
+              pm.dispatch(pm.state.tr.setSelection(selection))
+            }
+            pm.focus()
+            // 重试聚焦：某些情况下 focus 被后续事件抢走
+            setTimeout(() => pm.focus(), 50)
+          })
         })
       },
     }))
@@ -366,6 +372,14 @@ const CardBlockNoteEditorInner = (
           .card-blocknote-editor .mantine-RichTextEditor-content {
             font-size: inherit !important;
             line-height: inherit !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            background: transparent !important;
+            color: inherit !important;
+          }
+          .card-blocknote-editor [data-position="right"],
+          .card-blocknote-editor .mantine-Menu-itemSection[data-position="right"] {
+            display: none !important;
           }
         `}</style>
         <BlockNoteView
