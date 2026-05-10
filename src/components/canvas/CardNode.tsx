@@ -47,6 +47,18 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
+  const handleConnectionIconClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    connectionMediator.start(data.cardId, 'connection-icon-source')
+  }, [data.cardId])
+
+  const handleTargetClick = useCallback((e: React.MouseEvent) => {
+    if (isConnectionTarget) {
+      e.stopPropagation()
+      connectionMediator.complete(data.cardId, '')
+    }
+  }, [isConnectionTarget, data.cardId])
+
   const handleDoubleClick = useCallback(() => {
     if (!card) return
     setIsEditing(true)
@@ -133,6 +145,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           transform: 'translateX(50%)',
           opacity: showHandles ? 1 : 0,
         }}
+        onClick={handleConnectionIconClick}
       >
         +
       </Handle>
@@ -146,6 +159,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
         }
         style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
+        onClick={handleTargetClick}
       />
       <Handle
         type="target"
@@ -155,6 +169,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
         }
         style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
+        onClick={handleTargetClick}
       />
       <Handle
         type="target"
@@ -164,6 +179,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
         }
         style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
+        onClick={handleTargetClick}
       />
       <Handle
         type="target"
@@ -173,6 +189,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           showHandles ? handleBaseClass : '!opacity-0 !pointer-events-none'
         }
         style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
+        onClick={handleTargetClick}
       />
 
       {/* 卡片头部 */}
