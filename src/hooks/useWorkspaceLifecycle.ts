@@ -130,10 +130,11 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorks
     booted.current = true
 
     ;(async () => {
-      // 1. Init filesystem adapter
-      initElectronFSAdapter()
+      try {
+        // 1. Init filesystem adapter
+        initElectronFSAdapter()
 
-      const service = new WorkspaceService()
+        const service = new WorkspaceService()
 
       // 2. Get or select workspace path
       let workspacePath = localStorage.getItem(LAST_WORKSPACE_KEY)
@@ -194,19 +195,13 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorks
         }
       }
 
-      // 7. Load trash
+      // 7. Load trash (preserve original timestamps)
       try {
         const trashItems = await service.loadAllTrash()
         const { useTrashStore } = await import('../utils/trashStore')
-        for (const item of trashItems) {
-          if (item.expiresAt > Date.now()) {
-            useTrashStore.getState().addItem({
-              id: item.id,
-              cardId: item.cardId,
-              title: item.title,
-              content: item.content,
-            })
-          }
+        const validItems = trashItems.filter(item => item.expiresAt > Date.now())
+        if (validItems.length > 0) {
+          useTrashStore.setState({ items: validItems })
         }
       } catch (e) {
         console.warn('Failed to load trash:', e)
@@ -226,6 +221,15 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorks
       } else if (manifest.boards.length > 0) {
         useBoardStore.getState().setActiveBoard(manifest.boards[0].id)
         switchToBoard(manifest.boards[0].id)
+      }
+      } catch (e) {
+        console.error('Workspace initialization failed, falling back to demo mode:', e)
+        ensureGlobalDemoCards()
+        ensureDefaultBoard()
+        const activeId = useBoardStore.getState().activeBoardId
+        if (activeId) {
+          switchToBoard(activeId)
+        }
       }
     })()
   }, [switchToBoard])

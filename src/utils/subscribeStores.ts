@@ -5,12 +5,19 @@ import { useTrashStore } from './trashStore'
 import { globalCardToCardFile } from './workspace/cardConverter'
 
 export function subscribeCardStore(syncEngine: WorkspaceSyncEngine) {
+  let firstCall = true
   let prevCards = useCardStore.getState().cards
 
   return useCardStore.subscribe((state) => {
+    // Skip first call: data was just loaded from disk
+    if (firstCall) {
+      firstCall = false
+      prevCards = { ...state.cards }
+      return
+    }
+
     const cards = state.cards
 
-    // Check for added or updated cards
     for (const id in cards) {
       if (cards[id] !== prevCards[id]) {
         const cardFile = globalCardToCardFile(cards[id])
@@ -18,7 +25,6 @@ export function subscribeCardStore(syncEngine: WorkspaceSyncEngine) {
       }
     }
 
-    // Check for deleted cards
     for (const id in prevCards) {
       if (!(id in cards)) {
         syncEngine.scheduleDeleteCard(id)
