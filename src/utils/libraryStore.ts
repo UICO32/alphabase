@@ -1,6 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-
 export type ViewMode = 'board' | 'cards' | 'boardLibrary'
 
 interface LibraryStore {
@@ -38,6 +36,10 @@ interface LibraryStore {
 
   // 同时折叠/展开两侧面板
   toggleAllSidebars: () => void
+
+  // 画布缩放
+  zoom: number
+  setZoom: (zoom: number) => void
 }
 
 const SIDEBAR_WIDTH_MIN = 260
@@ -45,8 +47,7 @@ const SIDEBAR_WIDTH_MAX = 600
 const SIDEBAR_WIDTH_DEFAULT = 360
 
 export const useLibraryStore = create<LibraryStore>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       // 初始状态
       viewMode: 'board',
       editingCardId: null,
@@ -56,9 +57,11 @@ export const useLibraryStore = create<LibraryStore>()(
       rightPanelWidth: SIDEBAR_WIDTH_DEFAULT,
       rightPanelActiveTab: 'library',
       userSwitchedTab: false,
+      zoom: 1,
 
       // 视图模式
       setViewMode: (mode) => set({ viewMode: mode }),
+      setZoom: (zoom) => set({ zoom }),
 
       // 卡片编辑
       openCardEditor: (cardId) => set({ editingCardId: cardId }),
@@ -95,18 +98,7 @@ export const useLibraryStore = create<LibraryStore>()(
           rightPanelCollapsed: newState,
         })
       },
-    }),
-    {
-      name: 'hepta-library-store',
-      partialize: (state) => ({
-        viewMode: state.viewMode,
-        isDarkMode: state.isDarkMode,
-        leftPanelCollapsed: state.leftPanelCollapsed,
-        rightPanelCollapsed: state.rightPanelCollapsed,
-        rightPanelWidth: state.rightPanelWidth,
-      }),
-    }
-  )
+  }),
 )
 
 // 导出常量供其他组件使用

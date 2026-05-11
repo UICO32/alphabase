@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { renderBlocksToHTML } from './renderBlocks'
 import type { CardColor, CardVariant } from '../types/card'
 
@@ -38,8 +37,7 @@ function ensurePreviewHTML(card: GlobalCard): GlobalCard {
 }
 
 export const useCardStore = create<CardStore>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       cards: {},
       isLoaded: false,
 
@@ -99,10 +97,5 @@ export const useCardStore = create<CardStore>()(
         if (get().isLoaded) return
         set({ isLoaded: true })
       },
-    }),
-    {
-      name: 'hepta-card-store',
-      partialize: (state) => ({ cards: state.cards }),
-    }
-  )
+  }),
 )

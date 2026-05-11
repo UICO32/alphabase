@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type { BoardMeta } from './workspace/types'
 
 interface BoardNodesData {
@@ -23,8 +22,7 @@ interface BoardStore {
 }
 
 export const useBoardStore = create<BoardStore>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       boards: [],
       activeBoardId: null,
       isLoaded: false,
@@ -57,14 +55,5 @@ export const useBoardStore = create<BoardStore>()(
         set((state) => ({ boardData: { ...state.boardData, [boardId]: data } })),
 
       getBoardData: (boardId) => get().boardData[boardId],
-    }),
-    {
-      name: 'hepta-board-store',
-      partialize: (state) => ({
-        boards: state.boards,
-        activeBoardId: state.activeBoardId,
-        boardData: state.boardData,
-      }),
-    }
-  )
+  }),
 )
