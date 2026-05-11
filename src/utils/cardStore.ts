@@ -26,7 +26,7 @@ interface CardStore {
   softDeleteCard: (id: string) => void
   restoreCard: (id: string) => void
   importCards: (cards: Record<string, GlobalCard>) => void
-  loadCardsFromDB: () => Promise<void>
+  loadCardsFromDB: (cards?: Record<string, GlobalCard>) => Promise<void>
 }
 
 function ensurePreviewHTML(card: GlobalCard): GlobalCard {
@@ -93,9 +93,17 @@ export const useCardStore = create<CardStore>()(
         })
       },
 
-      loadCardsFromDB: async () => {
+      loadCardsFromDB: async (cards) => {
         if (get().isLoaded) return
-        set({ isLoaded: true })
+        if (cards) {
+          const withPreviews: Record<string, GlobalCard> = {}
+          for (const [id, card] of Object.entries(cards)) {
+            withPreviews[id] = ensurePreviewHTML(card)
+          }
+          set({ cards: withPreviews, isLoaded: true })
+        } else {
+          set({ isLoaded: true })
+        }
       },
   }),
 )
