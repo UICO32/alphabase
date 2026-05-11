@@ -1,8 +1,10 @@
 import { useCallback, useRef, useEffect, useState, useSyncExternalStore } from 'react'
 import {
   ReactFlow,
-  Controls,
+  Background,
+  BackgroundVariant,
   ConnectionMode,
+  SelectionMode,
   useNodesState,
   useEdgesState,
   type Node,
@@ -19,9 +21,9 @@ import { MediaNode } from './MediaNode'
 import { SectionNode } from './SectionNode'
 import { ConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
-import { DotPatternBackground } from './DotPatternBackground'
 
 import { useLibraryStore } from '../../utils/libraryStore'
+import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from '../../utils/subscribeStores'
 import { getPanelSurface } from '../../theme/panelSurface'
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle'
 import { useBoardSync } from '../../hooks/useBoardSync'
@@ -63,6 +65,7 @@ export function ReactFlowCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useLibraryStore((s) => s.isDarkMode)
+  const setZoom = useLibraryStore((s) => s.setZoom)
   const surface = getPanelSurface(isDarkMode)
   const reconnectSuccessRef = useRef(false)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
@@ -118,11 +121,36 @@ export function ReactFlowCanvas() {
     return () => cancelAnimationFrame(raf)
   }, [isConnecting])
 
-  useWorkspaceLifecycle({ setNodes, setEdges, nodesRef })
+  const syncEngineRef = useWorkspaceLifecycle({ setNodes, setEdges, nodesRef })
+
+  useEffect(() => {
+    const syncEngine = syncEngineRef.current
+    if (!syncEngine) return
+
+    const unsubs = [
+      subscribeCardStore(syncEngine),
+      subscribeBoardStore(syncEngine),
+      subscribeTrashStore(syncEngine),
+    ]
+
+    return () => {
+      unsubs.forEach(fn => fn())
+      syncEngine.stop()
+    }
+  }, [])
+
   useBoardSync({ nodes, edges })
   useSectionSync({ nodes, setNodes })
 
   useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef })
+
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = '.react-flow__nodesselection-rect{display:none!important}'
+    document.head.appendChild(style)
+    return () => { document.head.removeChild(style) }
+  }, [])
+
   const { handleDragOver, handleDrop } = useDropHandler({ reactFlowInstance, setNodes })
 
   useEffect(() => {
@@ -200,6 +228,13 @@ export function ReactFlowCanvas() {
   const onInit = useCallback((instance: ReactFlowInstance) => {
     reactFlowInstance.current = instance
   }, [])
+
+  const onMove = useCallback(
+    (_event: any, viewport: { zoom: number }) => {
+      setZoom(viewport.zoom)
+    },
+    [setZoom],
+  )
 
   const onPaneClick = useCallback(() => {
     connectionMediator.clear()
@@ -340,11 +375,20 @@ export function ReactFlowCanvas() {
         edgeTypes={edgeTypes}
         connectionLineComponent={connectionLineComponent}
         isValidConnection={isValidConnection}
-        translateExtent={[[-2000, -2000], [2000, 2000]]}
+        autoPanOnNodeDrag={false}
+        panOnDrag={[2]}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        panActivationKeyCode="Space"
+        onMove={onMove}
         fitView
       >
-        <DotPatternBackground />
-        <Controls />
+        <Background
+          variant={BackgroundVariant.Dots}
+          color={isDarkMode ? '#ffffff' : '#18181b'}
+          gap={40}
+          size={1.2}
+        />
       </ReactFlow>
       {/* 连接线预览 SVG */}
       {previewLine && (
