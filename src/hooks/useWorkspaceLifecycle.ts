@@ -3,6 +3,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { useCardStore } from '../utils/cardStore'
 import { useBoardStore } from '../utils/boardStore'
 import { WorkspaceService } from '../services/WorkspaceService'
+import { migrateFromLocalStorageIfNeeded } from '../utils/migrateFromLocalStorage'
 import { WorkspaceSyncEngine, initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
@@ -178,6 +179,9 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorks
         globalCards[cf.id] = cardFileToGlobalCard(cf)
       }
       await useCardStore.getState().loadCardsFromDB(globalCards)
+
+      // 5a. Migrate localStorage data if present
+      migrateFromLocalStorageIfNeeded()
 
       // 6. Load board snapshots
       for (const board of manifest.boards) {
