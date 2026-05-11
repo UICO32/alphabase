@@ -5,6 +5,7 @@ import { useBoardStore } from '../utils/boardStore'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/migrateFromLocalStorage'
 import { WorkspaceSyncEngine, initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
+import { createFileSystemBackup } from '../utils/backupStore'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
@@ -214,7 +215,12 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorks
         console.warn('Failed to clean trash:', e)
       }
 
-      // 9. Switch to active board
+      // 9. Auto backup (fire-and-forget)
+      createFileSystemBackup(workspacePath).catch((e: unknown) =>
+        console.warn('Backup failed:', e)
+      )
+
+      // 10. Switch to active board
       const activeId = useBoardStore.getState().activeBoardId
       if (activeId) {
         switchToBoard(activeId)

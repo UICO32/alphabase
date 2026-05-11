@@ -64,3 +64,68 @@ export async function deleteBackup(id: string): Promise<void> {
   const db = await getDB()
   await db.delete('backups', id)
 }
+
+// --- File system backup ---
+
+const MAX_FILE_BACKUPS = 10
+
+export async function createFileSystemBackup(workspacePath: string): Promise<string | null> {
+  try {
+    const timestamp = Date.now().toString()
+    const backupDir = `${workspacePath}/.backup/${timestamp}`
+    const { mkdir, exists, readdir, writeFile: writeF, readFile: readF, deleteFile: delF } = await import('./workspace/fs')
+
+    await mkdir(backupDir)
+
+    // Copy cards/
+    const cardsDir = `${workspacePath}/cards`
+    if (await exists(cardsDir)) {
+      await mkdir(`${backupDir}/cards`)
+      const cardFiles = await readdir(cardsDir)
+      for (const file of cardFiles) {
+        if (!file.endsWith('.json')) continue
+        const content = await readF(`${cardsDir}/${file}`)
+        await writeF(`${backupDir}/cards/${file}`, content)
+      }
+    }
+
+    // Copy boards/
+    const boardsDir = `${workspacePath}/boards`
+    if (await exists(boardsDir)) {
+      await mkdir(`${backupDir}/boards`)
+      const boardFiles = await readdir(boardsDir)
+      for (const file of boardFiles) {
+        if (!file.endsWith('.json')) continue
+        const content = await readF(`${boardsDir}/${file}`)
+        await writeF(`${backupDir}/boards/${file}`, content)
+      }
+    }
+
+    // Prune old backups, keep most recent MAX_FILE_BACKUPS
+    const backupParent = `${workspacePath}/.backup`
+    const allBackups = (await readdir(backupParent))
+      .filter(name => /^\d+$/.test(name))
+      .sort()
+
+    while (allBackups.length > MAX_FILE_BACKUPS) {
+      const old = allBackups.shift()!
+      const oldDir = `${backupParent}/${old}`
+      // Delete card files in old backup
+      const oldCardsDir = `${oldDir}/cards`
+      if (await exists(oldCardsDir)) {
+        const oldCardFiles = await readdir(oldCardsDir)
+        for (const f of oldCardFiles) await delF(`${oldCardsDir}/${f}`)
+      }
+      const oldBoardsDir = `${oldDir}/boards`
+      if (await exists(oldBoardsDir)) {
+        const oldBoardFiles = await readdir(oldBoardsDir)
+        for (const f of oldBoardFiles) await delF(`${oldBoardsDir}/${f}`)
+      }
+    }
+
+    return backupDir
+  } catch (e) {
+    console.warn('File system backup failed:', e)
+    return null
+  }
+}
