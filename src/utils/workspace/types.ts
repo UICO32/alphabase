@@ -68,6 +68,15 @@ export interface CardFile {
   updatedAt?: number
 }
 
+export interface TrashFile {
+  id: string
+  cardId: string
+  title: string
+  deletedAt: number
+  expiresAt: number
+  content: string
+}
+
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   theme: 'light',
   autoCollapseCards: false,

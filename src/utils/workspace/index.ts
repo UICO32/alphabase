@@ -13,5 +13,6 @@ export type {
   BoardEdge,
   BoardSnapshot,
   CardFile,
+  TrashFile,
 } from './types'
 export { DEFAULT_WORKSPACE_SETTINGS } from './types'

@@ -1,5 +1,5 @@
 import { readJSON, writeJSON, exists, readdir, mkdir } from '../utils/workspace/fs'
-import type { BoardManifest, BoardSnapshot, CardFile } from '../utils/workspace/types'
+import type { BoardManifest, BoardSnapshot, CardFile, TrashFile } from '../utils/workspace/types'
 
 export class WorkspaceService {
   private workspacePath: string = ''
@@ -82,6 +82,47 @@ export class WorkspaceService {
       const { deleteFile } = await import('../utils/workspace/fs')
       await deleteFile(path)
     }
+  }
+
+  // --- Trash ---
+
+  async loadAllTrash(): Promise<TrashFile[]> {
+    const dir = `${this.workspacePath}/trash`
+    if (!(await exists(dir))) return []
+    const files = await readdir(dir)
+    const jsonFiles = files.filter((f) => f.endsWith('.trash.json'))
+    const items: TrashFile[] = []
+    for (const file of jsonFiles) {
+      try {
+        const item = await readJSON<TrashFile>(`${dir}/${file}`)
+        items.push(item)
+      } catch (e) {
+        console.warn(`Failed to load trash ${file}:`, e)
+      }
+    }
+    return items
+  }
+
+  async cleanExpiredTrash(): Promise<number> {
+    const dir = `${this.workspacePath}/trash`
+    if (!(await exists(dir))) return 0
+    const files = await readdir(dir)
+    const now = Date.now()
+    let cleaned = 0
+    for (const file of files) {
+      if (!file.endsWith('.trash.json')) continue
+      try {
+        const item = await readJSON<TrashFile>(`${dir}/${file}`)
+        if (item.expiresAt <= now) {
+          const { deleteFile } = await import('../utils/workspace/fs')
+          await deleteFile(`${dir}/${file}`)
+          cleaned++
+        }
+      } catch {
+        // If parsing fails, skip
+      }
+    }
+    return cleaned
   }
 
   // --- Legacy Migration ---
