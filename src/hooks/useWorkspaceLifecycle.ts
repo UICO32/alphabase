@@ -2,11 +2,22 @@ import { useEffect, useRef, useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCardStore } from '../utils/cardStore'
 import { useBoardStore } from '../utils/boardStore'
+import { WorkspaceService } from '../services/WorkspaceService'
+import { WorkspaceSyncEngine, initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
+
+const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
 interface UseWorkspaceLifecycleOptions {
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void
   setEdges: (edges: Edge[] | ((prev: Edge[]) => Edge[])) => void
   nodesRef: React.RefObject<Node[]>
+}
+
+function defaultBoardNodes(_boardId: string) {
+  return {
+    nodes: [] as Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown>; width?: number; height?: number }>,
+    edges: [] as Array<{ id: string; source: string; target: string; type?: string }>,
+  }
 }
 
 function createDemoCardContent(title: string) {
@@ -47,9 +58,12 @@ function ensureDefaultBoard() {
     updatedAt: Date.now(),
   })
   boardStore.setActiveBoard(id)
+
+  // Save demo board data so switchToBoard finds non-empty nodes/edges
+  boardStore.saveBoardData(id, demoBoardNodes(id))
 }
 
-function defaultBoardNodes(boardId: string) {
+function demoBoardNodes(boardId: string) {
   return {
     nodes: [
       { id: 'card-demo-1', type: 'card' as const, position: { x: 100, y: 100 }, data: { cardId: 'card-demo-1', color: 'blue', variant: 'solid', width: 280, height: 200 }, width: 280, height: 200 },
@@ -65,6 +79,7 @@ function defaultBoardNodes(boardId: string) {
 
 export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorkspaceLifecycleOptions) {
   const booted = useRef(false)
+  const syncEngineRef = useRef<WorkspaceSyncEngine | null>(null)
   const activeBoardIdRef = useRef<string | null>(null)
 
   const switchToBoard = useCallback((boardId: string) => {
@@ -72,6 +87,7 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorks
 
     if (activeBoardIdRef.current === boardId) return
 
+    // Save current board data before switching
     if (activeBoardIdRef.current && nodesRef.current) {
       boardStore.saveBoardData(activeBoardIdRef.current, {
         nodes: nodesRef.current.map(n => ({
@@ -112,12 +128,103 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef }: UseWorks
     if (booted.current) return
     booted.current = true
 
-    ensureGlobalDemoCards()
-    ensureDefaultBoard()
+    ;(async () => {
+      // 1. Init filesystem adapter
+      initElectronFSAdapter()
 
-    const activeId = useBoardStore.getState().activeBoardId
-    if (activeId) {
-      switchToBoard(activeId)
-    }
+      const service = new WorkspaceService()
+
+      // 2. Get or select workspace path
+      let workspacePath = localStorage.getItem(LAST_WORKSPACE_KEY)
+
+      if (!workspacePath) {
+        const electronAPI = (window as unknown as { electronAPI?: { dialog: { openDirectory: () => Promise<string | null> } } }).electronAPI
+        if (electronAPI?.dialog?.openDirectory) {
+          const result = await electronAPI.dialog.openDirectory()
+          if (result) {
+            workspacePath = result
+            localStorage.setItem(LAST_WORKSPACE_KEY, workspacePath)
+          }
+        }
+      }
+
+      if (!workspacePath) {
+        // No workspace - fall back to demo mode
+        console.warn('No workspace selected, using demo mode')
+        ensureGlobalDemoCards()
+        ensureDefaultBoard()
+        const activeId = useBoardStore.getState().activeBoardId
+        if (activeId) {
+          switchToBoard(activeId)
+        }
+        return
+      }
+
+      service.setWorkspacePath(workspacePath)
+
+      // 3. Init syncEngine
+      const syncEngine = new WorkspaceSyncEngine()
+      await syncEngine.init(workspacePath)
+      syncEngineRef.current = syncEngine
+
+      // 4. Load manifest
+      const manifest = await service.loadManifest()
+      useBoardStore.getState().setBoards(manifest.boards)
+
+      // 5. Load cards
+      const cardFiles = await service.loadAllCards()
+      const globalCards: Record<string, ReturnType<typeof cardFileToGlobalCard>> = {}
+      for (const cf of cardFiles) {
+        globalCards[cf.id] = cardFileToGlobalCard(cf)
+      }
+      await useCardStore.getState().loadCardsFromDB(globalCards)
+
+      // 6. Load board snapshots
+      for (const board of manifest.boards) {
+        const snapshot = await service.loadBoard(board.id)
+        if (snapshot) {
+          useBoardStore.getState().saveBoardData(board.id, {
+            nodes: snapshot.nodes,
+            edges: snapshot.edges,
+          })
+        }
+      }
+
+      // 7. Load trash
+      try {
+        const trashItems = await service.loadAllTrash()
+        const { useTrashStore } = await import('../utils/trashStore')
+        for (const item of trashItems) {
+          if (item.expiresAt > Date.now()) {
+            useTrashStore.getState().addItem({
+              id: item.id,
+              cardId: item.cardId,
+              title: item.title,
+              content: item.content,
+            })
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load trash:', e)
+      }
+
+      // 8. Clean expired trash
+      try {
+        await service.cleanExpiredTrash()
+      } catch (e) {
+        console.warn('Failed to clean trash:', e)
+      }
+
+      // 9. Switch to active board
+      const activeId = useBoardStore.getState().activeBoardId
+      if (activeId) {
+        switchToBoard(activeId)
+      } else if (manifest.boards.length > 0) {
+        useBoardStore.getState().setActiveBoard(manifest.boards[0].id)
+        switchToBoard(manifest.boards[0].id)
+      }
+    })()
   }, [switchToBoard])
+
+  return syncEngineRef
 }
