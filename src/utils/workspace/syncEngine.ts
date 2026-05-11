@@ -1,5 +1,5 @@
-import { writeFile, deleteFile, exists, mkdir } from './fs'
-import type { CardFile, BoardSnapshot, BoardManifest } from './types'
+import { writeFile, deleteFile, exists, mkdir, rename } from './fs'
+import type { CardFile, BoardSnapshot, BoardManifest, TrashFile } from './types'
 
 type Listener = () => void
 
@@ -64,6 +64,22 @@ export class WorkspaceSyncEngine {
     this.scheduleWrite(path, JSON.stringify(manifest, null, 2), debounceMs)
   }
 
+  scheduleWriteTrash(item: TrashFile, debounceMs = 500) {
+    const path = joinPath(this.trashDir, `${item.cardId}.trash.json`)
+    this.scheduleWrite(path, JSON.stringify(item, null, 2), debounceMs)
+  }
+
+  scheduleDeleteTrashFile(cardId: string) {
+    const path = joinPath(this.trashDir, `${cardId}.trash.json`)
+    const key = `delete:${path}`
+    const existing = this.pendingWrites.get(key)
+    if (existing) clearTimeout(existing.timer)
+    this.pendingWrites.set(key, {
+      data: '__DELETE__',
+      timer: setTimeout(() => this.executeWrite(key, path, '__DELETE__'), 0),
+    })
+  }
+
   private scheduleWrite(path: string, data: string, debounceMs: number) {
     const existing = this.pendingWrites.get(path)
     if (existing) clearTimeout(existing.timer)
@@ -80,7 +96,9 @@ export class WorkspaceSyncEngine {
       if (data === '__DELETE__') {
         if (await exists(path)) await deleteFile(path)
       } else {
-        await writeFile(path, data)
+        const tmpPath = path + '.tmp'
+        await writeFile(tmpPath, data)
+        await rename(tmpPath, path)
       }
     } catch (e) {
       console.warn(`SyncEngine write failed: ${path}`, e)
