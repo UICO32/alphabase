@@ -87,6 +87,11 @@ ipcMain.handle('fs:exists', async (_event, path: string) => {
   }
 })
 
+ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
+  const fs = await import('fs/promises')
+  await fs.rename(oldPath, newPath)
+})
+
 ipcMain.handle('dialog:openDirectory', async () => {
   const { dialog } = await import('electron')
   if (!mainWindow) return null

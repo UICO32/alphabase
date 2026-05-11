@@ -14,6 +14,7 @@ export interface FSAdapter {
   mkdir(path: string): Promise<void>
   stat(path: string): Promise<{ isDirectory: boolean; size: number; mtimeMs: number }>
   exists(path: string): Promise<boolean>
+  rename(oldPath: string, newPath: string): Promise<void>
 }
 
 let adapter: FSAdapter | null = null
@@ -54,6 +55,10 @@ export async function stat(path: string): Promise<{ isDirectory: boolean; size: 
 
 export async function exists(path: string): Promise<boolean> {
   return await getFSAdapter().exists(path)
+}
+
+export async function rename(oldPath: string, newPath: string): Promise<void> {
+  await getFSAdapter().rename(oldPath, newPath)
 }
 
 export async function readJSON<T>(path: string): Promise<T> {
