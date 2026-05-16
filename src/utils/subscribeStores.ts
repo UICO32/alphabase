@@ -5,17 +5,9 @@ import { useTrashStore } from './trashStore'
 import { globalCardToCardFile } from './workspace/cardConverter'
 
 export function subscribeCardStore(syncEngine: WorkspaceSyncEngine) {
-  let firstCall = true
   let prevCards = useCardStore.getState().cards
 
   return useCardStore.subscribe((state) => {
-    // Skip first call: data was just loaded from disk
-    if (firstCall) {
-      firstCall = false
-      prevCards = { ...state.cards }
-      return
-    }
-
     const cards = state.cards
 
     for (const id in cards) {
@@ -40,13 +32,11 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
   let prevBoardData = useBoardStore.getState().boardData
 
   return useBoardStore.subscribe((state) => {
-    // Board list changed → write manifest
     if (state.boards !== prevBoards) {
       syncEngine.scheduleWriteManifest({ boards: state.boards })
       prevBoards = state.boards
     }
 
-    // Board data changed → write board file
     if (state.boardData !== prevBoardData) {
       for (const boardId in state.boardData) {
         if (state.boardData[boardId] !== prevBoardData[boardId]) {
@@ -57,7 +47,7 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
               id: n.id,
               type: (n.type === 'card' || n.type === 'section') ? n.type as 'card' | 'section' : 'card',
               position: { x: n.position.x, y: n.position.y },
-              data: n.data as { cardId?: string; color?: string; variant?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string },
+              data: n.data as { cardId?: string; color?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string },
               width: n.width,
               height: n.height,
             })),
@@ -80,7 +70,6 @@ export function subscribeTrashStore(syncEngine: WorkspaceSyncEngine) {
   let prevItems = useTrashStore.getState().items
 
   return useTrashStore.subscribe((state) => {
-    // Check added items
     for (const item of state.items) {
       const prev = prevItems.find(i => i.cardId === item.cardId)
       if (!prev) {
@@ -91,11 +80,12 @@ export function subscribeTrashStore(syncEngine: WorkspaceSyncEngine) {
           deletedAt: item.deletedAt,
           expiresAt: item.expiresAt,
           content: item.content,
+          color: item.color,
+          createdAt: item.createdAt,
         })
       }
     }
 
-    // Check removed items (restored from trash)
     for (const prev of prevItems) {
       if (!state.items.find(i => i.cardId === prev.cardId)) {
         syncEngine.scheduleDeleteTrashFile(prev.cardId)

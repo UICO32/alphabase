@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { CardColor } from '../types/card'
 
 export interface TrashItem {
   id: string
@@ -7,6 +8,11 @@ export interface TrashItem {
   deletedAt: number
   expiresAt: number
   content: string
+  color: CardColor
+  createdAt: number
+  enforceInitialHeading?: boolean
+  fixedHeight?: boolean
+  collapsed?: boolean
 }
 
 const TRASH_EXPIRY_DAYS = 30

@@ -1,12 +1,11 @@
 import { create } from 'zustand'
 import { renderBlocksToHTML } from './renderBlocks'
-import type { CardColor, CardVariant } from '../types/card'
+import type { CardColor } from '../types/card'
 
 export interface GlobalCard {
   id: string
   content: string
   color: CardColor
-  variant: CardVariant
   createdAt: number
   updatedAt?: number
   enforceInitialHeading?: boolean

@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     stat: (path: string) => ipcRenderer.invoke('fs:stat', path),
     exists: (path: string) => ipcRenderer.invoke('fs:exists', path),
     rename: (oldPath: string, newPath: string) => ipcRenderer.invoke('fs:rename', oldPath, newPath),
+    rmdir: (path: string) => ipcRenderer.invoke('fs:rmdir', path),
   },
   dialog: {
     openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),

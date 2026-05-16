@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
 import {
   ReactFlow,
   Background,
@@ -21,10 +21,10 @@ import { MediaNode } from './MediaNode'
 import { SectionNode } from './SectionNode'
 import { ConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
+import { ConnectionPreview } from './ConnectionPreview'
 
 import { useLibraryStore } from '../../utils/libraryStore'
-import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from '../../utils/subscribeStores'
-import { getPanelSurface } from '../../theme/panelSurface'
+import { getPanelSurface } from '../../theme'
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle'
 import { useBoardSync } from '../../hooks/useBoardSync'
 import { useSectionSync } from '../../hooks/useSectionSync'
@@ -33,22 +33,6 @@ import { useDropHandler } from '../../hooks/useDropHandler'
 import { connectionMediator } from '../../utils/connectionMediator'
 
 const PROXIMITY_THRESHOLD = 60
-
-function edgePointOnRect(
-  rx: number, ry: number, rw: number, rh: number,
-  cx: number, cy: number,
-): { x: number; y: number } {
-  const centerX = rx + rw / 2
-  const centerY = ry + rh / 2
-  const dx = cx - centerX
-  const dy = cy - centerY
-  const absDx = Math.abs(dx)
-  const absDy = Math.abs(dy)
-  if (absDx * rh > absDy * rw) {
-    return { x: dx > 0 ? rx + rw : rx, y: centerY }
-  }
-  return { x: centerX, y: dy > 0 ? ry + rh : ry }
-}
 
 const nodeTypes = {
   card: CardNode,
@@ -71,10 +55,15 @@ export function ReactFlowCanvas() {
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
+  const edgesRef = useRef<Edge[]>(edges)
 
   useEffect(() => {
     nodesRef.current = nodes
   }, [nodes])
+
+  useEffect(() => {
+    edgesRef.current = edges
+  }, [edges])
 
   useEffect(() => {
     setNodesRef(nodes)
@@ -84,60 +73,8 @@ export function ReactFlowCanvas() {
     connectionMediator.subscribe.bind(connectionMediator),
     connectionMediator.isConnecting.bind(connectionMediator),
   )
-  const [previewLine, setPreviewLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
 
-  // 连接线预览：用 rAF 持续更新
-  useEffect(() => {
-    if (!isConnecting) {
-      setPreviewLine(null)
-      return
-    }
-    let raf = 0
-    const tick = () => {
-      const pending = connectionMediator.getPending()
-      const rf = reactFlowInstance.current
-      const mouse = lastMousePosRef.current
-      if (!pending || !rf || !mouse) {
-        raf = requestAnimationFrame(tick)
-        return
-      }
-      const srcNode = nodesRef.current.find((n) => n.id === pending.sourceNodeId)
-      if (!srcNode) {
-        raf = requestAnimationFrame(tick)
-        return
-      }
-      const w = ((srcNode.data as Record<string, unknown>).width as number) ?? 280
-      const h = ((srcNode.data as Record<string, unknown>).height as number) ?? 200
-      const zoom = rf.getViewport().zoom
-      // 源卡片在屏幕上的位置
-      const srcScreen = rf.flowToScreenPosition(srcNode.position)
-      const scaledW = w * zoom
-      const scaledH = h * zoom
-      const srcEdge = edgePointOnRect(srcScreen.x, srcScreen.y, scaledW, scaledH, mouse.x, mouse.y)
-      setPreviewLine({ x1: srcEdge.x, y1: srcEdge.y, x2: mouse.x, y2: mouse.y })
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [isConnecting])
-
-  const syncEngineRef = useWorkspaceLifecycle({ setNodes, setEdges, nodesRef })
-
-  useEffect(() => {
-    const syncEngine = syncEngineRef.current
-    if (!syncEngine) return
-
-    const unsubs = [
-      subscribeCardStore(syncEngine),
-      subscribeBoardStore(syncEngine),
-      subscribeTrashStore(syncEngine),
-    ]
-
-    return () => {
-      unsubs.forEach(fn => fn())
-      syncEngine.stop()
-    }
-  }, [])
+  useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef })
 
   useBoardSync({ nodes, edges })
   useSectionSync({ nodes, setNodes })
@@ -155,7 +92,7 @@ export function ReactFlowCanvas() {
 
   useEffect(() => {
     const onAddCardNode = (e: Event) => {
-      const { cardId, color, variant } = (e as CustomEvent).detail
+      const { cardId, color } = (e as CustomEvent).detail
       const instance = reactFlowInstance.current
       if (!instance) return
       const center = instance.screenToFlowPosition({
@@ -168,7 +105,7 @@ export function ReactFlowCanvas() {
           id: cardId,
           type: 'card',
           position: center,
-          data: { cardId, color, variant, width: 280, height: 200 },
+          data: { cardId, color, width: 280, height: 200 },
         },
       ])
     }
@@ -199,7 +136,7 @@ export function ReactFlowCanvas() {
           id: `edge-${request.sourceNodeId}-${request.targetNodeId}-${Date.now()}`,
           source: request.sourceNodeId,
           target: request.targetNodeId,
-          sourceHandle: request.sourceHandleId,
+          sourceHandle: request.sourceHandleId || undefined,
           targetHandle: request.targetHandleId || undefined,
           type: 'connection',
         }
@@ -264,7 +201,6 @@ export function ReactFlowCanvas() {
 
   const onMouseMove = useCallback((event: React.MouseEvent) => {
     lastMousePosRef.current = { x: event.clientX, y: event.clientY }
-    // 连接模式下检测光标是否接近某卡片
     if (!isConnecting) return
     const rf = reactFlowInstance.current
     if (!rf) return
@@ -351,8 +287,42 @@ export function ReactFlowCanvas() {
     return true
   }, [])
 
+  const canvasRef = useRef<HTMLDivElement>(null)
+
+  const onWheelZoom = useCallback(
+    (event: React.WheelEvent) => {
+      const instance = reactFlowInstance.current
+      if (!instance) return
+
+      const { zoom, x, y } = instance.getViewport()
+      const delta = event.deltaY
+      const isPinch = event.ctrlKey
+
+      if (isPinch) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const factor = delta > 0 ? 1 - 0.03 : 1 + 0.03
+      const nextZoom = Math.min(4, Math.max(0.1, zoom * factor))
+
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      const mouseX = event.clientX - rect.left
+      const mouseY = event.clientY - rect.top
+
+      const scale = nextZoom / zoom
+      const nextX = mouseX - (mouseX - x) * scale
+      const nextY = mouseY - (mouseY - y) * scale
+
+      instance.setViewport({ x: nextX, y: nextY, zoom: nextZoom })
+    },
+    [],
+  )
+
   return (
-    <div className="w-full h-full" style={{ backgroundColor: surface.appBg }}>
+    <div className="w-full h-full" style={{ backgroundColor: surface.appBg }} ref={canvasRef} onWheel={onWheelZoom}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -382,6 +352,11 @@ export function ReactFlowCanvas() {
         panActivationKeyCode="Space"
         onMove={onMove}
         fitView
+        zoomOnScroll={false}
+        zoomOnPinch
+        zoomOnDoubleClick={false}
+        minZoom={0.1}
+        maxZoom={4}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -390,44 +365,7 @@ export function ReactFlowCanvas() {
           size={1.2}
         />
       </ReactFlow>
-      {/* 连接线预览 SVG */}
-      {previewLine && (
-        <svg
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            pointerEvents: 'none',
-            zIndex: 9999,
-          }}
-        >
-          <defs>
-            <marker
-              id="preview-arrow"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
-            </marker>
-          </defs>
-          <line
-            x1={previewLine.x1}
-            y1={previewLine.y1}
-            x2={previewLine.x2}
-            y2={previewLine.y2}
-            stroke="#3b82f6"
-            strokeWidth={2}
-            strokeDasharray="6,4"
-            markerEnd="url(#preview-arrow)"
-          />
-        </svg>
-      )}
+      <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
     </div>
   )
 }

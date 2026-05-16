@@ -1,11 +1,13 @@
 import type { GlobalCard } from './cardStore'
 import { useCardStore } from './cardStore'
-import type { CardColor, CardVariant } from '../types/card'
+import { useTrashStore } from './trashStore'
+import type { TrashItem } from './trashStore'
+import type { CardColor } from '../types/card'
 
 interface CreateCardOptions {
   content?: string
   color?: CardColor
-  variant?: CardVariant
+  title?: string
   x?: number
   y?: number
   w?: number
@@ -51,8 +53,8 @@ export const heptabaseAPI = {
           id,
           content: options.content || '',
           color: options.color || 'white',
-          variant: options.variant || 'solid',
           createdAt: Date.now(),
+          ...(options.title ? { title: options.title } : {}),
         }
         useCardStore.getState().addCard(card)
         return { success: true, data: card }
@@ -96,6 +98,65 @@ export const heptabaseAPI = {
         for (const id of cards) {
           store.deleteCard(id)
         }
+        return { success: true }
+      } catch (e) {
+        return { success: false, error: String(e) }
+      }
+    },
+
+    softDelete: (id: string): APIResponse<void> => {
+      try {
+        const store = useCardStore.getState()
+        if (!store.cards[id]) {
+          return { success: false, error: `Card ${id} not found` }
+        }
+        const card = store.cards[id]
+        store.softDeleteCard(id)
+        useTrashStore.getState().addItem({
+          id: `trash-${id}`,
+          cardId: id,
+          title: card.title || '无标题',
+          content: card.content,
+          color: card.color,
+          createdAt: card.createdAt,
+          enforceInitialHeading: card.enforceInitialHeading,
+          fixedHeight: card.fixedHeight,
+          collapsed: card.collapsed,
+        })
+        return { success: true }
+      } catch (e) {
+        return { success: false, error: String(e) }
+      }
+    },
+
+    restore: (id: string): APIResponse<void> => {
+      try {
+        const store = useCardStore.getState()
+        if (!store.cards[id]) {
+          return { success: false, error: `Card ${id} not found` }
+        }
+        store.restoreCard(id)
+        useTrashStore.getState().removeItem(id)
+        return { success: true }
+      } catch (e) {
+        return { success: false, error: String(e) }
+      }
+    },
+  },
+
+  trash: {
+    list: (): APIResponse<TrashItem[]> => {
+      try {
+        return { success: true, data: useTrashStore.getState().items }
+      } catch (e) {
+        return { success: false, error: String(e) }
+      }
+    },
+
+    permanentDelete: (cardId: string): APIResponse<void> => {
+      try {
+        useTrashStore.getState().removeItem(cardId)
+        useCardStore.getState().deleteCard(cardId)
         return { success: true }
       } catch (e) {
         return { success: false, error: String(e) }
@@ -177,7 +238,11 @@ export const heptabaseAPI = {
       'heptabaseAPI.cards.create(options)',
       'heptabaseAPI.cards.update(id, props)',
       'heptabaseAPI.cards.delete(id)',
+      'heptabaseAPI.cards.softDelete(id)',
+      'heptabaseAPI.cards.restore(id)',
       'heptabaseAPI.cards.clear()',
+      'heptabaseAPI.trash.list()',
+      'heptabaseAPI.trash.permanentDelete(cardId)',
       'heptabaseAPI.canvas.getShapes()',
       'heptabaseAPI.canvas.createCardShape(options)',
       'heptabaseAPI.canvas.exportSnapshot()',

@@ -1,3 +1,5 @@
+import { getBestHandles } from './geometry'
+
 export interface PendingConnection {
   sourceNodeId: string
   sourceHandleId: string
@@ -43,13 +45,30 @@ export const connectionMediator = {
     return pending?.sourceNodeId === nodeId
   },
 
-  complete(targetNodeId: string, targetHandleId: string) {
+  complete(
+    targetNodeId: string,
+    targetHandleId: string,
+    sourcePos?: { x: number; y: number },
+    sourceSize?: { w: number; h: number },
+    targetPos?: { x: number; y: number },
+    targetSize?: { w: number; h: number },
+  ) {
     if (!pending || !completeHandler) return false
+
+    let sourceHandleId = pending.sourceHandleId
+    let finalTargetHandleId = targetHandleId
+
+    if (sourcePos && sourceSize && targetPos && targetSize) {
+      const handles = getBestHandles(sourcePos, sourceSize, targetPos, targetSize)
+      sourceHandleId = handles.sourceHandle
+      finalTargetHandleId = handles.targetHandle
+    }
+
     completeHandler({
       sourceNodeId: pending.sourceNodeId,
-      sourceHandleId: pending.sourceHandleId,
+      sourceHandleId,
       targetNodeId,
-      targetHandleId,
+      targetHandleId: finalTargetHandleId,
     })
     pending = null
     _nearbyTargetId = null

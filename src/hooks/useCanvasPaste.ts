@@ -25,7 +25,7 @@ export function useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef }:
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
       const target = e.target as HTMLElement
-      if (target.closest('.card-blocknote-editor, input, textarea, [contenteditable]')) return
+      if (target.closest('.ProseMirror, .bn-editor, .card-blocknote-editor, input, textarea, [contenteditable]')) return
 
       const items = e.clipboardData?.items
       if (!items) return

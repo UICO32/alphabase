@@ -5,26 +5,29 @@ export function cardFileToGlobalCard(file: CardFile): GlobalCard {
   return {
     id: file.id,
     content: file.content,
-    color: file.color as GlobalCard['color'],
-    variant: file.variant as GlobalCard['variant'],
+    color: (file.color as GlobalCard['color']) || 'white',
     createdAt: file.createdAt,
+    updatedAt: file.updatedAt,
+    title: file.title,
     enforceInitialHeading: file.enforceInitialHeading,
     fixedHeight: file.fixedHeight,
     collapsed: file.collapsed,
+    deletedAt: file.deletedAt,
   }
 }
 
 export function globalCardToCardFile(card: GlobalCard): CardFile {
   return {
     id: card.id,
-    title: extractTitleFromContent(card.content),
+    title: card.title || extractTitleFromContent(card.content),
     color: card.color,
-    variant: card.variant,
     createdAt: card.createdAt,
+    updatedAt: card.updatedAt,
     content: card.content,
     enforceInitialHeading: card.enforceInitialHeading,
     fixedHeight: card.fixedHeight,
     collapsed: card.collapsed,
+    deletedAt: card.deletedAt,
   }
 }
 
@@ -36,7 +39,6 @@ export function extractTitleFromContent(content: string): string {
         return block.content[0].text.slice(0, 120)
       }
     }
-    // Fallback: first text content
     for (const block of blocks) {
       const text = extractText(block)
       if (text) return text.slice(0, 120)

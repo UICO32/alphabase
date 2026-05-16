@@ -1,6 +1,6 @@
 import { useLibraryStore } from '../../utils/libraryStore'
 import { useWorkspaceStore } from '../../utils/workspace/workspaceStore'
-import { getPanelSurface } from '../../theme/panelSurface'
+import { getPanelSurface } from '../../theme'
 import { X, Moon, Sun, Download, Upload, FolderOpen } from 'lucide-react'
 
 interface SettingsDialogProps {
@@ -15,18 +15,20 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
+      style={{ backgroundColor: 'var(--surface-overlay)' }}
       onClick={onClose}
     >
       <div
-        className="w-[700px] max-h-[80vh] rounded-xl shadow-2xl flex flex-col"
-        style={{ backgroundColor: surface.panelBg }}
+        className="modal-content w-[700px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn"
+        style={{
+          backgroundColor: surface.panelBg,
+          boxShadow: 'var(--shadow-xl)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 标题栏 */}
         <div
-          className="flex items-center justify-between px-6 py-4 border-b"
+          className="flex items-center justify-between px-6 py-4 border-b transition-theme"
           style={{ borderColor: surface.divider }}
         >
           <span className="font-semibold" style={{ color: surface.text }}>
@@ -34,37 +36,32 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
           </span>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg transition-colors"
+            className="btn-base p-2 rounded-lg"
             style={{ color: surface.muted }}
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* 设置内容 */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* 画布设置 */}
           <div className="mb-8">
-            <h3
-              className="text-sm font-medium mb-4"
-              style={{ color: surface.text }}
-            >
+            <h3 className="text-sm font-medium mb-4" style={{ color: surface.text }}>
               画布设置
             </h3>
             <div className="space-y-3">
-              <label className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: surface.surface }}>
+              <label className="flex items-center justify-between p-3 rounded-lg transition-theme" style={{ backgroundColor: surface.surface }}>
                 <span className="text-sm" style={{ color: surface.text }}>
                   自动折叠卡片
                 </span>
                 <input type="checkbox" className="w-4 h-4" />
               </label>
-              <label className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: surface.surface }}>
+              <label className="flex items-center justify-between p-3 rounded-lg transition-theme" style={{ backgroundColor: surface.surface }}>
                 <span className="text-sm" style={{ color: surface.text }}>
                   显示卡片库
                 </span>
                 <input type="checkbox" className="w-4 h-4" />
               </label>
-              <label className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: surface.surface }}>
+              <label className="flex items-center justify-between p-3 rounded-lg transition-theme" style={{ backgroundColor: surface.surface }}>
                 <span className="text-sm" style={{ color: surface.text }}>
                   删除前确认
                 </span>
@@ -73,18 +70,14 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
             </div>
           </div>
 
-          {/* 主题设置 */}
           <div className="mb-8">
-            <h3
-              className="text-sm font-medium mb-4"
-              style={{ color: surface.text }}
-            >
+            <h3 className="text-sm font-medium mb-4" style={{ color: surface.text }}>
               主题设置
             </h3>
             <div className="flex gap-3">
               <button
                 onClick={() => setDarkMode(false)}
-                className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-theme btn-base"
                 style={{
                   backgroundColor: !isDarkMode ? surface.text : surface.surface,
                   color: !isDarkMode ? surface.panelBg : surface.text,
@@ -96,7 +89,7 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
               </button>
               <button
                 onClick={() => setDarkMode(true)}
-                className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-theme btn-base"
                 style={{
                   backgroundColor: isDarkMode ? surface.text : surface.surface,
                   color: isDarkMode ? surface.panelBg : surface.text,
@@ -109,19 +102,12 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
             </div>
           </div>
 
-          {/* 工作区设置 */}
           <div className="mb-8">
-            <h3
-              className="text-sm font-medium mb-4"
-              style={{ color: surface.text }}
-            >
+            <h3 className="text-sm font-medium mb-4" style={{ color: surface.text }}>
               工作区设置
             </h3>
             <div className="space-y-3">
-              <button
-                className="flex items-center justify-between p-3 rounded-lg w-full"
-                style={{ backgroundColor: surface.surface }}
-              >
+              <button className="btn-base flex items-center justify-between p-3 rounded-lg w-full" style={{ backgroundColor: surface.surface }}>
                 <div className="flex items-center gap-2">
                   <FolderOpen size={16} style={{ color: surface.muted }} />
                   <span className="text-sm" style={{ color: surface.text }}>
@@ -135,17 +121,13 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
             </div>
           </div>
 
-          {/* 导入导出 */}
           <div>
-            <h3
-              className="text-sm font-medium mb-4"
-              style={{ color: surface.text }}
-            >
+            <h3 className="text-sm font-medium mb-4" style={{ color: surface.text }}>
               导入导出
             </h3>
             <div className="flex gap-3">
               <button
-                className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-colors"
+                className="btn-base flex-1 flex items-center justify-center gap-2 p-4 rounded-lg"
                 style={{
                   backgroundColor: surface.surface,
                   color: surface.text,
@@ -156,7 +138,7 @@ export function SettingsDialog({ onClose }: SettingsDialogProps) {
                 <span>导出数据</span>
               </button>
               <button
-                className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-colors"
+                className="btn-base flex-1 flex items-center justify-center gap-2 p-4 rounded-lg"
                 style={{
                   backgroundColor: surface.surface,
                   color: surface.text,

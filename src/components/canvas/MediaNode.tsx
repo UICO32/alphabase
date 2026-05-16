@@ -34,14 +34,15 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
 
   return (
     <div
-      className="relative overflow-hidden"
+      className="media-node relative overflow-hidden"
       style={{
         width: '100%',
         height: '100%',
-        outline: selected ? '2px solid #3b82f6' : '1px solid transparent',
+        outline: selected ? '2px solid var(--border-active)' : '1px solid transparent',
         outlineOffset: 0,
         borderRadius: 4,
         lineHeight: 0,
+        boxShadow: selected ? 'var(--shadow-glow-blue)' : 'var(--shadow-sm)',
       }}
     >
       {selected && (
@@ -49,7 +50,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
           minWidth={100}
           minHeight={50}
           isVisible={selected}
-          handleClassName="!w-3 !h-3 !bg-blue-500 !border-2 !border-white !rounded-sm !shadow-md"
+          handleClassName="!w-3 !h-3 !bg-blue-500 !border-2 !border-white !rounded-sm !shadow-sm"
           lineClassName="!bg-transparent"
         />
       )}
@@ -66,10 +67,10 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
         />
       ) : (
         <div
-          className="flex items-center justify-center"
+          className="flex items-center justify-center loading-pulse"
           style={{ width: '100%', height: '100%', minWidth: 60, minHeight: 60 }}
         >
-          <span className="text-gray-400 text-xs">Loading...</span>
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Loading...</span>
         </div>
       )}
     </div>

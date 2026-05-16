@@ -1,4 +1,4 @@
-import { readJSON, writeJSON, exists, readdir, mkdir } from '../utils/workspace/fs'
+import { readJSON, writeJSON, exists, readdir, mkdir, deleteFile } from '../utils/workspace/fs'
 import type { BoardManifest, BoardSnapshot, CardFile, TrashFile } from '../utils/workspace/types'
 
 export class WorkspaceService {
@@ -79,7 +79,6 @@ export class WorkspaceService {
   async deleteCard(cardId: string): Promise<void> {
     const path = `${this.workspacePath}/cards/${cardId}.json`
     if (await exists(path)) {
-      const { deleteFile } = await import('../utils/workspace/fs')
       await deleteFile(path)
     }
   }
@@ -114,7 +113,6 @@ export class WorkspaceService {
       try {
         const item = await readJSON<TrashFile>(`${dir}/${file}`)
         if (item.expiresAt <= now) {
-          const { deleteFile } = await import('../utils/workspace/fs')
           await deleteFile(`${dir}/${file}`)
           cleaned++
         }

@@ -78,7 +78,6 @@ export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOp
                 data: {
                   cardId,
                   color: card.color,
-                  variant: card.variant,
                   collapsed: card.collapsed,
                   fixedHeight: card.fixedHeight,
                 },

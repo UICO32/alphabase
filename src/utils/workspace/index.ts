@@ -1,4 +1,4 @@
-export { setFSAdapter, getFSAdapter, readFile, writeFile, deleteFile, readdir, mkdir, stat, exists, rename, readJSON, writeJSON } from './fs'
+export { setFSAdapter, getFSAdapter, readFile, writeFile, deleteFile, readdir, mkdir, stat, exists, rename, rmdir, readJSON, writeJSON } from './fs'
 export type { FSAdapter } from './fs'
 export { initElectronFSAdapter } from './fs-adapter'
 export { WorkspaceSyncEngine } from './syncEngine'

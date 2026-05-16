@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useLibraryStore } from '../../utils/libraryStore'
 import { useBoardStore } from '../../utils/boardStore'
-import { getPanelSurface } from '../../theme/panelSurface'
+import { getPanelSurface } from '../../theme'
 import { SearchInput, EmptyState } from './SharedUI'
 import { LayoutGrid, FileText } from 'lucide-react'
 
@@ -29,7 +29,6 @@ export function BoardLibraryView() {
 
   return (
     <div className="w-full h-full flex flex-col p-6" style={{ backgroundColor: surface.panelBg }}>
-      {/* 标题和搜索 */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold" style={{ color: surface.text }}>
           画板库
@@ -39,12 +38,10 @@ export function BoardLibraryView() {
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="搜索画板..."
-            surface={surface}
           />
         </div>
       </div>
 
-      {/* 画板网格 */}
       {filteredBoards.length === 0 ? (
         <EmptyState
           icon={<LayoutGrid size={48} />}
@@ -57,7 +54,7 @@ export function BoardLibraryView() {
             <div
               key={board.id}
               onClick={() => handleBoardClick(board.id)}
-              className="group relative p-4 rounded-xl cursor-pointer transition-all hover:shadow-lg"
+              className="list-item group relative p-4 rounded-xl cursor-pointer"
               style={{
                 backgroundColor: surface.surface,
                 border: `1px solid ${board.id === activeBoardId ? surface.text : surface.divider}`,

@@ -63,17 +63,17 @@ export const SectionNode = memo(({ data, selected }: NodeProps<SectionNodeType>)
     window.addEventListener('mouseup', handleMouseUp)
   }, [size])
 
-  const borderColor = color ?? '#cbd5e1'
+  const borderColor = color ?? 'var(--border-default)'
 
   return (
     <div
-      className="rounded-xl border-2 border-dashed relative"
+      className="section-node rounded-xl border-2 border-dashed relative"
       style={{
         width: size.width,
         height: size.height,
         borderColor,
         backgroundColor: `${borderColor}10`,
-        boxShadow: selected ? `0 0 0 2px ${borderColor}` : 'none',
+        boxShadow: selected ? 'var(--shadow-glow-blue)' : 'none',
       }}
       onDoubleClick={handleDoubleClick}
     >
@@ -85,21 +85,20 @@ export const SectionNode = memo(({ data, selected }: NodeProps<SectionNodeType>)
             onChange={(e) => setName(e.target.value)}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className="w-full text-sm font-medium bg-transparent border-none outline-none"
+            className="input-base w-full text-sm font-medium bg-transparent border-none outline-none"
             autoFocus
           />
         ) : (
-          <span className="text-sm font-medium text-gray-600">{name}</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{name}</span>
         )}
       </div>
 
-      {/* Resize handle */}
       {selected && (
         <div
           className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize"
           onMouseDown={handleResizeStart}
         >
-          <svg viewBox="0 0 16 16" className="w-full h-full text-gray-400">
+          <svg viewBox="0 0 16 16" className="w-full h-full" style={{ color: 'var(--text-tertiary)' }}>
             <path
               d="M8 8L16 16M12 16L16 12M16 8L8 16"
               stroke="currentColor"

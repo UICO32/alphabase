@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/* ============================================
+   Design Token System
+   ============================================ */
+
+:root {
+  /* Primitive Colors */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f4f4f5;
+  --color-gray-200: #e4e4e7;
+  --color-gray-300: #d4d4d8;
+  --color-gray-400: #a1a1aa;
+  --color-gray-500: #71717a;
+  --color-gray-600: #52525b;
+  --color-gray-700: #3f3f46;
+  --color-gray-800: #27272a;
+  --color-gray-900: #18181b;
+  --color-blue-50: #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-green-400: #4ade80;
+  --color-green-500: #22c55e;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+
+  /* Surface */
+  --surface-app: #fafafa;
+  --surface-panel: #fafafa;
+  --surface-panel-alt: #fafaf9;
+  --surface-card: #ffffff;
+  --surface-card-hover: #fafafa;
+  --surface-card-active: #f4f4f5;
+  --surface-input: #ffffff;
+  --surface-input-hover: #fafafa;
+  --surface-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Text */
+  --text-primary: #18181b;
+  --text-secondary: #71717a;
+  --text-tertiary: #a1a1aa;
+  --text-disabled: #d4d4d8;
+  --text-inverse: #ffffff;
+  --text-link: #3b82f6;
+  --text-link-hover: #2563eb;
+  --text-danger: #ef4444;
+
+  /* Border */
+  --border-default: #e5e5e5;
+  --border-hover: #d4d4d8;
+  --border-active: #3b82f6;
+  --border-focus: rgba(59, 130, 246, 0.35);
+  --border-danger: #ef4444;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.10);
+  --shadow-xl: 0 18px 40px rgba(15, 23, 42, 0.12);
+  --shadow-glow-blue: 0 0 0 2px rgba(59, 130, 246, 0.22), 0 8px 24px rgba(59, 130, 246, 0.15);
+  --shadow-glow-green: 0 0 0 2px rgba(34, 197, 94, 0.40), 0 4px 16px rgba(34, 197, 94, 0.15);
+  --shadow-glow-red: 0 0 0 2px rgba(239, 68, 68, 0.35);
+  --shadow-inner: inset 0 0 0 1px var(--border-default);
+  --shadow-inner-active: inset 0 0 0 1px var(--border-active);
+
+  /* Radius */
+  --radius-none: 0px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+
+  /* Font Size */
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+
+  /* Font Weight */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Motion */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 400ms;
+}
+
+/* ============================================
+   Dark Theme
+   ============================================ */
+
+[data-theme="dark"] {
+  --surface-app: #0a0f1a;
+  --surface-panel: #0f172a;
+  --surface-panel-alt: #111c31;
+  --surface-card: #0b1220;
+  --surface-card-hover: #111c31;
+  --surface-card-active: #1e293b;
+  --surface-input: #0b1220;
+  --surface-input-hover: #111c31;
+  --surface-overlay: rgba(0, 0, 0, 0.65);
+
+  --text-primary: #e5e7eb;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-disabled: #475569;
+  --text-inverse: #0f172a;
+  --text-link: #60a5fa;
+  --text-link-hover: #93c5fd;
+  --text-danger: #f87171;
+
+  --border-default: rgba(51, 65, 85, 0.9);
+  --border-hover: rgba(71, 85, 105, 0.9);
+  --border-active: #3b82f6;
+  --border-focus: rgba(96, 165, 250, 0.35);
+  --border-danger: #ef4444;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 30px rgba(2, 6, 23, 0.35);
+  --shadow-xl: 0 18px 40px rgba(2, 6, 23, 0.45);
+  --shadow-glow-blue: 0 0 0 2px rgba(96, 165, 250, 0.28), 0 8px 24px rgba(96, 165, 250, 0.2);
+  --shadow-glow-green: 0 0 0 2px rgba(34, 197, 94, 0.45), 0 4px 20px rgba(34, 197, 94, 0.2);
+  --shadow-glow-red: 0 0 0 2px rgba(239, 68, 68, 0.4);
+  --shadow-inner: inset 0 0 0 1px var(--border-default);
+  --shadow-inner-active: inset 0 0 0 1px var(--border-active);
+}

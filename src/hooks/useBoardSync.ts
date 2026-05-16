@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { type Node, type Edge } from '@xyflow/react'
+import { useBoardStore } from '../utils/boardStore'
 
 interface UseBoardSyncOptions {
   nodes: Node[]
@@ -7,23 +8,38 @@ interface UseBoardSyncOptions {
 }
 
 export function useBoardSync({ nodes, edges }: UseBoardSyncOptions) {
-  const prevNodesRef = useRef(nodes)
-  const prevEdgesRef = useRef(edges)
+  const activeBoardId = useBoardStore((s) => s.activeBoardId)
+  const saveBoardData = useBoardStore((s) => s.saveBoardData)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const syncToStore = useCallback(() => {
+    if (!activeBoardId) return
+
+    saveBoardData(activeBoardId, {
+      nodes: nodes.map((n) => ({
+        id: n.id,
+        type: n.type || 'card',
+        position: { x: n.position.x, y: n.position.y },
+        data: { ...n.data },
+        width: n.width as number | undefined,
+        height: n.height as number | undefined,
+      })),
+      edges: edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: (e.type || 'connection') as string,
+        sourceHandle: e.sourceHandle ?? undefined,
+        targetHandle: e.targetHandle ?? undefined,
+      })),
+    })
+  }, [activeBoardId, nodes, edges, saveBoardData])
 
   useEffect(() => {
-    // TODO: 实现画板同步
-    // 1. 监听 nodes/edges 变化
-    // 2. debounce 600ms
-    // 3. 转换为 BoardSnapshot 格式
-    // 4. 写入 boards/<id>.json
-
-    if (
-      JSON.stringify(prevNodesRef.current) !== JSON.stringify(nodes) ||
-      JSON.stringify(prevEdgesRef.current) !== JSON.stringify(edges)
-    ) {
-      console.log('Board changed, syncing...')
-      prevNodesRef.current = nodes
-      prevEdgesRef.current = edges
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(syncToStore, 600)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [nodes, edges])
+  }, [syncToStore])
 }

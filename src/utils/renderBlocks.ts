@@ -8,18 +8,37 @@ const FONT =
   "font-family:Inter,'SF Pro Display',-apple-system,BlinkMacSystemFont,'Open Sans','Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,'Fira Sans','Droid Sans','Helvetica Neue',sans-serif"
 const CODE_FONT = "font-family:ui-monospace,'SF Mono',Monaco,'Cascadia Code',Consolas,monospace"
 
-function renderBlock(block: Record<string, unknown>): string {
+function preprocessBlocks(blocks: Record<string, unknown>[]): Record<string, unknown>[] {
+  let counter = 1
+  return blocks.map((b) => {
+    const type = b.type as string
+    if (type === 'numberedListItem') {
+      const result = { ...b, _numIndex: counter }
+      counter++
+      return result
+    }
+    counter = 1
+    return b
+  })
+}
+
+const BULLET_CHARS = ['•', '◦', '▪']
+
+function renderBlock(block: Record<string, unknown>, depth = 0): string {
   const type = block.type as string
   const props = (block.props as Record<string, unknown>) || {}
   const rawContent = block.content
   const contentArray = Array.isArray(rawContent) ? (rawContent as unknown[]) : undefined
-  const children = (block.children as unknown[]) || undefined
+  const rawChildren = (block.children as unknown[]) || undefined
+  const childrenArray = rawChildren
+    ? preprocessBlocks(rawChildren as Record<string, unknown>[])
+    : undefined
 
   const renderedContent = contentArray
     ? contentArray.map((c) => renderInlineContent(c as Record<string, unknown>)).join('')
     : ''
-  const renderedChildren = children
-    ? children.map((c) => renderBlock(c as Record<string, unknown>)).join('')
+  const renderedChildren = childrenArray
+    ? childrenArray.map((c) => renderBlock(c as Record<string, unknown>, depth + 1)).join('')
     : ''
 
   const textAlign = (props.textAlignment as string) || undefined
@@ -37,30 +56,33 @@ function renderBlock(block: Record<string, unknown>): string {
       return `<p style="${cs}">${renderedContent || '<br />'}</p>${renderedChildren}`
 
     case 'quote':
-      return `<blockquote style="${cs};border-left:3px solid rgba(0,0,0,0.15);padding-left:12px;margin:0;color:rgba(0,0,0,0.65);font-style:italic">${renderedContent || '<br />'}</blockquote>${renderedChildren}`
+      return `<blockquote style="${cs};border-left:3px solid rgba(0,0,0,0.15);padding-left:12px;margin:0;color:#7d797a;font-style:italic">${renderedContent || '<br />'}</blockquote>${renderedChildren}`
 
     case 'codeBlock': {
       const lang = (props.language as string) || 'text'
-      return `<pre style="${BLOCK_STYLE};margin:0;background:rgba(0,0,0,0.05);border-radius:6px;padding:8px 12px;overflow-x:auto"><code class="language-${escapeHTML(lang)}" style="${CODE_FONT};font-size:0.875em;line-height:1.6;color:rgba(0,0,0,0.85)">${renderedContent || ''}</code></pre>${renderedChildren}`
+      return `<pre style="${BLOCK_STYLE};margin:0;background:#161616;border-radius:8px;padding:24px;overflow-x:auto"><code class="language-${escapeHTML(lang)}" style="${CODE_FONT};font-size:0.875em;line-height:1.6;color:#fff;tab-size:2;-moz-tab-size:2">${renderedContent || ''}</code></pre>${renderedChildren}`
     }
 
     case 'bulletListItem': {
+      const bullet = BULLET_CHARS[Math.min(depth, BULLET_CHARS.length - 1)]
       const inner = renderedContent || ''
-      const nested = renderedChildren ? `<ul style="padding-left:1.5em;margin:0">${renderedChildren}</ul>` : ''
-      return `<li style="${cs};list-style-type:disc">${inner}${nested}</li>`
+      const nested = renderedChildren ? `<div style="margin-left:1.5em">${renderedChildren}</div>` : ''
+      return `<div style="${cs};display:flex;gap:0.5em"><span style="flex-shrink:0">${bullet}</span><div style="min-width:0;width:100%">${inner}</div></div>${nested}`
     }
 
     case 'numberedListItem': {
+      const idx = (block as Record<string, unknown>)._numIndex as number || 1
       const inner = renderedContent || ''
-      const nested = renderedChildren ? `<ol style="padding-left:1.5em;margin:0">${renderedChildren}</ol>` : ''
-      return `<li style="${cs}">${inner}${nested}</li>`
+      const nested = renderedChildren ? `<div style="margin-left:1.5em">${renderedChildren}</div>` : ''
+      return `<div style="${cs};display:flex;gap:0.5em"><span style="flex-shrink:0">${idx}.</span><div style="min-width:0;width:100%">${inner}</div></div>${nested}`
     }
 
     case 'checkListItem': {
       const checked = !!props.checked
       const inner = renderedContent || '<br />'
-      const nested = renderedChildren ? `<ul style="padding-left:1.5em;margin:0">${renderedChildren}</ul>` : ''
-      return `<li style="${cs};list-style-type:none;display:flex;align-items:flex-start;gap:4px"><input type="checkbox" ${checked ? 'checked' : ''} disabled style="margin-top:2px;flex-shrink:0" /><span>${inner}</span>${nested}</li>`
+      const nested = renderedChildren ? `<div style="margin-left:1.5em">${renderedChildren}</div>` : ''
+      const textStyle = checked ? 'text-decoration:line-through' : ''
+      return `<div style="${cs};display:flex;align-items:flex-start;gap:0.5em"><input type="checkbox" ${checked ? 'checked' : ''} disabled style="margin:0;cursor:pointer;flex-shrink:0" /><div style="min-width:0;width:100%"><span style="${textStyle}">${inner}</span></div></div>${nested}`
     }
 
     case 'image': {
@@ -242,7 +264,8 @@ export function renderBlocksToHTML(content: string): string {
   try {
     const blocks = JSON.parse(content)
     if (!Array.isArray(blocks) || blocks.length === 0) return ''
-    const inner = blocks.map((b) => renderBlock(b as Record<string, unknown>)).join('')
+    const preprocessed = preprocessBlocks(blocks as Record<string, unknown>[])
+    const inner = preprocessed.map((b) => renderBlock(b)).join('')
     return `<div style="${FONT}">${inner}</div>`
   } catch {
     return content

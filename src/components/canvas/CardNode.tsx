@@ -1,17 +1,19 @@
 import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
-import { Handle, Position, useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
+import { useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore } from '../../utils/cardStore'
-import { getCardVariantStyles } from '../../theme/cardVariantStyles'
+import { getCardFill, getCardStroke, getCardTextColor, getCardMutedTextColor } from '../../utils/cardStyles'
 import { connectionMediator } from '../../utils/connectionMediator'
-import { CardBlockNoteEditor, type BlockNoteEditorHandle } from '../editor/BlockNoteEditor'
 import { renderBlocksToHTML } from '../../utils/renderBlocks'
-import type { CardColor, CardVariant } from '../../types/card'
+import type { CardColor } from '../../types/card'
+import { useLibraryStore } from '../../utils/libraryStore'
+import { CardHandles } from './card/CardHandles'
+import { ConnectionButton } from './card/ConnectionButton'
+import { CardContent } from './card/CardContent'
 
 export interface CardNodeData extends Record<string, unknown> {
   cardId: string
   color: CardColor
-  variant: CardVariant
   collapsed?: boolean
   fixedHeight?: boolean
   width?: number
@@ -23,14 +25,13 @@ type CardNodeType = Node<CardNodeData, 'card'>
 const DEFAULT_CARD_WIDTH = 280
 const DEFAULT_CARD_HEIGHT = 200
 
-const handleClassName = '!opacity-0 !pointer-events-none !w-3 !h-3 !border-0'
-
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const [isEditing, setIsEditing] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const editorRef = useRef<BlockNoteEditorHandle>(null)
+  const editorRef = useRef<import('../editor/BlockNoteEditor').BlockNoteEditorHandle>(null)
   const clickCoordsRef = useRef<{ x: number; y: number } | null>(null)
-  const { setNodes } = useReactFlow()
+  const { setNodes, getNode } = useReactFlow()
+  const isDarkMode = useLibraryStore(s => s.isDarkMode)
 
   useEffect(() => {
     setNodes((nds) =>
@@ -41,9 +42,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       ),
     )
   }, [isEditing, data.cardId, setNodes])
+
   const card = useCardStore((s) => s.cards[data.cardId])
   const updateCard = useCardStore((s) => s.updateCard)
-  const styles = getCardVariantStyles(data.color, data.variant, false, !!selected)
 
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
@@ -73,39 +74,33 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     (e: React.MouseEvent) => {
       if (isConnectionTarget || isNearbyTarget) {
         e.stopPropagation()
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-        const clickX = e.clientX - rect.left
-        const clickY = e.clientY - rect.top
-        const w = rect.width
-        const h = rect.height
-        const centerX = w / 2
-        const centerY = h / 2
-        const dx = clickX - centerX
-        const dy = clickY - centerY
-        const absDx = Math.abs(dx)
-        const absDy = Math.abs(dy)
-        let targetHandle = 'top-target'
-        if (absDx * h > absDy * w) {
-          targetHandle = dx > 0 ? 'right-target' : 'left-target'
+        const pending = connectionMediator.getPending()
+        const sourceNode = pending ? getNode(pending.sourceNodeId) : undefined
+        const targetNode = getNode(data.cardId)
+        if (sourceNode && targetNode) {
+          const sw = ((sourceNode.data as Record<string, unknown>).width as number) ?? 280
+          const sh = ((sourceNode.data as Record<string, unknown>).height as number) ?? 200
+          const tw = ((targetNode.data as Record<string, unknown>).width as number) ?? 280
+          const th = ((targetNode.data as Record<string, unknown>).height as number) ?? 200
+          connectionMediator.complete(
+            data.cardId,
+            '',
+            sourceNode.position,
+            { w: sw, h: sh },
+            targetNode.position,
+            { w: tw, h: th },
+          )
         } else {
-          targetHandle = dy > 0 ? 'bottom-target' : 'top-target'
+          connectionMediator.complete(data.cardId, '')
         }
-        connectionMediator.complete(data.cardId, targetHandle)
         return
       }
       if (!isEditing && selected && card) {
         clickCoordsRef.current = { x: e.clientX, y: e.clientY }
-        console.debug('[CardNode] click-to-edit', {
-          cardId: data.cardId,
-          clientX: e.clientX,
-          clientY: e.clientY,
-          pageX: e.pageX,
-          pageY: e.pageY,
-        })
         setIsEditing(true)
       }
     },
-    [isConnectionTarget, data.cardId, selected, card, isEditing],
+    [isConnectionTarget, isNearbyTarget, data.cardId, selected, card, isEditing, getNode],
   )
 
   const handleContentChange = useCallback(
@@ -129,14 +124,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (coords) {
-            const pmEl = document.querySelector('.ProseMirror') as HTMLElement | null
-            const pmRect = pmEl?.getBoundingClientRect()
-            console.debug('[CardNode] focusAtCoords debug', {
-              inputCoords: coords,
-              pmRect: pmRect ? { top: pmRect.top, left: pmRect.left, width: pmRect.width, height: pmRect.height } : null,
-              clientToPm: pmRect ? { x: coords.x - pmRect.left, y: coords.y - pmRect.top } : null,
-              pageToPm: pmRect ? { x: coords.x - pmRect.left + window.scrollX, y: coords.y - pmRect.top + window.scrollY } : null,
-            })
             editorRef.current!.focusAtCoords(coords)
           } else {
             editorRef.current!.focus()
@@ -162,38 +149,54 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const outlineWidth = selected ? 2 : 1
   const outlineColor = selected
-    ? '#3b82f6'
+    ? 'var(--border-active)'
     : isHovered
-      ? 'rgba(0,0,0,0.12)'
-      : 'rgba(0,0,0,0.08)'
+      ? 'var(--border-hover)'
+      : getCardStroke(data.color)
+
+  const cardBg = getCardFill(data.color, isDarkMode)
+  const textColor = getCardTextColor(data.color, isDarkMode)
+  const mutedTextColor = getCardMutedTextColor(data.color, isDarkMode)
+
+  const cursor = isEditing ? 'text'
+    : (isConnectionTarget || isNearbyTarget) ? 'crosshair'
+    : isHovered ? 'pointer'
+    : 'default'
+
+  const cardClasses = [
+    'card-node-default',
+    'relative',
+    'rounded-2xl',
+    isConnectingSource ? 'card-node-connecting-source' : '',
+    isNearbyTarget ? 'card-node-nearby-target' : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <div
-      className="relative rounded-2xl shadow-sm transition-shadow"
+      className={cardClasses}
       style={{
         width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
         height: (data.height ?? DEFAULT_CARD_HEIGHT) as number,
-        backgroundColor: styles.cardBg,
+        backgroundColor: cardBg,
         outline: `${outlineWidth}px solid ${outlineColor}`,
         outlineOffset: 0,
         boxShadow: isConnectingSource
-          ? '0 0 0 3px rgba(59,130,246,0.45), 0 4px 16px rgba(59,130,246,0.2)'
+          ? 'var(--shadow-glow-blue)'
           : isNearbyTarget
-            ? '0 0 0 3px rgba(34,197,94,0.5), 0 4px 20px rgba(34,197,94,0.2)'
+            ? 'var(--shadow-glow-green)'
           : isConnectionTarget && isHovered
-            ? '0 0 0 2px rgba(34,197,94,0.4), 0 4px 16px rgba(34,197,94,0.15)'
+            ? 'var(--shadow-glow-green)'
           : isHovered
-            ? '0 8px 28px rgba(15,23,42,0.14)'
-            : selected
-              ? '0 8px 24px rgba(59,130,246,0.15)'
-              : '0 2px 8px rgba(0,0,0,0.06)',
-        cursor: isConnectionTarget || isNearbyTarget ? 'crosshair' : 'grab',
+            ? 'var(--shadow-lg)'
+          : selected
+            ? 'var(--shadow-glow-blue)'
+            : 'var(--shadow-sm)',
+        cursor,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleCardClick}
     >
-      {/* 缩放控制 - 选中时显示四角抓手，四边透明但可拖拽 */}
       {selected && (
         <NodeResizer
           minWidth={200}
@@ -218,94 +221,16 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         />
       )}
 
-      {/* 四边连接锚点 - 不可见，仅作为连接点 */}
-      <Handle
-        type="source"
-        position={Position.Top}
-        id="top"
-        className={handleClassName}
-        style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom"
-        className={handleClassName}
-        style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
-      />
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="left"
-        className={handleClassName}
-        style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right"
-        className={handleClassName}
-        style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
-      />
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="top-target"
-        className={handleClassName}
-        style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
-      />
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        id="bottom-target"
-        className={handleClassName}
-        style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
-      />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="left-target"
-        className={handleClassName}
-        style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
-      />
-      <Handle
-        type="target"
-        position={Position.Right}
-        id="right-target"
-        className={handleClassName}
-        style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
-      />
+      <CardHandles />
 
-      {/* 连接按钮 - 卡片外部右上角 */}
-      <button
-        className="absolute flex items-center justify-center rounded-full cursor-crosshair z-10 transition-all duration-150 shadow-md"
-        style={{
-          top: -14,
-          right: -14,
-          width: 28,
-          height: 28,
-          backgroundColor: '#3b82f6',
-          color: '#fff',
-          fontSize: 18,
-          fontWeight: 700,
-          lineHeight: 1,
-          border: '3px solid #fff',
-          opacity: showConnectionIcon ? 1 : 0,
-          pointerEvents: showConnectionIcon ? 'auto' : 'none',
-        }}
-        onClick={handleConnectionIconClick}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        +
-      </button>
+      <ConnectionButton visible={showConnectionIcon} onClick={handleConnectionIconClick} />
 
-      {/* 拖拽把手 + 顶部间距 */}
       <div
         className="card-drag-handle flex items-center justify-end px-3"
         style={{
           height: 28,
           cursor: 'grab',
-          color: styles.mutedTextColor,
+          color: mutedTextColor,
           fontSize: 11,
           userSelect: 'none',
         }}
@@ -313,50 +238,16 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         {isEditing ? '⋮⋮ 拖拽移动' : ''}
       </div>
 
-      {/* 卡片内容 */}
-      <div
-        className="pb-3"
-        style={{
-          height: 'calc(100% - 28px)',
-          color: styles.textColor,
-          overflow: isEditing ? 'visible' : 'hidden',
-        }}
-      >
-        {isEditing ? (
-          <div
-            className="h-full px-6"
-            style={{ fontSize: '13px', lineHeight: '1.5', overflow: 'visible' }}
-          >
-            <CardBlockNoteEditor
-              ref={editorRef}
-              content={card.content}
-              onChange={handleContentChange}
-              onBlur={handleEditorBlur}
-              theme="light"
-              editable={true}
-              showSideMenu={false}
-              enforceInitialHeading={card.enforceInitialHeading}
-            />
-          </div>
-        ) : (
-          <div
-            className="h-full overflow-y-auto px-6"
-            style={{
-              fontSize: '13px',
-              lineHeight: '1.5',
-              wordBreak: 'break-word',
-            }}
-            dangerouslySetInnerHTML={{
-              __html:
-                card.previewHTML ||
-                renderBlocksToHTML(card.content) ||
-                '<span style="opacity:0.5">双击编辑...</span>',
-            }}
-          />
-        )}
-      </div>
+      <CardContent
+        isEditing={isEditing}
+        content={card.content}
+        previewHTML={card.previewHTML}
+        enforceInitialHeading={card.enforceInitialHeading}
+        onChange={handleContentChange}
+        onBlur={handleEditorBlur}
+        editorRef={editorRef}
+        textColor={textColor}
+      />
     </div>
   )
 })
-
-CardNode.displayName = 'CardNode'

@@ -366,7 +366,11 @@ const CardBlockNoteEditorInner = (
     return (
       <div ref={containerRef} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`}>
         <style>{`
+          .card-blocknote-editor {
+            height: 100%;
+          }
           .card-blocknote-editor .bn-container,
+          .card-blocknote-editor .bn-editor,
           .card-blocknote-editor .ProseMirror,
           .card-blocknote-editor .mantine-RichTextEditor-root,
           .card-blocknote-editor .mantine-RichTextEditor-content {
@@ -377,9 +381,23 @@ const CardBlockNoteEditorInner = (
             background: transparent !important;
             color: inherit !important;
           }
+          .card-blocknote-editor .bn-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: visible !important;
+          }
+          .card-blocknote-editor .bn-editor {
+            flex: 1;
+            overflow-y: auto !important;
+          }
           .card-blocknote-editor [data-position="right"],
           .card-blocknote-editor .mantine-Menu-itemSection[data-position="right"] {
             display: none !important;
+          }
+          .card-blocknote-editor [data-content-type=quote] blockquote {
+            border-left: 3px solid rgba(0,0,0,0.15) !important;
+            font-style: italic !important;
           }
         `}</style>
         <BlockNoteView

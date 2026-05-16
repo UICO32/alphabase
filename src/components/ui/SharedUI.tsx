@@ -1,20 +1,14 @@
 import { useLibraryStore } from '../../utils/libraryStore'
-import { getPanelSurface } from '../../theme/panelSurface'
+import { getPanelSurface } from '../../theme'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-// 面板头部
-interface PanelHeaderProps {
-  title: string
-  children?: React.ReactNode
-}
-
-export function PanelHeader({ title, children }: PanelHeaderProps) {
+export function PanelHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const surface = getPanelSurface(isDarkMode)
 
   return (
     <div
-      className="flex items-center justify-between px-4 py-3 border-b"
+      className="flex items-center justify-between px-4 py-3 border-b transition-theme"
       style={{ borderColor: surface.divider }}
     >
       <span className="font-medium text-sm" style={{ color: surface.text }}>
@@ -25,22 +19,19 @@ export function PanelHeader({ title, children }: PanelHeaderProps) {
   )
 }
 
-// 侧边栏标签按钮
-interface SideTabButtonProps {
+export function SideTabButton({ active, onClick, children, icon }: {
   active?: boolean
   onClick?: () => void
   children: React.ReactNode
   icon?: React.ReactNode
-}
-
-export function SideTabButton({ active, onClick, children, icon }: SideTabButtonProps) {
+}) {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const surface = getPanelSurface(isDarkMode)
 
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors w-full"
+      className="panel-tab panel-tab-hover flex items-center gap-2 px-3 py-2 rounded-lg text-sm w-full"
       style={{
         backgroundColor: active ? surface.surface : 'transparent',
         color: active ? surface.text : surface.muted,
@@ -52,16 +43,13 @@ export function SideTabButton({ active, onClick, children, icon }: SideTabButton
   )
 }
 
-// 面板按钮
-interface PanelButtonProps {
+export function PanelButton({ onClick, children, variant = 'secondary', size = 'md', icon }: {
   onClick?: () => void
   children: React.ReactNode
   variant?: 'primary' | 'secondary' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   icon?: React.ReactNode
-}
-
-export function PanelButton({ onClick, children, variant = 'secondary', size = 'md', icon }: PanelButtonProps) {
+}) {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const surface = getPanelSurface(isDarkMode)
 
@@ -73,8 +61,8 @@ export function PanelButton({ onClick, children, variant = 'secondary', size = '
 
   const variantStyles = {
     primary: {
-      backgroundColor: '#3b82f6',
-      color: '#ffffff',
+      backgroundColor: 'var(--color-blue-500)',
+      color: 'var(--text-inverse)',
     },
     secondary: {
       backgroundColor: surface.surface,
@@ -89,7 +77,7 @@ export function PanelButton({ onClick, children, variant = 'secondary', size = '
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-lg transition-colors ${sizeClasses[size]}`}
+      className={`btn-base flex items-center gap-1.5 rounded-lg ${sizeClasses[size]}`}
       style={variantStyles[variant]}
     >
       {icon}
@@ -98,7 +86,6 @@ export function PanelButton({ onClick, children, variant = 'secondary', size = '
   )
 }
 
-// 面板分隔线
 export function PanelSeparator() {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const surface = getPanelSurface(isDarkMode)
@@ -111,14 +98,11 @@ export function PanelSeparator() {
   )
 }
 
-// 面板区域
-interface PanelSectionProps {
+export function PanelSection({ title, children, className = '' }: {
   title?: string
   children: React.ReactNode
   className?: string
-}
-
-export function PanelSection({ title, children, className = '' }: PanelSectionProps) {
+}) {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const surface = getPanelSurface(isDarkMode)
 
@@ -137,20 +121,17 @@ export function PanelSection({ title, children, className = '' }: PanelSectionPr
   )
 }
 
-// 展开图标按钮（折叠后显示）
-interface ExpandButtonProps {
+export function ExpandButton({ direction, onClick }: {
   direction: 'left' | 'right'
   onClick: () => void
-}
-
-export function ExpandButton({ direction, onClick }: ExpandButtonProps) {
+}) {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const surface = getPanelSurface(isDarkMode)
 
   return (
     <button
       onClick={onClick}
-      className="fixed top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-12 rounded-lg shadow-lg transition-colors hover:opacity-90"
+      className="btn-base fixed top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-12 rounded-lg hover:shadow-xl"
       style={{
         backgroundColor: surface.panelBg,
         color: surface.text,
@@ -164,13 +145,10 @@ export function ExpandButton({ direction, onClick }: ExpandButtonProps) {
   )
 }
 
-// 折叠按钮
-interface CollapseButtonProps {
+export function CollapseButton({ direction, onClick }: {
   direction: 'left' | 'right'
   onClick: () => void
-}
-
-export function CollapseButton({ direction, onClick }: CollapseButtonProps) {
+}) {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const surface = getPanelSurface(isDarkMode)
 
@@ -180,24 +158,19 @@ export function CollapseButton({ direction, onClick }: CollapseButtonProps) {
         e.stopPropagation()
         onClick()
       }}
-      className="flex items-center justify-center w-6 h-6 rounded transition-colors hover:opacity-70"
-      style={{
-        color: surface.muted,
-      }}
+      className="btn-base flex items-center justify-center w-6 h-6 rounded"
+      style={{ color: surface.muted }}
     >
       {direction === 'left' ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
     </button>
   )
 }
 
-// 空状态
-interface EmptyStateProps {
+export function EmptyState({ icon, text, surface }: {
   icon?: React.ReactNode
   text: string
   surface: ReturnType<typeof getPanelSurface>
-}
-
-export function EmptyState({ icon, text, surface }: EmptyStateProps) {
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
       {icon && (
@@ -212,15 +185,11 @@ export function EmptyState({ icon, text, surface }: EmptyStateProps) {
   )
 }
 
-// 搜索输入框
-interface SearchInputProps {
+export function SearchInput({ value, onChange, placeholder = '搜索...' }: {
   value: string
   onChange: (value: string) => void
   placeholder?: string
-  surface: ReturnType<typeof getPanelSurface>
-}
-
-export function SearchInput({ value, onChange, placeholder = '搜索...', surface }: SearchInputProps) {
+}) {
   return (
     <div className="relative">
       <input
@@ -228,11 +197,11 @@ export function SearchInput({ value, onChange, placeholder = '搜索...', surfac
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
+        className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none"
         style={{
-          backgroundColor: surface.surface,
-          color: surface.text,
-          border: `1px solid ${surface.divider}`,
+          backgroundColor: 'var(--surface-input)',
+          color: 'var(--text-primary)',
+          border: `1px solid var(--border-default)`,
         }}
       />
     </div>

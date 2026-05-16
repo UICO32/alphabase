@@ -15,6 +15,7 @@ export interface FSAdapter {
   stat(path: string): Promise<{ isDirectory: boolean; size: number; mtimeMs: number }>
   exists(path: string): Promise<boolean>
   rename(oldPath: string, newPath: string): Promise<void>
+  rmdir(path: string): Promise<void>
 }
 
 let adapter: FSAdapter | null = null
@@ -59,6 +60,10 @@ export async function exists(path: string): Promise<boolean> {
 
 export async function rename(oldPath: string, newPath: string): Promise<void> {
   await getFSAdapter().rename(oldPath, newPath)
+}
+
+export async function rmdir(path: string): Promise<void> {
+  await getFSAdapter().rmdir(path)
 }
 
 export async function readJSON<T>(path: string): Promise<T> {

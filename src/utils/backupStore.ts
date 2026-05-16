@@ -73,7 +73,7 @@ export async function createFileSystemBackup(workspacePath: string): Promise<str
   try {
     const timestamp = Date.now().toString()
     const backupDir = `${workspacePath}/.backup/${timestamp}`
-    const { mkdir, exists, readdir, writeFile: writeF, readFile: readF, deleteFile: delF } = await import('./workspace/fs')
+    const { mkdir, exists, readdir, writeFile: writeF, readFile: readF, deleteFile: delF, rmdir } = await import('./workspace/fs')
 
     await mkdir(backupDir)
 
@@ -101,6 +101,18 @@ export async function createFileSystemBackup(workspacePath: string): Promise<str
       }
     }
 
+    // Copy trash/
+    const trashDir = `${workspacePath}/trash`
+    if (await exists(trashDir)) {
+      await mkdir(`${backupDir}/trash`)
+      const trashFiles = await readdir(trashDir)
+      for (const file of trashFiles) {
+        if (!file.endsWith('.json')) continue
+        const content = await readF(`${trashDir}/${file}`)
+        await writeF(`${backupDir}/trash/${file}`, content)
+      }
+    }
+
     // Prune old backups, keep most recent MAX_FILE_BACKUPS
     const backupParent = `${workspacePath}/.backup`
     const allBackups = (await readdir(backupParent))
@@ -110,17 +122,25 @@ export async function createFileSystemBackup(workspacePath: string): Promise<str
     while (allBackups.length > MAX_FILE_BACKUPS) {
       const old = allBackups.shift()!
       const oldDir = `${backupParent}/${old}`
-      // Delete card files in old backup
       const oldCardsDir = `${oldDir}/cards`
       if (await exists(oldCardsDir)) {
         const oldCardFiles = await readdir(oldCardsDir)
         for (const f of oldCardFiles) await delF(`${oldCardsDir}/${f}`)
+        await rmdir(oldCardsDir).catch(() => {})
       }
       const oldBoardsDir = `${oldDir}/boards`
       if (await exists(oldBoardsDir)) {
         const oldBoardFiles = await readdir(oldBoardsDir)
         for (const f of oldBoardFiles) await delF(`${oldBoardsDir}/${f}`)
+        await rmdir(oldBoardsDir).catch(() => {})
       }
+      const oldTrashDir = `${oldDir}/trash`
+      if (await exists(oldTrashDir)) {
+        const oldTrashFiles = await readdir(oldTrashDir)
+        for (const f of oldTrashFiles) await delF(`${oldTrashDir}/${f}`)
+        await rmdir(oldTrashDir).catch(() => {})
+      }
+      await rmdir(oldDir).catch(() => {})
     }
 
     return backupDir

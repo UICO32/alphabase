@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { createMenu } from './menu'
@@ -14,7 +14,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
-      preload: join(__dirname, 'preload.js'),
+      preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -27,6 +27,9 @@ function createWindow() {
   })
 
   createMenu(mainWindow)
+
+  // Open DevTools for debugging
+  mainWindow.webContents.openDevTools()
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
@@ -51,9 +54,10 @@ ipcMain.handle('fs:readFile', async (_event, path: string) => {
   return await fs.readFile(path)
 })
 
-ipcMain.handle('fs:writeFile', async (_event, path: string, data: string) => {
+ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: string) => {
+  console.log('[IPC] writeFile:', filePath, 'data length:', data?.length)
   const fs = await import('fs/promises')
-  await fs.writeFile(path, data)
+  await fs.writeFile(filePath, data)
 })
 
 ipcMain.handle('fs:deleteFile', async (_event, path: string) => {
@@ -77,10 +81,11 @@ ipcMain.handle('fs:stat', async (_event, path: string) => {
   return { isDirectory: st.isDirectory(), size: st.size, mtimeMs: st.mtimeMs }
 })
 
-ipcMain.handle('fs:exists', async (_event, path: string) => {
+ipcMain.handle('fs:exists', async (_event, filePath: string) => {
+  console.log('[IPC] exists:', filePath)
   const fs = await import('fs/promises')
   try {
-    await fs.access(path)
+    await fs.access(filePath)
     return true
   } catch {
     return false
@@ -92,8 +97,12 @@ ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => 
   await fs.rename(oldPath, newPath)
 })
 
+ipcMain.handle('fs:rmdir', async (_event, path: string) => {
+  const fs = await import('fs/promises')
+  await fs.rm(path, { recursive: true, force: true })
+})
+
 ipcMain.handle('dialog:openDirectory', async () => {
-  const { dialog } = await import('electron')
   if (!mainWindow) return null
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],

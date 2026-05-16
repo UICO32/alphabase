@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useLibraryStore } from '../../utils/libraryStore'
 import { useCardStore } from '../../utils/cardStore'
-import { getPanelSurface } from '../../theme/panelSurface'
+import { getPanelSurface } from '../../theme'
 import { SearchInput, EmptyState } from './SharedUI'
 import { CardEditDialog } from './CardEditDialog'
 import { Layers, GripVertical } from 'lucide-react'
@@ -38,7 +38,6 @@ export function CardLibraryView() {
           value={searchQuery}
           onChange={setSearchQuery}
           placeholder="搜索卡片..."
-          surface={surface}
         />
       </div>
 
@@ -57,7 +56,7 @@ export function CardLibraryView() {
                 draggable
                 onDragStart={(e) => handleDragStart(e, card.id)}
                 onClick={() => setEditingCardId(card.id)}
-                className="group relative p-3 rounded-lg cursor-pointer active:cursor-grabbing transition-shadow hover:shadow-sm"
+                className="list-item group relative p-3 rounded-lg cursor-pointer active:cursor-grabbing"
                 style={{
                   aspectRatio: '1',
                   backgroundColor: surface.surface,
@@ -65,7 +64,7 @@ export function CardLibraryView() {
                 }}
               >
                 <div
-                  className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-theme"
                   style={{ color: surface.muted }}
                 >
                   <GripVertical size={14} />

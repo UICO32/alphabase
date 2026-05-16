@@ -58,7 +58,7 @@ export interface CardFile {
   id: string
   title: string
   color: string
-  variant: string
+  variant?: string
   createdAt: number
   content: string
   enforceInitialHeading?: boolean
@@ -66,6 +66,7 @@ export interface CardFile {
   collapsed?: boolean
   tags?: string[]
   updatedAt?: number
+  deletedAt?: number
 }
 
 export interface TrashFile {
@@ -75,6 +76,13 @@ export interface TrashFile {
   deletedAt: number
   expiresAt: number
   content: string
+  color: string
+  variant?: string
+  createdAt: number
+  enforceInitialHeading?: boolean
+  fixedHeight?: boolean
+  collapsed?: boolean
+  tags?: string[]
 }
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {

@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "electron:dev": "vite --mode electron",
     "electron:build": "tsc && vite build --mode electron",
+    "electron:start": "electron .",
+    "electron:all": "vite --mode electron",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "playwright test"
@@ -20,6 +23,7 @@
     "@tailwindcss/vite": "^4.3.0",
     "@tiptap/pm": "^2.11.0",
     "@xyflow/react": "^12.0.0",
+    "framer-motion": "^12.38.0",
     "idb": "^8.0.0",
     "lucide-react": "^0.400.0",
     "react": "^18.3.0",
@@ -33,7 +37,7 @@
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
-    "electron": "^35.0.0",
+    "electron": "^42.1.0",
     "typescript": "^5.9.3",
     "vite": "^5.4.0",
     "vite-plugin-electron": "^0.29.0"

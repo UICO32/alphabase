@@ -1,15 +1,12 @@
 import { writeFile, deleteFile, exists, mkdir, rename } from './fs'
 import type { CardFile, BoardSnapshot, BoardManifest, TrashFile } from './types'
 
-type Listener = () => void
-
 export class WorkspaceSyncEngine {
   private cardsDir: string = ''
   private boardsDir: string = ''
   private trashDir: string = ''
   private pendingWrites = new Map<string, { data: string; timer: ReturnType<typeof setTimeout> }>()
   private running = false
-  private onFlushListeners: Listener[] = []
 
   constructor() {}
 
@@ -29,11 +26,10 @@ export class WorkspaceSyncEngine {
 
   stop() {
     this.running = false
-    this.flushAll()
     for (const [, { timer }] of this.pendingWrites) {
       clearTimeout(timer)
     }
-    this.pendingWrites.clear()
+    this.flushAll()
   }
 
   isRunning() { return this.running }
@@ -44,6 +40,7 @@ export class WorkspaceSyncEngine {
   }
 
   scheduleDeleteCard(cardId: string) {
+    if (!this.running) return
     const path = joinPath(this.cardsDir, `${cardId}.json`)
     const key = `delete:${path}`
     const existing = this.pendingWrites.get(key)
@@ -70,6 +67,7 @@ export class WorkspaceSyncEngine {
   }
 
   scheduleDeleteTrashFile(cardId: string) {
+    if (!this.running) return
     const path = joinPath(this.trashDir, `${cardId}.trash.json`)
     const key = `delete:${path}`
     const existing = this.pendingWrites.get(key)
@@ -81,6 +79,7 @@ export class WorkspaceSyncEngine {
   }
 
   private scheduleWrite(path: string, data: string, debounceMs: number) {
+    if (!this.running) return
     const existing = this.pendingWrites.get(path)
     if (existing) clearTimeout(existing.timer)
     this.pendingWrites.set(path, {
@@ -91,7 +90,7 @@ export class WorkspaceSyncEngine {
 
   private async executeWrite(key: string, path: string, data: string) {
     this.pendingWrites.delete(key)
-    if (!this.running) return
+    if (!this.running && data === '__DELETE__') return
     try {
       if (data === '__DELETE__') {
         if (await exists(path)) await deleteFile(path)
@@ -100,33 +99,33 @@ export class WorkspaceSyncEngine {
         await writeFile(tmpPath, data)
         await rename(tmpPath, path)
       }
-    } catch (e) {
-      console.warn(`SyncEngine write failed: ${path}`, e)
+    } catch {
+      /* noop */
     }
   }
 
   flushAll() {
-    for (const [key, { data }] of this.pendingWrites) {
-      const timer = this.pendingWrites.get(key)?.timer
-      if (timer) clearTimeout(timer)
-      this.pendingWrites.delete(key)
-      // Sync write
+    const entries = [...this.pendingWrites.entries()]
+    for (const [, { timer }] of entries) {
+      clearTimeout(timer)
+    }
+    this.pendingWrites.clear()
+
+    for (const [key, { data }] of entries) {
       try {
         const path = key.startsWith('delete:') ? key.slice(7) : key
         if (data === '__DELETE__') {
-          // Can't sync delete easily, skip
+          exists(path).then(e => { if (e) deleteFile(path) }).catch(() => {})
         } else {
-          // Will be written asynchronously
-          this.executeWrite(key, path, data)
+          const tmpPath = path + '.tmp'
+          writeFile(tmpPath, data)
+            .then(() => rename(tmpPath, path))
+            .catch(() => {})
         }
-      } catch (e) {
-        console.warn('SyncEngine flush error:', e)
+      } catch {
+        /* noop */
       }
     }
-  }
-
-  onFlush(listener: Listener) {
-    this.onFlushListeners.push(listener)
   }
 }
 

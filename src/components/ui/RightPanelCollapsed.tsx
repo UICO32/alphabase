@@ -1,5 +1,5 @@
 import { useLibraryStore } from '../../utils/libraryStore'
-import { getPanelSurface } from '../../theme/panelSurface'
+import { getPanelSurface } from '../../theme'
 import { ChevronLeft } from 'lucide-react'
 
 export function RightPanelCollapsed() {
@@ -9,7 +9,6 @@ export function RightPanelCollapsed() {
 
   const surface = getPanelSurface(isDarkMode)
 
-  // 只有在 board 模式下才显示折叠按钮
   if (viewMode !== 'board') {
     return null
   }
@@ -17,12 +16,13 @@ export function RightPanelCollapsed() {
   return (
     <button
       onClick={() => setRightPanelCollapsed(false)}
-      className="fixed top-1/2 -translate-y-1/2 right-0 z-50 flex items-center justify-center w-6 h-12 rounded-l-lg shadow-lg transition-colors hover:opacity-90"
+      className="btn-base fixed top-1/2 -translate-y-1/2 right-0 z-50 flex items-center justify-center w-6 h-12 rounded-l-lg"
       style={{
         backgroundColor: surface.panelBg,
         color: surface.text,
         border: `1px solid ${surface.divider}`,
         borderRight: 'none',
+        boxShadow: surface.shadow,
       }}
     >
       <ChevronLeft size={14} />

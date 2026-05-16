@@ -1,0 +1,348 @@
+/* ============================================
+   Global Animations & Transition Utilities
+   ============================================ */
+
+/* Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Transition Utility Classes */
+.transition-theme {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: var(--duration-normal);
+  transition-timing-function: var(--ease-default);
+}
+
+.transition-fast {
+  transition-duration: var(--duration-fast);
+}
+
+.transition-slow {
+  transition-duration: var(--duration-slow);
+}
+
+.transition-transform {
+  transition-property: transform;
+}
+
+.transition-shadow {
+  transition-property: box-shadow;
+}
+
+/* Hover Lift Effect */
+.hover-lift {
+  transition: transform var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Active Press Effect */
+.active-press:active {
+  transform: scale(0.98);
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-in);
+}
+
+/* Focus Ring */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--border-focus);
+  transition: box-shadow var(--duration-normal) var(--ease-default);
+}
+
+/* Selected Glow */
+.selected-glow {
+  box-shadow: var(--shadow-glow-blue);
+  transition: box-shadow var(--duration-slow) var(--ease-default);
+}
+
+/* Forbidden State */
+.forbidden-state {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.forbidden-glow {
+  box-shadow: var(--shadow-glow-red);
+}
+
+/* Animation Classes */
+.animate-fadeIn {
+  animation: fadeIn var(--duration-slow) var(--ease-out) forwards;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp var(--duration-slow) var(--ease-out) forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn var(--duration-slow) var(--ease-out) forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s var(--ease-default) infinite;
+}
+
+.animate-shake {
+  animation: shake var(--duration-normal) var(--ease-default);
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft var(--duration-slow) var(--ease-out) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight var(--duration-slow) var(--ease-out) forwards;
+}
+
+/* Modal Transitions */
+.modal-backdrop {
+  transition: opacity var(--duration-slow) var(--ease-default);
+}
+
+.modal-content {
+  transition: opacity var(--duration-slow) var(--ease-out),
+              transform var(--duration-slow) var(--ease-out);
+}
+
+.modal-content-enter {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+.modal-content-enter-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.modal-content-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.modal-content-exit-active {
+  opacity: 0;
+  transform: scale(0.96);
+  transition-timing-function: var(--ease-in);
+  transition-duration: var(--duration-normal);
+}
+
+/* Card Node Specific */
+.card-node-default {
+  transition: box-shadow var(--duration-normal) var(--ease-default),
+              outline-color var(--duration-normal) var(--ease-default),
+              transform var(--duration-fast) var(--ease-default);
+}
+
+.card-node-hover:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.card-node-selected {
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.card-node-connecting-source {
+  animation: pulse 1.5s var(--ease-default) infinite;
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.card-node-nearby-target {
+  box-shadow: var(--shadow-glow-green);
+  transform: scale(1.02);
+}
+
+.card-node-forbidden {
+  box-shadow: var(--shadow-glow-red);
+  cursor: not-allowed;
+}
+
+/* Edge Specific */
+.edge-default {
+  transition: stroke var(--duration-normal) var(--ease-default),
+              stroke-width var(--duration-normal) var(--ease-default),
+              stroke-dasharray var(--duration-normal) var(--ease-default);
+}
+
+.edge-hover:hover {
+  stroke-width: 3;
+}
+
+.edge-selected {
+  stroke: var(--border-active);
+  stroke-width: 3;
+  stroke-dasharray: 8, 3;
+}
+
+.edge-forbidden {
+  stroke: var(--text-danger);
+  stroke-dasharray: 4, 4;
+}
+
+/* Panel Specific */
+.panel-tab {
+  transition: background-color var(--duration-normal) var(--ease-default),
+              color var(--duration-normal) var(--ease-default);
+}
+
+.panel-tab-hover:hover {
+  background-color: var(--surface-card-hover);
+}
+
+.panel-tab-selected {
+  background-color: var(--surface-card);
+  color: var(--text-primary);
+}
+
+/* Button Specific */
+.btn-base {
+  transition: background-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default),
+              transform var(--duration-fast) var(--ease-in);
+}
+
+.btn-base:active {
+  transform: scale(0.96);
+}
+
+.btn-primary {
+  background-color: var(--color-blue-500);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-blue-600);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--text-danger);
+}
+
+.btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+/* Input Specific */
+.input-base {
+  transition: border-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.input-base:hover {
+  border-color: var(--border-hover);
+}
+
+.input-base:focus {
+  outline: none;
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.input-error {
+  border-color: var(--border-danger);
+  box-shadow: var(--shadow-glow-red);
+}
+
+/* List Item / Card Library Item */
+.list-item {
+  transition: background-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default),
+              transform var(--duration-normal) var(--ease-default);
+}
+
+.list-item:hover {
+  background-color: var(--surface-card-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(2px);
+}
+
+.list-item:active {
+  transform: scale(0.98);
+  background-color: var(--surface-card-active);
+}
+
+.list-item-selected {
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-glow-blue);
+}
+
+/* Section Node */
+.section-node {
+  transition: border-color var(--duration-normal) var(--ease-default),
+              background-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.section-node:hover {
+  border-color: var(--border-hover);
+  background-color: var(--surface-card-hover);
+}
+
+.section-node-selected {
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-glow-blue);
+}
+
+/* Media Node */
+.media-node {
+  transition: box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.media-node:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.media-node-selected {
+  box-shadow: var(--shadow-glow-blue);
+  outline: 2px solid var(--border-active);
+}
+
+/* Loading State */
+.loading-pulse {
+  animation: pulse 1.5s var(--ease-default) infinite;
+}
