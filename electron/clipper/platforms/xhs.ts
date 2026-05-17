@@ -45,7 +45,7 @@ export function extractXHS(url: string, rawHtml: string): ClipResult | null {
       sourceName: '小红书',
       images: [],
       imageUrls,
-    }
+    } as any
   } catch (err) {
     log.warn(`XHS parse failed, falling back to generic: ${err}`)
     return null

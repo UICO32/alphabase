@@ -1,15 +1,15 @@
 import { useLibraryStore } from '../../utils/libraryStore'
-import { getPanelSurface } from '../../theme'
-import { Plus, ZoomIn, ZoomOut, Maximize } from 'lucide-react'
+import { usePanelSurface } from '../../hooks/usePanelSurface'
+import { Plus, ZoomIn, ZoomOut, Maximize, Scissors } from 'lucide-react'
 
 interface ToolbarProps {
   onAddCard?: () => void
+  onClipUrl?: () => void
 }
 
-export function Toolbar({ onAddCard }: ToolbarProps) {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
+export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
   const zoom = useLibraryStore(s => s.zoom)
-  const surface = getPanelSurface(isDarkMode)
+  const surface = usePanelSurface()
 
   return (
     <div
@@ -26,6 +26,16 @@ export function Toolbar({ onAddCard }: ToolbarProps) {
       >
         <Plus size={14} />
         <span>卡片</span>
+      </button>
+
+      <button
+        onClick={onClipUrl}
+        className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
+        style={{ color: surface.text }}
+        title="剪藏网页"
+      >
+        <Scissors size={14} />
+        <span>剪藏</span>
       </button>
 
       <div

@@ -65,5 +65,5 @@ export function extractContent(url: string, rawHtml: string): ClipResult {
     sourceName: new URL(url).hostname,
     images: [],
     imageUrls,
-  }
+  } as any
 }

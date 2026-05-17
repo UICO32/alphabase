@@ -60,8 +60,8 @@ async function handleClip(_event: any, body: ClipRequest): Promise<ClipResult> {
   }
 
   // 4. download images
-  const imageUrls = (result as any).imageUrls || []
-  delete (result as any).imageUrls
+  const imageUrls = result.imageUrls || []
+  delete result.imageUrls
 
   if (imageUrls.length > 0 && workspacePath) {
     const imageInfos = await downloadImages(imageUrls, workspacePath)

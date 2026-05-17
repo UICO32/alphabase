@@ -15,4 +15,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dialog: {
     openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   },
+  clipper: {
+    clip: (url: string, workspacePath?: string) => ipcRenderer.invoke('clipper:clip', { url, workspacePath }),
+  },
+  flomo: {
+    login: (email: string, password: string) => ipcRenderer.invoke('flomo:login', { email, password }),
+    fetchMemos: (accessToken: string, lastSyncTime?: string) => ipcRenderer.invoke('flomo:fetchMemos', { accessToken, lastSyncTime }),
+    downloadImg: (url: string, destPath: string) => ipcRenderer.invoke('flomo:downloadImg', { url, destPath }),
+  },
 })

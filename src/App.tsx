@@ -8,6 +8,8 @@ import { TrashBinPanel } from './components/ui/TrashBinPanel'
 import { SettingsDialog } from './components/ui/SettingsDialog'
 import { WorkspacePicker } from './components/ui/WorkspacePicker'
 import { Toolbar } from './components/ui/Toolbar'
+import { ClipUrlBar } from './components/ui/ClipUrlBar'
+import { TitleBar } from './components/ui/TitleBar'
 import { useLibraryStore } from './utils/libraryStore'
 import { useCardStore } from './utils/cardStore'
 import { useBoardStore } from './utils/boardStore'
@@ -18,12 +20,17 @@ import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 
 function App() {
   const viewMode = useLibraryStore(s => s.viewMode)
-  const leftPanelCollapsed = useLibraryStore(s => s.leftPanelCollapsed)
+  const panelHue = useLibraryStore(s => s.panelHue)
   const [showTrash, setShowTrash] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showWorkspacePicker, setShowWorkspacePicker] = useState(false)
+  const [showClipUrlBar, setShowClipUrlBar] = useState(false)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
   const { dataReady } = useWorkspaceDataLoader()
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--panel-hue', String(panelHue))
+  }, [panelHue])
 
   useEffect(() => {
     if (dataReady) {
@@ -136,12 +143,12 @@ function App() {
     useCardStore.getState().addCard({
       id: cardId,
       content: '[{"type":"paragraph","content":[{"type":"text","text":""}]}]',
-      color: 'blue',
+      color: 'white',
       createdAt: Date.now(),
       title: '新卡片',
     })
 
-    window.dispatchEvent(new CustomEvent('hepta-add-card-node', { detail: { cardId, color: 'blue' } }))
+    window.dispatchEvent(new CustomEvent('hepta-add-card-node', { detail: { cardId, color: 'white' } }))
 
     useLibraryStore.getState().setEditingCardId(cardId)
     useLibraryStore.getState().setRightPanelActiveTab('editor')
@@ -158,30 +165,33 @@ function App() {
         return (
           <>
             <ReactFlowCanvas />
-            <Toolbar onAddCard={handleAddCard} />
+            <Toolbar onAddCard={handleAddCard} onClipUrl={() => setShowClipUrlBar(true)} />
           </>
         )
     }
   }
 
+  const isBoardView = viewMode === 'board'
+
   return (
-    <div className="w-full h-full flex relative transition-theme" style={{ backgroundColor: 'var(--surface-app)' }}>
-      <LeftPanel
-        onOpenSettings={() => setShowSettings(true)}
-        onOpenTrash={() => setShowTrash(true)}
-        onOpenWorkspacePicker={() => setShowWorkspacePicker(true)}
-      />
+    <div className="w-full h-full flex flex-col" style={{ backgroundColor: 'var(--surface-panel)' }}>
+      <TitleBar />
+      <div className={`flex-1 min-h-0 ${isBoardView ? 'relative' : 'flex'}`}>
+        <LeftPanel
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenTrash={() => setShowTrash(true)}
+          onOpenWorkspacePicker={() => setShowWorkspacePicker(true)}
+        />
 
-      <main
-        className="flex-1 relative"
-        style={{
-          paddingLeft: viewMode !== 'board' && !leftPanelCollapsed ? 260 : 0,
-        }}
-      >
-        {renderMainContent()}
-      </main>
+        <main
+          className={`${isBoardView ? 'absolute inset-0 rounded-lg mx-0.5 mb-0.5' : 'flex-1 rounded-lg m-0.5'} overflow-hidden`}
+          style={{ backgroundColor: 'var(--surface-app)' }}
+        >
+          {renderMainContent()}
+        </main>
 
-      {viewMode === 'board' && <RightPanel />}
+        {isBoardView && <RightPanel />}
+      </div>
 
       {showTrash && (
         <TrashBinPanel onClose={() => setShowTrash(false)} />
@@ -192,6 +202,7 @@ function App() {
       {showWorkspacePicker && (
         <WorkspacePicker onClose={() => setShowWorkspacePicker(false)} />
       )}
+      {isBoardView && <ClipUrlBar open={showClipUrlBar} onClose={() => setShowClipUrlBar(false)} />}
     </div>
   )
 }
