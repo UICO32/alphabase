@@ -28,7 +28,7 @@ export function CardContent({
 
   return (
     <div
-      className={canScroll ? 'overflow-y-auto px-6 pb-3' : 'overflow-hidden px-6 pb-3'}
+      className="pb-3"
       style={{
         height: 'calc(100% - 28px)',
         color: textColor,
@@ -40,16 +40,21 @@ export function CardContent({
       onWheelCapture={canScroll ? (e) => e.stopPropagation() : undefined}
     >
       {isEditing ? (
-        <CardBlockNoteEditor
-          ref={editorRef}
-          content={content}
-          onChange={onChange}
-          onBlur={onBlur}
-          theme="light"
-          editable={true}
-          showSideMenu={false}
-          enforceInitialHeading={enforceInitialHeading}
-        />
+        <div
+          className={canScroll ? 'h-full overflow-y-auto px-6' : 'h-full overflow-hidden px-6'}
+          style={{ fontSize: '13px', lineHeight: '1.5', wordBreak: 'break-word' }}
+        >
+          <CardBlockNoteEditor
+            ref={editorRef}
+            content={content}
+            onChange={onChange}
+            onBlur={onBlur}
+            theme="light"
+            editable={true}
+            showSideMenu={false}
+            enforceInitialHeading={enforceInitialHeading}
+          />
+        </div>
       ) : (
         <div
           dangerouslySetInnerHTML={{

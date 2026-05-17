@@ -17,6 +17,10 @@ interface LibraryStore {
   setDarkMode: (dark: boolean) => void
   syncDarkMode: (v: boolean) => void
 
+  // 面板色调
+  panelHue: number
+  setPanelHue: (hue: number) => void
+
   // 左侧面板
   leftPanelCollapsed: boolean
   setLeftPanelCollapsed: (collapsed: boolean) => void
@@ -40,15 +44,11 @@ interface LibraryStore {
   // 画布缩放
   zoom: number
   setZoom: (zoom: number) => void
-
-  // 面板色调
-  panelHue: number
-  setPanelHue: (hue: number) => void
 }
 
-const SIDEBAR_WIDTH_MIN = 240
+const SIDEBAR_WIDTH_MIN = 260
 const SIDEBAR_WIDTH_MAX = 600
-const SIDEBAR_WIDTH_DEFAULT = 320
+const SIDEBAR_WIDTH_DEFAULT = 360
 
 export const useLibraryStore = create<LibraryStore>()(
   (set, get) => ({
@@ -56,13 +56,13 @@ export const useLibraryStore = create<LibraryStore>()(
       viewMode: 'board',
       editingCardId: null,
       isDarkMode: false,
+      panelHue: 220,
       leftPanelCollapsed: false,
       rightPanelCollapsed: false,
       rightPanelWidth: SIDEBAR_WIDTH_DEFAULT,
       rightPanelActiveTab: 'library',
       userSwitchedTab: false,
       zoom: 1,
-      panelHue: 220,
 
       // 视图模式
       setViewMode: (mode) => set({ viewMode: mode }),
@@ -96,8 +96,6 @@ export const useLibraryStore = create<LibraryStore>()(
       // 同时折叠/展开两侧面板
       toggleAllSidebars: () => {
         const { leftPanelCollapsed } = get()
-        // 如果两侧状态相同，则同时切换
-        // 如果不同，则以左侧面板为准，让右侧面板跟随
         const newState = !leftPanelCollapsed
         set({
           leftPanelCollapsed: newState,
@@ -107,5 +105,4 @@ export const useLibraryStore = create<LibraryStore>()(
   }),
 )
 
-// 导出常量供其他组件使用
 export { SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_DEFAULT }

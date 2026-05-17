@@ -1,11 +1,10 @@
 import { useLibraryStore } from '../../utils/libraryStore'
-import { getPanelSurface } from '../../theme'
+import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { ChevronRight } from 'lucide-react'
 
 export function LeftPanelCollapsed() {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const setLeftPanelCollapsed = useLibraryStore(s => s.setLeftPanelCollapsed)
-  const surface = getPanelSurface(isDarkMode)
+  const surface = usePanelSurface()
 
   return (
     <button

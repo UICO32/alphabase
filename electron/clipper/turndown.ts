@@ -1,8 +1,8 @@
-import { JSDOM } from 'jsdom'
+import { parseHTML } from 'linkedom'
 
 export function turndown(html: string): string {
-  const dom = new JSDOM(`<div id="turndown-root">${html}</div>`)
-  const root = dom.window.document.getElementById('turndown-root')
+  const { document } = parseHTML(`<div id="turndown-root">${html}</div>`)
+  const root = document.getElementById('turndown-root')
   if (!root) return ''
   return nodesToMarkdown(Array.from(root.childNodes))
 }

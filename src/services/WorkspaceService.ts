@@ -1,5 +1,5 @@
 import { readJSON, writeJSON, exists, readdir, mkdir, deleteFile } from '../utils/workspace/fs'
-import type { BoardManifest, BoardSnapshot, CardFile, TrashFile } from '../utils/workspace/types'
+import type { BoardManifest, BoardSnapshot, CardFile, TrashFile, WorkspaceMetadata } from '../utils/workspace/types'
 
 export class WorkspaceService {
   private workspacePath: string = ''
@@ -121,6 +121,59 @@ export class WorkspaceService {
       }
     }
     return cleaned
+  }
+
+  // --- Metadata ---
+
+  async loadMetadata(): Promise<WorkspaceMetadata | null> {
+    const path = `${this.workspacePath}/_metadata.json`
+    if (!(await exists(path))) return null
+    try {
+      const data = await readJSON<WorkspaceMetadata>(path)
+      if (data.version !== 1) {
+        console.warn('Metadata version mismatch, treating as missing')
+        return null
+      }
+      return data
+    } catch {
+      return null
+    }
+  }
+
+  async saveMetadata(metadata: WorkspaceMetadata): Promise<void> {
+    await writeJSON(`${this.workspacePath}/_metadata.json`, metadata)
+  }
+
+  async validateConsistency(): Promise<{
+    consistent: boolean
+    metadata: WorkspaceMetadata | null
+    actualCards: number
+    actualBoards: number
+  }> {
+    const metadata = await this.loadMetadata()
+    const cards = await this.loadAllCards()
+    const manifest = await this.loadManifest()
+
+    const actualCards = cards.length
+    const actualBoards = manifest.boards.length
+
+    if (!metadata) {
+      return {
+        consistent: true,
+        metadata: null,
+        actualCards,
+        actualBoards,
+      }
+    }
+
+    const consistent = metadata.cardCount === actualCards && metadata.boardCount === actualBoards
+
+    return {
+      consistent,
+      metadata,
+      actualCards,
+      actualBoards,
+    }
   }
 
   // --- Legacy Migration ---

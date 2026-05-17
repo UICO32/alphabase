@@ -1,6 +1,7 @@
 import { useSyncExternalStore, useState, useEffect } from 'react'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { edgePointOnRect } from '../../utils/geometry'
+import { getBezierPath, Position } from '@xyflow/react'
 import type { Node, ReactFlowInstance } from '@xyflow/react'
 
 interface ConnectionPreviewProps {
@@ -9,16 +10,32 @@ interface ConnectionPreviewProps {
   lastMousePosRef: React.RefObject<{ x: number; y: number } | null>
 }
 
+function getNearestPosition(
+  nodeX: number, nodeY: number, nodeW: number, nodeH: number,
+  targetX: number, targetY: number,
+): Position {
+  const centerX = nodeX + nodeW / 2
+  const centerY = nodeY + nodeH / 2
+  const dx = targetX - centerX
+  const dy = targetY - centerY
+  const absDx = Math.abs(dx)
+  const absDy = Math.abs(dy)
+  if (absDx * nodeH > absDy * nodeW) {
+    return dx > 0 ? Position.Right : Position.Left
+  }
+  return dy > 0 ? Position.Bottom : Position.Top
+}
+
 export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef }: ConnectionPreviewProps) {
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
     connectionMediator.isConnecting.bind(connectionMediator),
   )
-  const [previewLine, setPreviewLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null)
+  const [previewPath, setPreviewPath] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isConnecting) {
-      setPreviewLine(null)
+      setPreviewPath(null)
       return
     }
     let raf = 0
@@ -36,7 +53,44 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
           const scaledW = w * zoom
           const scaledH = h * zoom
           const srcEdge = edgePointOnRect(srcScreen.x, srcScreen.y, scaledW, scaledH, mouse.x, mouse.y)
-          setPreviewLine({ x1: srcEdge.x, y1: srcEdge.y, x2: mouse.x, y2: mouse.y })
+          const srcPos = getNearestPosition(srcScreen.x, srcScreen.y, scaledW, scaledH, mouse.x, mouse.y)
+
+          let targetX = mouse.x
+          let targetY = mouse.y
+          let targetPos: Position = Position.Top
+
+          for (const node of nodesRef.current ?? []) {
+            if (node.id === pending.sourceNodeId) continue
+            const nw = ((node.data as Record<string, unknown>).width as number) ?? 280
+            const nh = ((node.data as Record<string, unknown>).height as number) ?? 200
+            const nodeScreen = rf.flowToScreenPosition(node.position)
+            const scaledNW = nw * zoom
+            const scaledNH = nh * zoom
+
+            if (
+              mouse.x >= nodeScreen.x - 50 &&
+              mouse.x <= nodeScreen.x + scaledNW + 50 &&
+              mouse.y >= nodeScreen.y - 50 &&
+              mouse.y <= nodeScreen.y + scaledNH + 50
+            ) {
+              const snap = edgePointOnRect(nodeScreen.x, nodeScreen.y, scaledNW, scaledNH, srcEdge.x, srcEdge.y)
+              targetX = snap.x
+              targetY = snap.y
+              targetPos = getNearestPosition(nodeScreen.x, nodeScreen.y, scaledNW, scaledNH, srcEdge.x, srcEdge.y)
+              break
+            }
+          }
+
+          const [path] = getBezierPath({
+            sourceX: srcEdge.x,
+            sourceY: srcEdge.y,
+            sourcePosition: srcPos,
+            targetX,
+            targetY,
+            targetPosition: targetPos,
+          })
+
+          setPreviewPath(path)
         }
       }
       raf = requestAnimationFrame(tick)
@@ -45,7 +99,7 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
     return () => cancelAnimationFrame(raf)
   }, [isConnecting, nodesRef, reactFlowInstance, lastMousePosRef])
 
-  if (!previewLine) return null
+  if (!previewPath) return null
 
   return (
     <svg
@@ -72,11 +126,9 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
         </marker>
       </defs>
-      <line
-        x1={previewLine.x1}
-        y1={previewLine.y1}
-        x2={previewLine.x2}
-        y2={previewLine.y2}
+      <path
+        d={previewPath}
+        fill="none"
         stroke="#3b82f6"
         strokeWidth={2}
         strokeDasharray="6,4"

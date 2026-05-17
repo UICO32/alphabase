@@ -44,6 +44,11 @@
   75% { transform: translateX(4px); }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Transition Utility Classes */
 .transition-theme {
   transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
@@ -289,24 +294,24 @@
 }
 
 /* List Item / Card Library Item */
-.list-item {
+.hepta-list-item {
   transition: background-color var(--duration-normal) var(--ease-default),
               box-shadow var(--duration-normal) var(--ease-default),
               transform var(--duration-normal) var(--ease-default);
 }
 
-.list-item:hover {
+.hepta-list-item:hover {
   background-color: var(--surface-card-hover);
   box-shadow: var(--shadow-sm);
   transform: translateX(2px);
 }
 
-.list-item:active {
+.hepta-list-item:active {
   transform: scale(0.98);
   background-color: var(--surface-card-active);
 }
 
-.list-item-selected {
+.hepta-list-item-selected {
   border-color: var(--border-active);
   box-shadow: var(--shadow-glow-blue);
 }

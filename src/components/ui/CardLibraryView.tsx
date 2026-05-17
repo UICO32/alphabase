@@ -1,16 +1,22 @@
 import { useState, useMemo } from 'react'
-import { useLibraryStore } from '../../utils/libraryStore'
 import { useCardStore } from '../../utils/cardStore'
-import { getPanelSurface } from '../../theme'
+import { usePanelSurface } from '../../hooks/usePanelSurface'
+import { useFlomoSyncStore } from '../../utils/flomoSync'
 import { SearchInput, EmptyState } from './SharedUI'
 import { CardEditDialog } from './CardEditDialog'
-import { Layers, GripVertical } from 'lucide-react'
+import { Layers, RefreshCw } from 'lucide-react'
 
-export function CardLibraryView() {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
+interface CardLibraryViewProps {
+  onOpenSettings?: () => void
+}
+
+export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
   const cards = useCardStore(s => s.cards)
+  const syncing = useFlomoSyncStore(s => s.syncing)
+  const accessToken = useFlomoSyncStore(s => s.accessToken)
+  const sync = useFlomoSyncStore(s => s.sync)
 
-  const surface = getPanelSurface(isDarkMode)
+  const surface = usePanelSurface()
   const [searchQuery, setSearchQuery] = useState('')
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
 
@@ -31,17 +37,36 @@ export function CardLibraryView() {
     e.dataTransfer.effectAllowed = 'copy'
   }
 
-  return (
-    <div className="flex flex-col h-full" style={{ backgroundColor: surface.panelBg }}>
-      <div className="p-2">
-        <SearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="搜索卡片..."
-        />
-      </div>
+  const handleSyncClick = () => {
+    if (!accessToken) {
+      onOpenSettings?.()
+      return
+    }
+    sync()
+  }
 
-      <div className="flex-1 overflow-y-auto p-2">
+  return (
+    <div className="w-full h-full overflow-y-auto" style={{ backgroundColor: surface.panelBg }}>
+      <div className="p-4">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex-1">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="搜索卡片..."
+            />
+          </div>
+          <button
+            onClick={handleSyncClick}
+            disabled={syncing}
+            className="btn-base p-2 rounded-lg shrink-0"
+            style={{ color: surface.muted }}
+            title={accessToken ? '同步 Flomo' : '连接 Flomo'}
+          >
+            <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
         {visibleCards.length === 0 ? (
           <EmptyState
             icon={<Layers size={24} />}
@@ -56,45 +81,36 @@ export function CardLibraryView() {
                 draggable
                 onDragStart={(e) => handleDragStart(e, card.id)}
                 onClick={() => setEditingCardId(card.id)}
-                className="list-item group relative p-3 rounded-lg cursor-pointer active:cursor-grabbing"
+                className="hepta-list-item group relative p-3 rounded-lg cursor-pointer active:cursor-grabbing"
                 style={{
                   backgroundColor: surface.surface,
                   border: `1px solid ${surface.divider}`,
                 }}
               >
-                <div
-                  className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-theme"
-                  style={{ color: surface.muted }}
-                >
-                  <GripVertical size={14} />
-                </div>
-
-                <div className="pl-4">
-                  {card.title ? (
-                    <div className="text-sm font-medium mb-1" style={{ color: surface.text }}>
-                      {card.title}
-                    </div>
-                  ) : null}
-                  <div
-                    className="text-xs line-clamp-3"
-                    style={{ color: surface.muted }}
-                    dangerouslySetInnerHTML={{ __html: card.previewHTML || '无内容' }}
-                  />
-                  <div className="mt-2 text-[10px]" style={{ color: surface.muted }}>
-                    {new Date(card.createdAt).toLocaleDateString('zh-CN')}
+                {card.title && card.title !== '新卡片' ? (
+                  <div className="text-sm font-medium mb-1" style={{ color: surface.text }}>
+                    {card.title}
                   </div>
+                ) : null}
+                <div
+                  className="text-xs line-clamp-3 card-preview-html"
+                  style={{ color: surface.muted }}
+                  dangerouslySetInnerHTML={{ __html: card.previewHTML || '无内容' }}
+                />
+                <div className="mt-2 text-[10px]" style={{ color: surface.muted }}>
+                  {new Date(card.createdAt).toLocaleDateString('zh-CN')}
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
 
-      <div
-        className="px-3 py-2 text-[10px] text-center"
-        style={{ color: surface.muted }}
-      >
-        拖拽到画布创建引用 · 按住 Alt 拖拽创建新实例
+        <div
+          className="px-3 py-2 text-[10px] text-center"
+          style={{ color: surface.muted }}
+        >
+          拖拽到画布创建引用 · 按住 Alt 拖拽创建新实例
+        </div>
       </div>
 
       {editingCardId && (

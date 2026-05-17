@@ -9,13 +9,6 @@ import { Md5 } from 'ts-md5'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: 'hepta-media',
-    privileges: { bypassCSP: true, stream: true, supportFetchAPI: false },
-  },
-])
-
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
@@ -54,8 +47,9 @@ app.whenReady().then(() => {
   protocol.handle('hepta-media', async (request) => {
     try {
       const url = new URL(request.url)
-      const filename = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
-      const workspacePath = url.searchParams.get('workspace') || ''
+      // hepta-media://filename?workspace=... — filename is parsed as hostname, not pathname
+      const filename = url.pathname.replace(/^\/+/, '') || url.hostname
+      const workspacePath = (url.searchParams.get('workspace') || '').split('/').join('\\')
       const filePath = join(workspacePath, 'media', filename)
       const data = await readFile(filePath)
       const ext = filename.split('.').pop()?.toLowerCase() || 'jpg'
@@ -191,9 +185,19 @@ ipcMain.handle('flomo:login', async (_event, { email, password }: { email: strin
 ipcMain.handle('flomo:fetchMemos', async (_event, { accessToken, lastSyncTime }: { accessToken: string; lastSyncTime?: string }) => {
   const allMemos: any[] = []
   let latestSlug = ''
-  let latestUpdatedAt = lastSyncTime || ''
+  let latestUpdatedAt = ''
+  let pageCount = 0
+  const MAX_PAGES = 100
+
+  console.log(`[flomo] fetchMemos start, lastSyncTime: ${lastSyncTime || 'none'}`)
 
   while (true) {
+    pageCount++
+    if (pageCount > MAX_PAGES) {
+      console.log(`[flomo] fetchMemos reached max pages (${MAX_PAGES}), stopping`)
+      break
+    }
+
     const ts = String(Math.floor(Date.now() / 1000))
     const params: Record<string, string> = {
       api_key: 'flomo_web',
@@ -203,7 +207,7 @@ ipcMain.handle('flomo:fetchMemos', async (_event, { accessToken, lastSyncTime }:
       tz: '8:0',
       webp: '1',
     }
-    if (latestSlug) {
+    if (pageCount > 1 && latestSlug) {
       params.latest_slug = latestSlug
       params.latest_updated_at = latestUpdatedAt
     }
@@ -211,22 +215,34 @@ ipcMain.handle('flomo:fetchMemos', async (_event, { accessToken, lastSyncTime }:
 
     const url = `https://flomoapp.com/api/v1/memo/updated?${new URLSearchParams(params).toString()}`
     const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
     })
-    const data = await resp.json()
+    const text = await resp.text()
+    let data: any
+    try {
+      data = JSON.parse(text)
+    } catch {
+      console.error(`[flomo] fetchMemos response: ${text.slice(0, 500)}`)
+      throw new Error('flomo API 返回非 JSON 数据')
+    }
 
     if (data.code === -10) throw new Error('TOKEN_EXPIRED')
     if (data.code !== 0) throw new Error(data.message || '获取 memo 失败')
 
     const records = data.data || []
     allMemos.push(...records)
+    console.log(`[flomo] page ${pageCount}: ${records.length} memos, total: ${allMemos.length}`)
     if (records.length < 200) break
 
     const last = records[records.length - 1]
     latestSlug = last.slug
-    latestUpdatedAt = last.updated_at
+    latestUpdatedAt = String(Math.floor(new Date(last.updated_at).getTime() / 1000))
   }
 
+  console.log(`[flomo] fetchMemos done, total: ${allMemos.length} memos`)
   return { memos: allMemos }
 })
 

@@ -30,9 +30,9 @@
   --color-red-600: #dc2626;
 
   /* Surface */
-  --surface-app: #fafafa;
-  --surface-panel: #fafafa;
-  --surface-panel-alt: #fafaf9;
+  --surface-app: #ffffff;
+  --surface-panel: hsl(var(--panel-hue, 0), 4%, 96%);
+  --surface-panel-alt: hsl(var(--panel-hue, 0), 4%, 92%);
   --surface-card: #ffffff;
   --surface-card-hover: #fafafa;
   --surface-card-active: #f4f4f5;
@@ -117,8 +117,8 @@
 
 [data-theme="dark"] {
   --surface-app: #0a0f1a;
-  --surface-panel: #0f172a;
-  --surface-panel-alt: #111c31;
+  --surface-panel: hsl(var(--panel-hue, 220), 40%, 7%);
+  --surface-panel-alt: hsl(var(--panel-hue, 220), 40%, 10%);
   --surface-card: #0b1220;
   --surface-card-hover: #111c31;
   --surface-card-active: #1e293b;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useCardStore } from '../utils/cardStore'
 import { useBoardStore } from '../utils/boardStore'
 import { useTrashStore } from '../utils/trashStore'
@@ -8,6 +8,7 @@ import { WorkspaceSyncEngine, initElectronFSAdapter, cardFileToGlobalCard } from
 import { createFileSystemBackup } from '../utils/backupStore'
 import { setActiveSyncEngine } from '../utils/syncEngineRef'
 import type { CardColor } from '../types/card'
+import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
@@ -65,11 +66,150 @@ function ensureDefaultBoard() {
 export function useWorkspaceDataLoader() {
   const [initKey, setInitKey] = useState(0)
   const [dataReady, setDataReady] = useState(false)
+  const [conflict, setConflict] = useState<ConflictData | null>(null)
+  const [pendingWorkspacePath, setPendingWorkspacePath] = useState<string | null>(null)
+
+  const handleConflictChoice = useCallback((choice: 'backup' | 'continue' | 'cancel') => {
+    setConflict(null)
+
+    if (choice === 'cancel') {
+      setPendingWorkspacePath(null)
+      ensureGlobalDemoCards()
+      ensureDefaultBoard()
+      setDataReady(true)
+      return
+    }
+
+    if (choice === 'backup' && pendingWorkspacePath) {
+      // TODO: Implement backup restoration
+      console.warn('Backup restoration not yet implemented')
+    }
+
+    // Continue loading: proceed with the workspace
+    if (pendingWorkspacePath) {
+      loadWorkspaceData(pendingWorkspacePath, true)
+    }
+  }, [pendingWorkspacePath])
+
+  const loadWorkspaceData = useCallback(async (workspacePath: string, skipValidation: boolean = false) => {
+    const service = new WorkspaceService()
+    service.setWorkspacePath(workspacePath)
+
+    if (!skipValidation) {
+      const validation = await service.validateConsistency()
+
+      if (!validation.consistent && validation.metadata) {
+        setConflict({
+          expectedCards: validation.metadata.cardCount,
+          actualCards: validation.actualCards,
+          expectedBoards: validation.metadata.boardCount,
+          actualBoards: validation.actualBoards,
+        })
+        setPendingWorkspacePath(workspacePath)
+        return
+      }
+    }
+
+    const syncEngine = new WorkspaceSyncEngine()
+    await syncEngine.init(workspacePath)
+    setActiveSyncEngine(syncEngine)
+
+    const manifest = await service.loadManifest()
+    useBoardStore.getState().setBoards(manifest.boards)
+
+    const cardFiles = await service.loadAllCards()
+    const globalCards: Record<string, ReturnType<typeof cardFileToGlobalCard>> = {}
+    for (const cf of cardFiles) {
+      globalCards[cf.id] = cardFileToGlobalCard(cf)
+    }
+    await useCardStore.getState().loadCardsFromDB(globalCards)
+
+    migrateFromLocalStorageIfNeeded()
+
+    for (const board of manifest.boards) {
+      const snapshot = await service.loadBoard(board.id)
+      if (snapshot) {
+        useBoardStore.getState().saveBoardData(board.id, {
+          nodes: snapshot.nodes,
+          edges: snapshot.edges,
+        })
+      }
+    }
+
+    try {
+      const trashItems = await service.loadAllTrash()
+      const validItems = trashItems.filter(item => item.expiresAt > Date.now()).map(item => ({
+        ...item,
+        color: (item.color as CardColor) || 'white',
+      }))
+      useTrashStore.setState({ items: validItems })
+
+      const cardStore = useCardStore.getState()
+      for (const item of validItems) {
+        const card = cardStore.cards[item.cardId]
+        if (card && !card.deletedAt) {
+          useCardStore.getState().softDeleteCard(item.cardId)
+        }
+        if (!card) {
+          useCardStore.getState().addCard({
+            id: item.cardId,
+            content: item.content,
+            color: (item.color as CardColor) || 'white',
+            createdAt: item.createdAt,
+            title: item.title,
+            deletedAt: item.deletedAt,
+          })
+        }
+      }
+
+      for (const card of Object.values(cardStore.cards)) {
+        if (card.deletedAt && !validItems.some(t => t.cardId === card.id)) {
+          useTrashStore.getState().addItem({
+            id: `trash-${card.id}`,
+            cardId: card.id,
+            title: card.title || '无标题',
+            content: card.content,
+            color: card.color,
+            createdAt: card.createdAt,
+            enforceInitialHeading: card.enforceInitialHeading,
+            fixedHeight: card.fixedHeight,
+            collapsed: card.collapsed,
+          })
+        }
+      }
+    } catch {
+      /* noop */
+    }
+
+    try {
+      await service.cleanExpiredTrash()
+    } catch {
+      /* noop */
+    }
+
+    // Update metadata after successful load
+    try {
+      await service.saveMetadata({
+        version: 1,
+        cardCount: cardFiles.length,
+        boardCount: manifest.boards.length,
+        lastModified: Date.now(),
+      })
+    } catch {
+      console.warn('Failed to save workspace metadata')
+    }
+
+    createFileSystemBackup(workspacePath).catch(() => {})
+
+    setDataReady(true)
+  }, [])
 
   useEffect(() => {
     const handleReinit = () => {
       setInitKey(k => k + 1)
       setDataReady(false)
+      setConflict(null)
+      setPendingWorkspacePath(null)
     }
     window.addEventListener('hepta-reinit-workspace', handleReinit)
     return () => window.removeEventListener('hepta-reinit-workspace', handleReinit)
@@ -92,89 +232,9 @@ export function useWorkspaceDataLoader() {
 
         initElectronFSAdapter()
 
-        const service = new WorkspaceService()
-        service.setWorkspacePath(workspacePath)
-
-        const syncEngine = new WorkspaceSyncEngine()
-        await syncEngine.init(workspacePath)
-        setActiveSyncEngine(syncEngine)
-
-        const manifest = await service.loadManifest()
-        useBoardStore.getState().setBoards(manifest.boards)
-
-        const cardFiles = await service.loadAllCards()
-        const globalCards: Record<string, ReturnType<typeof cardFileToGlobalCard>> = {}
-        for (const cf of cardFiles) {
-          globalCards[cf.id] = cardFileToGlobalCard(cf)
+        if (!cancelled) {
+          await loadWorkspaceData(workspacePath)
         }
-        await useCardStore.getState().loadCardsFromDB(globalCards)
-
-        migrateFromLocalStorageIfNeeded()
-
-        for (const board of manifest.boards) {
-          const snapshot = await service.loadBoard(board.id)
-          if (snapshot) {
-            useBoardStore.getState().saveBoardData(board.id, {
-              nodes: snapshot.nodes,
-              edges: snapshot.edges,
-            })
-          }
-        }
-
-        try {
-          const trashItems = await service.loadAllTrash()
-          const validItems = trashItems.filter(item => item.expiresAt > Date.now()).map(item => ({
-            ...item,
-            color: (item.color as CardColor) || 'white',
-          }))
-          useTrashStore.setState({ items: validItems })
-
-          const cardStore = useCardStore.getState()
-          for (const item of validItems) {
-            const card = cardStore.cards[item.cardId]
-            if (card && !card.deletedAt) {
-              useCardStore.getState().softDeleteCard(item.cardId)
-            }
-            if (!card) {
-              useCardStore.getState().addCard({
-                id: item.cardId,
-                content: item.content,
-                color: (item.color as CardColor) || 'white',
-                createdAt: item.createdAt,
-                title: item.title,
-                deletedAt: item.deletedAt,
-              })
-            }
-          }
-
-          for (const card of Object.values(cardStore.cards)) {
-            if (card.deletedAt && !validItems.some(t => t.cardId === card.id)) {
-              useTrashStore.getState().addItem({
-                id: `trash-${card.id}`,
-                cardId: card.id,
-                title: card.title || '无标题',
-                content: card.content,
-                color: card.color,
-                createdAt: card.createdAt,
-                enforceInitialHeading: card.enforceInitialHeading,
-                fixedHeight: card.fixedHeight,
-                collapsed: card.collapsed,
-              })
-            }
-          }
-        } catch {
-          /* noop */
-        }
-
-        try {
-          await service.cleanExpiredTrash()
-        } catch {
-          /* noop */
-        }
-
-        createFileSystemBackup(workspacePath).catch(() => {})
-
-        if (!cancelled) setDataReady(true)
       } catch {
         ensureGlobalDemoCards()
         ensureDefaultBoard()
@@ -183,7 +243,7 @@ export function useWorkspaceDataLoader() {
     })()
 
     return () => { cancelled = true }
-  }, [initKey])
+  }, [initKey, loadWorkspaceData])
 
-  return { dataReady }
+  return { dataReady, conflict, handleConflictChoice }
 }

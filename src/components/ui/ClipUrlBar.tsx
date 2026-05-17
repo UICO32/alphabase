@@ -50,7 +50,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         { type: 'paragraph', content: [{ type: 'text', text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', styles: {} }] },
         { type: 'paragraph', content: [{ type: 'text', text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', styles: {} }] },
         { type: 'paragraph', content: [{ type: 'text', text: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', styles: {} }] },
-        { type: 'paragraph', content: [{ type: 'text', text: trimmed, styles: { link: trimmed } }] },
+        { type: 'paragraph', content: [{ type: 'link', href: trimmed, content: [{ type: 'text', text: trimmed, styles: {} }] }] },
       ]),
       color: 'blue',
       createdAt: Date.now(),
@@ -70,7 +70,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
       })
       blocks.splice(1, 0, {
         type: 'paragraph',
-        content: [{ type: 'text', text: `来源: ${result.sourceName}`, styles: { link: result.sourceUrl } }],
+        content: [{ type: 'link', href: result.sourceUrl, content: [{ type: 'text', text: `来源: ${result.sourceName}`, styles: {} }] }],
       })
 
       useCardStore.getState().updateCard(cardId, {
@@ -95,7 +95,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         content: JSON.stringify([
           { type: 'heading', props: { level: 2 }, content: [{ type: 'text', text: '剪藏失败', styles: {} }] },
           { type: 'paragraph', content: [{ type: 'text', text: errorMessage, styles: {} }] },
-          { type: 'paragraph', content: [{ type: 'text', text: trimmed, styles: { link: trimmed } }] },
+          { type: 'paragraph', content: [{ type: 'link', href: trimmed, content: [{ type: 'text', text: trimmed, styles: {} }] }] },
         ]),
         color: 'yellow',
         title: '剪藏失败',

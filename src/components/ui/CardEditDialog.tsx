@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
-import { useLibraryStore } from '../../utils/libraryStore'
+import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../utils/cardStore'
 import { useTrashStore } from '../../utils/trashStore'
-import { getPanelSurface } from '../../theme'
+import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { CardBlockNoteEditor } from '../editor/BlockNoteEditor'
 import { X, Trash2 } from 'lucide-react'
 import { CARD_COLORS, type CardColor } from '../../types/card'
@@ -13,8 +13,8 @@ interface CardEditDialogProps {
 }
 
 export function CardEditDialog({ cardId, onClose }: CardEditDialogProps) {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
-  const surface = getPanelSurface(isDarkMode)
+  const isDarkMode = useIsDarkMode()
+  const surface = usePanelSurface()
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
   const softDeleteCard = useCardStore(s => s.softDeleteCard)

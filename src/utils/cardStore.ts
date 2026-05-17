@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useCallback } from 'react'
 import { renderBlocksToHTML } from './renderBlocks'
 import type { CardColor } from '../types/card'
 
@@ -108,3 +109,9 @@ export const useCardStore = create<CardStore>()(
       },
   }),
 )
+
+export function useCard(cardId: string) {
+  return useCardStore(
+    useCallback((s) => s.cards[cardId], [cardId])
+  )
+}

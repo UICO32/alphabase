@@ -31,10 +31,14 @@ async function downloadOne(
   index: number,
   mediaDir: string
 ): Promise<ImageInfo> {
+  // 微信图片需要特定 Referer
+  const referer = url.includes('mmbiz.qpic.cn') || url.includes('mmbiz.qlogo.cn')
+    ? 'https://mp.weixin.qq.com/'
+    : url
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      Referer: url,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+      Referer: referer,
     },
     signal: AbortSignal.timeout(15000),
   })
@@ -101,7 +105,8 @@ export function replaceImageUrls(html: string, markdown: string, imageInfos: Ima
   let newHtml = html
   let newMarkdown = markdown
   for (const info of imageInfos) {
-    const localUrl = `hepta-media://${info.localFilename}?workspace=${encodeURIComponent(workspacePath)}`
+    const slashPath = workspacePath.split('\\').join('/')
+    const localUrl = `hepta-media://${info.localFilename}?workspace=${encodeURIComponent(slashPath)}`
     newHtml = newHtml.replace(new RegExp(escapeRegExp(info.originalUrl), 'g'), localUrl)
     newMarkdown = newMarkdown.replace(new RegExp(escapeRegExp(info.originalUrl), 'g'), localUrl)
   }

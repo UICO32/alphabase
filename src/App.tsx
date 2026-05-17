@@ -17,6 +17,7 @@ import { useTrashStore } from './utils/trashStore'
 import { useWorkspaceStore } from './utils/workspace/workspaceStore'
 import { stopActiveSyncEngine } from './utils/syncEngineRef'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
+import { WorkspaceConflictDialog } from './components/ui/WorkspaceConflictDialog'
 
 function App() {
   const viewMode = useLibraryStore(s => s.viewMode)
@@ -26,7 +27,7 @@ function App() {
   const [showWorkspacePicker, setShowWorkspacePicker] = useState(false)
   const [showClipUrlBar, setShowClipUrlBar] = useState(false)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
-  const { dataReady } = useWorkspaceDataLoader()
+  const { dataReady, conflict, handleConflictChoice } = useWorkspaceDataLoader()
 
   useEffect(() => {
     document.documentElement.style.setProperty('--panel-hue', String(panelHue))
@@ -56,7 +57,8 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!currentWorkspace) {
+    const savedPath = localStorage.getItem('hepta-last-workspace-path')
+    if (!currentWorkspace && !savedPath) {
       setShowWorkspacePicker(true)
     }
   }, [currentWorkspace])
@@ -159,7 +161,7 @@ function App() {
       case 'boardLibrary':
         return <BoardLibraryView />
       case 'cards':
-        return <CardLibraryView />
+        return <CardLibraryView onOpenSettings={() => setShowSettings(true)} />
       case 'board':
       default:
         return (
@@ -190,7 +192,7 @@ function App() {
           {renderMainContent()}
         </main>
 
-        {isBoardView && <RightPanel />}
+        {isBoardView && <RightPanel onOpenSettings={() => setShowSettings(true)} />}
       </div>
 
       {showTrash && (
@@ -203,6 +205,14 @@ function App() {
         <WorkspacePicker onClose={() => setShowWorkspacePicker(false)} />
       )}
       {isBoardView && <ClipUrlBar open={showClipUrlBar} onClose={() => setShowClipUrlBar(false)} />}
+
+      {conflict && (
+        <WorkspaceConflictDialog
+          conflict={conflict}
+          hasBackup={false}
+          onChoice={handleConflictChoice}
+        />
+      )}
     </div>
   )
 }

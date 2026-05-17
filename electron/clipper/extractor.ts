@@ -1,13 +1,8 @@
 import { Readability } from '@mozilla/readability'
-import { JSDOM } from 'jsdom'
-import TurndownService from 'turndown'
+import { parseHTML } from 'linkedom'
+import { turndown } from './turndown'
 import { log } from './logger'
 import type { ClipResult, Platform } from './types'
-
-const turndown = new TurndownService({
-  headingStyle: 'atx',
-  codeBlockStyle: 'fenced',
-})
 
 export function detectPlatform(url: string): Platform {
   const hostname = new URL(url).hostname
@@ -17,25 +12,24 @@ export function detectPlatform(url: string): Platform {
 }
 
 export function extractContent(url: string, rawHtml: string): ClipResult {
-  const doc = new JSDOM(rawHtml, { url })
-  const window = doc.window
+  const { document } = parseHTML(rawHtml)
 
-  for (const el of window.document.querySelectorAll(
+  for (const el of document.querySelectorAll(
     'script, style, nav, footer, iframe, .ad, .advertisement'
   )) {
     el.remove()
   }
 
-  const reader = new Readability(window.document)
+  const reader = new Readability(document)
   const article = reader.parse()
 
   if (!article || !article.content) {
     throw Object.assign(new Error('无法提取有效内容'), { code: 'NO_CONTENT' })
   }
 
-  const contentDoc = new JSDOM(article.content).window.document
+  const contentDoc = parseHTML(article.content).document
 
-  for (const img of contentDoc.querySelectorAll('img')) {
+  for (const img of contentDoc.querySelectorAll('img') as NodeListOf<HTMLImageElement>) {
     const dataSrc =
       img.getAttribute('data-src') ||
       img.getAttribute('data-original') ||
@@ -49,9 +43,9 @@ export function extractContent(url: string, rawHtml: string): ClipResult {
   }
 
   const html = contentDoc.body.innerHTML
-  const markdown = turndown.turndown(html)
+  const markdown = turndown(html)
 
-  const imageUrls = Array.from(contentDoc.querySelectorAll('img'))
+  const imageUrls = Array.from(contentDoc.querySelectorAll('img') as NodeListOf<HTMLImageElement>)
     .map((img) => img.getAttribute('src')?.trim())
     .filter((src): src is string => Boolean(src))
 

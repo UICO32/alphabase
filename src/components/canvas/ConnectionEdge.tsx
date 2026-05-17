@@ -1,10 +1,11 @@
+import { memo } from 'react'
 import {
   BaseEdge,
   getBezierPath,
   type EdgeProps,
 } from '@xyflow/react'
 
-export function ConnectionEdge({
+function ConnectionEdge({
   sourceX,
   sourceY,
   targetX,
@@ -13,7 +14,6 @@ export function ConnectionEdge({
   targetPosition,
   selected,
   style = {},
-  markerEnd,
 }: EdgeProps) {
   const [edgePath] = getBezierPath({
     sourceX,
@@ -26,9 +26,33 @@ export function ConnectionEdge({
 
   return (
     <>
+      <defs>
+        <marker
+          id="edge-arrow"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="5"
+          markerHeight="5"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-tertiary)" />
+        </marker>
+        <marker
+          id="edge-arrow-selected"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="5"
+          markerHeight="5"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--border-active)" />
+        </marker>
+      </defs>
       <BaseEdge
         path={edgePath}
-        markerEnd={markerEnd}
+        markerEnd={selected ? 'url(#edge-arrow-selected)' : 'url(#edge-arrow)'}
         className="edge-default"
         style={{
           ...style,
@@ -50,3 +74,5 @@ export function ConnectionEdge({
     </>
   )
 }
+
+export const MemoizedConnectionEdge = memo(ConnectionEdge)

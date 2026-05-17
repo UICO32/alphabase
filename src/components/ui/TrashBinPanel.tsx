@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
-import { useLibraryStore } from '../../utils/libraryStore'
 import { useCardStore } from '../../utils/cardStore'
 import { useTrashStore } from '../../utils/trashStore'
-import { getPanelSurface } from '../../theme'
+import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { EmptyState } from './SharedUI'
 import { Trash2, RotateCcw, Trash, X } from 'lucide-react'
 
@@ -11,8 +10,7 @@ interface TrashBinPanelProps {
 }
 
 export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
-  const surface = getPanelSurface(isDarkMode)
+  const surface = usePanelSurface()
   const cards = useCardStore(s => s.cards)
   const restoreCard = useCardStore(s => s.restoreCard)
   const deleteCard = useCardStore(s => s.deleteCard)
@@ -111,7 +109,7 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
               {deletedCards.map((card) => (
                 <div
                   key={card.id}
-                  className="list-item flex items-center justify-between p-3 rounded-lg"
+                  className="hepta-list-item flex items-center justify-between p-3 rounded-lg"
                   style={{
                     backgroundColor: surface.surface,
                     border: `1px solid ${surface.divider}`,

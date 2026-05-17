@@ -8,6 +8,15 @@ import '@blocknote/mantine/style.css'
 import { ImageToolbar } from './ImageToolbar'
 import { useImageColumnDrop } from './useImageColumnDrop'
 import { DragOnlySideMenu } from './DragOnlySideMenu'
+import {
+  fileToDataUrl,
+  isImageFile,
+  isReadableImageUrl,
+  readClipboardImageFiles,
+  parseContentToBlocks,
+  toComparableJson,
+  SAVE_DEBOUNCE_MS
+} from '../../utils/richTextUtils'
 
 export interface BlockNoteEditorHandle {
   focus: () => void
@@ -25,77 +34,6 @@ export interface BlockNoteEditorProps {
   editable?: boolean
   showSideMenu?: boolean
   enforceInitialHeading?: boolean
-}
-
-async function fileToDataUrl(file: File) {
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result)
-      } else {
-        reject(new Error('Failed to read file as data URL'))
-      }
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'))
-    reader.readAsDataURL(file)
-  })
-}
-
-function isImageFile(file: File) {
-  if (file.type.toLowerCase().startsWith('image/')) return true
-  return /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i.test(file.name)
-}
-
-function isReadableImageUrl(url: string) {
-  return url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')
-}
-
-async function readClipboardImageFiles() {
-  if (typeof navigator === 'undefined' || typeof navigator.clipboard?.read !== 'function') {
-    return []
-  }
-
-  try {
-    const clipboardItems = await navigator.clipboard.read()
-    const files: File[] = []
-
-    for (const item of clipboardItems) {
-      for (const type of item.types) {
-        if (!type.startsWith('image/')) continue
-        const blob = await item.getType(type)
-        const extension = type.split('/')[1] || 'png'
-        files.push(new File([blob], `pasted-image.${extension}`, { type: blob.type || type }))
-      }
-    }
-
-    return files
-  } catch (error) {
-    console.warn('Could not read image from clipboard API:', error)
-    return []
-  }
-}
-
-const SAVE_DEBOUNCE_MS = 400
-
-function parseContentToBlocks(content: string): unknown[] | undefined {
-  try {
-    const parsed = JSON.parse(content)
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed
-  } catch {
-    const text = content.trim()
-    if (text) {
-      return [{ type: 'paragraph', content: [{ type: 'text', text }] }]
-    }
-  }
-  return undefined
-}
-
-function toComparableJson(value: unknown) {
-  return JSON.stringify(value, (key, current) => {
-    if (key === 'id') return undefined
-    return current
-  })
 }
 
 const CardBlockNoteEditorInner = (
@@ -396,7 +334,7 @@ const CardBlockNoteEditorInner = (
             border-left: 3px solid rgba(0,0,0,0.15) !important;
             font-style: italic !important;
           }
-          .card-blocknote-editor [data-content-type="image"] img {
+          .card-blocknote-editor .bn-visual-media {
             max-width: 100% !important;
             height: auto !important;
             border-radius: 6px !important;
@@ -425,43 +363,4 @@ const CardBlockNoteEditorInner = (
   }
 
 export const CardBlockNoteEditor = forwardRef<BlockNoteEditorHandle, BlockNoteEditorProps>(CardBlockNoteEditorInner)
-
-function extractText(value: unknown, parts: string[]) {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (trimmed) parts.push(trimmed)
-    return
-  }
-  if (!value || typeof value !== 'object') return
-  if (Array.isArray(value)) {
-    for (const item of value) extractText(item, parts)
-    return
-  }
-  const record = value as Record<string, unknown>
-  if (record.type === 'image') parts.push('[Image]')
-  if (typeof record.text === 'string') {
-    const text = record.text.trim()
-    if (text) parts.push(text)
-  }
-  if (typeof record.caption === 'string') {
-    const caption = record.caption.trim()
-    if (caption) parts.push(caption)
-  }
-  if (typeof record.name === 'string') {
-    const name = record.name.trim()
-    if (name) parts.push(name)
-  }
-  if ('content' in record) extractText(record.content, parts)
-  if ('children' in record) extractText(record.children, parts)
-}
-
-export function summarizeRichTextPreview(content: string) {
-  const parts: string[] = []
-  try {
-    extractText(JSON.parse(content), parts)
-  } catch {
-    if (content.trim()) parts.push(content.trim())
-  }
-  return parts.join(' ').replace(/\s+/g, ' ').trim()
-}
 

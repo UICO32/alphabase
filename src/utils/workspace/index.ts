@@ -7,6 +7,7 @@ export { useWorkspaceStore } from './workspaceStore'
 export type {
   WorkspaceMeta,
   WorkspaceSettings,
+  WorkspaceMetadata,
   BoardMeta,
   BoardManifest,
   BoardNode,

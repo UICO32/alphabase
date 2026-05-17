@@ -85,6 +85,13 @@ export interface TrashFile {
   tags?: string[]
 }
 
+export interface WorkspaceMetadata {
+  version: 1
+  cardCount: number
+  boardCount: number
+  lastModified: number
+}
+
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   theme: 'light',
   autoCollapseCards: false,

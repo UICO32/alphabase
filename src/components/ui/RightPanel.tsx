@@ -1,15 +1,18 @@
-import { useCallback, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../utils/libraryStore'
 import { useCardStore } from '../../utils/cardStore'
-import { getPanelSurface } from '../../theme'
+import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
 import { CardBlockNoteEditor } from '../editor/BlockNoteEditor'
-import { Layers, FileText, ChevronLeft } from 'lucide-react'
+import { Layers, FileText, PanelRightOpen } from 'lucide-react'
 
-export function RightPanel() {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
+interface RightPanelProps {
+  onOpenSettings?: () => void
+}
+
+export function RightPanel({ onOpenSettings }: RightPanelProps) {
   const rightPanelCollapsed = useLibraryStore(s => s.rightPanelCollapsed)
   const setRightPanelCollapsed = useLibraryStore(s => s.setRightPanelCollapsed)
   const rightPanelActiveTab = useLibraryStore(s => s.rightPanelActiveTab)
@@ -19,151 +22,116 @@ export function RightPanel() {
   const viewMode = useLibraryStore(s => s.viewMode)
   const editingCardId = useLibraryStore(s => s.editingCardId)
 
-  const surface = getPanelSurface(isDarkMode)
+  const surface = usePanelSurface()
   const isDragging = useRef(false)
 
-  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     isDragging.current = true
     const startX = e.clientX
     const startWidth = rightPanelWidth
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const onMove = (ev: PointerEvent) => {
       if (!isDragging.current) return
-      const delta = startX - moveEvent.clientX
-      const newWidth = Math.max(240, Math.min(600, startWidth + delta))
-      setRightPanelWidth(newWidth)
+      const delta = startX - ev.clientX
+      setRightPanelWidth(startWidth + delta)
     }
-
-    const handleMouseUp = () => {
+    const onUp = () => {
       isDragging.current = false
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
   }, [rightPanelWidth, setRightPanelWidth])
 
-  useEffect(() => {
-    if (!isDragging.current) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        isDragging.current = false
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.stopPropagation()
   }, [])
 
   if (viewMode !== 'board') return null
 
   return (
     <>
-      <AnimatePresence initial={false}>
-        {!rightPanelCollapsed && (
-          <motion.div
-            key="right-panel"
-            className="flex flex-col h-full border-l absolute right-0 top-0 z-10 overflow-hidden"
+      <motion.div
+        className="absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden"
+        style={{ width: rightPanelWidth, backgroundColor: surface.panelBg }}
+        animate={{ x: rightPanelCollapsed ? rightPanelWidth : 0 }}
+        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+        onWheel={handleWheel}
+      >
+        <div
+          className="absolute left-0 top-0 bottom-0 z-20 cursor-col-resize"
+          style={{ width: 4 }}
+          onPointerDown={handleResizeStart}
+        />
+
+      <div
+        className="flex items-center justify-between px-3 py-2 border-b transition-theme"
+        style={{ borderColor: surface.divider }}
+      >
+        <div className="flex gap-1">
+          <button
+            onClick={() => setRightPanelActiveTab('library')}
+            className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
             style={{
-              width: rightPanelWidth,
-              backgroundColor: surface.panelBg,
-              borderColor: surface.divider,
-            }}
-            initial={{ x: rightPanelWidth, opacity: 0.8 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: rightPanelWidth, opacity: 0.8 }}
-            transition={{
-              type: 'spring',
-              stiffness: 380,
-              damping: 32,
-              mass: 0.8,
+              backgroundColor: rightPanelActiveTab === 'library' ? surface.surface : 'transparent',
+              color: rightPanelActiveTab === 'library' ? surface.text : surface.muted,
             }}
           >
-            {/* Resize handle */}
-            <div
-              onMouseDown={handleResizeMouseDown}
-              className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-blue-500/40 active:bg-blue-500/60 transition-colors"
-              style={{ transform: 'translateX(-50%)' }}
-            />
-
-            <div
-              className="flex items-center justify-between px-3 py-2 border-b transition-theme"
-              style={{ borderColor: surface.divider }}
-            >
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setRightPanelActiveTab('library')}
-                  className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
-                  style={{
-                    backgroundColor: rightPanelActiveTab === 'library' ? surface.surface : 'transparent',
-                    color: rightPanelActiveTab === 'library' ? surface.text : surface.muted,
-                  }}
-                >
-                  <Layers size={14} />
-                  卡片库
-                </button>
-                <button
-                  onClick={() => setRightPanelActiveTab('editor')}
-                  className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
-                  style={{
-                    backgroundColor: rightPanelActiveTab === 'editor' ? surface.surface : 'transparent',
-                    color: rightPanelActiveTab === 'editor' ? surface.text : surface.muted,
-                  }}
-                >
-                  <FileText size={14} />
-                  卡片编辑器
-                </button>
-              </div>
-              <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
-            </div>
-
-            <div className="flex-1 overflow-hidden">
-              {rightPanelActiveTab === 'library' ? (
-                <CardLibraryView />
-              ) : editingCardId ? (
-                <CardEditorView cardId={editingCardId} />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full animate-fadeIn" style={{ color: surface.muted }}>
-                  <FileText size={48} className="mb-4 opacity-30" />
-                  <p className="text-sm">选择卡片进行编辑</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Collapsed trigger button */}
-      <AnimatePresence>
-        {rightPanelCollapsed && (
-          <motion.button
-            key="right-trigger"
-            initial={{ opacity: 0, x: 12 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 12 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            onClick={() => setRightPanelCollapsed(false)}
-            className="fixed top-3 right-3 z-50 flex items-center justify-center w-9 h-9 rounded-xl cursor-pointer shadow-lg"
+            <Layers size={14} />
+            卡片库
+          </button>
+          <button
+            onClick={() => setRightPanelActiveTab('editor')}
+            className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
             style={{
-              backgroundColor: surface.panelBg,
-              color: surface.text,
-              border: `1px solid ${surface.divider}`,
+              backgroundColor: rightPanelActiveTab === 'editor' ? surface.surface : 'transparent',
+              color: rightPanelActiveTab === 'editor' ? surface.text : surface.muted,
             }}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
           >
-            <ChevronLeft size={16} />
-          </motion.button>
+            <FileText size={14} />
+            卡片编辑器
+          </button>
+        </div>
+        <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        {rightPanelActiveTab === 'library' ? (
+          <CardLibraryView onOpenSettings={onOpenSettings} />
+        ) : editingCardId ? (
+          <CardEditorView cardId={editingCardId} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full animate-fadeIn" style={{ color: surface.muted }}>
+            <FileText size={48} className="mb-4 opacity-30" />
+            <p className="text-sm">选择卡片进行编辑</p>
+          </div>
         )}
-      </AnimatePresence>
-    </>
+      </div>
+    </motion.div>
+
+    {rightPanelCollapsed && (
+      <motion.button
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: 0.2 }}
+        onClick={() => setRightPanelCollapsed(false)}
+        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md"
+        style={{
+          backgroundColor: surface.panelBg,
+          color: surface.muted,
+          border: `1px solid ${surface.divider}`,
+        }}
+      >
+        <PanelRightOpen size={16} />
+      </motion.button>
+    )}
+  </>
   )
 }
 

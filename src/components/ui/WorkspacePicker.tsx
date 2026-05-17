@@ -1,6 +1,5 @@
-import { useLibraryStore } from '../../utils/libraryStore'
 import { useWorkspaceStore } from '../../utils/workspace/workspaceStore'
-import { getPanelSurface } from '../../theme'
+import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { EmptyState } from './SharedUI'
 import { Folder, Plus, Clock, X } from 'lucide-react'
 
@@ -9,8 +8,7 @@ interface WorkspacePickerProps {
 }
 
 export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
-  const surface = getPanelSurface(isDarkMode)
+  const surface = usePanelSurface()
   const recentWorkspaces = useWorkspaceStore(s => s.recentWorkspaces)
   const setCurrentWorkspace = useWorkspaceStore(s => s.setCurrentWorkspace)
 
@@ -102,7 +100,7 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
                   <button
                     key={workspace.path}
                     onClick={() => handleSelectWorkspace(workspace)}
-                    className="list-item w-full flex items-center gap-3 p-3 rounded-lg text-left"
+                    className="hepta-list-item w-full flex items-center gap-3 p-3 rounded-lg text-left"
                     style={{
                       backgroundColor: surface.surface,
                     }}

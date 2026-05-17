@@ -10,7 +10,7 @@ function dominoShim(): Plugin {
       if (!id.includes('turndown')) return
       return code.replace(
         /var domino = require\(['"]@mixmark-io\/domino['"]\);?\n?\s*Parser\.prototype\.parseFromString = function \(string\) \{\n?\s*return domino\.createDocument\(string\);/,
-        `Parser.prototype.parseFromString = function(string) {\n      return new (require('jsdom').JSDOM)(string, { contentType: 'text/html' }).window.document;`,
+        `var { parseHTML } = require('linkedom');\nParser.prototype.parseFromString = function(string) {\n      return parseHTML(string).document;`,
       )
     },
   }
@@ -73,7 +73,7 @@ export default defineConfig(({ mode }) => {
               },
               rollupOptions: {
                 external: [
-                  'canvas', 'jsdom', 'sharp',
+                  'canvas', 'linkedom', 'sharp',
                   '@mozilla/readability',
                 ],
               },
