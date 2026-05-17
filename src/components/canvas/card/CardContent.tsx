@@ -33,16 +33,14 @@ export function CardContent({
         height: 'calc(100% - 28px)',
         color: textColor,
         cursor: isEditing ? 'text' : undefined,
-        fontSize: '13px',
-        lineHeight: '1.5',
-        wordBreak: 'break-word',
+        overflow: isEditing ? 'visible' : 'hidden',
       }}
       onWheelCapture={canScroll ? (e) => e.stopPropagation() : undefined}
     >
       {isEditing ? (
         <div
-          className={canScroll ? 'h-full overflow-y-auto px-6' : 'h-full overflow-hidden px-6'}
-          style={{ fontSize: '13px', lineHeight: '1.5', wordBreak: 'break-word' }}
+          className="h-full px-6"
+          style={{ fontSize: '13px', lineHeight: '1.5', wordBreak: 'break-word', overflow: 'visible' }}
         >
           <CardBlockNoteEditor
             ref={editorRef}
@@ -57,6 +55,12 @@ export function CardContent({
         </div>
       ) : (
         <div
+          className={canScroll ? 'h-full overflow-y-auto px-6' : 'h-full overflow-hidden px-6'}
+          style={{
+            fontSize: '13px',
+            lineHeight: '1.5',
+            wordBreak: 'break-word',
+          }}
           dangerouslySetInnerHTML={{
             __html:
               previewHTML ||
