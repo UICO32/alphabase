@@ -240,6 +240,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
       <CardContent
         isEditing={isEditing}
+        isSelected={selected}
         content={card.content}
         previewHTML={card.previewHTML}
         enforceInitialHeading={card.enforceInitialHeading}

@@ -3,6 +3,19 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import electron from 'vite-plugin-electron'
 
+function dominoShim(): Plugin {
+  return {
+    name: 'domino-shim',
+    transform(code, id) {
+      if (!id.includes('turndown')) return
+      return code.replace(
+        /var domino = require\(['"]@mixmark-io\/domino['"]\);?\n?\s*Parser\.prototype\.parseFromString = function \(string\) \{\n?\s*return domino\.createDocument\(string\);/,
+        `Parser.prototype.parseFromString = function(string) {\n      return new (require('jsdom').JSDOM)(string, { contentType: 'text/html' }).window.document;`,
+      )
+    },
+  }
+}
+
 /**
  * Forces CJS output for Electron main process builds.
  * vite-plugin-electron's resolveViteConfig uses mergeConfig which concatenates
@@ -52,7 +65,7 @@ export default defineConfig(({ mode }) => {
         {
           entry: 'electron/main.ts',
           vite: {
-            plugins: [forceCJS(), cleanElectronEnv()],
+            plugins: [forceCJS(), cleanElectronEnv(), dominoShim()],
             build: {
               lib: {
                 formats: ['cjs'],
@@ -61,7 +74,7 @@ export default defineConfig(({ mode }) => {
               rollupOptions: {
                 external: [
                   'canvas', 'jsdom', 'sharp',
-                  '@mozilla/readability', '@mixmark-io/domino',
+                  '@mozilla/readability',
                 ],
               },
             },
@@ -89,6 +102,7 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': '/src',
       },
+      deduplicate: ['prosemirror-tables'],
     },
   }
 })

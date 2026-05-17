@@ -4,11 +4,36 @@ node_modules/
 
 # Build output
 dist/
+dist-electron/
 out/
 build/
 
 # Electron
 release/
+*.asar
+
+# Playwright MCP snapshots
+.playwright-mcp/
+
+# Debug/test artifacts
+test-*.cjs
+test-*.js
+test-*.mjs
+test-*.json
+test-*.py
+test_app.cjs
+test-electron-app/
+check-*.js
+debug-*.cjs
+diag.cjs
+package-test.json
+electron-debug.txt
+canvas-state.png
+before-test.png
+canvas-verify.png
+hover-test.png
+electron_browser_init.js
+electron_node_init.js
 
 # IDE
 .vscode/
@@ -36,6 +61,11 @@ coverage/
 # Cache
 .cache/
 *.tsbuildinfo
+.superpowers/
+
+# Lock files (we use pnpm)
+package-lock.json
 
 # Media (user data)
 .heptabase/
+abase*/

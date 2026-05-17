@@ -3,6 +3,7 @@ import { renderBlocksToHTML } from '../../../utils/renderBlocks'
 
 interface CardContentProps {
   isEditing: boolean
+  isSelected: boolean
   content: string
   previewHTML?: string
   enforceInitialHeading?: boolean
@@ -14,6 +15,7 @@ interface CardContentProps {
 
 export function CardContent({
   isEditing,
+  isSelected,
   content,
   previewHTML,
   enforceInitialHeading,
@@ -22,9 +24,11 @@ export function CardContent({
   editorRef,
   textColor,
 }: CardContentProps) {
+  const canScroll = isSelected || isEditing
+
   return (
     <div
-      className="overflow-y-auto px-6 pb-3"
+      className={canScroll ? 'overflow-y-auto px-6 pb-3' : 'overflow-hidden px-6 pb-3'}
       style={{
         height: 'calc(100% - 28px)',
         color: textColor,
@@ -33,7 +37,7 @@ export function CardContent({
         lineHeight: '1.5',
         wordBreak: 'break-word',
       }}
-      onWheelCapture={(e) => e.stopPropagation()}
+      onWheelCapture={canScroll ? (e) => e.stopPropagation() : undefined}
     >
       {isEditing ? (
         <CardBlockNoteEditor
