@@ -40,7 +40,7 @@ export function CardContent({
       {isEditing ? (
         <div
           className="h-full px-6"
-          style={{ fontSize: '13px', lineHeight: '1.5', wordBreak: 'break-word', overflow: 'visible' }}
+          style={{ fontSize: '13px', lineHeight: '1.5', overflow: 'visible' }}
         >
           <CardBlockNoteEditor
             ref={editorRef}
@@ -55,7 +55,7 @@ export function CardContent({
         </div>
       ) : (
         <div
-          className={canScroll ? 'h-full overflow-y-auto px-6' : 'h-full overflow-hidden px-6'}
+          className="h-full overflow-y-auto px-6"
           style={{
             fontSize: '13px',
             lineHeight: '1.5',

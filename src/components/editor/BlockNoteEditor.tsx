@@ -305,7 +305,6 @@ const CardBlockNoteEditorInner = (
       <div ref={containerRef} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`}>
         <style>{`
           .card-blocknote-editor {
-            height: auto;
           }
           .card-blocknote-editor .bn-container,
           .card-blocknote-editor .bn-editor,
@@ -318,13 +317,6 @@ const CardBlockNoteEditorInner = (
             padding-right: 0 !important;
             background: transparent !important;
             color: inherit !important;
-          }
-          .card-blocknote-editor .bn-container {
-            height: auto;
-            overflow: visible !important;
-          }
-          .card-blocknote-editor .bn-editor {
-            overflow: visible !important;
           }
           .card-blocknote-editor [data-position="right"],
           .card-blocknote-editor .mantine-Menu-itemSection[data-position="right"] {
