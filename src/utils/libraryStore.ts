@@ -40,11 +40,15 @@ interface LibraryStore {
   // 画布缩放
   zoom: number
   setZoom: (zoom: number) => void
+
+  // 面板色调
+  panelHue: number
+  setPanelHue: (hue: number) => void
 }
 
-const SIDEBAR_WIDTH_MIN = 260
+const SIDEBAR_WIDTH_MIN = 240
 const SIDEBAR_WIDTH_MAX = 600
-const SIDEBAR_WIDTH_DEFAULT = 360
+const SIDEBAR_WIDTH_DEFAULT = 320
 
 export const useLibraryStore = create<LibraryStore>()(
   (set, get) => ({
@@ -58,10 +62,12 @@ export const useLibraryStore = create<LibraryStore>()(
       rightPanelActiveTab: 'library',
       userSwitchedTab: false,
       zoom: 1,
+      panelHue: 220,
 
       // 视图模式
       setViewMode: (mode) => set({ viewMode: mode }),
       setZoom: (zoom) => set({ zoom }),
+      setPanelHue: (hue) => set({ panelHue: hue }),
 
       // 卡片编辑
       openCardEditor: (cardId) => set({ editingCardId: cardId }),

@@ -32,6 +32,15 @@ function forceCJS(): Plugin {
   }
 }
 
+function cleanElectronEnv(): Plugin {
+  return {
+    name: 'clean-electron-env',
+    configResolved() {
+      delete process.env.ELECTRON_RUN_AS_NODE
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const isElectron = mode === 'electron'
 
@@ -43,11 +52,17 @@ export default defineConfig(({ mode }) => {
         {
           entry: 'electron/main.ts',
           vite: {
-            plugins: [forceCJS()],
+            plugins: [forceCJS(), cleanElectronEnv()],
             build: {
               lib: {
                 formats: ['cjs'],
                 fileName: () => '[name].cjs',
+              },
+              rollupOptions: {
+                external: [
+                  'canvas', 'jsdom', 'sharp',
+                  '@mozilla/readability', '@mixmark-io/domino',
+                ],
               },
             },
           },
@@ -55,7 +70,7 @@ export default defineConfig(({ mode }) => {
         {
           entry: 'electron/preload.ts',
           vite: {
-            plugins: [forceCJS()],
+            plugins: [forceCJS(), cleanElectronEnv()],
             build: {
               lib: {
                 formats: ['cjs'],

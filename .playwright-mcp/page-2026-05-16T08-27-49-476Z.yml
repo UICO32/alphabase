@@ -1,0 +1,112 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6] [cursor=pointer]:
+        - img [ref=e7]
+        - generic [ref=e9]: 未选择工作区
+        - img [ref=e10]
+      - button [ref=e13]:
+        - img [ref=e14]
+    - generic [ref=e16]:
+      - button "画板库" [ref=e17]:
+        - img [ref=e18]
+        - generic [ref=e23]: 画板库
+      - button "卡片库" [ref=e24]:
+        - img [ref=e25]
+        - generic [ref=e29]: 卡片库
+    - generic [ref=e31]:
+      - generic [ref=e33] [cursor=pointer]:
+        - generic [ref=e34]:
+          - img [ref=e35]
+          - generic [ref=e38]: 默认画板
+        - button [ref=e39]:
+          - img [ref=e40]
+      - button "新建画板" [ref=e44] [cursor=pointer]:
+        - img [ref=e45]
+        - generic [ref=e46]: 新建画板
+    - button "回收站" [ref=e49] [cursor=pointer]:
+      - img [ref=e50]
+      - generic [ref=e53]: 回收站
+  - main [ref=e54]:
+    - application [ref=e56]:
+      - generic [ref=e58] [cursor=pointer]:
+        - generic:
+          - generic:
+            - group [ref=e59]:
+              - generic [ref=e60]:
+                - button "+"
+                - heading "欢迎使用" [level=2] [ref=e65]
+            - group [ref=e66]:
+              - generic [ref=e67]:
+                - button "+"
+                - heading "功能特性" [level=2] [ref=e72]
+            - group [ref=e73]:
+              - generic [ref=e74]:
+                - button "+"
+                - heading "快速开始" [level=2] [ref=e79]
+      - img
+      - link "React Flow attribution" [ref=e81] [cursor=pointer]:
+        - /url: https://reactflow.dev
+        - text: React Flow
+    - generic [ref=e83]:
+      - button "卡片" [ref=e84]:
+        - img [ref=e85]
+        - generic [ref=e86]: 卡片
+      - button "缩小" [ref=e88]:
+        - img [ref=e89]
+      - generic [ref=e92]: 100%
+      - button "放大" [ref=e93]:
+        - img [ref=e94]
+      - button "适应视图" [ref=e98]:
+        - img [ref=e99]
+  - generic [ref=e104]:
+    - generic [ref=e105]:
+      - generic [ref=e106]:
+        - button "卡片库" [ref=e107]:
+          - img [ref=e108]
+          - text: 卡片库
+        - button "卡片编辑器" [ref=e112]:
+          - img [ref=e113]
+          - text: 卡片编辑器
+      - button [ref=e116]:
+        - img [ref=e117]
+    - generic [ref=e120]:
+      - textbox "搜索卡片..." [ref=e123]
+      - generic [ref=e125]:
+        - generic [ref=e126] [cursor=pointer]:
+          - img [ref=e128]
+          - generic [ref=e135]:
+            - generic [ref=e136]: 欢迎使用
+            - heading "欢迎使用" [level=2] [ref=e139]
+            - generic [ref=e140]: 2026/5/16
+        - generic [ref=e141] [cursor=pointer]:
+          - img [ref=e143]
+          - generic [ref=e150]:
+            - generic [ref=e151]: 功能特性
+            - heading "功能特性" [level=2] [ref=e154]
+            - generic [ref=e155]: 2026/5/16
+        - generic [ref=e156] [cursor=pointer]:
+          - img [ref=e158]
+          - generic [ref=e165]:
+            - generic [ref=e166]: 快速开始
+            - heading "快速开始" [level=2] [ref=e169]
+            - generic [ref=e170]: 2026/5/16
+      - generic [ref=e171]: 拖拽到画布创建引用 · 按住 Alt 拖拽创建新实例
+  - generic [ref=e173]:
+    - generic [ref=e174]:
+      - generic [ref=e175]: 选择工作区
+      - button [ref=e176]:
+        - img [ref=e177]
+    - generic [ref=e180]:
+      - button "创建工作区 选择一个文件夹作为新的工作区" [ref=e181]:
+        - img [ref=e183]
+        - generic [ref=e184]:
+          - generic [ref=e185]: 创建工作区
+          - generic [ref=e186]: 选择一个文件夹作为新的工作区
+      - generic [ref=e187]:
+        - generic [ref=e188]:
+          - img [ref=e189]
+          - generic [ref=e192]: 最近使用
+        - generic [ref=e193]:
+          - img [ref=e195]
+          - generic [ref=e197]: 暂无最近使用的工作区

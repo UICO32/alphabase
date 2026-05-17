@@ -1,0 +1,52 @@
+{
+  "name": "heptabase-canvas-v2",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "test-electron.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "electron:dev": "vite --mode electron",
+    "electron:build": "tsc && vite build --mode electron",
+    "electron:start": "electron .",
+    "electron:all": "vite --mode electron",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@blocknote/core": "^0.31.0",
+    "@blocknote/mantine": "^0.31.0",
+    "@blocknote/react": "^0.31.0",
+    "@mozilla/readability": "^0.6.0",
+    "@tailwindcss/vite": "^4.3.0",
+    "@tiptap/pm": "^2.11.0",
+    "@xyflow/react": "^12.0.0",
+    "framer-motion": "^12.38.0",
+    "idb": "^8.0.0",
+    "jsdom": "^29.1.1",
+    "lucide-react": "^0.400.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-icons": "^5.0.0",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.2.0",
+    "ts-md5": "^2.0.1",
+    "turndown": "^7.2.4",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/jsdom": "^28.0.3",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/turndown": "^5.0.6",
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron": "^42.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.0",
+    "vite-plugin-electron": "^0.29.0"
+  }
+}

@@ -1,0 +1,75 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6] [cursor=pointer]:
+        - img [ref=e7]
+        - generic [ref=e9]: 未选择工作区
+        - img [ref=e10]
+      - button [ref=e13]:
+        - img [ref=e14]
+    - generic [ref=e16]:
+      - button "画板库" [ref=e17]:
+        - img [ref=e18]
+        - generic [ref=e23]: 画板库
+      - button "卡片库" [ref=e24]:
+        - img [ref=e25]
+        - generic [ref=e29]: 卡片库
+    - generic [ref=e31]:
+      - generic [ref=e33] [cursor=pointer]:
+        - generic [ref=e34]:
+          - img [ref=e35]
+          - generic [ref=e38]: 默认画板
+        - button [ref=e39]:
+          - img [ref=e40]
+      - button "新建画板" [ref=e44] [cursor=pointer]:
+        - img [ref=e45]
+        - generic [ref=e46]: 新建画板
+    - button "回收站" [ref=e49] [cursor=pointer]:
+      - img [ref=e50]
+      - generic [ref=e53]: 回收站
+  - main [ref=e54]:
+    - application [ref=e56]:
+      - generic [ref=e58] [cursor=pointer]:
+        - generic:
+          - generic:
+            - group [ref=e59]:
+              - generic [ref=e60]:
+                - button "+"
+                - generic [ref=e64]:
+                  - heading "欢迎使用" [level=2] [ref=e65]
+                  - heading "付费" [level=2] [ref=e66]
+                  - listitem [ref=e67]: 大师
+                  - blockquote [ref=e68]: 打算打
+                  - paragraph [ref=e69]
+            - group [ref=e70]:
+              - generic [ref=e71]:
+                - button "+"
+                - generic [ref=e75]:
+                  - heading "功能特性" [level=2] [ref=e76]
+                  - paragraph [ref=e77]: hhhh
+                  - paragraph [ref=e78]: 还行啊，比之前tldraw的好多了
+                  - paragraph [ref=e79]
+                  - paragraph [ref=e80]
+            - group [ref=e81]:
+              - generic [ref=e82]:
+                - button "+"
+                - generic [ref=e86]:
+                  - heading "快速开始" [level=2] [ref=e87]
+                  - paragraph [ref=e88]
+      - img
+      - link "React Flow attribution" [ref=e90] [cursor=pointer]:
+        - /url: https://reactflow.dev
+        - text: React Flow
+    - generic [ref=e92]:
+      - button "卡片" [ref=e93]:
+        - img [ref=e94]
+        - generic [ref=e95]: 卡片
+      - button "缩小" [ref=e97]:
+        - img [ref=e98]
+      - generic [ref=e101]: 100%
+      - button "放大" [ref=e102]:
+        - img [ref=e103]
+      - button "适应视图" [ref=e107]:
+        - img [ref=e108]
+  - button [ref=e113]:
+    - img [ref=e114]

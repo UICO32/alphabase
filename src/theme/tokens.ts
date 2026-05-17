@@ -48,6 +48,8 @@ export type PanelSurface = {
   muted: string
   divider: string
   shadow: string
+  accentBg?: string
+  accentText?: string
 }
 
 export function getPanelSurface(isDarkMode: boolean): PanelSurface {

@@ -24,37 +24,30 @@ export function CardContent({
 }: CardContentProps) {
   return (
     <div
-      className="pb-3"
+      className="overflow-y-auto px-6 pb-3"
       style={{
         height: 'calc(100% - 28px)',
         color: textColor,
         cursor: isEditing ? 'text' : undefined,
+        fontSize: '13px',
+        lineHeight: '1.5',
+        wordBreak: 'break-word',
       }}
+      onWheelCapture={(e) => e.stopPropagation()}
     >
       {isEditing ? (
-        <div
-          className="h-full px-6"
-          style={{ fontSize: '13px', lineHeight: '1.5', wordBreak: 'break-word' }}
-        >
-          <CardBlockNoteEditor
-            ref={editorRef}
-            content={content}
-            onChange={onChange}
-            onBlur={onBlur}
-            theme="light"
-            editable={true}
-            showSideMenu={false}
-            enforceInitialHeading={enforceInitialHeading}
-          />
-        </div>
+        <CardBlockNoteEditor
+          ref={editorRef}
+          content={content}
+          onChange={onChange}
+          onBlur={onBlur}
+          theme="light"
+          editable={true}
+          showSideMenu={false}
+          enforceInitialHeading={enforceInitialHeading}
+        />
       ) : (
         <div
-          className="h-full overflow-y-auto px-6"
-          style={{
-            fontSize: '13px',
-            lineHeight: '1.5',
-            wordBreak: 'break-word',
-          }}
           dangerouslySetInnerHTML={{
             __html:
               previewHTML ||

@@ -1,0 +1,116 @@
+- generic [ref=e3]:
+  - generic [ref=e6]: Heptabase
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e11] [cursor=pointer]:
+            - img [ref=e12]
+            - generic [ref=e14]: 未选择工作区
+          - button [ref=e15] [cursor=pointer]:
+            - img [ref=e16]
+        - button [ref=e19]:
+          - img [ref=e20]
+      - generic [ref=e22]:
+        - button "画板库" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+          - generic [ref=e29]: 画板库
+        - button "卡片库" [ref=e30] [cursor=pointer]:
+          - img [ref=e31]
+          - generic [ref=e35]: 卡片库
+      - generic [ref=e37]:
+        - generic [ref=e39] [cursor=pointer]:
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - generic [ref=e44]: 默认画板
+          - button [ref=e45]:
+            - img [ref=e46]
+        - button "新建画板" [ref=e50] [cursor=pointer]:
+          - img [ref=e51]
+          - generic [ref=e52]: 新建画板
+      - button "回收站" [ref=e55] [cursor=pointer]:
+        - img [ref=e56]
+        - generic [ref=e59]: 回收站
+    - main [ref=e60]:
+      - application [ref=e62]:
+        - generic [ref=e64]:
+          - generic:
+            - generic:
+              - img:
+                - group "Edge from card-demo-1 to card-demo-2" [ref=e172] [cursor=pointer]
+              - img:
+                - group "Edge from card-demo-2 to card-demo-3" [ref=e179] [cursor=pointer]
+            - generic:
+              - group [active] [ref=e186]:
+                - generic [ref=e187] [cursor=pointer]:
+                  - generic [ref=e188]:
+                    - button [ref=e190]:
+                      - img [ref=e191]
+                    - generic [ref=e193]:
+                      - button [ref=e194]:
+                        - img [ref=e195]
+                      - button [ref=e198]:
+                        - img [ref=e199]
+                      - button [ref=e202]:
+                        - img [ref=e203]
+                  - generic [ref=e269]:
+                    - heading "欢迎使用" [level=2] [ref=e270]
+                    - paragraph [ref=e271]
+              - group [ref=e211]:
+                - generic [ref=e212]:
+                  - generic [ref=e213]:
+                    - button [ref=e215] [cursor=pointer]:
+                      - img [ref=e216]
+                    - generic [ref=e218]:
+                      - button [ref=e219] [cursor=pointer]:
+                        - img [ref=e220]
+                      - button [ref=e223] [cursor=pointer]:
+                        - img [ref=e224]
+                      - button [ref=e227] [cursor=pointer]:
+                        - img [ref=e228]
+                  - heading "功能特性" [level=2] [ref=e235]
+              - group [ref=e236]:
+                - generic [ref=e237]:
+                  - generic [ref=e238]:
+                    - button [ref=e240] [cursor=pointer]:
+                      - img [ref=e241]
+                    - generic [ref=e243]:
+                      - button [ref=e244] [cursor=pointer]:
+                        - img [ref=e245]
+                      - button [ref=e248] [cursor=pointer]:
+                        - img [ref=e249]
+                      - button [ref=e252] [cursor=pointer]:
+                        - img [ref=e253]
+                  - heading "快速开始" [level=2] [ref=e260]
+        - img
+        - link "React Flow attribution" [ref=e66] [cursor=pointer]:
+          - /url: https://reactflow.dev
+          - text: React Flow
+      - generic [ref=e68]:
+        - button "卡片" [ref=e69]:
+          - img [ref=e70]
+          - generic [ref=e71]: 卡片
+        - button "剪藏" [ref=e72]:
+          - img [ref=e73]
+          - generic [ref=e79]: 剪藏
+        - button "缩小" [ref=e81]:
+          - img [ref=e82]
+        - generic [ref=e85]: 136%
+        - button "放大" [ref=e86]:
+          - img [ref=e87]
+        - button "适应视图" [ref=e91]:
+          - img [ref=e92]
+    - generic [ref=e97]:
+      - generic [ref=e99]:
+        - generic [ref=e100]:
+          - button "卡片库" [ref=e101]:
+            - img [ref=e102]
+            - text: 卡片库
+          - button "卡片编辑器" [ref=e106]:
+            - img [ref=e107]
+            - text: 卡片编辑器
+        - button [ref=e110]:
+          - img [ref=e111]
+      - generic [ref=e276]:
+        - heading "欢迎使用" [level=2] [ref=e280]
+        - paragraph [ref=e284]

@@ -1,0 +1,152 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6] [cursor=pointer]:
+        - img [ref=e7]
+        - generic [ref=e9]: 未选择工作区
+        - img [ref=e10]
+      - button [ref=e13]:
+        - img [ref=e14]
+    - generic [ref=e16]:
+      - button "画板库" [ref=e17]:
+        - img [ref=e18]
+        - generic [ref=e23]: 画板库
+      - button "卡片库" [ref=e24]:
+        - img [ref=e25]
+        - generic [ref=e29]: 卡片库
+    - generic [ref=e31]:
+      - generic [ref=e33] [cursor=pointer]:
+        - generic [ref=e34]:
+          - img [ref=e35]
+          - generic [ref=e38]: 默认画板
+        - button [ref=e39]:
+          - img [ref=e40]
+      - button "新建画板" [ref=e44] [cursor=pointer]:
+        - img [ref=e45]
+        - generic [ref=e46]: 新建画板
+    - button "回收站" [ref=e49] [cursor=pointer]:
+      - img [ref=e50]
+      - generic [ref=e53]: 回收站
+  - main [ref=e54]:
+    - application [ref=e56]:
+      - generic [ref=e58] [cursor=pointer]:
+        - generic:
+          - generic:
+            - group [ref=e59]:
+              - generic [ref=e60]:
+                - button "+"
+                - generic [ref=e64]:
+                  - paragraph [ref=e65]: 普通段落文本
+                  - generic [ref=e66]:
+                    - generic [ref=e67]: •
+                    - generic [ref=e68]: 无序列表项 1
+                  - generic [ref=e70]:
+                    - generic [ref=e71]: ◦
+                    - generic [ref=e72]: 嵌套无序列表
+                  - generic [ref=e73]:
+                    - generic [ref=e74]: •
+                    - generic [ref=e75]: 无序列表项 2
+                  - generic [ref=e76]:
+                    - generic [ref=e77]: "1."
+                    - generic [ref=e78]: 有序列表项 1
+                  - generic [ref=e79]:
+                    - generic [ref=e80]: "2."
+                    - generic [ref=e81]: 有序列表项 2
+                  - blockquote [ref=e82]: 这是一段引用文本
+                  - code [ref=e84]: const hello = / "world"; console.log(hello);
+                  - generic [ref=e85]:
+                    - checkbox [checked] [disabled] [ref=e86]
+                    - generic [ref=e87]: 已完成任务
+                  - generic [ref=e88]:
+                    - checkbox [disabled] [ref=e89]
+                    - generic [ref=e90]: 待办任务
+                  - paragraph [ref=e91]
+                  - paragraph [ref=e92]: /
+                  - paragraph [ref=e93]
+            - group [ref=e94]:
+              - generic [ref=e95]:
+                - button "+"
+                - heading "功能特性" [level=2] [ref=e100]
+            - group [ref=e101]:
+              - generic [ref=e102]:
+                - button "+"
+                - generic [ref=e106]:
+                  - heading "快速开始" [level=2] [ref=e107]
+                  - paragraph [ref=e108]
+      - img
+      - link "React Flow attribution" [ref=e110] [cursor=pointer]:
+        - /url: https://reactflow.dev
+        - text: React Flow
+    - generic [ref=e112]:
+      - button "卡片" [ref=e113]:
+        - img [ref=e114]
+        - generic [ref=e115]: 卡片
+      - button "缩小" [ref=e117]:
+        - img [ref=e118]
+      - generic [ref=e121]: 100%
+      - button "放大" [ref=e122]:
+        - img [ref=e123]
+      - button "适应视图" [ref=e127]:
+        - img [ref=e128]
+  - generic [ref=e133]:
+    - generic [ref=e134]:
+      - generic [ref=e135]:
+        - button "卡片库" [ref=e136]:
+          - img [ref=e137]
+          - text: 卡片库
+        - button "卡片编辑器" [ref=e141]:
+          - img [ref=e142]
+          - text: 卡片编辑器
+      - button [ref=e145]:
+        - img [ref=e146]
+    - generic [ref=e149]:
+      - textbox "搜索卡片..." [ref=e152]
+      - generic [ref=e154]:
+        - generic [ref=e155] [cursor=pointer]:
+          - img [ref=e157]
+          - generic [ref=e164]:
+            - generic [ref=e165]: 欢迎使用
+            - generic [ref=e167]:
+              - paragraph [ref=e168]: 普通段落文本
+              - generic [ref=e169]:
+                - generic [ref=e170]: •
+                - generic [ref=e171]: 无序列表项 1
+              - generic [ref=e173]:
+                - generic [ref=e174]: ◦
+                - generic [ref=e175]: 嵌套无序列表
+              - generic [ref=e176]:
+                - generic [ref=e177]: •
+                - generic [ref=e178]: 无序列表项 2
+              - generic [ref=e179]:
+                - generic [ref=e180]: "1."
+                - generic [ref=e181]: 有序列表项 1
+              - generic [ref=e182]:
+                - generic [ref=e183]: "2."
+                - generic [ref=e184]: 有序列表项 2
+              - blockquote [ref=e185]: 这是一段引用文本
+              - code [ref=e187]: const hello = / "world"; console.log(hello);
+              - generic [ref=e188]:
+                - checkbox [checked] [disabled] [ref=e189]
+                - generic [ref=e190]: 已完成任务
+              - generic [ref=e191]:
+                - checkbox [disabled] [ref=e192]
+                - generic [ref=e193]: 待办任务
+              - paragraph [ref=e194]
+              - paragraph [ref=e196]: /
+              - paragraph [ref=e197]
+            - generic [ref=e198]: 2026/5/10
+        - generic [ref=e199] [cursor=pointer]:
+          - img [ref=e201]
+          - generic [ref=e208]:
+            - generic [ref=e209]: 功能特性
+            - heading "功能特性" [level=2] [ref=e212]
+            - generic [ref=e213]: 2026/5/10
+        - generic [ref=e214] [cursor=pointer]:
+          - img [ref=e216]
+          - generic [ref=e223]:
+            - generic [ref=e224]: 快速开始
+            - generic [ref=e226]:
+              - heading "快速开始" [level=2] [ref=e227]
+              - paragraph [ref=e228]
+            - generic [ref=e229]: 2026/5/10
+      - generic [ref=e230]: 拖拽到画布创建引用 · 按住 Alt 拖拽创建新实例

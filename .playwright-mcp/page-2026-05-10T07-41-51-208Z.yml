@@ -1,0 +1,14 @@
+- application [ref=e5]:
+  - img
+  - generic "Control Panel" [ref=e8]:
+    - button "Zoom In" [ref=e9] [cursor=pointer]:
+      - img [ref=e10]
+    - button "Zoom Out" [ref=e12] [cursor=pointer]:
+      - img [ref=e13]
+    - button "Fit View" [ref=e15] [cursor=pointer]:
+      - img [ref=e16]
+    - button "Toggle Interactivity" [ref=e18] [cursor=pointer]:
+      - img [ref=e19]
+  - link "React Flow attribution" [ref=e22] [cursor=pointer]:
+    - /url: https://reactflow.dev
+    - text: React Flow

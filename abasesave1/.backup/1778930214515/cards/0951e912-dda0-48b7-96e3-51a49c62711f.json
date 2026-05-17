@@ -1,0 +1,9 @@
+{
+  "id": "0951e912-dda0-48b7-96e3-51a49c62711f",
+  "title": "新卡片",
+  "color": "blue",
+  "variant": "solid",
+  "createdAt": 1778919662279,
+  "updatedAt": 1778919666961,
+  "content": "[{\"id\":\"8a19652a-39e1-4b7f-9975-aecfe9e2a4ae\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[{\"type\":\"text\",\"text\":\"大舍大得\",\"styles\":{}}],\"children\":[]},{\"id\":\"58143941-1d96-4d3c-8c1f-8b6e7de095a3\",\"type\":\"paragraph\",\"props\":{\"textColor\":\"default\",\"backgroundColor\":\"default\",\"textAlignment\":\"left\"},\"content\":[],\"children\":[]}]"
+}

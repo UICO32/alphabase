@@ -14,6 +14,8 @@ export interface GlobalCard {
   title?: string
   previewHTML?: string
   deletedAt?: number
+  tags?: string[]
+  flomoSlug?: string
 }
 
 interface CardStore {

@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLibraryStore } from '../../utils/libraryStore'
 import { useCardStore } from '../../utils/cardStore'
@@ -8,18 +8,59 @@ import { CardLibraryView } from './CardLibraryView'
 import { CardBlockNoteEditor } from '../editor/BlockNoteEditor'
 import { Layers, FileText, ChevronLeft } from 'lucide-react'
 
-const RIGHT_PANEL_WIDTH = 320
-
 export function RightPanel() {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const rightPanelCollapsed = useLibraryStore(s => s.rightPanelCollapsed)
   const setRightPanelCollapsed = useLibraryStore(s => s.setRightPanelCollapsed)
   const rightPanelActiveTab = useLibraryStore(s => s.rightPanelActiveTab)
   const setRightPanelActiveTab = useLibraryStore(s => s.setRightPanelActiveTab)
+  const rightPanelWidth = useLibraryStore(s => s.rightPanelWidth)
+  const setRightPanelWidth = useLibraryStore(s => s.setRightPanelWidth)
   const viewMode = useLibraryStore(s => s.viewMode)
   const editingCardId = useLibraryStore(s => s.editingCardId)
 
   const surface = getPanelSurface(isDarkMode)
+  const isDragging = useRef(false)
+
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDragging.current = true
+    const startX = e.clientX
+    const startWidth = rightPanelWidth
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDragging.current) return
+      const delta = startX - moveEvent.clientX
+      const newWidth = Math.max(240, Math.min(600, startWidth + delta))
+      setRightPanelWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      isDragging.current = false
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [rightPanelWidth, setRightPanelWidth])
+
+  useEffect(() => {
+    if (!isDragging.current) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        isDragging.current = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   if (viewMode !== 'board') return null
 
@@ -31,13 +72,13 @@ export function RightPanel() {
             key="right-panel"
             className="flex flex-col h-full border-l absolute right-0 top-0 z-10 overflow-hidden"
             style={{
-              width: RIGHT_PANEL_WIDTH,
+              width: rightPanelWidth,
               backgroundColor: surface.panelBg,
               borderColor: surface.divider,
             }}
-            initial={{ x: RIGHT_PANEL_WIDTH, opacity: 0.8 }}
+            initial={{ x: rightPanelWidth, opacity: 0.8 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: RIGHT_PANEL_WIDTH, opacity: 0.8 }}
+            exit={{ x: rightPanelWidth, opacity: 0.8 }}
             transition={{
               type: 'spring',
               stiffness: 380,
@@ -45,6 +86,13 @@ export function RightPanel() {
               mass: 0.8,
             }}
           >
+            {/* Resize handle */}
+            <div
+              onMouseDown={handleResizeMouseDown}
+              className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-blue-500/40 active:bg-blue-500/60 transition-colors"
+              style={{ transform: 'translateX(-50%)' }}
+            />
+
             <div
               className="flex items-center justify-between px-3 py-2 border-b transition-theme"
               style={{ borderColor: surface.divider }}

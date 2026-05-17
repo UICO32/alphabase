@@ -49,7 +49,7 @@ export function CardLibraryView() {
             surface={surface}
           />
         ) : (
-          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
             {visibleCards.map((card) => (
               <div
                 key={card.id}
@@ -58,7 +58,6 @@ export function CardLibraryView() {
                 onClick={() => setEditingCardId(card.id)}
                 className="list-item group relative p-3 rounded-lg cursor-pointer active:cursor-grabbing"
                 style={{
-                  aspectRatio: '1',
                   backgroundColor: surface.surface,
                   border: `1px solid ${surface.divider}`,
                 }}

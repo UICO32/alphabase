@@ -1,0 +1,5 @@
+allowBuilds:
+  canvas: true
+  electron: true
+  esbuild: true
+  sharp: set this to true or false

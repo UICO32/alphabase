@@ -12,6 +12,8 @@ import {
   type Connection,
   type IsValidConnection,
   type ReactFlowInstance,
+  type NodeChange,
+  type EdgeChange,
   addEdge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -30,6 +32,7 @@ import { useBoardSync } from '../../hooks/useBoardSync'
 import { useSectionSync } from '../../hooks/useSectionSync'
 import { useCanvasPaste } from '../../hooks/useCanvasPaste'
 import { useDropHandler } from '../../hooks/useDropHandler'
+import { useHistory } from '../../hooks/useHistory'
 import { connectionMediator } from '../../utils/connectionMediator'
 
 const PROXIMITY_THRESHOLD = 60
@@ -57,6 +60,33 @@ export function ReactFlowCanvas() {
   const nodesRef = useRef<Node[]>(nodes)
   const edgesRef = useRef<Edge[]>(edges)
 
+  const { canUndo, canRedo, record, undo, redo, clear } = useHistory({ maxHistory: 20 })
+  const recordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const recordCurrentState = useCallback((type: 'canvas' | 'structure', description: string, immediate = false) => {
+    console.log('[ReactFlowCanvas] recordCurrentState called:', { type, description, immediate, currentNodes: nodesRef.current.length, currentEdges: edgesRef.current.length })
+    if (recordTimerRef.current) {
+      clearTimeout(recordTimerRef.current)
+      recordTimerRef.current = null
+    }
+
+    const doRecord = () => {
+      console.log('[ReactFlowCanvas] recording state:', { type, description, nodes: nodesRef.current.length, edges: edgesRef.current.length })
+      record({
+        type,
+        description,
+        nodes: nodesRef.current.map(n => ({ ...n })),
+        edges: edgesRef.current.map(e => ({ ...e })),
+      })
+    }
+
+    if (immediate) {
+      doRecord()
+    } else {
+      recordTimerRef.current = setTimeout(doRecord, 300)
+    }
+  }, [record])
+
   useEffect(() => {
     nodesRef.current = nodes
   }, [nodes])
@@ -79,7 +109,40 @@ export function ReactFlowCanvas() {
   useBoardSync({ nodes, edges })
   useSectionSync({ nodes, setNodes })
 
+  // Record initial canvas state after data is loaded
+  useEffect(() => {
+    const handleDataReady = () => {
+      // Wait for nodes/edges to be set
+      setTimeout(() => {
+        console.log('[ReactFlowCanvas] Recording initial canvas state')
+        recordCurrentState('canvas', '初始状态', true)
+      }, 100)
+    }
+    window.addEventListener('hepta-data-ready', handleDataReady)
+    return () => window.removeEventListener('hepta-data-ready', handleDataReady)
+  }, [recordCurrentState])
+
   useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef })
+
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    const hasRemove = changes.some(c => c.type === 'remove')
+    onNodesChange(changes)
+    if (hasRemove) {
+      setTimeout(() => {
+        recordCurrentState('structure', '删除节点', true)
+      }, 0)
+    }
+  }, [onNodesChange, recordCurrentState])
+
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    const hasRemove = changes.some(c => c.type === 'remove')
+    onEdgesChange(changes)
+    if (hasRemove) {
+      setTimeout(() => {
+        recordCurrentState('structure', '删除连接', true)
+      }, 0)
+    }
+  }, [onEdgesChange, recordCurrentState])
 
   useEffect(() => {
     const style = document.createElement('style')
@@ -108,11 +171,14 @@ export function ReactFlowCanvas() {
           data: { cardId, color, width: 280, height: 200 },
         },
       ])
+      // Record after state update
+      setTimeout(() => {
+        recordCurrentState('structure', '添加卡片', true)
+      }, 0)
     }
-
     window.addEventListener('hepta-add-card-node', onAddCardNode)
     return () => window.removeEventListener('hepta-add-card-node', onAddCardNode)
-  }, [setNodes])
+  }, [setNodes, recordCurrentState])
 
   useEffect(() => {
     const onZoomIn = () => reactFlowInstance.current?.zoomIn({ duration: 200 })
@@ -158,8 +224,11 @@ export function ReactFlowCanvas() {
         }
         return addEdge(edge, eds)
       })
+      setTimeout(() => {
+        recordCurrentState('structure', '创建连接', true)
+      }, 0)
     },
-    [setEdges],
+    [setEdges, recordCurrentState],
   )
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
@@ -252,11 +321,22 @@ export function ReactFlowCanvas() {
     (_event: MouseEvent | TouchEvent, edge: Edge) => {
       if (!reconnectSuccessRef.current) {
         setEdges((eds) => eds.filter((e) => e.id !== edge.id))
+        setTimeout(() => {
+          recordCurrentState('structure', '删除连接', true)
+        }, 0)
+      } else {
+        setTimeout(() => {
+          recordCurrentState('structure', '重新连接', true)
+        }, 0)
       }
       reconnectSuccessRef.current = false
     },
-    [setEdges],
+    [setEdges, recordCurrentState],
   )
+
+  const onNodeDragStart = useCallback(() => {
+    // No-op: we only record on drag stop
+  }, [])
 
   const onNodeDrag = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -269,9 +349,20 @@ export function ReactFlowCanvas() {
     [setEdges],
   )
 
-  const onNodeDragStop = useCallback(() => {
+  const onNodeDragStop = useCallback((_event: React.MouseEvent, _node: Node, allNodes: Node[]) => {
+    console.log('[ReactFlowCanvas] onNodeDragStop called, allNodes count:', allNodes.length)
     setEdges((eds) => [...eds])
-  }, [setEdges])
+    // Use allNodes from callback (latest positions from React Flow)
+    record({
+      type: 'canvas',
+      description: '移动卡片',
+      nodes: allNodes.map(n => {
+        const { selected, ...rest } = n
+        return rest as Node
+      }),
+      edges: edgesRef.current.map(e => ({ ...e })),
+    })
+  }, [record])
 
   const connectionLineComponent = useCallback(
     (props: Parameters<typeof CustomConnectionLine>[0]) => (
@@ -287,6 +378,74 @@ export function ReactFlowCanvas() {
     return true
   }, [])
 
+  const handleUndo = useCallback(() => {
+    console.log('[ReactFlowCanvas] handleUndo called')
+    // Flush any pending history record before undoing
+    if (recordTimerRef.current) {
+      clearTimeout(recordTimerRef.current)
+      recordTimerRef.current = null
+      console.log('[ReactFlowCanvas] flushed pending record')
+    }
+    const entry = undo()
+    console.log('[ReactFlowCanvas] undo returned:', entry ? { type: entry.type, desc: entry.description, nodes: entry.nodes.length, edges: entry.edges.length } : null)
+    if (entry) {
+      setNodes(entry.nodes.map(n => ({ ...n })))
+      setEdges(entry.edges.map(e => ({ ...e })))
+    }
+  }, [undo, setNodes, setEdges])
+
+  const handleRedo = useCallback(() => {
+    console.log('[ReactFlowCanvas] handleRedo called')
+    // Flush any pending history record before redoing
+    if (recordTimerRef.current) {
+      clearTimeout(recordTimerRef.current)
+      recordTimerRef.current = null
+      console.log('[ReactFlowCanvas] flushed pending record')
+    }
+    const entry = redo()
+    console.log('[ReactFlowCanvas] redo returned:', entry ? { type: entry.type, desc: entry.description, nodes: entry.nodes.length, edges: entry.edges.length } : null)
+    if (entry) {
+      setNodes(entry.nodes.map(n => ({ ...n })))
+      setEdges(entry.edges.map(e => ({ ...e })))
+    }
+  }, [redo, setNodes, setEdges])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey
+      if (!isCtrl) return
+
+      // Skip canvas undo/redo if user is editing card content
+      const target = e.target as HTMLElement
+      const isEditingCard = target?.closest('.ProseMirror, .bn-editor, .card-blocknote-editor, [contenteditable="true"]')
+      if (isEditingCard) {
+        console.log('[ReactFlowCanvas] Ctrl+Z/Y ignored - user editing card content')
+        return
+      }
+
+      if (e.key === 'z' && !e.shiftKey) {
+        console.log('[ReactFlowCanvas] Ctrl+Z pressed')
+        e.preventDefault()
+        handleUndo()
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        console.log('[ReactFlowCanvas] Ctrl+Shift+Z or Ctrl+Y pressed')
+        e.preventDefault()
+        handleRedo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleUndo, handleRedo])
+
+  useEffect(() => {
+    const handleWorkspaceChange = () => {
+      clear()
+    }
+    window.addEventListener('hepta-reinit-workspace', handleWorkspaceChange)
+    return () => window.removeEventListener('hepta-reinit-workspace', handleWorkspaceChange)
+  }, [clear])
+
   const canvasRef = useRef<HTMLDivElement>(null)
 
   const onWheelZoom = useCallback(
@@ -300,8 +459,11 @@ export function ReactFlowCanvas() {
 
       if (isPinch) return
 
-      event.preventDefault()
-      event.stopPropagation()
+      // Use native event to avoid passive listener warning
+      if (event.nativeEvent) {
+        event.nativeEvent.preventDefault()
+        event.nativeEvent.stopImmediatePropagation()
+      }
 
       const factor = delta > 0 ? 1 - 0.03 : 1 + 0.03
       const nextZoom = Math.min(4, Math.max(0.1, zoom * factor))
@@ -326,13 +488,14 @@ export function ReactFlowCanvas() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         onInit={onInit}
         onPaneClick={onPaneClick}
         onNodeClick={onNodeClick}
         onMouseMove={onMouseMove}
+        onNodeDragStart={onNodeDragStart}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         onReconnect={onReconnect}
@@ -366,6 +529,28 @@ export function ReactFlowCanvas() {
         />
       </ReactFlow>
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
+
+      {/* Undo/Redo Status Indicator */}
+      {(canUndo || canRedo) && (
+        <div
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium pointer-events-none"
+          style={{
+            backgroundColor: surface.surface,
+            color: surface.muted,
+            border: `1px solid ${surface.divider}`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            zIndex: 10,
+          }}
+        >
+          <span className={canUndo ? 'opacity-100' : 'opacity-40'}>
+            Ctrl+Z 撤销
+          </span>
+          <span style={{ color: surface.divider }}>|</span>
+          <span className={canRedo ? 'opacity-100' : 'opacity-40'}>
+            Ctrl+Shift+Z 重做
+          </span>
+        </div>
+      )}
     </div>
   )
 }
