@@ -1,10 +1,11 @@
-import { useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
+import { useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
 import {
   ReactFlow,
   ConnectionMode,
   SelectionMode,
   useNodesState,
   useEdgesState,
+  useStore,
   type Node,
   type Edge,
   type Connection,
@@ -36,6 +37,7 @@ import { useHistory } from '../../hooks/useHistory'
 import { connectionMediator } from '../../utils/connectionMediator'
 
 const PROXIMITY_THRESHOLD = 60
+const VIEWPORT_BUFFER = 500
 
 const nodeTypes = {
   card: CardNode,
@@ -64,10 +66,56 @@ export function ReactFlowCanvas() {
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
   useEffect(() => { setNodesRef(nodes) }, [nodes])
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+      }
+    }
+  }, [])
 
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
     connectionMediator.isConnecting.bind(connectionMediator),
+  )
+
+  // Viewport culling: only render nodes within viewport + buffer
+  const transform = useStore((s) => s.transform)
+  const [tx, ty, zoom] = transform
+  const visibleNodes = useMemo(() => {
+    if (nodes.length === 0) return nodes
+    // Calculate visible bounds in flow coordinates
+    const viewWidth = window.innerWidth
+    const viewHeight = window.innerHeight
+    const buffer = VIEWPORT_BUFFER / zoom
+    const left = -tx / zoom - buffer
+    const top = -ty / zoom - buffer
+    const right = left + viewWidth / zoom + buffer * 2
+    const bottom = top + viewHeight / zoom + buffer * 2
+
+    return nodes.filter((node) => {
+      const w = ((node.data as Record<string, unknown>).width as number) ?? 280
+      const h = ((node.data as Record<string, unknown>).height as number) ?? 200
+      const nodeRight = node.position.x + w
+      const nodeBottom = node.position.y + h
+      return (
+        node.position.x < right &&
+        nodeRight > left &&
+        node.position.y < bottom &&
+        nodeBottom > top
+      )
+    })
+  }, [nodes, tx, ty, zoom])
+
+  const visibleNodeIds = useMemo(
+    () => new Set(visibleNodes.map((n) => n.id)),
+    [visibleNodes],
+  )
+
+  const visibleEdges = useMemo(
+    () => edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)),
+    [edges, visibleNodeIds],
   )
 
   useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef })
@@ -216,33 +264,44 @@ export function ReactFlowCanvas() {
     [],
   )
 
+  const rafRef = useRef<number | null>(null)
+  const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
+
   const onMouseMove = useCallback((event: React.MouseEvent) => {
     lastMousePosRef.current = { x: event.clientX, y: event.clientY }
     if (!isConnecting) return
-    const rf = reactFlowInstance.current
-    if (!rf) return
-    const pending = connectionMediator.getPending()
-    if (!pending) return
-    let closestId: string | null = null
-    let closestDist = PROXIMITY_THRESHOLD
-    for (const node of nodesRef.current) {
-      if (node.id === pending.sourceNodeId) continue
-      if (node.type !== 'card') continue
-      const w = ((node.data as Record<string, unknown>).width as number) ?? 280
-      const h = ((node.data as Record<string, unknown>).height as number) ?? 200
-      const zoom = rf.getViewport().zoom
-      const screen = rf.flowToScreenPosition(node.position)
-      const scaledW = w * zoom
-      const scaledH = h * zoom
-      const nearestX = Math.max(screen.x, Math.min(event.clientX, screen.x + scaledW))
-      const nearestY = Math.max(screen.y, Math.min(event.clientY, screen.y + scaledH))
-      const dist = Math.hypot(event.clientX - nearestX, event.clientY - nearestY)
-      if (dist < closestDist) {
-        closestDist = dist
-        closestId = node.id
+    // Store the latest mouse event and schedule a single RAF
+    pendingMouseEventRef.current = event
+    if (rafRef.current !== null) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      const evt = pendingMouseEventRef.current
+      if (!evt) return
+      const rf = reactFlowInstance.current
+      if (!rf) return
+      const pending = connectionMediator.getPending()
+      if (!pending) return
+      let closestId: string | null = null
+      let closestDist = PROXIMITY_THRESHOLD
+      for (const node of nodesRef.current) {
+        if (node.id === pending.sourceNodeId) continue
+        if (node.type !== 'card') continue
+        const w = ((node.data as Record<string, unknown>).width as number) ?? 280
+        const h = ((node.data as Record<string, unknown>).height as number) ?? 200
+        const zoom = rf.getViewport().zoom
+        const screen = rf.flowToScreenPosition(node.position)
+        const scaledW = w * zoom
+        const scaledH = h * zoom
+        const nearestX = Math.max(screen.x, Math.min(evt.clientX, screen.x + scaledW))
+        const nearestY = Math.max(screen.y, Math.min(evt.clientY, screen.y + scaledH))
+        const dist = Math.hypot(evt.clientX - nearestX, evt.clientY - nearestY)
+        if (dist < closestDist) {
+          closestDist = dist
+          closestId = node.id
+        }
       }
-    }
-    connectionMediator.setNearbyTarget(closestId)
+      connectionMediator.setNearbyTarget(closestId)
+    })
   }, [isConnecting])
 
   const connectionLineComponent = useCallback(
@@ -262,8 +321,8 @@ export function ReactFlowCanvas() {
   return (
     <div className="w-full h-full" style={{ backgroundColor: surface.appBg }} ref={canvasRef}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={visibleNodes}
+        edges={visibleEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}

@@ -16,15 +16,28 @@ type Listener = () => void
 type CompleteHandler = (request: ConnectionRequest) => void
 
 let pending: PendingConnection | null = null
-let listeners = new Set<Listener>()
+// Global listeners for isConnecting state changes (start/clear/complete)
+let globalListeners = new Set<Listener>()
+// Per-card listeners for nearby target changes
+let cardListeners = new Map<string, Set<Listener>>()
 let completeHandler: CompleteHandler | null = null
 let _nearbyTargetId: string | null = null
+
+function notifyCardListeners(cardId: string) {
+  const listeners = cardListeners.get(cardId)
+  if (listeners) {
+    listeners.forEach((fn) => fn())
+  }
+}
 
 export const connectionMediator = {
   start(sourceNodeId: string, sourceHandleId: string) {
     pending = { sourceNodeId, sourceHandleId }
     _nearbyTargetId = null
-    listeners.forEach((fn) => fn())
+    // Notify global listeners (isConnecting changed)
+    globalListeners.forEach((fn) => fn())
+    // Notify the source card's listeners (isConnectingFrom changed)
+    notifyCardListeners(sourceNodeId)
   },
 
   getPending(): PendingConnection | null {
@@ -32,9 +45,15 @@ export const connectionMediator = {
   },
 
   clear() {
+    const prevSourceId = pending?.sourceNodeId
+    const prevTargetId = _nearbyTargetId
     pending = null
     _nearbyTargetId = null
-    listeners.forEach((fn) => fn())
+    // Notify global listeners (isConnecting changed)
+    globalListeners.forEach((fn) => fn())
+    // Notify previously affected cards
+    if (prevSourceId) notifyCardListeners(prevSourceId)
+    if (prevTargetId) notifyCardListeners(prevTargetId)
   },
 
   isConnecting(): boolean {
@@ -64,6 +83,9 @@ export const connectionMediator = {
       finalTargetHandleId = handles.targetHandle
     }
 
+    const prevSourceId = pending.sourceNodeId
+    const prevTargetId = _nearbyTargetId
+
     completeHandler({
       sourceNodeId: pending.sourceNodeId,
       sourceHandleId,
@@ -72,7 +94,12 @@ export const connectionMediator = {
     })
     pending = null
     _nearbyTargetId = null
-    listeners.forEach((fn) => fn())
+    // Notify global listeners (isConnecting changed)
+    globalListeners.forEach((fn) => fn())
+    // Notify previously affected cards
+    if (prevSourceId) notifyCardListeners(prevSourceId)
+    if (prevTargetId) notifyCardListeners(prevTargetId)
+    notifyCardListeners(targetNodeId)
     return true
   },
 
@@ -80,15 +107,41 @@ export const connectionMediator = {
     completeHandler = handler
   },
 
+  /**
+   * Subscribe to global connection state changes (isConnecting).
+   * Used by ReactFlowCanvas and CardNode's isConnecting subscription.
+   */
   subscribe(fn: Listener): () => void {
+    globalListeners.add(fn)
+    return () => { globalListeners.delete(fn) }
+  },
+
+  /**
+   * Subscribe to connection state changes for a specific card.
+   * Only called when the card's isConnectingFrom or isNearbyTarget status may have changed.
+   */
+  subscribeCard(cardId: string, fn: Listener): () => void {
+    let listeners = cardListeners.get(cardId)
+    if (!listeners) {
+      listeners = new Set<Listener>()
+      cardListeners.set(cardId, listeners)
+    }
     listeners.add(fn)
-    return () => { listeners.delete(fn) }
+    return () => {
+      listeners.delete(fn)
+      if (listeners.size === 0) {
+        cardListeners.delete(cardId)
+      }
+    }
   },
 
   setNearbyTarget(nodeId: string | null) {
     if (_nearbyTargetId !== nodeId) {
+      const prevTargetId = _nearbyTargetId
       _nearbyTargetId = nodeId
-      listeners.forEach((fn) => fn())
+      // Only notify the previous and new target cards
+      if (prevTargetId) notifyCardListeners(prevTargetId)
+      if (nodeId) notifyCardListeners(nodeId)
     }
   },
 

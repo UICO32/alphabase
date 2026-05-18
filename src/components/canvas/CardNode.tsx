@@ -59,12 +59,12 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     connectionMediator.isConnecting.bind(connectionMediator),
   )
   const isConnectingSource = useSyncExternalStore(
-    connectionMediator.subscribe.bind(connectionMediator),
+    (fn) => connectionMediator.subscribeCard(data.cardId, fn),
     () => connectionMediator.isConnectingFrom(data.cardId),
   )
   const isConnectionTarget = isConnecting && !isConnectingSource
   const isNearbyTarget = useSyncExternalStore(
-    connectionMediator.subscribe.bind(connectionMediator),
+    (fn) => connectionMediator.subscribeCard(data.cardId, fn),
     () => connectionMediator.getNearbyTarget() === data.cardId,
   )
 
@@ -243,6 +243,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     'card-node-default',
     'relative',
     'rounded-2xl',
+    isEditing ? 'overflow-visible' : 'overflow-hidden',
     isConnectingSource ? 'card-node-connecting-source' : '',
     isNearbyTarget ? 'card-node-nearby-target' : '',
   ].filter(Boolean).join(' ')

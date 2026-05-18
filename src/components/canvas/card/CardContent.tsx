@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { CardBlockNoteEditor, type BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { renderBlocksToHTML } from '../../../utils/renderBlocks'
 
@@ -13,7 +14,7 @@ interface CardContentProps {
   textColor: string
 }
 
-export function CardContent({
+export const CardContent = memo(function CardContent({
   isEditing,
   isSelected,
   content,
@@ -39,8 +40,8 @@ export function CardContent({
     >
       {isEditing ? (
         <div
-          className="h-full px-6"
-          style={{ fontSize: '13px', lineHeight: '1.5', overflow: 'visible' }}
+          className="h-full overflow-y-auto px-6"
+          style={{ fontSize: '13px', lineHeight: '1.5' }}
         >
           <CardBlockNoteEditor
             ref={editorRef}
@@ -71,4 +72,4 @@ export function CardContent({
       )}
     </div>
   )
-}
+})

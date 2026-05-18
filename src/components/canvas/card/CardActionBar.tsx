@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, memo } from 'react'
 import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal } from 'lucide-react'
 import { useLibraryStore } from '../../../utils/libraryStore'
 import { connectionMediator } from '../../../utils/connectionMediator'
@@ -33,7 +33,7 @@ interface CardActionBarProps {
   cardPreviewHTML?: string
 }
 
-export function CardActionBar({
+export const CardActionBar = memo(function CardActionBar({
   cardId,
   color,
   collapsed,
@@ -154,7 +154,7 @@ export function CardActionBar({
       </div>
     </div>
   )
-}
+})
 
 function ActionBarButton({
   icon,
