@@ -1,4 +1,5 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useBoardStore } from '../../../utils/boardStore'
 import { useLibraryStore } from '../../../utils/libraryStore'
@@ -13,6 +14,7 @@ interface MoreActionsMenuProps {
   onRemoveFromBoard: () => void
   onMoveToBoard: (boardId: string) => void
   onColorChange: (color: CardColor) => void
+  triggerRef: React.RefObject<HTMLDivElement | null>
 }
 
 export function MoreActionsMenu({
@@ -22,10 +24,13 @@ export function MoreActionsMenu({
   onRemoveFromBoard,
   onMoveToBoard,
   onColorChange,
+  triggerRef,
 }: MoreActionsMenuProps) {
   const isDarkMode = useLibraryStore(s => s.isDarkMode)
   const boards = useBoardStore(s => s.boards)
   const activeBoardId = useBoardStore(s => s.activeBoardId)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
 
   const handleColorChange = useCallback((c: CardColor) => {
     console.log('[CardActionBar] handleColorChange:', { cardId, color: c })
@@ -34,16 +39,42 @@ export function MoreActionsMenu({
 
   const otherBoards = boards.filter(b => b.id !== activeBoardId)
 
-  return (
+  useEffect(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const menuWidth = 200
+    const menuMarginLeft = 4
+    let left = rect.right + menuMarginLeft
+    if (left + menuWidth > window.innerWidth) {
+      left = rect.left - menuWidth - menuMarginLeft
+    }
+    setPosition({ top: rect.top, left })
+  }, [triggerRef])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (
+        menuRef.current && !menuRef.current.contains(target) &&
+        triggerRef.current && !triggerRef.current.contains(target)
+      ) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose, triggerRef])
+
+  const menuContent = (
     <div
+      ref={menuRef}
       className="animate-fadeIn"
       style={{
-        position: 'absolute',
-        top: 0,
-        left: '100%',
-        zIndex: 50,
+        position: 'fixed',
+        top: position.top,
+        left: position.left,
+        zIndex: 9999,
         minWidth: 200,
-        marginLeft: 4,
         padding: '6px 0',
         borderRadius: 8,
         backgroundColor: isDarkMode ? '#27272a' : '#ffffff',
@@ -100,4 +131,6 @@ export function MoreActionsMenu({
       />
     </div>
   )
+
+  return createPortal(menuContent, document.body)
 }

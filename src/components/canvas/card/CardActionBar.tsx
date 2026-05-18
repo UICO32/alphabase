@@ -56,13 +56,11 @@ export const CardActionBar = memo(function CardActionBar({
 
   useEffect(() => {
     if (!moreOpen) return
-    const handler = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as globalThis.Node)) {
-        setMoreOpen(false)
-      }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
   }, [moreOpen])
 
   const showIcons = isHovered || selected || isConnecting
@@ -148,6 +146,7 @@ export const CardActionBar = memo(function CardActionBar({
               onRemoveFromBoard={onRemoveFromBoard}
               onMoveToBoard={onMoveToBoard}
               onColorChange={onColorChange}
+              triggerRef={moreRef}
             />
           )}
         </div>
