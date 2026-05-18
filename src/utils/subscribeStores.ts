@@ -3,24 +3,38 @@ import { useCardStore } from './cardStore'
 import { useBoardStore } from './boardStore'
 import { useTrashStore } from './trashStore'
 import { globalCardToCardFile } from './workspace/cardConverter'
+import type { WorkspaceMetadata } from './workspace/types'
+
+function buildCurrentMetadata(): WorkspaceMetadata {
+  const cardCount = Object.keys(useCardStore.getState().cards).length
+  const boardCount = useBoardStore.getState().boards.length
+  return { version: 1, cardCount, boardCount, lastModified: Date.now() }
+}
 
 export function subscribeCardStore(syncEngine: WorkspaceSyncEngine) {
   let prevCards = useCardStore.getState().cards
 
   return useCardStore.subscribe((state) => {
     const cards = state.cards
+    let cardCountChanged = false
 
     for (const id in cards) {
       if (cards[id] !== prevCards[id]) {
         const cardFile = globalCardToCardFile(cards[id])
         syncEngine.scheduleWriteCard(cardFile)
+        if (!(id in prevCards)) cardCountChanged = true
       }
     }
 
     for (const id in prevCards) {
       if (!(id in cards)) {
         syncEngine.scheduleDeleteCard(id)
+        cardCountChanged = true
       }
+    }
+
+    if (cardCountChanged) {
+      syncEngine.scheduleWriteMetadata(buildCurrentMetadata())
     }
 
     prevCards = cards
@@ -34,6 +48,9 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
   return useBoardStore.subscribe((state) => {
     if (state.boards !== prevBoards) {
       syncEngine.scheduleWriteManifest({ boards: state.boards })
+      if (state.boards.length !== prevBoards.length) {
+        syncEngine.scheduleWriteMetadata(buildCurrentMetadata())
+      }
       prevBoards = state.boards
     }
 

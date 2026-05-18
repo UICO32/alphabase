@@ -75,8 +75,8 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const handleWorkspaceChanged = () => {
-      stopActiveSyncEngine()
+    const handleWorkspaceChanged = async () => {
+      await stopActiveSyncEngine()
       useCardStore.setState({ cards: {}, isLoaded: false })
       useBoardStore.setState({ boards: [], activeBoardId: null, isLoaded: false, boardData: {} })
       useTrashStore.setState({ items: [] })

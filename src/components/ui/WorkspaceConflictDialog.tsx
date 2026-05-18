@@ -1,5 +1,5 @@
 import { usePanelSurface } from '../../hooks/usePanelSurface'
-import { AlertTriangle, Database, ArrowRight } from 'lucide-react'
+import { AlertTriangle, Database } from 'lucide-react'
 
 export interface ConflictData {
   expectedCards: number
@@ -51,7 +51,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
         {/* Content */}
         <div className="px-6 py-5 space-y-4">
           <p className="text-sm" style={{ color: surface.text }}>
-            工作区元数据记录的数量与实际加载的数量不匹配：
+            磁盘上的实际数据与元数据记录不匹配：
           </p>
 
           <div className="space-y-3">
@@ -64,12 +64,12 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
                   卡片数量
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: surface.muted }}>
-                    记录 {conflict.expectedCards} 张
-                  </span>
-                  <ArrowRight size={14} style={{ color: surface.muted }} />
                   <span className="text-sm font-medium" style={{ color: '#ef4444' }}>
-                    实际 {conflict.actualCards} 张
+                    磁盘有 {conflict.actualCards} 张卡片
+                  </span>
+                  <span className="text-sm" style={{ color: surface.muted }}>·</span>
+                  <span className="text-sm font-medium" style={{ color: surface.muted }}>
+                    元数据记录 {conflict.expectedCards} 张
                   </span>
                 </div>
               </div>
@@ -84,12 +84,12 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
                   画板数量
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: surface.muted }}>
-                    记录 {conflict.expectedBoards} 个
-                  </span>
-                  <ArrowRight size={14} style={{ color: surface.muted }} />
                   <span className="text-sm font-medium" style={{ color: '#ef4444' }}>
-                    实际 {conflict.actualBoards} 个
+                    磁盘有 {conflict.actualBoards} 个画板
+                  </span>
+                  <span className="text-sm" style={{ color: surface.muted }}>·</span>
+                  <span className="text-sm font-medium" style={{ color: surface.muted }}>
+                    元数据记录 {conflict.expectedBoards} 个
                   </span>
                 </div>
               </div>
@@ -123,25 +123,24 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
               e.currentTarget.style.backgroundColor = 'transparent'
             }}
           >
-            取消
+            取消加载
           </button>
 
           <button
             onClick={() => onChoice('continue')}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{
-              color: surface.text,
-              backgroundColor: surface.surface,
-              border: `1px solid ${surface.divider}`,
+              color: '#fff',
+              backgroundColor: '#3b82f6',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = surface.divider
+              e.currentTarget.style.backgroundColor = '#2563eb'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = surface.surface
+              e.currentTarget.style.backgroundColor = '#3b82f6'
             }}
           >
-            继续加载
+            保留磁盘数据
           </button>
 
           {hasBackup && (
@@ -149,14 +148,15 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
               onClick={() => onChoice('backup')}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               style={{
-                color: '#fff',
-                backgroundColor: '#3b82f6',
+                color: surface.text,
+                backgroundColor: surface.surface,
+                border: `1px solid ${surface.divider}`,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#2563eb'
+                e.currentTarget.style.backgroundColor = surface.divider
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#3b82f6'
+                e.currentTarget.style.backgroundColor = surface.surface
               }}
             >
               <Database size={14} />

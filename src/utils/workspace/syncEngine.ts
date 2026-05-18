@@ -1,16 +1,18 @@
 import { writeFile, deleteFile, exists, mkdir, rename } from './fs'
-import type { CardFile, BoardSnapshot, BoardManifest, TrashFile } from './types'
+import type { CardFile, BoardSnapshot, BoardManifest, TrashFile, WorkspaceMetadata } from './types'
 
 export class WorkspaceSyncEngine {
   private cardsDir: string = ''
   private boardsDir: string = ''
   private trashDir: string = ''
+  private workspacePath: string = ''
   private pendingWrites = new Map<string, { data: string; timer: ReturnType<typeof setTimeout> }>()
   private running = false
 
   constructor() {}
 
   async init(workspacePath: string) {
+    this.workspacePath = workspacePath
     this.cardsDir = joinPath(workspacePath, 'cards')
     this.boardsDir = joinPath(workspacePath, 'boards')
     this.trashDir = joinPath(workspacePath, 'trash')
@@ -24,12 +26,12 @@ export class WorkspaceSyncEngine {
     this.running = true
   }
 
-  stop() {
+  stop(): Promise<void> {
     this.running = false
     for (const [, { timer }] of this.pendingWrites) {
       clearTimeout(timer)
     }
-    this.flushAll()
+    return this.flushAll()
   }
 
   isRunning() { return this.running }
@@ -59,6 +61,11 @@ export class WorkspaceSyncEngine {
   scheduleWriteManifest(manifest: BoardManifest, debounceMs = 300) {
     const path = joinPath(this.boardsDir, '_manifest.json')
     this.scheduleWrite(path, JSON.stringify(manifest, null, 2), debounceMs)
+  }
+
+  scheduleWriteMetadata(metadata: WorkspaceMetadata, debounceMs = 300) {
+    const path = joinPath(this.workspacePath, '_metadata.json')
+    this.scheduleWrite(path, JSON.stringify(metadata, null, 2), debounceMs)
   }
 
   scheduleWriteTrash(item: TrashFile, debounceMs = 500) {
@@ -104,28 +111,34 @@ export class WorkspaceSyncEngine {
     }
   }
 
-  flushAll() {
+  flushAll(): Promise<void> {
     const entries = [...this.pendingWrites.entries()]
     for (const [, { timer }] of entries) {
       clearTimeout(timer)
     }
     this.pendingWrites.clear()
 
+    const promises: Promise<void>[] = []
     for (const [key, { data }] of entries) {
       try {
         const path = key.startsWith('delete:') ? key.slice(7) : key
         if (data === '__DELETE__') {
-          exists(path).then(e => { if (e) deleteFile(path) }).catch(() => {})
+          promises.push(
+            exists(path).then(e => { if (e) return deleteFile(path) }).then(() => {}).catch(() => {})
+          )
         } else {
           const tmpPath = path + '.tmp'
-          writeFile(tmpPath, data)
-            .then(() => rename(tmpPath, path))
-            .catch(() => {})
+          promises.push(
+            writeFile(tmpPath, data)
+              .then(() => rename(tmpPath, path))
+              .then(() => {}).catch(() => {})
+          )
         }
       } catch {
         /* noop */
       }
     }
+    return Promise.all(promises).then(() => {})
   }
 }
 

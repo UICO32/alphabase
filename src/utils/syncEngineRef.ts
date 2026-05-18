@@ -10,9 +10,10 @@ export function getActiveSyncEngine(): WorkspaceSyncEngine | null {
   return activeEngine
 }
 
-export function stopActiveSyncEngine() {
+export async function stopActiveSyncEngine() {
   if (activeEngine) {
-    activeEngine.stop()
+    const engine = activeEngine
     activeEngine = null
+    await engine.stop()
   }
 }
