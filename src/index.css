@@ -11,8 +11,19 @@ html, body, #root {
 /* 允许 ReactFlow viewport 内的弹出层不被裁切 */
 .react-flow,
 .react-flow__renderer,
-.react-flow__pane {
+.react-flow__pane,
+.react-flow__viewport {
   overflow: visible !important;
+}
+
+/* 未选中/未编辑态卡片用 CSS containment 裁切内容 */
+.card-node-default.overflow-hidden {
+  contain: layout style paint;
+}
+
+/* 选中或编辑态卡片移除 containment，允许 resize handles 和浮动 UI 溢出 */
+.card-node-default.overflow-visible {
+  contain: none;
 }
 
 .react-flow__renderer,

@@ -243,7 +243,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     'card-node-default',
     'relative',
     'rounded-2xl',
-    isEditing ? 'overflow-visible' : 'overflow-hidden',
+    (isEditing || selected) ? 'overflow-visible' : 'overflow-hidden',
     isConnectingSource ? 'card-node-connecting-source' : '',
     isNearbyTarget ? 'card-node-nearby-target' : '',
   ].filter(Boolean).join(' ')
