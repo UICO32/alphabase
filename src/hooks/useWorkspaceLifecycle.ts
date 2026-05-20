@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import type { Node, Edge } from '@xyflow/react'
-import { useBoardStore } from '../utils/boardStore'
+import { useBoardStore } from '../stores/boardStore'
 import { getActiveSyncEngine, setActiveSyncEngine } from '../utils/syncEngineRef'
 import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from '../utils/subscribeStores'
 
@@ -118,7 +118,7 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
       window.removeEventListener('beforeunload', handleBeforeUnload)
       unsubs.forEach(fn => fn())
       setActiveSyncEngine(null)
-      syncEngine.stop()
+      void syncEngine.stop()
     }
   }, [canvasReady])
 

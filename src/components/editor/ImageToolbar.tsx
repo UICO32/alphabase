@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Copy, Crop, Download } from 'lucide-react'
 
 interface ToolbarPosition {
@@ -364,10 +365,5 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
     </>
   )
 
-  // 使用 portal 渲染到 body
-  return (
-    <>
-      {toolbarContent}
-    </>
-  )
+  return createPortal(toolbarContent, portalContainerRef.current)
 }

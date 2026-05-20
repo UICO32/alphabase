@@ -6,6 +6,8 @@ import { BlockNoteView } from '@blocknote/mantine'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { ImageToolbar } from './ImageToolbar'
+import { CardFormattingToolbar } from './CardFormattingToolbar'
+import { CardSlashMenu } from './CardSlashMenu'
 import { useImageColumnDrop } from './useImageColumnDrop'
 import { DragOnlySideMenu } from './DragOnlySideMenu'
 import {
@@ -338,8 +340,11 @@ const CardBlockNoteEditorInner = (
           editor={editor}
           editable={editable}
           theme={theme}
-          slashMenu={editable}
+          formattingToolbar={false}
+          slashMenu={false}
         >
+          {editable && <CardFormattingToolbar />}
+          {editable && <CardSlashMenu />}
           {showSideMenu && editable && (
             <SideMenuController
               sideMenu={DragOnlySideMenu}

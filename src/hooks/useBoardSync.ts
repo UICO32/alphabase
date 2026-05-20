@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { type Node, type Edge } from '@xyflow/react'
-import { useBoardStore } from '../utils/boardStore'
+import { useBoardStore } from '../stores/boardStore'
 
 interface UseBoardSyncOptions {
   nodes: Node[]

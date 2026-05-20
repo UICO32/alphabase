@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react'
 import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal } from 'lucide-react'
-import { useLibraryStore } from '../../../utils/libraryStore'
+import { useLibraryStore } from '../../../stores/libraryStore'
 import { connectionMediator } from '../../../utils/connectionMediator'
 import { renderBlocksToHTML } from '../../../utils/renderBlocks'
 import { type CardColor } from '../../../types/card'

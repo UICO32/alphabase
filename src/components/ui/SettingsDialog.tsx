@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useLibraryStore } from '../../utils/libraryStore'
-import { useWorkspaceStore } from '../../utils/workspace/workspaceStore'
+import { useLibraryStore } from '../../stores/libraryStore'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { useFlomoSyncStore } from '../../utils/flomoSync'

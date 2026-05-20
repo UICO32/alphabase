@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { useLibraryStore } from '../../utils/libraryStore'
-import { useCardStore } from '../../utils/cardStore'
+import { useLibraryStore } from '../../stores/libraryStore'
+import { useCardStore } from '../../stores/cardStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
@@ -100,7 +100,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
         {rightPanelActiveTab === 'library' ? (
           <CardLibraryView onOpenSettings={onOpenSettings} />
         ) : editingCardId ? (

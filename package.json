@@ -19,6 +19,7 @@
     "@blocknote/core": "^0.31.0",
     "@blocknote/mantine": "^0.31.0",
     "@blocknote/react": "^0.31.0",
+    "@floating-ui/react": "^0.27.19",
     "@mozilla/readability": "^0.6.0",
     "@tailwindcss/vite": "^4.3.0",
     "@tiptap/pm": "^2.11.0",

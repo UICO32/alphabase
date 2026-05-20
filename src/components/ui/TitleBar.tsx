@@ -1,4 +1,4 @@
-import { useWorkspaceStore } from '../../utils/workspace/workspaceStore'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 
 export function TitleBar() {

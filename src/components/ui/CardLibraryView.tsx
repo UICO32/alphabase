@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useCardStore } from '../../utils/cardStore'
+import { useCardStore } from '../../stores/cardStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { useFlomoSyncStore } from '../../utils/flomoSync'
 import { SearchInput, EmptyState } from './SharedUI'

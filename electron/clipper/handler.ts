@@ -66,7 +66,7 @@ async function handleClip(_event: any, body: ClipRequest): Promise<ClipResult> {
   log.info(`imageUrls count: ${imageUrls.length}, workspacePath: ${workspacePath || '(empty)'}`)
 
   if (imageUrls.length > 0 && workspacePath) {
-    const imageInfos = await downloadImages(imageUrls, workspacePath)
+    const imageInfos = await downloadImages(imageUrls, workspacePath, url)
     log.info(`images downloaded: ${imageInfos.length}/${imageUrls.length}`)
     const replaced = replaceImageUrls(result.html, result.markdown, imageInfos, workspacePath || '')
     result.html = replaced.html
@@ -84,7 +84,8 @@ function extractWithPlatform(platform: string, url: string, rawHtml: string): Cl
     return xhsResult || extractContent(url, rawHtml)
   }
   if (platform === 'wechat') {
-    return extractWeChat(url, rawHtml)
+    const wechatResult = extractWeChat(url, rawHtml)
+    return wechatResult || extractContent(url, rawHtml)
   }
   return extractContent(url, rawHtml)
 }

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { useLibraryStore } from '../../utils/libraryStore'
+import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../utils/workspace/workspaceStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { useBoardActions } from '../../hooks/useBoardActions'

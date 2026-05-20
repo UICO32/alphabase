@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { useCardStore } from '../../utils/cardStore'
-import { useTrashStore } from '../../utils/trashStore'
+import { useCardStore } from '../../stores/cardStore'
+import { useTrashStore } from '../../stores/trashStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { EmptyState } from './SharedUI'
 import { Trash2, RotateCcw, Trash, X } from 'lucide-react'

@@ -2,7 +2,7 @@ import { parseHTML } from 'linkedom'
 import { log } from '../logger'
 import type { ClipResult } from '../types'
 
-export function extractWeChat(url: string, rawHtml: string): ClipResult {
+export function extractWeChat(url: string, rawHtml: string): ClipResult | null {
   if (/captcha|TCaptcha|secitptpage|__DEBUGINFO/.test(rawHtml)) {
     throw Object.assign(
       new Error('微信公众号反爬验证拦截，请尝试在浏览器中打开文章后再剪藏'),
@@ -17,7 +17,8 @@ export function extractWeChat(url: string, rawHtml: string): ClipResult {
   const authorEl = document.querySelector('#js_name')
 
   if (!contentEl) {
-    throw Object.assign(new Error('无法提取微信文章正文'), { code: 'NO_CONTENT' })
+    log.info('wechat: #js_content not found, falling back to Readability')
+    return null
   }
 
   const clone = contentEl.cloneNode(true) as Element
@@ -60,7 +61,8 @@ export function extractWeChat(url: string, rawHtml: string): ClipResult {
       img.getAttribute('data-url') ||
       img.getAttribute('src') ||
       ''
-    if (src) img.setAttribute('src', src)
+    if (src && !src.startsWith('data:')) img.setAttribute('src', src)
+    else if (src && src.startsWith('data:')) img.removeAttribute('src')
     img.removeAttribute('data-src')
     img.removeAttribute('data-original')
     img.removeAttribute('data-url')

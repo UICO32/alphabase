@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { useLibraryStore } from '../../utils/libraryStore'
-import { useBoardStore } from '../../utils/boardStore'
+import { useLibraryStore } from '../../stores/libraryStore'
+import { useBoardStore } from '../../stores/boardStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { SearchInput, EmptyState } from './SharedUI'
 import { LayoutGrid, FileText } from 'lucide-react'

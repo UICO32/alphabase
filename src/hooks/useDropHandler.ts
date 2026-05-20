@@ -3,7 +3,7 @@ import { type Node } from '@xyflow/react'
 import type { ReactFlowInstance } from '@xyflow/react'
 import type { MediaNodeData } from '../components/canvas/MediaNode'
 import type { CardNodeData } from '../components/canvas/CardNode'
-import { useCardStore } from '../utils/cardStore'
+import { useCardStore } from '../stores/cardStore'
 import { fileToDataUrl, generateId } from '../utils/fileUtils'
 
 interface UseDropHandlerOptions {

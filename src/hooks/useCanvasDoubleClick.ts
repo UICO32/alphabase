@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { type Node, type Edge } from '@xyflow/react'
-import { useCardStore } from '../utils/cardStore'
+import { useCardStore } from '../stores/cardStore'
 
 interface UseCanvasDoubleClickOptions {
   nodes: Node[]

@@ -29,12 +29,13 @@ function getExtFromUrl(url: string): string {
 async function downloadOne(
   url: string,
   index: number,
-  mediaDir: string
+  mediaDir: string,
+  sourceUrl?: string
 ): Promise<ImageInfo> {
-  // 微信图片需要特定 Referer
+  // 图片防盗链：微信/少数派等需要 Referer
   const referer = url.includes('mmbiz.qpic.cn') || url.includes('mmbiz.qlogo.cn')
     ? 'https://mp.weixin.qq.com/'
-    : url
+    : sourceUrl || url
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
@@ -76,7 +77,8 @@ async function downloadOne(
 
 export async function downloadImages(
   imageUrls: string[],
-  workspacePath: string
+  workspacePath: string,
+  sourceUrl?: string
 ): Promise<ImageInfo[]> {
   const uniqueUrls = [...new Set(imageUrls)]
     .map(normalizeUrl)
@@ -90,7 +92,7 @@ export async function downloadImages(
   const results: ImageInfo[] = []
   for (let i = 0; i < uniqueUrls.length; i++) {
     try {
-      const info = await downloadOne(uniqueUrls[i], results.length, mediaDir)
+      const info = await downloadOne(uniqueUrls[i], results.length, mediaDir, sourceUrl)
       results.push(info)
     } catch (err: any) {
       log.warn(`image download failed: ${err.message}, keeping original URL`)
@@ -107,7 +109,12 @@ export function replaceImageUrls(html: string, markdown: string, imageInfos: Ima
   for (const info of imageInfos) {
     const slashPath = workspacePath.split('\\').join('/')
     const localUrl = `hepta-media://${info.localFilename}?workspace=${encodeURIComponent(slashPath)}`
+    // HTML 中 URL 的 & 可能被编码为 &amp;，需要同时替换两种形式
     newHtml = newHtml.replace(new RegExp(escapeRegExp(info.originalUrl), 'g'), localUrl)
+    const ampEncoded = info.originalUrl.replace(/&/g, '&amp;')
+    if (ampEncoded !== info.originalUrl) {
+      newHtml = newHtml.replace(new RegExp(escapeRegExp(ampEncoded), 'g'), localUrl)
+    }
     newMarkdown = newMarkdown.replace(new RegExp(escapeRegExp(info.originalUrl), 'g'), localUrl)
   }
   return { html: newHtml, markdown: newMarkdown }

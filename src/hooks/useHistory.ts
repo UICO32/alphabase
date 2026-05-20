@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { Node, Edge } from '@xyflow/react'
-import type { GlobalCard } from '../utils/cardStore'
+import type { GlobalCard } from '../stores/cardStore'
 
 export interface HistoryEntry {
   type: 'canvas' | 'structure' | 'cards'

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Move } from 'lucide-react'
-import { useLibraryStore } from '../../../utils/libraryStore'
+import { useLibraryStore } from '../../../stores/libraryStore'
 import { MenuItem } from './MenuItem'
 
 interface BoardSubmenuProps {

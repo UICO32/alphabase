@@ -27,6 +27,8 @@ export function extractContent(url: string, rawHtml: string): ClipResult {
     throw Object.assign(new Error('无法提取有效内容'), { code: 'NO_CONTENT' })
   }
 
+  // linkedom parseHTML 对片段 HTML（如 Readability 输出）会把内容放在 body 外面
+  // 导致 body.innerHTML 为空，需要用 documentElement.innerHTML 并去掉 head/body 标签
   const contentDoc = parseHTML(article.content).document
 
   for (const img of contentDoc.querySelectorAll('img') as NodeListOf<HTMLImageElement>) {
@@ -34,7 +36,9 @@ export function extractContent(url: string, rawHtml: string): ClipResult {
       img.getAttribute('data-src') ||
       img.getAttribute('data-original') ||
       img.getAttribute('data-lazy-src')
-    if (dataSrc && !img.getAttribute('src')) {
+    const currentSrc = img.getAttribute('src') || ''
+    const isPlaceholder = currentSrc.startsWith('data:') || currentSrc.includes('1x1') || currentSrc.includes('spacer')
+    if (dataSrc && (!currentSrc || isPlaceholder)) {
       img.setAttribute('src', dataSrc)
     }
     img.removeAttribute('style')
@@ -42,7 +46,14 @@ export function extractContent(url: string, rawHtml: string): ClipResult {
     img.removeAttribute('height')
   }
 
-  const html = contentDoc.body.innerHTML
+  // linkedom body.innerHTML 可能为空（片段 HTML 内容在 body 外），用 body 内容或 fallback 到 documentElement
+  let html = contentDoc.body.innerHTML
+  if (!html) {
+    html = contentDoc.documentElement.innerHTML
+      .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+      .replace(/<\/?body[^>]*>/gi, '')
+      .replace(/<\/?html[^>]*>/gi, '')
+  }
   const markdown = turndown(html)
 
   const imageUrls = Array.from(contentDoc.querySelectorAll('img') as NodeListOf<HTMLImageElement>)

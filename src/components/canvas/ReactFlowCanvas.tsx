@@ -24,7 +24,7 @@ import { ConnectionPreview } from './ConnectionPreview'
 
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
-import { useLibraryStore } from '../../utils/libraryStore'
+import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle'
 import { useBoardSync } from '../../hooks/useBoardSync'
 import { useSectionSync } from '../../hooks/useSectionSync'
@@ -39,6 +39,46 @@ import { connectionMediator } from '../../utils/connectionMediator'
 const PROXIMITY_THRESHOLD = 60
 const VIEWPORT_BUFFER = 500
 
+function useViewportCulling(nodes: Node[], edges: Edge[]) {
+  const transform = useStore((s) => s.transform)
+  const [tx, ty, zoom] = transform
+  const visibleNodes = useMemo(() => {
+    if (nodes.length === 0) return nodes
+    const viewWidth = window.innerWidth
+    const viewHeight = window.innerHeight
+    const buffer = VIEWPORT_BUFFER / zoom
+    const left = -tx / zoom - buffer
+    const top = -ty / zoom - buffer
+    const right = left + viewWidth / zoom + buffer * 2
+    const bottom = top + viewHeight / zoom + buffer * 2
+
+    return nodes.filter((node) => {
+      const w = ((node.data as Record<string, unknown>).width as number) ?? 280
+      const h = ((node.data as Record<string, unknown>).height as number) ?? 200
+      const nodeRight = node.position.x + w
+      const nodeBottom = node.position.y + h
+      return (
+        node.position.x < right &&
+        nodeRight > left &&
+        node.position.y < bottom &&
+        nodeBottom > top
+      )
+    })
+  }, [nodes, tx, ty, zoom])
+
+  const visibleNodeIds = useMemo(
+    () => new Set(visibleNodes.map((n) => n.id)),
+    [visibleNodes],
+  )
+
+  const visibleEdges = useMemo(
+    () => edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)),
+    [edges, visibleNodeIds],
+  )
+
+  return { visibleNodes, visibleEdges }
+}
+
 const nodeTypes = {
   card: CardNode,
   section: SectionNode,
@@ -47,6 +87,94 @@ const nodeTypes = {
 
 const edgeTypes = {
   connection: MemoizedConnectionEdge,
+}
+
+interface ReactFlowInnerProps {
+  nodes: Node[]
+  edges: Edge[]
+  onNodesChange: ReturnType<typeof useNodesState<Node>>[2]
+  onEdgesChange: ReturnType<typeof useEdgesState<Edge>>[2]
+  onConnect: (connection: Connection) => void
+  onInit: (instance: ReactFlowInstance) => void
+  onPaneClick: () => void
+  onNodeClick: (event: React.MouseEvent, node: Node) => void
+  onMouseMove: (event: React.MouseEvent) => void
+  onNodeDrag: (event: React.MouseEvent, node: Node, nodes: Node[]) => void
+  onNodeDragStop: (event: React.MouseEvent, node: Node, nodes: Node[]) => void
+  onReconnect: (oldEdge: Edge, newConnection: Connection) => void
+  onReconnectEnd: (event: MouseEvent | TouchEvent, edge: Edge) => void
+  onDragOver: (event: React.DragEvent) => void
+  onDrop: (event: React.DragEvent) => void
+  connectionLineComponent: (props: any) => React.JSX.Element
+  isValidConnection: IsValidConnection
+  onMove: (event: any, viewport: { zoom: number }) => void
+  isDarkMode: boolean
+}
+
+function ReactFlowInner({
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onInit,
+  onPaneClick,
+  onNodeClick,
+  onMouseMove,
+  onNodeDrag,
+  onNodeDragStop,
+  onReconnect,
+  onReconnectEnd,
+  onDragOver,
+  onDrop,
+  connectionLineComponent,
+  isValidConnection,
+  onMove,
+  isDarkMode,
+}: ReactFlowInnerProps) {
+  const { visibleNodes, visibleEdges } = useViewportCulling(nodes, edges)
+
+  return (
+    <ReactFlow
+      nodes={visibleNodes}
+      edges={visibleEdges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onInit={onInit}
+      onPaneClick={onPaneClick}
+      onNodeClick={onNodeClick}
+      onMouseMove={onMouseMove}
+      onNodeDrag={onNodeDrag}
+      onNodeDragStop={onNodeDragStop}
+      onReconnect={(oldEdge, newConn) => onReconnect(oldEdge, newConn)}
+      onReconnectEnd={(e, edge) => onReconnectEnd(e, edge)}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      edgesReconnectable
+      connectionMode={ConnectionMode.Loose}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      connectionLineComponent={connectionLineComponent}
+      isValidConnection={isValidConnection}
+      autoPanOnNodeDrag={false}
+      panOnDrag={[2]}
+      selectionOnDrag
+      selectionMode={SelectionMode.Partial}
+      panActivationKeyCode="Space"
+      onMove={onMove}
+      fitView
+      zoomOnScroll
+      zoomOnPinch
+      zoomOnDoubleClick={false}
+      minZoom={0.1}
+      maxZoom={4}
+    >
+      <AdaptiveBackground
+        color={isDarkMode ? '#ffffff' : '#18181b'}
+      />
+    </ReactFlow>
+  )
 }
 
 export function ReactFlowCanvas() {
@@ -78,44 +206,6 @@ export function ReactFlowCanvas() {
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
     connectionMediator.isConnecting.bind(connectionMediator),
-  )
-
-  // Viewport culling: only render nodes within viewport + buffer
-  const transform = useStore((s) => s.transform)
-  const [tx, ty, zoom] = transform
-  const visibleNodes = useMemo(() => {
-    if (nodes.length === 0) return nodes
-    // Calculate visible bounds in flow coordinates
-    const viewWidth = window.innerWidth
-    const viewHeight = window.innerHeight
-    const buffer = VIEWPORT_BUFFER / zoom
-    const left = -tx / zoom - buffer
-    const top = -ty / zoom - buffer
-    const right = left + viewWidth / zoom + buffer * 2
-    const bottom = top + viewHeight / zoom + buffer * 2
-
-    return nodes.filter((node) => {
-      const w = ((node.data as Record<string, unknown>).width as number) ?? 280
-      const h = ((node.data as Record<string, unknown>).height as number) ?? 200
-      const nodeRight = node.position.x + w
-      const nodeBottom = node.position.y + h
-      return (
-        node.position.x < right &&
-        nodeRight > left &&
-        node.position.y < bottom &&
-        nodeBottom > top
-      )
-    })
-  }, [nodes, tx, ty, zoom])
-
-  const visibleNodeIds = useMemo(
-    () => new Set(visibleNodes.map((n) => n.id)),
-    [visibleNodes],
-  )
-
-  const visibleEdges = useMemo(
-    () => edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)),
-    [edges, visibleNodeIds],
   )
 
   useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef })
@@ -320,9 +410,9 @@ export function ReactFlowCanvas() {
 
   return (
     <div className="w-full h-full" style={{ backgroundColor: surface.appBg }} ref={canvasRef}>
-      <ReactFlow
-        nodes={visibleNodes}
-        edges={visibleEdges}
+      <ReactFlowInner
+        nodes={nodes}
+        edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -336,29 +426,11 @@ export function ReactFlowCanvas() {
         onReconnectEnd={onReconnectEnd}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        edgesReconnectable
-        connectionMode={ConnectionMode.Loose}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
         connectionLineComponent={connectionLineComponent}
         isValidConnection={isValidConnection}
-        autoPanOnNodeDrag={false}
-        panOnDrag={[2]}
-        selectionOnDrag
-        selectionMode={SelectionMode.Partial}
-        panActivationKeyCode="Space"
         onMove={onMove}
-        fitView
-        zoomOnScroll
-        zoomOnPinch
-        zoomOnDoubleClick={false}
-        minZoom={0.1}
-        maxZoom={4}
-      >
-        <AdaptiveBackground
-          color={isDarkMode ? '#ffffff' : '#18181b'}
-        />
-      </ReactFlow>
+        isDarkMode={isDarkMode}
+      />
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
 
       {/* Undo/Redo Status Indicator */}

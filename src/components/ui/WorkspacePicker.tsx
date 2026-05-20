@@ -1,4 +1,4 @@
-import { useWorkspaceStore } from '../../utils/workspace/workspaceStore'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { EmptyState } from './SharedUI'
 import { Folder, Plus, Clock, X } from 'lucide-react'

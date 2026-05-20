@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
-import { useBoardStore } from '../utils/boardStore'
-import { useLibraryStore } from '../utils/libraryStore'
+import { useBoardStore } from '../stores/boardStore'
+import { useLibraryStore } from '../stores/libraryStore'
 import { useWorkspaceStore } from '../utils/workspace/workspaceStore'
 
 export function useBoardActions() {
