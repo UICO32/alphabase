@@ -34,6 +34,7 @@ import { useCanvasZoom } from '../../hooks/useCanvasZoom'
 import { useCanvasConnection } from '../../hooks/useCanvasConnection'
 import { useCanvasDrag } from '../../hooks/useCanvasDrag'
 import { useHistory } from '../../hooks/useHistory'
+import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
 import { connectionMediator } from '../../utils/connectionMediator'
 
 const PROXIMITY_THRESHOLD = 60
@@ -286,47 +287,7 @@ export function ReactFlowCanvas() {
     [setZoom],
   )
 
-  const handleUndo = useCallback(() => {
-    const entry = undo()
-    if (entry) {
-      setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
-      setEdges(entry.edges.map(e => ({ ...e })))
-    }
-  }, [undo, setNodes, setEdges])
-
-  const handleRedo = useCallback(() => {
-    const entry = redo()
-    if (entry) {
-      setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
-      setEdges(entry.edges.map(e => ({ ...e })))
-    }
-  }, [redo, setNodes, setEdges])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCtrl = e.ctrlKey || e.metaKey
-      if (!isCtrl) return
-
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        handleUndo()
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault()
-        handleRedo()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleUndo, handleRedo])
-
-  useEffect(() => {
-    const handleWorkspaceChange = () => {
-      clear()
-    }
-    window.addEventListener('hepta-reinit-workspace', handleWorkspaceChange)
-    return () => window.removeEventListener('hepta-reinit-workspace', handleWorkspaceChange)
-  }, [clear])
+  useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear })
 
   const onPaneClick = useCallback(() => {
     connectionMediator.clear()
