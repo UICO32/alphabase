@@ -1,4 +1,4 @@
-import { useLibraryStore } from '../../utils/libraryStore'
+import { useLibraryStore } from '../../stores/libraryStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { Plus, ZoomIn, ZoomOut, Maximize, Scissors } from 'lucide-react'
 

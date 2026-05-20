@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../stores/libraryStore'
-import { useWorkspaceStore } from '../../utils/workspace/workspaceStore'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { useBoardActions } from '../../hooks/useBoardActions'
 import { CollapseButton, PanelSeparator } from './SharedUI'

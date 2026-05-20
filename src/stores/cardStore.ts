@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useCallback } from 'react'
-import { renderBlocksToHTML } from './renderBlocks'
+import { renderBlocksToHTML } from '../converters/renderBlocks'
 import type { CardColor } from '../types/card'
 
 export interface GlobalCard {

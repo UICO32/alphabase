@@ -1,5 +1,5 @@
-import { writeFile, deleteFile, exists, mkdir, rename } from './fs'
-import type { CardFile, BoardSnapshot, BoardManifest, TrashFile, WorkspaceMetadata } from './types'
+import { writeFile, deleteFile, exists, mkdir, rename } from '../utils/workspace/fs'
+import type { CardFile, BoardSnapshot, BoardManifest, TrashFile, WorkspaceMetadata } from '../utils/workspace/types'
 
 export class WorkspaceSyncEngine {
   private cardsDir: string = ''

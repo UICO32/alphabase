@@ -73,7 +73,7 @@ export async function createFileSystemBackup(workspacePath: string): Promise<str
   try {
     const timestamp = Date.now().toString()
     const backupDir = `${workspacePath}/.backup/${timestamp}`
-    const { mkdir, exists, readdir, writeFile: writeF, readFile: readF, deleteFile: delF, rmdir } = await import('./workspace/fs')
+    const { mkdir, exists, readdir, writeFile: writeF, readFile: readF, deleteFile: delF, rmdir } = await import('../utils/workspace/fs')
 
     await mkdir(backupDir)
 

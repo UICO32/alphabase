@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useBoardStore } from '../stores/boardStore'
 import { useLibraryStore } from '../stores/libraryStore'
-import { useWorkspaceStore } from '../utils/workspace/workspaceStore'
+import { useWorkspaceStore } from '../stores/workspaceStore'
 
 export function useBoardActions() {
   const boards = useBoardStore(s => s.boards)

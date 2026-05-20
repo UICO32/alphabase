@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { WorkspaceMeta, WorkspaceSettings } from './types'
-import { DEFAULT_WORKSPACE_SETTINGS } from './types'
+import type { WorkspaceMeta, WorkspaceSettings } from '../utils/workspace/types'
+import { DEFAULT_WORKSPACE_SETTINGS } from '../utils/workspace/types'
 
 interface WorkspaceStore {
   currentWorkspace: WorkspaceMeta | null

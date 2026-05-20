@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { convertFlomoMemo, type FlomoMemo } from '../converters/flomoConverter'
-import { useCardStore, type GlobalCard } from './cardStore'
-import { useWorkspaceStore } from './workspace/workspaceStore'
+import { useCardStore, type GlobalCard } from '../stores/cardStore'
+import { useWorkspaceStore } from '../stores/workspaceStore'
 
 export interface FlomoSyncState {
   syncing: boolean

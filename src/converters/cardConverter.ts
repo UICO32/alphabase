@@ -1,5 +1,5 @@
-import type { CardFile } from './types'
-import type { GlobalCard } from '../cardStore'
+import type { CardFile } from '../utils/workspace/types'
+import type { GlobalCard } from '../stores/cardStore'
 
 export function cardFileToGlobalCard(file: CardFile): GlobalCard {
   return {

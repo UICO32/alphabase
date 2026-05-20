@@ -1,4 +1,4 @@
-import type { WorkspaceSyncEngine } from './workspace/syncEngine'
+import type { WorkspaceSyncEngine } from './syncEngine'
 
 let activeEngine: WorkspaceSyncEngine | null = null
 

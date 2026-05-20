@@ -1,7 +1,7 @@
-import type { GlobalCard } from './cardStore'
-import { useCardStore } from './cardStore'
-import { useTrashStore } from './trashStore'
-import type { TrashItem } from './trashStore'
+import type { GlobalCard } from '../stores/cardStore'
+import { useCardStore } from '../stores/cardStore'
+import { useTrashStore } from '../stores/trashStore'
+import type { TrashItem } from '../stores/trashStore'
 import type { CardColor } from '../types/card'
 
 interface CreateCardOptions {

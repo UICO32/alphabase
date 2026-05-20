@@ -1,9 +1,9 @@
-import type { WorkspaceSyncEngine } from './workspace/syncEngine'
-import { useCardStore } from './cardStore'
-import { useBoardStore } from './boardStore'
-import { useTrashStore } from './trashStore'
+import type { WorkspaceSyncEngine } from './syncEngine'
+import { useCardStore } from '../stores/cardStore'
+import { useBoardStore } from '../stores/boardStore'
+import { useTrashStore } from '../stores/trashStore'
 import { globalCardToCardFile } from '../converters/cardConverter'
-import type { WorkspaceMetadata } from './workspace/types'
+import type { WorkspaceMetadata } from '../utils/workspace/types'
 
 function buildCurrentMetadata(): WorkspaceMetadata {
   const cardCount = Object.keys(useCardStore.getState().cards).length

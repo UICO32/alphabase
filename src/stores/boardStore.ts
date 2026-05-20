@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { BoardMeta } from './workspace/types'
+import type { BoardMeta } from '../utils/workspace/types'
 
 interface BoardNodesData {
   nodes: Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown>; width?: number; height?: number }>
