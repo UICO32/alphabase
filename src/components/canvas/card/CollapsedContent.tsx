@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { renderBlocksToHTML } from '../../../utils/renderBlocks'
+import { renderBlocksToHTML } from '../../../converters/renderBlocks'
 
 interface CollapsedContentProps {
   content: string

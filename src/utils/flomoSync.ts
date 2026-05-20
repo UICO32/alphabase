@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { convertFlomoMemo, type FlomoMemo } from './flomoConverter'
+import { convertFlomoMemo, type FlomoMemo } from '../converters/flomoConverter'
 import { useCardStore, type GlobalCard } from './cardStore'
 import { useWorkspaceStore } from './workspace/workspaceStore'
 

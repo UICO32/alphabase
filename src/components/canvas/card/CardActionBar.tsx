@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, memo } from 'react'
 import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal } from 'lucide-react'
 import { useLibraryStore } from '../../../stores/libraryStore'
 import { connectionMediator } from '../../../utils/connectionMediator'
-import { renderBlocksToHTML } from '../../../utils/renderBlocks'
+import { renderBlocksToHTML } from '../../../converters/renderBlocks'
 import { type CardColor } from '../../../types/card'
 import { MoreActionsMenu } from './MoreActionsMenu'
 

@@ -18,7 +18,7 @@ import {
   parseContentToBlocks,
   toComparableJson,
   SAVE_DEBOUNCE_MS
-} from '../../utils/richTextUtils'
+} from '../../converters/richTextUtils'
 
 export interface BlockNoteEditorHandle {
   focus: () => void

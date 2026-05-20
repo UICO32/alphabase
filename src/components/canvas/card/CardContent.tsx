@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { CardBlockNoteEditor, type BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
-import { renderBlocksToHTML } from '../../../utils/renderBlocks'
+import { renderBlocksToHTML } from '../../../converters/renderBlocks'
 
 interface CardContentProps {
   isEditing: boolean

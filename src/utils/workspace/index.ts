@@ -2,7 +2,7 @@ export { setFSAdapter, getFSAdapter, readFile, writeFile, deleteFile, readdir, m
 export type { FSAdapter } from './fs'
 export { initElectronFSAdapter } from './fs-adapter'
 export { WorkspaceSyncEngine } from './syncEngine'
-export { cardFileToGlobalCard, globalCardToCardFile } from './cardConverter'
+export { cardFileToGlobalCard, globalCardToCardFile } from '../../converters/cardConverter'
 export { useWorkspaceStore } from './workspaceStore'
 export type {
   WorkspaceMeta,

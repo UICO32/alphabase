@@ -2,7 +2,7 @@ import type { WorkspaceSyncEngine } from './workspace/syncEngine'
 import { useCardStore } from './cardStore'
 import { useBoardStore } from './boardStore'
 import { useTrashStore } from './trashStore'
-import { globalCardToCardFile } from './workspace/cardConverter'
+import { globalCardToCardFile } from '../converters/cardConverter'
 import type { WorkspaceMetadata } from './workspace/types'
 
 function buildCurrentMetadata(): WorkspaceMetadata {

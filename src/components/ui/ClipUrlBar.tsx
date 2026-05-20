@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Scissors, X, Loader2 } from 'lucide-react'
 import { clipUrl, isValidHttpUrl } from '../../utils/clipper'
-import { htmlToBlocks } from '../../utils/htmlToBlocks'
+import { htmlToBlocks } from '../../converters/htmlToBlocks'
 import { useCardStore } from '../../stores/cardStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
