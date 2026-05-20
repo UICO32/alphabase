@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useBoardStore } from '../stores/boardStore'
-import { getActiveSyncEngine, setActiveSyncEngine } from '../utils/syncEngineRef'
-import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from '../utils/subscribeStores'
+import { getActiveSyncEngine, setActiveSyncEngine } from '../sync/syncEngineRef'
+import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from '../sync/subscribeStores'
 
 interface UseWorkspaceLifecycleOptions {
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void

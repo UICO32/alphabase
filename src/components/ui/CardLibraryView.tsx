@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useCardStore } from '../../stores/cardStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
-import { useFlomoSyncStore } from '../../utils/flomoSync'
+import { useFlomoSyncStore } from '../../sync/flomoSync'
 import { SearchInput, EmptyState } from './SharedUI'
 import { CardEditDialog } from './CardEditDialog'
 import { Layers, RefreshCw } from 'lucide-react'

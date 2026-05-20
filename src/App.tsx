@@ -15,7 +15,7 @@ import { useCardStore } from './stores/cardStore'
 import { useBoardStore } from './stores/boardStore'
 import { useTrashStore } from './stores/trashStore'
 import { useWorkspaceStore } from './stores/workspaceStore'
-import { stopActiveSyncEngine } from './utils/syncEngineRef'
+import { stopActiveSyncEngine } from './sync/syncEngineRef'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 import { WorkspaceConflictDialog } from './components/ui/WorkspaceConflictDialog'
 

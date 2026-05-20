@@ -3,7 +3,7 @@ import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
-import { useFlomoSyncStore } from '../../utils/flomoSync'
+import { useFlomoSyncStore } from '../../sync/flomoSync'
 import { X, Moon, Sun, Download, Upload, FolderOpen, RefreshCw, LogOut, Link } from 'lucide-react'
 
 const PANEL_HUE_OPTIONS = [
