@@ -1,32 +1,29 @@
 import { create } from 'zustand'
-import { setTheme, setPanelHue } from '../theme'
+import { setTheme, setPanelHue, getTheme, resolveTheme, type ThemeMode } from '../theme'
 export type ViewMode = 'board' | 'cards' | 'boardLibrary'
+export type SortBy = 'updatedAt' | 'createdAt' | 'title' | 'related'
 
 interface LibraryStore {
-  // 视图模式
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
 
-  // 卡片编辑
   editingCardId: string | null
   setEditingCardId: (cardId: string | null) => void
   openCardEditor: (cardId: string) => void
   closeCardEditor: () => void
 
-  // 暗色模式
   isDarkMode: boolean
+  themeMode: ThemeMode
+  setThemeMode: (mode: ThemeMode) => void
   setDarkMode: (dark: boolean) => void
   syncDarkMode: (v: boolean) => void
 
-  // 面板色调
   panelHue: number
   setPanelHue: (hue: number) => void
 
-  // 左侧面板
   leftPanelCollapsed: boolean
   setLeftPanelCollapsed: (collapsed: boolean) => void
 
-  // 右侧面板
   rightPanelCollapsed: boolean
   setRightPanelCollapsed: (collapsed: boolean) => void
   rightPanelWidth: number
@@ -34,32 +31,35 @@ interface LibraryStore {
   rightPanelActiveTab: 'library' | 'editor' | 'related'
   setRightPanelActiveTab: (tab: 'library' | 'editor' | 'related') => void
 
-  // 用户是否手动切换过标签
   userSwitchedTab: boolean
   markUserSwitchedTab: () => void
   resetUserSwitchedTab: () => void
 
-  // 同时折叠/展开两侧面板
   toggleAllSidebars: () => void
 
-  // 画布缩放
   zoom: number
   setZoom: (zoom: number) => void
+
+  sortBy: SortBy
+  setSortBy: (sortBy: SortBy) => void
 }
 
 const SIDEBAR_WIDTH_MIN = 260
 const SIDEBAR_WIDTH_MAX = 600
 const SIDEBAR_WIDTH_DEFAULT = 360
 
+const initialThemeMode: ThemeMode = (() => {
+  return getTheme()
+})()
+
+const initialIsDarkMode = resolveTheme(initialThemeMode) === 'dark'
+
 export const useLibraryStore = create<LibraryStore>()(
   (set, get) => ({
-      // 初始状态 - 从 localStorage 读取 hue 和 dark mode
       viewMode: 'board',
       editingCardId: null,
-      isDarkMode: (() => {
-        const stored = localStorage.getItem('hepta-theme')
-        return stored === 'dark'
-      })(),
+      themeMode: initialThemeMode,
+      isDarkMode: initialIsDarkMode,
       panelHue: (() => {
         const stored = localStorage.getItem('hepta-panel-hue')
         if (stored) {
@@ -74,34 +74,38 @@ export const useLibraryStore = create<LibraryStore>()(
       rightPanelActiveTab: 'library',
       userSwitchedTab: false,
       zoom: 1,
+      sortBy: 'updatedAt',
 
-      // 视图模式
       setViewMode: (mode) => set({ viewMode: mode }),
       setZoom: (zoom) => set({ zoom }),
+      setSortBy: (sortBy) => set({ sortBy }),
       setPanelHue: (hue) => {
         setPanelHue(hue)
         set({ panelHue: hue })
       },
 
-      // 卡片编辑
       openCardEditor: (cardId) => set({ editingCardId: cardId }),
       closeCardEditor: () => set({ editingCardId: null }),
       setEditingCardId: (cardId) => set({ editingCardId: cardId }),
 
-      // 暗色模式
+      setThemeMode: (mode) => {
+        setTheme(mode)
+        const isDark = resolveTheme(mode) === 'dark'
+        set({ themeMode: mode, isDarkMode: isDark })
+      },
       setDarkMode: (dark) => {
-        setTheme(dark ? 'dark' : 'light')
-        set({ isDarkMode: dark })
+        const mode: ThemeMode = dark ? 'dark' : 'light'
+        setTheme(mode)
+        set({ themeMode: mode, isDarkMode: dark })
       },
       syncDarkMode: (v) => {
-        setTheme(v ? 'dark' : 'light')
-        set({ isDarkMode: v })
+        const mode: ThemeMode = v ? 'dark' : 'light'
+        setTheme(mode)
+        set({ themeMode: mode, isDarkMode: v })
       },
 
-      // 左侧面板
       setLeftPanelCollapsed: (collapsed) => set({ leftPanelCollapsed: collapsed }),
 
-      // 右侧面板
       setRightPanelCollapsed: (collapsed) => set({ rightPanelCollapsed: collapsed }),
       setRightPanelWidth: (width) => {
         const clamped = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width))
@@ -109,11 +113,9 @@ export const useLibraryStore = create<LibraryStore>()(
       },
       setRightPanelActiveTab: (tab) => set({ rightPanelActiveTab: tab }),
 
-      // 用户切换标记
       markUserSwitchedTab: () => set({ userSwitchedTab: true }),
       resetUserSwitchedTab: () => set({ userSwitchedTab: false }),
 
-      // 同时折叠/展开两侧面板
       toggleAllSidebars: () => {
         const { leftPanelCollapsed } = get()
         const newState = !leftPanelCollapsed
@@ -126,3 +128,18 @@ export const useLibraryStore = create<LibraryStore>()(
 )
 
 export { SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_DEFAULT }
+
+export function startSystemThemeSync(): () => void {
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  const handleChange = () => {
+    const state = useLibraryStore.getState()
+    if (state.themeMode === 'system') {
+      const isDark = mediaQuery.matches
+      const resolved = isDark ? 'dark' : 'light'
+      document.documentElement.setAttribute('data-theme', resolved)
+      useLibraryStore.setState({ isDarkMode: isDark })
+    }
+  }
+  mediaQuery.addEventListener('change', handleChange)
+  return () => mediaQuery.removeEventListener('change', handleChange)
+}

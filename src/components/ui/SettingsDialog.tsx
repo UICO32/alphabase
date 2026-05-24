@@ -23,9 +23,8 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
       onClick={onClose}
     >
       <div
-        className="modal-content w-[700px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn"
+        className="modal-content w-[700px] h-[80vh] rounded-xl flex flex-col animate-scaleIn glass-panel"
         style={{
-          backgroundColor: surface.panelBg,
           boxShadow: 'var(--shadow-xl)',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -71,7 +70,7 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
             {activeTab === 'system' && <SystemSettings />}
             {activeTab === 'sync' && <SyncSettings />}
             {activeTab === 'export' && <ExportSettings />}

@@ -2,7 +2,7 @@ import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
 import { usePanelSurface } from '../../../hooks/usePanelSurface'
 import { useLibraryStore } from '../../../stores/libraryStore'
 import { useWorkspaceStore } from '../../../stores/workspaceStore'
-import { Moon, Sun, FolderOpen } from 'lucide-react'
+import { Moon, Sun, Monitor, FolderOpen } from 'lucide-react'
 import { VectorIndexSettings } from './VectorIndexSettings'
 
 const PANEL_HUE_OPTIONS = [
@@ -20,7 +20,8 @@ function getHslString(h: number, s: number, l: number): string {
 
 export function SystemSettings() {
   const isDarkMode = useIsDarkMode()
-  const setDarkMode = useLibraryStore(s => s.setDarkMode)
+  const themeMode = useLibraryStore(s => s.themeMode)
+  const setThemeMode = useLibraryStore(s => s.setThemeMode)
   const panelHue = useLibraryStore(s => s.panelHue)
   const setPanelHue = useLibraryStore(s => s.setPanelHue)
   const surface = usePanelSurface()
@@ -60,11 +61,11 @@ export function SystemSettings() {
         </h3>
         <div className="flex gap-3">
           <button
-            onClick={() => setDarkMode(false)}
+            onClick={() => setThemeMode('light')}
             className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-theme btn-base"
             style={{
-              backgroundColor: !isDarkMode ? surface.text : surface.surface,
-              color: !isDarkMode ? surface.panelBg : surface.text,
+              backgroundColor: themeMode === 'light' ? surface.text : surface.surface,
+              color: themeMode === 'light' ? surface.panelBg : surface.text,
               border: `1px solid ${surface.divider}`,
             }}
           >
@@ -72,16 +73,28 @@ export function SystemSettings() {
             <span>浅色</span>
           </button>
           <button
-            onClick={() => setDarkMode(true)}
+            onClick={() => setThemeMode('dark')}
             className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-theme btn-base"
             style={{
-              backgroundColor: isDarkMode ? surface.text : surface.surface,
-              color: isDarkMode ? surface.panelBg : surface.text,
+              backgroundColor: themeMode === 'dark' ? surface.text : surface.surface,
+              color: themeMode === 'dark' ? surface.panelBg : surface.text,
               border: `1px solid ${surface.divider}`,
             }}
           >
             <Moon size={18} />
             <span>深色</span>
+          </button>
+          <button
+            onClick={() => setThemeMode('system')}
+            className="flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-theme btn-base"
+            style={{
+              backgroundColor: themeMode === 'system' ? surface.text : surface.surface,
+              color: themeMode === 'system' ? surface.panelBg : surface.text,
+              border: `1px solid ${surface.divider}`,
+            }}
+          >
+            <Monitor size={18} />
+            <span>跟随系统</span>
           </button>
         </div>
       </div>
