@@ -9,6 +9,7 @@ export interface WorkspaceSettings {
   autoCollapseCards: boolean
   showCardLibrary: boolean
   confirmDelete: boolean
+  embeddingThreshold: number
 }
 
 export interface BoardMeta {
@@ -24,7 +25,7 @@ export interface BoardManifest {
 
 export interface BoardNode {
   id: string
-  type: 'card' | 'section'
+  type: 'card' | 'section' | 'media'
   position: { x: number; y: number }
   data: {
     cardId?: string
@@ -35,6 +36,7 @@ export interface BoardNode {
     width?: number
     height?: number
     name?: string
+    url?: string
   }
   width?: number
   height?: number
@@ -45,6 +47,8 @@ export interface BoardEdge {
   source: string
   target: string
   type: 'connection'
+  sourceHandle?: string
+  targetHandle?: string
 }
 
 export interface BoardSnapshot {
@@ -97,4 +101,5 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   autoCollapseCards: false,
   showCardLibrary: true,
   confirmDelete: true,
+  embeddingThreshold: 0.75,
 }

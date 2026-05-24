@@ -5,6 +5,7 @@ import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir } from 'fs/promise
 import { dirname as pathDirname } from 'path'
 import { createMenu } from './menu'
 import { registerClipperHandlers } from './clipper/handler'
+import { registerEmbeddingIPC, disposeEmbeddingService } from './embedding'
 import { Md5 } from 'ts-md5'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -32,6 +33,7 @@ function createWindow() {
 
   createMenu(mainWindow)
   registerClipperHandlers()
+  registerEmbeddingIPC()
 
   // Open DevTools for debugging
   mainWindow.webContents.openDevTools()
@@ -70,6 +72,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', async () => {
+  await disposeEmbeddingService()
 })
 
 app.on('activate', () => {

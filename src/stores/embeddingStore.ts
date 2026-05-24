@@ -22,7 +22,7 @@ interface EmbeddingState {
   checkStatus: () => Promise<void>
 }
 
-export const useEmbeddingStore = create<EmbeddingState>((set, get) => ({
+export const useEmbeddingStore = create<EmbeddingState>((set) => ({
   indexing: false,
   progress: 0,
   total: 0,

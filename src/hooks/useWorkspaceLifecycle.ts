@@ -1,7 +1,7 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useBoardStore } from '../stores/boardStore'
-import { getActiveSyncEngine, setActiveSyncEngine } from '../sync/syncEngineRef'
+import { getActiveSyncEngine } from '../sync/syncEngineRef'
 import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from '../sync/subscribeStores'
 
 interface UseWorkspaceLifecycleOptions {
@@ -20,17 +20,8 @@ function defaultBoardNodes(_boardId: string) {
 
 export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }: UseWorkspaceLifecycleOptions) {
   const activeBoardIdRef = useRef<string | null>(null)
-  const [canvasReady, setCanvasReady] = useState(false)
-
-  // Reset canvas ready when workspace changes
-  useEffect(() => {
-    const handleReinit = () => {
-      setCanvasReady(false)
-      activeBoardIdRef.current = null
-    }
-    window.addEventListener('hepta-reinit-workspace', handleReinit)
-    return () => window.removeEventListener('hepta-reinit-workspace', handleReinit)
-  }, [])
+  const unsubsRef = useRef<Array<() => void> | null>(null)
+  const syncingRef = useRef(false)
 
   const switchToBoard = useCallback((boardId: string) => {
     const boardStore = useBoardStore.getState()
@@ -79,48 +70,76 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
     return () => window.removeEventListener('hepta-switch-board', handleBoardSwitch)
   }, [switchToBoard])
 
-  // When data is loaded (signaled by hepta-data-ready), render the active board
+  // React to activeBoardId changes from store (e.g. LeftPanel clicks)
+  const activeBoardId = useBoardStore((s) => s.activeBoardId)
   useEffect(() => {
-    const handleDataReady = () => {
+    if (activeBoardId && activeBoardId !== activeBoardIdRef.current) {
+      switchToBoard(activeBoardId)
+    }
+  }, [activeBoardId, switchToBoard])
+
+  // When data is loaded (signaled by hepta-data-ready), render the active board
+  // and subscribe stores to the sync engine
+  useEffect(() => {
+    const handleDataReady = async () => {
       const boardStore = useBoardStore.getState()
       const activeId = boardStore.activeBoardId
+
       if (activeId) {
         switchToBoard(activeId)
       } else if (boardStore.boards.length > 0) {
         boardStore.setActiveBoard(boardStore.boards[0].id)
         switchToBoard(boardStore.boards[0].id)
       }
-      setCanvasReady(true)
+
+      // Initialize embedding service for current workspace
+      try {
+        const workspacePath = localStorage.getItem('hepta-last-workspace-path')
+        if (workspacePath) {
+          await window.electronAPI.embedding.init(workspacePath)
+        }
+      } catch { /* embedding init is optional, don't block app startup */ }
+
+      // Subscribe stores to the new sync engine
+      const syncEngine = getActiveSyncEngine()
+      if (syncEngine && !syncingRef.current) {
+        syncingRef.current = true
+        const unsubs = [
+          subscribeCardStore(syncEngine),
+          subscribeBoardStore(syncEngine),
+          subscribeTrashStore(syncEngine),
+        ]
+        unsubsRef.current = unsubs
+      }
     }
 
     window.addEventListener('hepta-data-ready', handleDataReady)
     return () => window.removeEventListener('hepta-data-ready', handleDataReady)
   }, [switchToBoard])
 
-  // Subscribe stores to syncEngine when canvas is ready
+  // On workspace switch: save current board, unsubscribe, reset state
+  // Do NOT stop the sync engine here — App.tsx manages that
   useEffect(() => {
-    if (!canvasReady) return
-    const syncEngine = getActiveSyncEngine()
-    if (!syncEngine) return
-
-    const unsubs = [
-      subscribeCardStore(syncEngine),
-      subscribeBoardStore(syncEngine),
-      subscribeTrashStore(syncEngine),
-    ]
-
-    const handleBeforeUnload = () => {
-      syncEngine.stop()
+    const handleReinit = () => {
+      // Unsubscribe from old sync engine
+      if (unsubsRef.current) {
+        unsubsRef.current.forEach(fn => fn())
+        unsubsRef.current = null
+      }
+      syncingRef.current = false
+      activeBoardIdRef.current = null
     }
-    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('hepta-reinit-workspace', handleReinit)
+    return () => window.removeEventListener('hepta-reinit-workspace', handleReinit)
+  }, [])
 
+  // Cleanup on unmount only — never stop sync engine from reactive state changes
+  useEffect(() => {
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      unsubs.forEach(fn => fn())
-      setActiveSyncEngine(null)
-      void syncEngine.stop()
+      if (unsubsRef.current) {
+        unsubsRef.current.forEach(fn => fn())
+        unsubsRef.current = null
+      }
     }
-  }, [canvasReady])
-
-  return { canvasReady }
+  }, [])
 }
