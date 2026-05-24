@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { setTheme, setPanelHue } from '../theme'
 export type ViewMode = 'board' | 'cards' | 'boardLibrary'
 
 interface LibraryStore {
@@ -30,8 +31,8 @@ interface LibraryStore {
   setRightPanelCollapsed: (collapsed: boolean) => void
   rightPanelWidth: number
   setRightPanelWidth: (width: number) => void
-  rightPanelActiveTab: 'library' | 'editor'
-  setRightPanelActiveTab: (tab: 'library' | 'editor') => void
+  rightPanelActiveTab: 'library' | 'editor' | 'related'
+  setRightPanelActiveTab: (tab: 'library' | 'editor' | 'related') => void
 
   // 用户是否手动切换过标签
   userSwitchedTab: boolean
@@ -52,11 +53,21 @@ const SIDEBAR_WIDTH_DEFAULT = 360
 
 export const useLibraryStore = create<LibraryStore>()(
   (set, get) => ({
-      // 初始状态
+      // 初始状态 - 从 localStorage 读取 hue 和 dark mode
       viewMode: 'board',
       editingCardId: null,
-      isDarkMode: false,
-      panelHue: 220,
+      isDarkMode: (() => {
+        const stored = localStorage.getItem('hepta-theme')
+        return stored === 'dark'
+      })(),
+      panelHue: (() => {
+        const stored = localStorage.getItem('hepta-panel-hue')
+        if (stored) {
+          const hue = parseInt(stored, 10)
+          if (!isNaN(hue)) return hue
+        }
+        return 220
+      })(),
       leftPanelCollapsed: false,
       rightPanelCollapsed: false,
       rightPanelWidth: SIDEBAR_WIDTH_DEFAULT,
@@ -67,7 +78,10 @@ export const useLibraryStore = create<LibraryStore>()(
       // 视图模式
       setViewMode: (mode) => set({ viewMode: mode }),
       setZoom: (zoom) => set({ zoom }),
-      setPanelHue: (hue) => set({ panelHue: hue }),
+      setPanelHue: (hue) => {
+        setPanelHue(hue)
+        set({ panelHue: hue })
+      },
 
       // 卡片编辑
       openCardEditor: (cardId) => set({ editingCardId: cardId }),
@@ -75,8 +89,14 @@ export const useLibraryStore = create<LibraryStore>()(
       setEditingCardId: (cardId) => set({ editingCardId: cardId }),
 
       // 暗色模式
-      setDarkMode: (dark) => set({ isDarkMode: dark }),
-      syncDarkMode: (v) => set({ isDarkMode: v }),
+      setDarkMode: (dark) => {
+        setTheme(dark ? 'dark' : 'light')
+        set({ isDarkMode: dark })
+      },
+      syncDarkMode: (v) => {
+        setTheme(v ? 'dark' : 'light')
+        set({ isDarkMode: v })
+      },
 
       // 左侧面板
       setLeftPanelCollapsed: (collapsed) => set({ leftPanelCollapsed: collapsed }),

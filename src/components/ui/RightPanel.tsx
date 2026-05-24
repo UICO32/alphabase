@@ -5,8 +5,9 @@ import { useCardStore } from '../../stores/cardStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
+import { RelatedCardsTab } from './RelatedCardsTab'
 import { CardBlockNoteEditor } from '../editor/BlockNoteEditor'
-import { Layers, FileText, PanelRightOpen } from 'lucide-react'
+import { Layers, FileText, Search, PanelRightOpen } from 'lucide-react'
 
 interface RightPanelProps {
   onOpenSettings?: () => void
@@ -57,8 +58,8 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
   return (
     <>
       <motion.div
-        className="absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden"
-        style={{ width: rightPanelWidth, backgroundColor: surface.panelBg }}
+        className="absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden glass-panel-large"
+        style={{ width: rightPanelWidth }}
         animate={{ x: rightPanelCollapsed ? rightPanelWidth : 0 }}
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         onWheel={handleWheel}
@@ -96,6 +97,17 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
             <FileText size={14} />
             卡片编辑器
           </button>
+          <button
+            onClick={() => setRightPanelActiveTab('related')}
+            className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
+            style={{
+              backgroundColor: rightPanelActiveTab === 'related' ? surface.surface : 'transparent',
+              color: rightPanelActiveTab === 'related' ? surface.text : surface.muted,
+            }}
+          >
+            <Search size={14} />
+            相关
+          </button>
         </div>
         <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
       </div>
@@ -103,6 +115,8 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
       <div className="flex-1 overflow-y-auto">
         {rightPanelActiveTab === 'library' ? (
           <CardLibraryView onOpenSettings={onOpenSettings} />
+        ) : rightPanelActiveTab === 'related' ? (
+          <RelatedCardsTab />
         ) : editingCardId ? (
           <CardEditorView cardId={editingCardId} />
         ) : (

@@ -1,11 +1,10 @@
-import { useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
+import { useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
 import {
   ReactFlow,
   ConnectionMode,
   SelectionMode,
   useNodesState,
   useEdgesState,
-  useStore,
   type Node,
   type Edge,
   type Connection,
@@ -34,50 +33,10 @@ import { useCanvasZoom } from '../../hooks/useCanvasZoom'
 import { useCanvasConnection } from '../../hooks/useCanvasConnection'
 import { useCanvasDrag } from '../../hooks/useCanvasDrag'
 import { useHistory } from '../../hooks/useHistory'
+import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
 import { connectionMediator } from '../../utils/connectionMediator'
 
 const PROXIMITY_THRESHOLD = 60
-const VIEWPORT_BUFFER = 500
-
-function useViewportCulling(nodes: Node[], edges: Edge[]) {
-  const transform = useStore((s) => s.transform)
-  const [tx, ty, zoom] = transform
-  const visibleNodes = useMemo(() => {
-    if (nodes.length === 0) return nodes
-    const viewWidth = window.innerWidth
-    const viewHeight = window.innerHeight
-    const buffer = VIEWPORT_BUFFER / zoom
-    const left = -tx / zoom - buffer
-    const top = -ty / zoom - buffer
-    const right = left + viewWidth / zoom + buffer * 2
-    const bottom = top + viewHeight / zoom + buffer * 2
-
-    return nodes.filter((node) => {
-      const w = ((node.data as Record<string, unknown>).width as number) ?? 280
-      const h = ((node.data as Record<string, unknown>).height as number) ?? 200
-      const nodeRight = node.position.x + w
-      const nodeBottom = node.position.y + h
-      return (
-        node.position.x < right &&
-        nodeRight > left &&
-        node.position.y < bottom &&
-        nodeBottom > top
-      )
-    })
-  }, [nodes, tx, ty, zoom])
-
-  const visibleNodeIds = useMemo(
-    () => new Set(visibleNodes.map((n) => n.id)),
-    [visibleNodes],
-  )
-
-  const visibleEdges = useMemo(
-    () => edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)),
-    [edges, visibleNodeIds],
-  )
-
-  return { visibleNodes, visibleEdges }
-}
 
 const nodeTypes = {
   card: CardNode,
@@ -89,100 +48,13 @@ const edgeTypes = {
   connection: MemoizedConnectionEdge,
 }
 
-interface ReactFlowInnerProps {
-  nodes: Node[]
-  edges: Edge[]
-  onNodesChange: ReturnType<typeof useNodesState<Node>>[2]
-  onEdgesChange: ReturnType<typeof useEdgesState<Edge>>[2]
-  onConnect: (connection: Connection) => void
-  onInit: (instance: ReactFlowInstance) => void
-  onPaneClick: () => void
-  onNodeClick: (event: React.MouseEvent, node: Node) => void
-  onMouseMove: (event: React.MouseEvent) => void
-  onNodeDrag: (event: React.MouseEvent, node: Node, nodes: Node[]) => void
-  onNodeDragStop: (event: React.MouseEvent, node: Node, nodes: Node[]) => void
-  onReconnect: (oldEdge: Edge, newConnection: Connection) => void
-  onReconnectEnd: (event: MouseEvent | TouchEvent, edge: Edge) => void
-  onDragOver: (event: React.DragEvent) => void
-  onDrop: (event: React.DragEvent) => void
-  connectionLineComponent: (props: any) => React.JSX.Element
-  isValidConnection: IsValidConnection
-  onMove: (event: any, viewport: { zoom: number }) => void
-  isDarkMode: boolean
-}
-
-function ReactFlowInner({
-  nodes,
-  edges,
-  onNodesChange,
-  onEdgesChange,
-  onConnect,
-  onInit,
-  onPaneClick,
-  onNodeClick,
-  onMouseMove,
-  onNodeDrag,
-  onNodeDragStop,
-  onReconnect,
-  onReconnectEnd,
-  onDragOver,
-  onDrop,
-  connectionLineComponent,
-  isValidConnection,
-  onMove,
-  isDarkMode,
-}: ReactFlowInnerProps) {
-  const { visibleNodes, visibleEdges } = useViewportCulling(nodes, edges)
-
-  return (
-    <ReactFlow
-      nodes={visibleNodes}
-      edges={visibleEdges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      onInit={onInit}
-      onPaneClick={onPaneClick}
-      onNodeClick={onNodeClick}
-      onMouseMove={onMouseMove}
-      onNodeDrag={onNodeDrag}
-      onNodeDragStop={onNodeDragStop}
-      onReconnect={(oldEdge, newConn) => onReconnect(oldEdge, newConn)}
-      onReconnectEnd={(e, edge) => onReconnectEnd(e, edge)}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      edgesReconnectable
-      connectionMode={ConnectionMode.Loose}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      connectionLineComponent={connectionLineComponent}
-      isValidConnection={isValidConnection}
-      autoPanOnNodeDrag={false}
-      panOnDrag={[2]}
-      selectionOnDrag
-      selectionMode={SelectionMode.Partial}
-      panActivationKeyCode="Space"
-      onMove={onMove}
-      fitView
-      zoomOnScroll
-      zoomOnPinch
-      zoomOnDoubleClick={false}
-      minZoom={0.1}
-      maxZoom={4}
-    >
-      <AdaptiveBackground
-        color={isDarkMode ? '#ffffff' : '#18181b'}
-      />
-    </ReactFlow>
-  )
-}
-
 export function ReactFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
   const setZoom = useLibraryStore((s) => s.setZoom)
+  const editingCardId = useLibraryStore((s) => s.editingCardId)
   const surface = usePanelSurface()
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
@@ -194,7 +66,6 @@ export function ReactFlowCanvas() {
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
   useEffect(() => { setNodesRef(nodes) }, [nodes])
-  // Cleanup RAF on unmount
   useEffect(() => {
     return () => {
       if (rafRef.current !== null) {
@@ -215,8 +86,21 @@ export function ReactFlowCanvas() {
 
   const canvasRef = useRef<HTMLDivElement>(null)
   useCanvasZoom({ canvasRef, reactFlowInstance })
+
+  useEffect(() => {
+    const onFocusCard = (e: Event) => {
+      const { cardId } = (e as CustomEvent<{ cardId: string }>).detail
+      const node = nodesRef.current.find(n => (n.data as Record<string, unknown>)?.cardId === cardId)
+      if (node) {
+        reactFlowInstance.current?.fitView({ nodes: [node], duration: 300, padding: 0.3 })
+      }
+    }
+    window.addEventListener('hepta-focus-card', onFocusCard)
+    return () => window.removeEventListener('hepta-focus-card', onFocusCard)
+  }, [])
   const { onConnect, onReconnect, onReconnectEnd } = useCanvasConnection({ setEdges })
   const { onNodeDrag, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges })
+  useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear })
 
   const recordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -266,7 +150,6 @@ export function ReactFlowCanvas() {
           data: { cardId, color, width: 280, height: 200 },
         },
       ])
-      // Record after state update
       setTimeout(() => {
         recordCurrentState('structure', '添加卡片')
       }, 0)
@@ -285,48 +168,6 @@ export function ReactFlowCanvas() {
     },
     [setZoom],
   )
-
-  const handleUndo = useCallback(() => {
-    const entry = undo()
-    if (entry) {
-      setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
-      setEdges(entry.edges.map(e => ({ ...e })))
-    }
-  }, [undo, setNodes, setEdges])
-
-  const handleRedo = useCallback(() => {
-    const entry = redo()
-    if (entry) {
-      setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
-      setEdges(entry.edges.map(e => ({ ...e })))
-    }
-  }, [redo, setNodes, setEdges])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCtrl = e.ctrlKey || e.metaKey
-      if (!isCtrl) return
-
-      if (e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        handleUndo()
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault()
-        handleRedo()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleUndo, handleRedo])
-
-  useEffect(() => {
-    const handleWorkspaceChange = () => {
-      clear()
-    }
-    window.addEventListener('hepta-reinit-workspace', handleWorkspaceChange)
-    return () => window.removeEventListener('hepta-reinit-workspace', handleWorkspaceChange)
-  }, [clear])
 
   const onPaneClick = useCallback(() => {
     connectionMediator.clear()
@@ -360,7 +201,6 @@ export function ReactFlowCanvas() {
   const onMouseMove = useCallback((event: React.MouseEvent) => {
     lastMousePosRef.current = { x: event.clientX, y: event.clientY }
     if (!isConnecting) return
-    // Store the latest mouse event and schedule a single RAF
     pendingMouseEventRef.current = event
     if (rafRef.current !== null) return
     rafRef.current = requestAnimationFrame(() => {
@@ -410,7 +250,7 @@ export function ReactFlowCanvas() {
 
   return (
     <div className="w-full h-full" style={{ backgroundColor: surface.appBg }} ref={canvasRef}>
-      <ReactFlowInner
+      <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
@@ -422,18 +262,35 @@ export function ReactFlowCanvas() {
         onMouseMove={onMouseMove}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
-        onReconnect={onReconnect}
-        onReconnectEnd={onReconnectEnd}
+        onReconnect={(oldEdge, newConn) => onReconnect(oldEdge, newConn)}
+        onReconnectEnd={(e, edge) => onReconnectEnd(e, edge)}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        edgesReconnectable
+        connectionMode={ConnectionMode.Loose}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         connectionLineComponent={connectionLineComponent}
         isValidConnection={isValidConnection}
+        autoPanOnNodeDrag={false}
+        panOnDrag={editingCardId ? false : [2]}
+        selectionOnDrag={!editingCardId}
+        selectionMode={SelectionMode.Partial}
+        panActivationKeyCode="Space"
         onMove={onMove}
-        isDarkMode={isDarkMode}
-      />
+        fitView
+        zoomOnScroll
+        zoomOnPinch
+        zoomOnDoubleClick={false}
+        minZoom={0.1}
+        maxZoom={4}
+      >
+        <AdaptiveBackground
+          color={isDarkMode ? '#ffffff' : '#18181b'}
+        />
+      </ReactFlow>
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
 
-      {/* Undo/Redo Status Indicator */}
       {(canUndo || canRedo) && (
         <div
           className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium pointer-events-none"
