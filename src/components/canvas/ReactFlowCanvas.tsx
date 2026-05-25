@@ -102,7 +102,7 @@ export function ReactFlowCanvas() {
     return () => window.removeEventListener('hepta-focus-card', onFocusCard)
   }, [])
   const { onConnect, onReconnect, onReconnectEnd } = useCanvasConnection({ setEdges })
-  const { onNodeDrag, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges })
+  const { onNodeDrag, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges, setNodes })
   useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear })
 
   const recordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
