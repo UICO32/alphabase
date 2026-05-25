@@ -14,12 +14,14 @@ export function useCanvasDrag({ reactFlowInstance, setEdges }: UseCanvasDragOpti
     (_event, node) => {
       const instance = reactFlowInstance.current
       if (!instance) return
-      setEdges((eds) =>
-        eds.map((e) => {
+      setEdges((eds) => {
+        let changed = false
+        const next = eds.map((e) => {
           if (e.source !== node.id && e.target !== node.id) return e
+          changed = true
           const sourceNode = instance.getNode(e.source)
           const targetNode = instance.getNode(e.target)
-          if (!sourceNode || !targetNode) return { ...e }
+          if (!sourceNode || !targetNode) return e
           const sw = ((sourceNode.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
           const sd = sourceNode.data as Record<string, unknown>
           const sh = sd.collapsed ? COLLAPSED_CARD_HEIGHT : ((sd.height as number) ?? DEFAULT_CARD_HEIGHT)
@@ -27,13 +29,15 @@ export function useCanvasDrag({ reactFlowInstance, setEdges }: UseCanvasDragOpti
           const td = targetNode.data as Record<string, unknown>
           const th = td.collapsed ? COLLAPSED_CARD_HEIGHT : ((td.height as number) ?? DEFAULT_CARD_HEIGHT)
           const handles = getBestHandles(sourceNode.position, { w: sw, h: sh }, targetNode.position, { w: tw, h: th })
+          if (e.sourceHandle === handles.sourceHandle && e.targetHandle === handles.targetHandle) return e
           return {
             ...e,
             sourceHandle: handles.sourceHandle,
             targetHandle: handles.targetHandle,
           }
-        }),
-      )
+        })
+        return changed ? next : eds
+      })
     },
     [reactFlowInstance, setEdges],
   )
