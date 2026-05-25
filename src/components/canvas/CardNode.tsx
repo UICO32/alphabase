@@ -17,14 +17,29 @@ import { CollapsedContent } from './card/CollapsedContent'
 type CardNodeType = Node<CardNodeData, 'card'>
 
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
+  const isCollapsed = data.collapsed ?? false
+
+  // 卡片在 Frame 内时渲染不可见占位
+  // 使用 opacity:0 保持节点存在，使连接线和选中状态正常工作
+  if (data.frameId) {
+    return (
+      <div
+        style={{
+          width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
+          height: isCollapsed ? COLLAPSED_CARD_HEIGHT : ((data.height ?? DEFAULT_CARD_HEIGHT) as number),
+          opacity: 0,
+          pointerEvents: 'none',
+        }}
+      />
+    )
+  }
+
   const [isEditing, setIsEditing] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const editorRef = useRef<import('../editor/BlockNoteEditor').BlockNoteEditorHandle>(null)
   const clickCoordsRef = useRef<{ x: number; y: number } | null>(null)
   const { setNodes, setEdges, getNode } = useReactFlow()
   const isDarkMode = useIsDarkMode()
-
-  const isCollapsed = data.collapsed ?? false
 
   // 合并 dragHandle 和 collapsed height 的更新，避免两次 setNodes 遍历
   useEffect(() => {
