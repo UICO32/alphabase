@@ -166,6 +166,39 @@ export function ReactFlowCanvas() {
     return () => window.removeEventListener('hepta-add-card-node', onAddCardNode)
   }, [setNodes, recordCurrentState])
 
+  // 创建 Frame 节点
+  useEffect(() => {
+    const onAddFrame = () => {
+      const instance = reactFlowInstance.current
+      if (!instance) return
+      const center = instance.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      })
+      const frameId = crypto.randomUUID()
+      setNodes((nds) => [
+        ...nds,
+        {
+          id: frameId,
+          type: 'frame',
+          position: { x: center.x - 300, y: center.y - 200 },
+          data: {
+            name: 'Frame',
+            layout: 'free',
+            width: 600,
+            height: 400,
+            childCardIds: [],
+          },
+        },
+      ])
+      setTimeout(() => {
+        recordCurrentState('structure', '添加 Frame')
+      }, 0)
+    }
+    window.addEventListener('hepta-add-frame', onAddFrame)
+    return () => window.removeEventListener('hepta-add-frame', onAddFrame)
+  }, [setNodes, recordCurrentState])
+
   const onInit = useCallback((instance: ReactFlowInstance) => {
     reactFlowInstance.current = instance
   }, [])
