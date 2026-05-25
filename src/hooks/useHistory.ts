@@ -7,7 +7,7 @@ export interface HistoryEntry {
   description: string
   nodes: Node[]
   edges: Edge[]
-  cardChanges?: Array<{ id: string; before: GlobalCard; after: GlobalCard }>
+  cardSnapshot?: Record<string, GlobalCard>
 }
 
 interface UseHistoryOptions {

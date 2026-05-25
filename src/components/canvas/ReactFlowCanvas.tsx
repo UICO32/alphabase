@@ -35,6 +35,7 @@ import { useCanvasDrag } from '../../hooks/useCanvasDrag'
 import { useHistory } from '../../hooks/useHistory'
 import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
 import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
+import { useCardStore } from '../../stores/cardStore'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import type { CardNodeData } from '../../types/card'
@@ -116,6 +117,7 @@ export function ReactFlowCanvas() {
         description,
         nodes: nodesRef.current.map(n => ({ ...n })),
         edges: edgesRef.current.map(e => ({ ...e })),
+        cardSnapshot: { ...useCardStore.getState().cards },
       })
     }, 300)
   }, [record])

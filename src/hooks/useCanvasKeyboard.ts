@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import type { HistoryEntry } from './useHistory'
 import { useLibraryStore } from '../stores/libraryStore'
+import { useCardStore } from '../stores/cardStore'
 
 interface UseCanvasKeyboardOptions {
   undo: () => HistoryEntry | null
@@ -10,21 +11,23 @@ interface UseCanvasKeyboardOptions {
   clear: () => void
 }
 
+function restoreEntry(entry: HistoryEntry, setNodes: (updater: any) => void, setEdges: (updater: any) => void) {
+  setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
+  setEdges(entry.edges.map(e => ({ ...e })))
+  if (entry.cardSnapshot) {
+    useCardStore.getState().importCards(entry.cardSnapshot)
+  }
+}
+
 export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear }: UseCanvasKeyboardOptions) {
   const handleUndo = useCallback(() => {
     const entry = undo()
-    if (entry) {
-      setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
-      setEdges(entry.edges.map(e => ({ ...e })))
-    }
+    if (entry) restoreEntry(entry, setNodes, setEdges)
   }, [undo, setNodes, setEdges])
 
   const handleRedo = useCallback(() => {
     const entry = redo()
-    if (entry) {
-      setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
-      setEdges(entry.edges.map(e => ({ ...e })))
-    }
+    if (entry) restoreEntry(entry, setNodes, setEdges)
   }, [redo, setNodes, setEdges])
 
   useEffect(() => {
