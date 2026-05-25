@@ -95,7 +95,7 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
       // Initialize embedding service in background — don't block board rendering
       const scheduleEmbeddingInit = () => {
         const workspacePath = localStorage.getItem('hepta-last-workspace-path')
-        if (workspacePath) {
+        if (workspacePath && window.electronAPI?.embedding?.init) {
           window.electronAPI.embedding.init(workspacePath).catch((err: any) => {
             console.error('[lifecycle] embedding.init failed:', err)
           })

@@ -1,6 +1,5 @@
 import { memo, useState, useCallback, useRef } from 'react'
 import { type NodeProps, type Node, useReactFlow } from '@xyflow/react'
-import type { CardNodeData } from '../../types/card'
 
 export interface FrameNodeData extends Record<string, unknown> {
   name: string

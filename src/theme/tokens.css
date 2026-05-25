@@ -305,8 +305,8 @@
 
 /* React Flow card node entrance animation */
 @keyframes card-enter {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .react-flow__node-card {

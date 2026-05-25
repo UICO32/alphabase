@@ -38,7 +38,6 @@ import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
 import { useCardStore } from '../../stores/cardStore'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
-import type { CardNodeData } from '../../types/card'
 
 const nodeTypes = {
   card: CardNode,
@@ -125,7 +124,7 @@ export function ReactFlowCanvas() {
   const { handleDoubleClick } = useCanvasDoubleClick({ nodes, setNodes, setEdges, reactFlowInstance, recordCurrentState })
 
   const onNodeDragStop = useCallback((_event: React.MouseEvent, _node: Node, _nodes: Node[]) => {
-    originalOnNodeDragStop()
+    originalOnNodeDragStop(_event, _node)
     recordCurrentState('canvas', '移动卡片')
   }, [originalOnNodeDragStop, recordCurrentState])
 

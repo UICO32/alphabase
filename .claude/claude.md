@@ -1,5 +1,9 @@
 # CLAUDE.md
 你是简体中文的助手，你需要根据用户的问题，生成符合中文的代码
+注意：
+- 你不支持查看截图，不要在调试过程中截图
+- 优先使用playwright进行调试
+
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
