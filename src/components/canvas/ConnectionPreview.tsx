@@ -40,58 +40,64 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
       return
     }
     let raf = 0
+    let lastCalcTime = 0
+    const THROTTLE_MS = 16 // ~60fps cap
     const tick = () => {
-      const pending = connectionMediator.getPending()
-      const rf = reactFlowInstance.current
-      const mouse = lastMousePosRef.current
-      if (pending && rf && mouse) {
-        const srcNode = nodesRef.current?.find((n) => n.id === pending.sourceNodeId)
-        if (srcNode) {
-          const w = ((srcNode.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
-          const h = ((srcNode.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
-          const zoom = rf.getViewport().zoom
-          const srcScreen = rf.flowToScreenPosition(srcNode.position)
-          const scaledW = w * zoom
-          const scaledH = h * zoom
-          const srcEdge = edgePointOnRect(srcScreen.x, srcScreen.y, scaledW, scaledH, mouse.x, mouse.y)
-          const srcPos = getNearestPosition(srcScreen.x, srcScreen.y, scaledW, scaledH, mouse.x, mouse.y)
+      const now = performance.now()
+      if (now - lastCalcTime >= THROTTLE_MS) {
+        lastCalcTime = now
+        const pending = connectionMediator.getPending()
+        const rf = reactFlowInstance.current
+        const mouse = lastMousePosRef.current
+        if (pending && rf && mouse) {
+          const srcNode = nodesRef.current?.find((n) => n.id === pending.sourceNodeId)
+          if (srcNode) {
+            const w = ((srcNode.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
+            const h = ((srcNode.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
+            const zoom = rf.getViewport().zoom
+            const srcScreen = rf.flowToScreenPosition(srcNode.position)
+            const scaledW = w * zoom
+            const scaledH = h * zoom
+            const srcEdge = edgePointOnRect(srcScreen.x, srcScreen.y, scaledW, scaledH, mouse.x, mouse.y)
+            const srcPos = getNearestPosition(srcScreen.x, srcScreen.y, scaledW, scaledH, mouse.x, mouse.y)
 
-          let targetX = mouse.x
-          let targetY = mouse.y
-          let targetPos: Position = Position.Top
+            let targetX = mouse.x
+            let targetY = mouse.y
+            let targetPos: Position = Position.Top
 
-          for (const node of nodesRef.current ?? []) {
-            if (node.id === pending.sourceNodeId) continue
-            const nw = ((node.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
-            const nh = ((node.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
-            const nodeScreen = rf.flowToScreenPosition(node.position)
-            const scaledNW = nw * zoom
-            const scaledNH = nh * zoom
+            for (const node of nodesRef.current ?? []) {
+              if (node.id === pending.sourceNodeId) continue
+              const nw = ((node.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
+              const nh = ((node.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
+              const nodeScreen = rf.flowToScreenPosition(node.position)
+              const scaledNW = nw * zoom
+              const scaledNH = nh * zoom
 
-            if (
-              mouse.x >= nodeScreen.x - 50 &&
-              mouse.x <= nodeScreen.x + scaledNW + 50 &&
-              mouse.y >= nodeScreen.y - 50 &&
-              mouse.y <= nodeScreen.y + scaledNH + 50
-            ) {
-              const snap = edgePointOnRect(nodeScreen.x, nodeScreen.y, scaledNW, scaledNH, srcEdge.x, srcEdge.y)
-              targetX = snap.x
-              targetY = snap.y
-              targetPos = getNearestPosition(nodeScreen.x, nodeScreen.y, scaledNW, scaledNH, srcEdge.x, srcEdge.y)
-              break
+              if (
+                mouse.x >= nodeScreen.x - 50 &&
+                mouse.x <= nodeScreen.x + scaledNW + 50 &&
+                mouse.y >= nodeScreen.y - 50 &&
+                mouse.y <= nodeScreen.y + scaledNH + 50
+              ) {
+                const snap = edgePointOnRect(nodeScreen.x, nodeScreen.y, scaledNW, scaledNH, srcEdge.x, srcEdge.y)
+                targetX = snap.x
+                targetY = snap.y
+                targetPos = getNearestPosition(nodeScreen.x, nodeScreen.y, scaledNW, scaledNH, srcEdge.x, srcEdge.y)
+                break
+              }
             }
+
+            const [path] = getBezierPath({
+              sourceX: srcEdge.x,
+              sourceY: srcEdge.y,
+              sourcePosition: srcPos,
+              targetX,
+              targetY,
+              targetPosition: targetPos,
+            })
+
+            setPreviewPath(path)
           }
-
-          const [path] = getBezierPath({
-            sourceX: srcEdge.x,
-            sourceY: srcEdge.y,
-            sourcePosition: srcPos,
-            targetX,
-            targetY,
-            targetPosition: targetPos,
-          })
-
-          setPreviewPath(path)
         }
       }
       raf = requestAnimationFrame(tick)
