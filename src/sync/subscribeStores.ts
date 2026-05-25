@@ -62,9 +62,9 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
             version: 2,
             nodes: data.nodes.map(n => ({
               id: n.id,
-              type: (n.type === 'card' || n.type === 'section' || n.type === 'media') ? n.type as 'card' | 'section' | 'media' : 'card',
+              type: (n.type === 'card' || n.type === 'frame' || n.type === 'media') ? n.type as 'card' | 'frame' | 'media' : 'card',
               position: { x: n.position.x, y: n.position.y },
-              data: n.data as { cardId?: string; color?: string; variant?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string; url?: string },
+              data: n.data as { cardId?: string; color?: string; variant?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string; url?: string; layout?: string; childCardIds?: string[]; frameId?: string; localX?: number; localY?: number },
               width: n.width,
               height: n.height,
             })),
