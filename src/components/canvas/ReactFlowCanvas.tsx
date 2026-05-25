@@ -35,8 +35,7 @@ import { useCanvasDrag } from '../../hooks/useCanvasDrag'
 import { useHistory } from '../../hooks/useHistory'
 import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
 import { connectionMediator } from '../../utils/connectionMediator'
-
-const PROXIMITY_THRESHOLD = 60
+import { PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 const nodeTypes = {
   card: CardNode,
@@ -148,7 +147,7 @@ export function ReactFlowCanvas() {
           id: cardId,
           type: 'card',
           position: center,
-          data: { cardId, color, width: 280, height: 200 },
+          data: { cardId, color, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
         },
       ])
       setTimeout(() => {

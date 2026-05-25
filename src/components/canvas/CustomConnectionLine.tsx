@@ -1,4 +1,5 @@
 import { getBezierPath, BaseEdge, type Node, type ConnectionLineComponentProps, Position } from '@xyflow/react'
+import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 const SNAP_THRESHOLD = 50
 
@@ -45,8 +46,8 @@ export function CustomConnectionLine({
 }: ConnectionLineComponentProps<Node>) {
   if (!fromNode) return null
 
-  const w = ((fromNode.data as Record<string, unknown>).width as number) ?? 280
-  const h = ((fromNode.data as Record<string, unknown>).height as number) ?? 200
+  const w = ((fromNode.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
+  const h = ((fromNode.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
 
   const sourcePoint = getNearestEdgePoint(
     fromNode.position.x,

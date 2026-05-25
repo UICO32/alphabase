@@ -3,6 +3,7 @@ import { connectionMediator } from '../../utils/connectionMediator'
 import { edgePointOnRect } from '../../utils/geometry'
 import { getBezierPath, Position } from '@xyflow/react'
 import type { Node, ReactFlowInstance } from '@xyflow/react'
+import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 interface ConnectionPreviewProps {
   nodesRef: React.RefObject<Node[]>
@@ -46,8 +47,8 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
       if (pending && rf && mouse) {
         const srcNode = nodesRef.current?.find((n) => n.id === pending.sourceNodeId)
         if (srcNode) {
-          const w = ((srcNode.data as Record<string, unknown>).width as number) ?? 280
-          const h = ((srcNode.data as Record<string, unknown>).height as number) ?? 200
+          const w = ((srcNode.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
+          const h = ((srcNode.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
           const zoom = rf.getViewport().zoom
           const srcScreen = rf.flowToScreenPosition(srcNode.position)
           const scaledW = w * zoom
@@ -61,8 +62,8 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
 
           for (const node of nodesRef.current ?? []) {
             if (node.id === pending.sourceNodeId) continue
-            const nw = ((node.data as Record<string, unknown>).width as number) ?? 280
-            const nh = ((node.data as Record<string, unknown>).height as number) ?? 200
+            const nw = ((node.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
+            const nh = ((node.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
             const nodeScreen = rf.flowToScreenPosition(node.position)
             const scaledNW = nw * zoom
             const scaledNH = nh * zoom

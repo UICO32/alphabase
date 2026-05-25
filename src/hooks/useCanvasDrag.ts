@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { type Edge, type OnNodeDrag } from '@xyflow/react'
 import type { ReactFlowInstance } from '@xyflow/react'
 import { getBestHandles } from '../utils/geometry'
+import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../types/card'
 
 interface UseCanvasDragOptions {
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
@@ -19,12 +20,12 @@ export function useCanvasDrag({ reactFlowInstance, setEdges }: UseCanvasDragOpti
           const sourceNode = instance.getNode(e.source)
           const targetNode = instance.getNode(e.target)
           if (!sourceNode || !targetNode) return { ...e }
-          const sw = ((sourceNode.data as Record<string, unknown>).width as number) ?? 280
+          const sw = ((sourceNode.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
           const sd = sourceNode.data as Record<string, unknown>
-          const sh = sd.collapsed ? 80 : ((sd.height as number) ?? 200)
-          const tw = ((targetNode.data as Record<string, unknown>).width as number) ?? 280
+          const sh = sd.collapsed ? COLLAPSED_CARD_HEIGHT : ((sd.height as number) ?? DEFAULT_CARD_HEIGHT)
+          const tw = ((targetNode.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
           const td = targetNode.data as Record<string, unknown>
-          const th = td.collapsed ? 80 : ((td.height as number) ?? 200)
+          const th = td.collapsed ? COLLAPSED_CARD_HEIGHT : ((td.height as number) ?? DEFAULT_CARD_HEIGHT)
           const handles = getBestHandles(sourceNode.position, { w: sw, h: sh }, targetNode.position, { w: tw, h: th })
           return {
             ...e,

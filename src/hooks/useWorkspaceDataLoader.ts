@@ -10,6 +10,7 @@ import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { createFileSystemBackup } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import type { CardColor } from '../types/card'
+import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
@@ -54,9 +55,9 @@ function ensureDefaultBoard() {
 
   boardStore.saveBoardData(id, {
     nodes: [
-      { id: 'card-demo-1', type: 'card' as const, position: { x: 100, y: 100 }, data: { cardId: 'card-demo-1', color: 'blue', width: 280, height: 200 }, width: 280, height: 200 },
-      { id: 'card-demo-2', type: 'card' as const, position: { x: 500, y: 150 }, data: { cardId: 'card-demo-2', color: 'green', width: 280, height: 200 }, width: 280, height: 200 },
-      { id: 'card-demo-3', type: 'card' as const, position: { x: 300, y: 400 }, data: { cardId: 'card-demo-3', color: 'yellow', width: 280, height: 200 }, width: 280, height: 200 },
+      { id: 'card-demo-1', type: 'card' as const, position: { x: 100, y: 100 }, data: { cardId: 'card-demo-1', color: 'blue', width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT }, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
+      { id: 'card-demo-2', type: 'card' as const, position: { x: 500, y: 150 }, data: { cardId: 'card-demo-2', color: 'green', width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT }, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
+      { id: 'card-demo-3', type: 'card' as const, position: { x: 300, y: 400 }, data: { cardId: 'card-demo-3', color: 'yellow', width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT }, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
     ],
     edges: [
       { id: `edge-board-default-a`, source: 'card-demo-1', target: 'card-demo-2', type: 'connection' as const },

@@ -6,7 +6,7 @@ import { getCardFill, getCardStroke, getCardTextColor } from '../../utils/cardSt
 import { connectionMediator } from '../../utils/connectionMediator'
 import { renderBlocksToHTML } from '../../converters/renderBlocks'
 import type { CardColor } from '../../types/card'
-import { COLLAPSED_CARD_HEIGHT } from '../../types/card'
+import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useBoardStore } from '../../stores/boardStore'
 import { CardHandles } from './card/CardHandles'
@@ -24,9 +24,6 @@ export interface CardNodeData extends Record<string, unknown> {
 }
 
 type CardNodeType = Node<CardNodeData, 'card'>
-
-const DEFAULT_CARD_WIDTH = 280
-const DEFAULT_CARD_HEIGHT = 200
 
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const [isEditing, setIsEditing] = useState(false)
@@ -75,8 +72,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   // 提取节点尺寸计算为独立函数，避免 inline 的 Record<string, unknown> 类型断言重复
   const getNodeSize = useCallback((node: Node) => {
     const d = node.data as Record<string, unknown>
-    const w = (d.width as number) ?? 280
-    const h = d.collapsed ? 80 : ((d.height as number) ?? 200)
+    const w = (d.width as number) ?? DEFAULT_CARD_WIDTH
+    const h = d.collapsed ? COLLAPSED_CARD_HEIGHT : ((d.height as number) ?? DEFAULT_CARD_HEIGHT)
     return { w, h }
   }, [])
 
