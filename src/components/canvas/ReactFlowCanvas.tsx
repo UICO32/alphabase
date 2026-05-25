@@ -124,10 +124,12 @@ export function ReactFlowCanvas() {
   }, [originalOnNodeDragStop, recordCurrentState])
 
   useEffect(() => {
+    const id = 'rf-hide-selection-rect'
+    if (document.getElementById(id)) return
     const style = document.createElement('style')
+    style.id = id
     style.textContent = '.react-flow__nodesselection-rect{display:none!important}'
     document.head.appendChild(style)
-    return () => { document.head.removeChild(style) }
   }, [])
 
   const { handleDragOver, handleDrop } = useDropHandler({ reactFlowInstance, setNodes })
