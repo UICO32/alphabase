@@ -112,7 +112,7 @@ function App() {
       try {
         let folderPath: string | null = null
 
-        const electronAPI = (window as any).electronAPI
+        const electronAPI = window.electronAPI
         if (electronAPI?.dialog?.openDirectory) {
           const result = await electronAPI.dialog.openDirectory()
           if (result) {
