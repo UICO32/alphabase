@@ -34,6 +34,7 @@ import { useCanvasConnection } from '../../hooks/useCanvasConnection'
 import { useCanvasDrag } from '../../hooks/useCanvasDrag'
 import { useHistory } from '../../hooks/useHistory'
 import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
+import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
@@ -117,6 +118,8 @@ export function ReactFlowCanvas() {
       })
     }, 300)
   }, [record])
+
+  const { handleDoubleClick } = useCanvasDoubleClick({ nodes, setNodes, setEdges, reactFlowInstance, recordCurrentState })
 
   const onNodeDragStop = useCallback((_event: React.MouseEvent, _node: Node, _nodes: Node[]) => {
     originalOnNodeDragStop()
@@ -251,7 +254,7 @@ export function ReactFlowCanvas() {
   }, [])
 
   return (
-    <div className="w-full h-full" style={{ backgroundColor: surface.appBg }} ref={canvasRef}>
+    <div className="w-full h-full" style={{ backgroundColor: surface.appBg }} ref={canvasRef} onDoubleClick={handleDoubleClick}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
