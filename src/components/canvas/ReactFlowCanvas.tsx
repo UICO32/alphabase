@@ -15,7 +15,7 @@ import '@xyflow/react/dist/style.css'
 
 import { CardNode } from './CardNode'
 import { MediaNode } from './MediaNode'
-import { SectionNode } from './SectionNode'
+import { FrameNode } from './FrameNode'
 import { MemoizedConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
 import { AdaptiveBackground } from './AdaptiveBackground'
@@ -26,7 +26,7 @@ import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle'
 import { useBoardSync } from '../../hooks/useBoardSync'
-import { useSectionSync } from '../../hooks/useSectionSync'
+import { useFrameSync } from '../../hooks/useFrameSync'
 import { useCanvasPaste } from '../../hooks/useCanvasPaste'
 import { useDropHandler } from '../../hooks/useDropHandler'
 import { useCanvasZoom } from '../../hooks/useCanvasZoom'
@@ -42,7 +42,7 @@ import type { CardNodeData } from '../../types/card'
 
 const nodeTypes = {
   card: CardNode,
-  section: SectionNode,
+  frame: FrameNode,
   media: MediaNode,
 }
 
@@ -84,7 +84,7 @@ export function ReactFlowCanvas() {
 
   useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef })
   useBoardSync({ nodes, edges })
-  useSectionSync({ nodes, setNodes })
+  useFrameSync({ nodes, setNodes })
   useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef })
 
   const canvasRef = useRef<HTMLDivElement>(null)
