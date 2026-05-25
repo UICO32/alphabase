@@ -45,7 +45,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
     [reactFlowInstance, setEdges],
   )
 
-  const onNodeDragStop = useCallback((_event: MouseEvent, node: Node) => {
+  const onNodeDragStop = useCallback((_event: MouseEvent | React.MouseEvent, node: Node) => {
     setEdges((eds) => [...eds])
 
     if (node.type !== 'card') return
