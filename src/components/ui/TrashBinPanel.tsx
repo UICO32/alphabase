@@ -52,9 +52,8 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
       onClick={onClose}
     >
       <div
-        className="modal-content w-[600px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn"
+        className="modal-content w-[600px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn glass-panel"
         style={{
-          backgroundColor: surface.panelBg,
           boxShadow: 'var(--shadow-xl)',
         }}
         onClick={(e) => e.stopPropagation()}

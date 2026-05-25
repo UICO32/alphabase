@@ -1,12 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { ReactFlowCanvas } from './components/canvas/ReactFlowCanvas'
 import { LeftPanel } from './components/ui/LeftPanel'
 import { RightPanel } from './components/ui/RightPanel'
-import { BoardLibraryView } from './components/ui/BoardLibraryView'
-import { CardLibraryView } from './components/ui/CardLibraryView'
-import { TrashBinPanel } from './components/ui/TrashBinPanel'
-import { SettingsDialog } from './components/ui/SettingsDialog'
-import { WorkspacePicker } from './components/ui/WorkspacePicker'
 import { Toolbar } from './components/ui/Toolbar'
 import { ClipUrlBar } from './components/ui/ClipUrlBar'
 import { TitleBar } from './components/ui/TitleBar'
@@ -15,9 +10,15 @@ import { useCardStore } from './stores/cardStore'
 import { useBoardStore } from './stores/boardStore'
 import { useTrashStore } from './stores/trashStore'
 import { useWorkspaceStore } from './stores/workspaceStore'
-import { stopActiveSyncEngine } from './sync/syncEngineRef'
+import { flushActiveSyncEngine, stopActiveSyncEngine } from './sync/syncEngineRef'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
-import { WorkspaceConflictDialog } from './components/ui/WorkspaceConflictDialog'
+
+const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
+const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
+const TrashBinPanel = lazy(() => import('./components/ui/TrashBinPanel').then(m => ({ default: m.TrashBinPanel })))
+const SettingsDialog = lazy(() => import('./components/ui/SettingsDialog').then(m => ({ default: m.SettingsDialog })))
+const WorkspacePicker = lazy(() => import('./components/ui/WorkspacePicker').then(m => ({ default: m.WorkspacePicker })))
+const WorkspaceConflictDialog = lazy(() => import('./components/ui/WorkspaceConflictDialog').then(m => ({ default: m.WorkspaceConflictDialog })))
 
 function App() {
   const viewMode = useLibraryStore(s => s.viewMode)
@@ -30,7 +31,18 @@ function App() {
   const { dataReady, conflict, handleConflictChoice } = useWorkspaceDataLoader()
 
   useEffect(() => {
+    const splash = document.getElementById('splash')
+    if (splash) {
+      splash.classList.add('fade-out')
+      setTimeout(() => splash.remove(), 300)
+    }
+  }, [])
+
+  useEffect(() => {
+    // 同步 store 中的 hue 到 CSS 变量
     document.documentElement.style.setProperty('--panel-hue', String(panelHue))
+    // 同时保存到 localStorage
+    localStorage.setItem('hepta-panel-hue', String(panelHue))
   }, [panelHue])
 
   useEffect(() => {
@@ -76,6 +88,15 @@ function App() {
 
   useEffect(() => {
     const handleWorkspaceChanged = async () => {
+      const boardStore = useBoardStore.getState()
+
+      // Force-save current board data to store before switching
+      window.dispatchEvent(new CustomEvent('hepta-save-current-board'))
+
+      // Wait for store subscriptions to schedule writes, then flush to disk
+      await new Promise(r => setTimeout(r, 50))
+      await flushActiveSyncEngine()
+
       await stopActiveSyncEngine()
       useCardStore.setState({ cards: {}, isLoaded: false })
       useBoardStore.setState({ boards: [], activeBoardId: null, isLoaded: false, boardData: {} })
@@ -132,6 +153,9 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab' && !e.repeat) {
+        if (useLibraryStore.getState().editingCardId) return
+        const el = document.activeElement
+        if (el && el.closest('.card-blocknote-editor')) return
         e.preventDefault()
         useLibraryStore.getState().toggleAllSidebars()
       }
@@ -159,9 +183,9 @@ function App() {
   const renderMainContent = () => {
     switch (viewMode) {
       case 'boardLibrary':
-        return <BoardLibraryView />
+        return <Suspense fallback={null}><BoardLibraryView /></Suspense>
       case 'cards':
-        return <CardLibraryView onOpenSettings={() => setShowSettings(true)} />
+        return <Suspense fallback={null}><CardLibraryView onOpenSettings={() => setShowSettings(true)} /></Suspense>
       case 'board':
       default:
         return (
@@ -196,22 +220,24 @@ function App() {
       </div>
 
       {showTrash && (
-        <TrashBinPanel onClose={() => setShowTrash(false)} />
+        <Suspense fallback={null}><TrashBinPanel onClose={() => setShowTrash(false)} /></Suspense>
       )}
       {showSettings && (
-        <SettingsDialog onClose={() => setShowSettings(false)} />
+        <Suspense fallback={null}><SettingsDialog onClose={() => setShowSettings(false)} /></Suspense>
       )}
       {showWorkspacePicker && (
-        <WorkspacePicker onClose={() => setShowWorkspacePicker(false)} />
+        <Suspense fallback={null}><WorkspacePicker onClose={() => setShowWorkspacePicker(false)} /></Suspense>
       )}
       {isBoardView && <ClipUrlBar open={showClipUrlBar} onClose={() => setShowClipUrlBar(false)} />}
 
       {conflict && (
-        <WorkspaceConflictDialog
-          conflict={conflict}
-          hasBackup={false}
-          onChoice={handleConflictChoice}
-        />
+        <Suspense fallback={null}>
+          <WorkspaceConflictDialog
+            conflict={conflict}
+            hasBackup={false}
+            onChoice={handleConflictChoice}
+          />
+        </Suspense>
       )}
     </div>
   )

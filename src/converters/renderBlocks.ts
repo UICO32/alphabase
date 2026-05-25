@@ -8,6 +8,32 @@ const FONT =
   "font-family:Inter,'SF Pro Display',-apple-system,BlinkMacSystemFont,'Open Sans','Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,'Fira Sans','Droid Sans','Helvetica Neue',sans-serif"
 const CODE_FONT = "font-family:ui-monospace,'SF Mono',Monaco,'Cascadia Code',Consolas,monospace"
 
+const BN_TEXT_COLORS: Record<string, string> = {
+  default: 'inherit',
+  gray: '#9b9a97',
+  brown: '#64473a',
+  red: '#e03e3e',
+  orange: '#d9730d',
+  yellow: '#dfab01',
+  green: '#4d6461',
+  blue: '#0b6e99',
+  purple: '#6940a5',
+  pink: '#ad1a72',
+}
+
+const BN_BG_COLORS: Record<string, string> = {
+  default: 'transparent',
+  gray: '#ebeced',
+  brown: '#e9e5e3',
+  red: '#fbe4e4',
+  orange: '#f6e9d9',
+  yellow: '#fbf3db',
+  green: '#ddedea',
+  blue: '#ddebf1',
+  purple: '#eae4f2',
+  pink: '#f4dfeb',
+}
+
 function preprocessBlocks(blocks: Record<string, unknown>[]): Record<string, unknown>[] {
   let counter = 1
   return blocks.map((b) => {
@@ -232,8 +258,14 @@ function renderInlineContent(node: Record<string, unknown>): string {
     if (styles.italic) text = `<em>${text}</em>`
     if (styles.strike) text = `<s>${text}</s>`
     if (styles.underline) text = `<u>${text}</u>`
-    if (styles.textColor) text = `<span style="color:${escapeCSS(styles.textColor as string)}">${text}</span>`
-    if (styles.backgroundColor) text = `<span style="background-color:${escapeCSS(styles.backgroundColor as string)}">${text}</span>`
+    if (styles.textColor) {
+      const mapped = BN_TEXT_COLORS[styles.textColor as string] ?? escapeCSS(styles.textColor as string)
+      text = `<span style="color:${mapped}">${text}</span>`
+    }
+    if (styles.backgroundColor) {
+      const mapped = BN_BG_COLORS[styles.backgroundColor as string] ?? escapeCSS(styles.backgroundColor as string)
+      text = `<span style="background-color:${mapped}">${text}</span>`
+    }
     return text
   }
   if (node.type === 'link') {

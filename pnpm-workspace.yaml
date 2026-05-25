@@ -1,5 +1,9 @@
 allowBuilds:
+  '@zvec/zvec': set this to true or false
   canvas: true
   electron: true
+  electron-winstaller: true
   esbuild: true
-  sharp: set this to true or false
+  onnxruntime-node: true
+  sharp: true
+nodeLinker: hoisted

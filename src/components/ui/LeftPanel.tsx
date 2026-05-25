@@ -52,8 +52,8 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
   return (
     <>
       <motion.div
-        className={`${isBoardView ? 'absolute left-0 top-0 bottom-0 z-10' : 'shrink-0'} flex flex-col h-full overflow-hidden`}
-        style={{ width: SIDEBAR_WIDTH, backgroundColor: surface.panelBg }}
+        className={`${isBoardView ? 'absolute left-0 top-0 bottom-0 z-10' : 'shrink-0'} flex flex-col h-full overflow-hidden glass-panel-large`}
+        style={{ width: SIDEBAR_WIDTH }}
         animate={{ x: leftPanelCollapsed ? -SIDEBAR_WIDTH : 0 }}
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         onWheel={handleWheel}
@@ -133,9 +133,8 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
           exit={{ opacity: 0, scale: 0.9 }}
           transition={{ duration: 0.2 }}
           onClick={() => setLeftPanelCollapsed(false)}
-          className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md"
+          className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel"
           style={{
-            backgroundColor: surface.panelBg,
             color: surface.muted,
             border: `1px solid ${surface.divider}`,
           }}

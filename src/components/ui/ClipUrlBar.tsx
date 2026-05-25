@@ -107,12 +107,10 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
 
   return (
     <div
-      className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-xl z-50 animate-fadeInUp"
+      className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-xl z-50 animate-fadeInUp glass-panel"
       style={{
-        backgroundColor: surface.panelBg,
-        border: `1px solid ${surface.divider}`,
-        boxShadow: surface.shadow,
         width: 420,
+        boxShadow: 'var(--shadow-lg)',
       }}
     >
       <Scissors size={16} style={{ color: surface.text, flexShrink: 0 }} />
@@ -145,7 +143,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         <X size={14} />
       </button>
       {error && (
-        <span className="text-xs" style={{ color: '#ef4444' }}>{error}</span>
+        <span className="text-xs" style={{ color: 'var(--text-danger)' }}>{error}</span>
       )}
     </div>
   )

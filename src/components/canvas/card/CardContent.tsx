@@ -1,6 +1,10 @@
-import { memo } from 'react'
-import { CardBlockNoteEditor, type BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
+import { memo, lazy, Suspense } from 'react'
+import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { renderBlocksToHTML } from '../../../converters/renderBlocks'
+
+const LazyCardBlockNoteEditor = lazy(() =>
+  import('../../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
+)
 
 interface CardContentProps {
   isEditing: boolean
@@ -12,6 +16,7 @@ interface CardContentProps {
   onBlur: () => void
   editorRef: React.Ref<BlockNoteEditorHandle>
   textColor: string
+  onDragBlocksOutside?: (blocks: unknown[]) => void
 }
 
 export const CardContent = memo(function CardContent({
@@ -24,6 +29,7 @@ export const CardContent = memo(function CardContent({
   onBlur,
   editorRef,
   textColor,
+  onDragBlocksOutside,
 }: CardContentProps) {
   const canScroll = isSelected || isEditing
 
@@ -43,16 +49,19 @@ export const CardContent = memo(function CardContent({
           className="h-full overflow-y-auto px-6"
           style={{ fontSize: '13px', lineHeight: '1.5' }}
         >
-          <CardBlockNoteEditor
-            ref={editorRef}
-            content={content}
-            onChange={onChange}
-            onBlur={onBlur}
-            theme="light"
-            editable={true}
-            showSideMenu={false}
-            enforceInitialHeading={enforceInitialHeading}
-          />
+          <Suspense fallback={null}>
+            <LazyCardBlockNoteEditor
+              ref={editorRef}
+              content={content}
+              onChange={onChange}
+              onBlur={onBlur}
+              theme="light"
+              editable={true}
+              showSideMenu={true}
+              enforceInitialHeading={enforceInitialHeading}
+              onDragBlocksOutside={onDragBlocksOutside}
+            />
+          </Suspense>
         </div>
       ) : (
         <div

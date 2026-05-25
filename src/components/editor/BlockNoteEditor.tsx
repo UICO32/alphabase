@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle, type ForwardedRef } from 'react'
 import { dropCursor } from '@tiptap/pm/dropcursor'
 import { TextSelection } from '@tiptap/pm/state'
+import { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { useCreateBlockNote, SideMenuController } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import '@blocknote/core/fonts/inter.css'
@@ -10,6 +11,7 @@ import { CardFormattingToolbar } from './CardFormattingToolbar'
 import { CardSlashMenu } from './CardSlashMenu'
 import { useImageColumnDrop } from './useImageColumnDrop'
 import { DragOnlySideMenu } from './DragOnlySideMenu'
+import { usePosAtCoordsScalePatch } from './usePosAtCoordsScalePatch'
 import {
   fileToDataUrl,
   isImageFile,
@@ -36,6 +38,7 @@ export interface BlockNoteEditorProps {
   editable?: boolean
   showSideMenu?: boolean
   enforceInitialHeading?: boolean
+  onDragBlocksOutside?: (blocks: unknown[]) => void
 }
 
 const CardBlockNoteEditorInner = (
@@ -48,6 +51,7 @@ const CardBlockNoteEditorInner = (
     const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const onChangeRef = useRef(onChange)
     onChangeRef.current = onChange
+    const selectAllStepRef = useRef(0)
 
     if (isFirstRender.current) {
       initialContent.current = parseContentToBlocks(content)
@@ -187,21 +191,42 @@ const CardBlockNoteEditorInner = (
           requestAnimationFrame(() => {
             const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as {
               posAtCoords: (p: { left: number; top: number }) => { pos: number } | null
+              posAtDOM: (node: Node, offset: number) => number
               state: { doc: { resolve: (pos: number) => any }; tr: { setSelection: (sel: unknown) => unknown } }
               dispatch: (tr: unknown) => void
               focus: () => void
+              dom: HTMLElement
             } | undefined
-            console.debug('[BlockNote] focusAtCoords', { x, y, hasPm: !!pm })
             if (!pm) return
-            const posAtCoordsResult = pm.posAtCoords({ left: x, top: y })
-            console.debug('[BlockNote] posAtCoords result', posAtCoordsResult)
-            if (posAtCoordsResult?.pos != null) {
-              const resolvedPos = pm.state.doc.resolve(posAtCoordsResult.pos)
+
+            let pos: number | null = null
+
+            // Use browser caret APIs to get a precise cursor position from the
+            // click coordinates. This avoids the block-boundary issue where
+            // posAtCoords always resolves to the start of the content block.
+            try {
+              const range = (document as any).caretPositionFromPoint?.(x, y)
+                ?? (document as any).caretRangeFromPoint?.(x, y)
+              if (range) {
+                const node = range.offsetNode ?? range.startContainer
+                const offset = range.offset ?? range.startOffset
+                if (node && pm.dom.contains(node)) {
+                  pos = pm.posAtDOM(node, offset)
+                }
+              }
+            } catch { /* fall through to posAtCoords */ }
+
+            if (pos == null) {
+              const result = pm.posAtCoords({ left: x, top: y })
+              if (result?.pos != null) pos = result.pos
+            }
+
+            if (pos != null) {
+              const resolvedPos = pm.state.doc.resolve(pos)
               const selection = TextSelection.near(resolvedPos)
               pm.dispatch(pm.state.tr.setSelection(selection))
             }
             pm.focus()
-            // 重试聚焦：某些情况下 focus 被后续事件抢走
             setTimeout(() => pm.focus(), 50)
           })
         })
@@ -302,9 +327,137 @@ const CardBlockNoteEditorInner = (
     }, [editor, enforceInitialHeading, onFocus, onBlur, flushPending])
 
     useImageColumnDrop(containerRef, editor as any, editable)
+    usePosAtCoordsScalePatch(editor)
+
+    // 编辑器容器级别处理：块间隙/抓手/draggable 元素上方也需要 accept drop，否则浏览器显示禁止图标
+    // 同时阻止拖拽进行中抓手元素触发二次 dragstart（"New drag was started while an existing drag is ongoing"）
+    useEffect(() => {
+      const el = containerRef.current
+      if (!el || !editable) return
+      const isBlockNoteDrag = (e: DragEvent) => e.dataTransfer?.types?.includes('blocknote/html')
+      let dragActive = false
+      const handleDragOver = (e: DragEvent) => {
+        if (!isBlockNoteDrag(e) || e.defaultPrevented) return
+        e.preventDefault()
+        e.dataTransfer!.dropEffect = 'move'
+      }
+      const handleDragEnter = (e: DragEvent) => {
+        if (!isBlockNoteDrag(e) || e.defaultPrevented) return
+        e.preventDefault()
+      }
+      const handleDragStart = (e: DragEvent) => {
+        if (!isBlockNoteDrag(e)) return
+        if (dragActive) {
+          e.preventDefault()
+          return
+        }
+        dragActive = true
+      }
+      const handleDragEnd = () => {
+        dragActive = false
+      }
+      window.addEventListener('dragover', handleDragOver, true)
+      window.addEventListener('dragenter', handleDragEnter, true)
+      window.addEventListener('dragstart', handleDragStart, true)
+      window.addEventListener('dragend', handleDragEnd, true)
+      return () => {
+        window.removeEventListener('dragover', handleDragOver, true)
+        window.removeEventListener('dragenter', handleDragEnter, true)
+        window.removeEventListener('dragstart', handleDragStart, true)
+        window.removeEventListener('dragend', handleDragEnd, true)
+      }
+    }, [editable])
+
+    // Ctrl+A 两段式：第一次选中当前内容块，第二次选中所有内容块
+    useEffect(() => {
+      const el = containerRef.current
+      if (!el || !editable) return
+
+      const handleCtrlA = (event: KeyboardEvent) => {
+        if (!(event.ctrlKey || event.metaKey) || event.key !== 'a') return
+        const target = event.target
+        if (!(target instanceof Node) || !el.contains(target)) return
+
+        const pmView = (editor as unknown as Record<string, unknown>).prosemirrorView as { state: { doc: ProseMirrorNode; selection: { $head: { pos: number }; from: number; to: number }; tr: { setSelection: (s: unknown) => unknown } }; dispatch: (tr: unknown) => void } | undefined
+        if (!pmView) return
+        const st = pmView.state
+
+        // 计算光标所在的 textblock 范围
+        const cursorPos = st.selection.$head.pos
+        let currentBlockFrom = -1
+        let currentBlockTo = -1
+        st.doc.descendants((node, pos) => {
+          if (!node.isTextblock) return true
+          const blockEnd = pos + node.nodeSize
+          if (cursorPos > pos && cursorPos < blockEnd) {
+            currentBlockFrom = pos + 1
+            currentBlockTo = blockEnd - 1
+            return false
+          }
+          return true
+        })
+        if (currentBlockFrom < 0) return
+
+        // 计算全部 textblock 范围
+        let allFrom = -1
+        let allTo = -1
+        st.doc.descendants((node, pos) => {
+          if (node.isTextblock) {
+            if (allFrom < 0) allFrom = pos + 1
+            allTo = pos + node.nodeSize - 1
+          }
+          return true
+        })
+        if (allFrom < 0) return
+
+        const isCurrentBlock = st.selection.from === currentBlockFrom && st.selection.to === currentBlockTo
+        const isAllBlocks = st.selection.from === allFrom && st.selection.to === allTo
+
+        // 如果只有一个 textblock 或者是第二次 Ctrl+A → 全选所有块
+        if (selectAllStepRef.current === 1) {
+          selectAllStepRef.current = 0
+          event.preventDefault()
+          event.stopImmediatePropagation()
+          if (currentBlockFrom === allFrom && currentBlockTo === allTo) {
+            // 只有一个块，第二次回退到选中当前块
+            const sel = TextSelection.create(st.doc as unknown as Parameters<typeof TextSelection.create>[0], currentBlockFrom, currentBlockTo)
+            pmView.dispatch(st.tr.setSelection(sel))
+          } else if (!isAllBlocks) {
+            const sel = TextSelection.create(st.doc as unknown as Parameters<typeof TextSelection.create>[0], allFrom, allTo)
+            pmView.dispatch(st.tr.setSelection(sel))
+          }
+          return
+        }
+
+        // 第一次 Ctrl+A → 选中当前块
+        selectAllStepRef.current = 1
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        if (!isCurrentBlock) {
+          const sel = TextSelection.create(st.doc as unknown as Parameters<typeof TextSelection.create>[0], currentBlockFrom, currentBlockTo)
+          pmView.dispatch(st.tr.setSelection(sel))
+        }
+      }
+
+      // 用户做其他操作时复位 step
+      const resetStep = () => { selectAllStepRef.current = 0 }
+      const resetStepOnKey = (e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'a') return
+        resetStep()
+      }
+      el.addEventListener('click', resetStep, true)
+      el.addEventListener('keydown', resetStepOnKey, true)
+
+      window.addEventListener('keydown', handleCtrlA, true)
+      return () => {
+        window.removeEventListener('keydown', handleCtrlA, true)
+        el.removeEventListener('click', resetStep, true)
+        el.removeEventListener('keydown', resetStepOnKey, true)
+      }
+    }, [editor, editable])
 
     return (
-      <div ref={containerRef} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`}>
+      <div ref={containerRef} spellCheck={false} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`}>
         <style>{`
           .card-blocknote-editor {
           }
@@ -335,6 +488,21 @@ const CardBlockNoteEditorInner = (
             display: block !important;
             margin: 4px 0 !important;
           }
+          .card-blocknote-editor .bn-drag-handle-button {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          .card-blocknote-editor .bn-drag-handle-button svg {
+            width: 16px !important;
+            height: 16px !important;
+            opacity: 0.35 !important;
+            transition: opacity 0.15s !important;
+          }
+          .card-blocknote-editor .bn-drag-handle-button:hover svg,
+          .card-blocknote-editor .bn-drag-handle-button[data-state="open"] svg {
+            opacity: 1 !important;
+          }
         `}</style>
         <BlockNoteView
           editor={editor}
@@ -342,17 +510,11 @@ const CardBlockNoteEditorInner = (
           theme={theme}
           formattingToolbar={false}
           slashMenu={false}
+          sideMenu={false}
         >
+          {showSideMenu && editable && <SideMenuController sideMenu={DragOnlySideMenu} />}
           {editable && <CardFormattingToolbar />}
           {editable && <CardSlashMenu />}
-          {showSideMenu && editable && (
-            <SideMenuController
-              sideMenu={DragOnlySideMenu}
-              floatingOptions={{
-                placement: 'left-start',
-              }}
-            />
-          )}
         </BlockNoteView>
         {editable && <ImageToolbar containerRef={containerRef} editable={editable} theme={theme} />}
       </div>

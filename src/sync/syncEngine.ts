@@ -28,10 +28,52 @@ export class WorkspaceSyncEngine {
 
   stop(): Promise<void> {
     this.running = false
-    for (const [, { timer }] of this.pendingWrites) {
+    return this.flushAll()
+  }
+
+  // 提取共享的 drainPending 逻辑，flushNow 和 flushAll 都复用
+  private drainPending(parallel: boolean): Promise<void> | void {
+    const entries = [...this.pendingWrites.entries()]
+    for (const [, { timer }] of entries) {
       clearTimeout(timer)
     }
-    return this.flushAll()
+    this.pendingWrites.clear()
+
+    if (parallel) {
+      // flushAll: 并行写入，返回 Promise
+      const promises: Promise<void>[] = []
+      for (const [key, { data }] of entries) {
+        const path = key.startsWith('delete:') ? key.slice(7) : key
+        promises.push(this.writeEntry(path, data))
+      }
+      return Promise.all(promises).then(() => {})
+    } else {
+      // flushNow: 同步依次写入
+      for (const [key, { data }] of entries) {
+        const path = key.startsWith('delete:') ? key.slice(7) : key
+        this.writeEntry(path, data).catch(() => { /* noop */ })
+      }
+    }
+  }
+
+  // 统一的写入入口，避免 flushNow/flushAll/executeWrite 中重复的 tmp+rename 逻辑
+  private async writeEntry(path: string, data: string): Promise<void> {
+    try {
+      if (data === '__DELETE__') {
+        if (await exists(path)) await deleteFile(path)
+      } else {
+        const tmpPath = path + '.tmp'
+        await writeFile(tmpPath, data)
+        await rename(tmpPath, path)
+      }
+    } catch {
+      /* noop — 防止单个写入失败阻塞其他 */
+    }
+  }
+
+  /** Flush all pending writes immediately (fire-and-forget) */
+  flushNow(): void {
+    this.drainPending(false)
   }
 
   isRunning() { return this.running }
@@ -41,9 +83,10 @@ export class WorkspaceSyncEngine {
     this.scheduleWrite(path, JSON.stringify(card, null, 2), debounceMs)
   }
 
-  scheduleDeleteCard(cardId: string) {
+  // 提取共享的 scheduleDelete 方法，避免 scheduleDeleteCard 和 scheduleDeleteTrashFile 重复
+  private scheduleDelete(baseDir: string, fileName: string) {
     if (!this.running) return
-    const path = joinPath(this.cardsDir, `${cardId}.json`)
+    const path = joinPath(baseDir, fileName)
     const key = `delete:${path}`
     const existing = this.pendingWrites.get(key)
     if (existing) clearTimeout(existing.timer)
@@ -51,6 +94,10 @@ export class WorkspaceSyncEngine {
       data: '__DELETE__',
       timer: setTimeout(() => this.executeWrite(key, path, '__DELETE__'), 0),
     })
+  }
+
+  scheduleDeleteCard(cardId: string) {
+    this.scheduleDelete(this.cardsDir, `${cardId}.json`)
   }
 
   scheduleWriteBoard(boardId: string, snapshot: BoardSnapshot, debounceMs = 600) {
@@ -74,15 +121,7 @@ export class WorkspaceSyncEngine {
   }
 
   scheduleDeleteTrashFile(cardId: string) {
-    if (!this.running) return
-    const path = joinPath(this.trashDir, `${cardId}.trash.json`)
-    const key = `delete:${path}`
-    const existing = this.pendingWrites.get(key)
-    if (existing) clearTimeout(existing.timer)
-    this.pendingWrites.set(key, {
-      data: '__DELETE__',
-      timer: setTimeout(() => this.executeWrite(key, path, '__DELETE__'), 0),
-    })
+    this.scheduleDelete(this.trashDir, `${cardId}.trash.json`)
   }
 
   private scheduleWrite(path: string, data: string, debounceMs: number) {
@@ -98,47 +137,11 @@ export class WorkspaceSyncEngine {
   private async executeWrite(key: string, path: string, data: string) {
     this.pendingWrites.delete(key)
     if (!this.running && data === '__DELETE__') return
-    try {
-      if (data === '__DELETE__') {
-        if (await exists(path)) await deleteFile(path)
-      } else {
-        const tmpPath = path + '.tmp'
-        await writeFile(tmpPath, data)
-        await rename(tmpPath, path)
-      }
-    } catch {
-      /* noop */
-    }
+    await this.writeEntry(path, data)
   }
 
   flushAll(): Promise<void> {
-    const entries = [...this.pendingWrites.entries()]
-    for (const [, { timer }] of entries) {
-      clearTimeout(timer)
-    }
-    this.pendingWrites.clear()
-
-    const promises: Promise<void>[] = []
-    for (const [key, { data }] of entries) {
-      try {
-        const path = key.startsWith('delete:') ? key.slice(7) : key
-        if (data === '__DELETE__') {
-          promises.push(
-            exists(path).then(e => { if (e) return deleteFile(path) }).then(() => {}).catch(() => {})
-          )
-        } else {
-          const tmpPath = path + '.tmp'
-          promises.push(
-            writeFile(tmpPath, data)
-              .then(() => rename(tmpPath, path))
-              .then(() => {}).catch(() => {})
-          )
-        }
-      } catch {
-        /* noop */
-      }
-    }
-    return Promise.all(promises).then(() => {})
+    return this.drainPending(true) as Promise<void>
   }
 }
 

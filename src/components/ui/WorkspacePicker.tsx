@@ -34,9 +34,8 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
       onClick={onClose}
     >
       <div
-        className="modal-content w-[500px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn"
+        className="modal-content w-[500px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn glass-panel"
         style={{
-          backgroundColor: surface.panelBg,
           boxShadow: 'var(--shadow-xl)',
         }}
         onClick={(e) => e.stopPropagation()}

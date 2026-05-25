@@ -1,0 +1,278 @@
+
+            
+filePath: d:\USE\save\code\abase\src\App.tsx
+          
+基于对代码的全面审查，我发现了这个项目存在的**多个严重问题**，从技术债务到架构缺陷都有涉及：
+
+---
+
+## 一、未完成的功能（代码里有 TODO）
+
+### 1. 双击创建卡片 — 完全未实现
+[useCanvasDoubleClick.ts](file:///d:/USE/save/code/abase/src/hooks/useCanvasDoubleClick.ts#L1-L23)
+```typescript
+export function useCanvasDoubleClick({ nodes, setNodes }: UseCanvasDoubleClickOptions) {
+  const addCard = useCardStore((s) => s.addCard)
+  const handleDoubleClick = useCallback((event: React.MouseEvent) => {
+    // TODO: 实现双击创建卡片
+    console.log('Double click at:', event.clientX, event.clientY)
+  }, [nodes, setNodes, addCard])
+```
+这个 hook 被导入但功能为空，只是打印坐标。
+
+---
+
+## 二、架构层面的问题
+
+### 2. 全局事件总线滥用（严重的反模式）
+整个项目大量使用 `window.dispatchEvent` + `CustomEvent` 作为组件间通信：
+
+```typescript
+// App.tsx 中的事件
+window.dispatchEvent(new CustomEvent('hepta-add-card-node', ...))
+window.dispatchEvent(new CustomEvent('hepta-switch-board', ...))
+window.dispatchEvent(new CustomEvent('hepta-workspace-changed', ...))
+window.dispatchEvent(new CustomEvent('hepta-save-current-board'))
+window.dispatchEvent(new CustomEvent('hepta-reinit-workspace'))
+window.dispatchEvent(new CustomEvent('hepta-focus-card', ...))
+window.dispatchEvent(new CustomEvent('hepta-zoom-in'))
+window.dispatchEvent(new CustomEvent('hepta-zoom-out'))
+```
+
+**问题**：
+- 事件名称是字符串，没有类型安全
+- 难以追踪谁监听、谁触发
+- 调试困难，事件顺序不可控
+- 与 React 的数据流方向相反
+
+### 3. Store 直接互调（循环依赖风险）
+[useWorkspaceDataLoader.ts](file:///d:/USE/save/code/abase/src/hooks/useWorkspaceDataLoader.ts#L1-L80) 中：
+```typescript
+useCardStore.getState().addCard(...)
+useBoardStore.getState().addBoard(...)
+useBoardStore.getState().saveBoardData(...)
+```
+
+[useBoardActions.ts](file:///d:/USE/save/code/abase/src/hooks/useBoardActions.ts#L1-L80) 中：
+```typescript
+useBoardStore.getState().addBoard(...)
+useBoardStore.getState().saveBoardData(...)
+```
+
+**问题**：多个 Store 在运行时互相调用，形成隐式耦合，可能导致状态不一致。
+
+### 4. Zustand Selector 不稳定
+[CardLibraryView.tsx](file:///d:/USE/save/code/abase/src/components/ui/CardLibraryView.tsx#L25-L35)：
+```typescript
+const cards = useCardStore(s => s.cards)  // 返回对象引用
+const syncing = useFlomoSyncStore(s => s.syncing)
+const accessToken = useFlomoSyncStore(s => s.accessToken)
+const sync = useFlomoSyncStore(s => s.sync)
+```
+
+虽然注释说"合并相关 selector 减少重渲染"，但实际上 `useCardStore(s => s.cards)` 每次返回的是同一个对象引用（如果内部没变化），这还算可以。但更好的做法是使用多个 selector 或者 `shallow` 比较。
+
+---
+
+## 三、性能问题
+
+### 5. CardNode 的 setNodes 频繁调用
+[CardNode.tsx](file:///d:/USE/save/code/abase/src/components/canvas/CardNode.tsx#L45-L55)：
+```typescript
+useEffect(() => {
+  setNodes((nds) =>
+    nds.map((n) => {
+      if (n.id !== data.cardId) return n
+      return {
+        ...n,
+        dragHandle: isEditing ? '.card-drag-handle' : undefined,
+        ...(isCollapsed ? { height: COLLAPSED_CARD_HEIGHT } : {}),
+      }
+    }),
+  )
+}, [isEditing, isCollapsed, data.cardId, setNodes])
+```
+
+**问题**：每次 `isEditing` 或 `isCollapsed` 变化都会遍历整个 nodes 数组。对于 100 个卡片就是 100 次比较。
+
+### 6. ConnectionPreview 的 RAF 循环
+[ConnectionPreview.tsx](file:///d:/USE/save/code/abase/src/components/canvas/ConnectionPreview.tsx#L1-L80)：
+```typescript
+useEffect(() => {
+  let raf = 0
+  const tick = () => {
+    // 每帧计算：查找节点、坐标转换、几何计算
+    raf = requestAnimationFrame(tick)
+  }
+  raf = requestAnimationFrame(tick)
+  return () => cancelAnimationFrame(raf)
+}, [isConnecting])
+```
+
+**问题**：连接模式下每帧都在做大量计算（遍历所有节点、flowToScreenPosition、edgePointOnRect），没有节流。
+
+### 7. onNodeDrag 中的全量 edges 更新
+[useCanvasDrag.ts](file:///d:/USE/save/code/abase/src/hooks/useCanvasDrag.ts#L1-L45)：
+```typescript
+const onNodeDrag: OnNodeDrag = useCallback((_event, node) => {
+  setEdges((eds) =>
+    eds.map((e) => {
+      if (e.source !== node.id && e.target !== node.id) return e
+      // 对每个相关 edge 重新计算连接点
+      const handles = getBestHandles(...)
+      return { ...e, sourceHandle: handles.sourceHandle, targetHandle: handles.targetHandle }
+    })
+  )
+}, [reactFlowInstance, setEdges])
+```
+
+**问题**：拖拽节点时，即使只连了 2 条线，也会触发整个 edges 数组的重新渲染。
+
+---
+
+## 四、状态管理问题
+
+### 8. 撤销/重做系统不完整
+[useHistory.ts](file:///d:/USE/save/code/abase/src/hooks/useHistory.ts#L1-L88)：
+- 只记录了 nodes 和 edges 的快照
+- **没有记录卡片内容变更**（`cardChanges` 字段定义了但从未使用）
+- 撤销时只恢复了画布状态，不恢复卡片内容
+
+```typescript
+export interface HistoryEntry {
+  type: 'canvas' | 'structure' | 'cards'
+  description: string
+  nodes: Node[]
+  edges: Edge[]
+  cardChanges?: Array<{ id: string; before: GlobalCard; after: GlobalCard }>  // 从未使用
+}
+```
+
+### 9. 连接状态管理器是全局单例
+[connectionMediator.ts](file:///d:/USE/save/code/abase/src/utils/connectionMediator.ts#L1-L151)：
+```typescript
+let pending: PendingConnection | null = null
+let globalListeners = new Set<Listener>()
+let cardListeners = new Map<string, Set<Listener>>()
+let completeHandler: CompleteHandler | null = null
+let _nearbyTargetId: string | null = null
+```
+
+**问题**：模块级全局变量，不支持多实例。虽然当前是单窗口应用，但这是架构缺陷。
+
+---
+
+## 五、数据一致性问题
+
+### 10. 画板切换时的数据保存不可靠
+[useWorkspaceLifecycle.ts](file:///d:/USE/save/code/abase/src/hooks/useWorkspaceLifecycle.ts#L1-L60)：
+```typescript
+const switchToBoard = useCallback((boardId: string) => {
+  if (activeBoardIdRef.current === boardId) return
+  if (activeBoardIdRef.current && nodesRef.current) {
+    boardStore.saveBoardData(activeBoardIdRef.current, { nodes: ..., edges: ... })
+  }
+  // ...
+}, [])
+```
+
+**问题**：`nodesRef` 可能不是最新的（useRef 的同步问题）。而且保存和切换之间没有原子性保证。
+
+### 11. boardData 和 React Flow 状态双源头
+- `boardStore.boardData` 保存画板快照
+- `ReactFlowCanvas` 内部的 `nodes`/`edges` state 是实际渲染状态
+- 两者之间通过 `useBoardSync` 和 `useWorkspaceLifecycle` 同步
+
+**问题**：同步逻辑分散在多个 hook 中，容易出现不一致。
+
+---
+
+## 六、类型安全问题
+
+### 12. 大量 `as` 类型断言
+[CardNode.tsx](file:///d:/USE/save/code/abase/src/components/canvas/CardNode.tsx#L1-L100) 中到处都是：
+```typescript
+const d = node.data as Record<string, unknown>
+const w = (d.width as number) ?? 280
+const h = d.collapsed ? 80 : ((d.height as number) ?? 200)
+```
+
+[ReactFlowCanvas.tsx](file:///d:/USE/save/code/abase/src/components/canvas/ReactFlowCanvas.tsx#L100-L200)：
+```typescript
+const cardId = (node.data as Record<string, unknown>)?.cardId as string | undefined
+```
+
+**问题**：类型系统被绕过，运行时可能出错。
+
+---
+
+## 七、Electron 相关问题
+
+### 13. 主进程代码质量
+[main.ts](file:///d:/USE/save/code/abase/electron/main.ts#L1-L80)：
+- DevTools 在生产环境也会打开（`mainWindow.webContents.openDevTools()`）
+- 没有错误处理（`protocol.handle` 的 catch 只是返回 404）
+- `asarUnpack` 配置了大体积的 `onnxruntime-node`，但模型加载逻辑没看到
+
+### 14. IPC 通信没有类型定义
+[preload.ts](file:///d:/USE/save/code/abase/electron/preload.ts) 没有查看，但从 [fs-adapter.ts](file:///d:/USE/save/code/abase/src/utils/workspace/fs-adapter.ts#L1-L19) 看：
+```typescript
+const electronAPI = (window as unknown as { electronAPI?: { fs: FSAdapter } }).electronAPI
+```
+
+**问题**：`any` 类型使用，没有严格的 IPC 类型约束。
+
+---
+
+## 八、其他问题
+
+### 15. 内存泄漏风险
+[ReactFlowCanvas.tsx](file:///d:/USE/save/code/abase/src/components/canvas/ReactFlowCanvas.tsx#L100-L200)：
+```typescript
+useEffect(() => {
+  const style = document.createElement('style')
+  style.textContent = '.react-flow__nodesselection-rect{display:none!important}'
+  document.head.appendChild(style)
+  return () => { document.head.removeChild(style) }
+}, [])
+```
+
+这个 effect 每次挂载都会创建新的 style 标签。
+
+### 16. 硬编码的魔法数字
+到处都有：
+```typescript
+const PROXIMITY_THRESHOLD = 60
+const DEFAULT_CARD_WIDTH = 280
+const DEFAULT_CARD_HEIGHT = 200
+const COLLAPSED_CARD_HEIGHT = 80
+const SIDEBAR_WIDTH = 260
+```
+
+没有集中管理，维护困难。
+
+### 17. CardPlaceholder 组件未使用
+[CardPlaceholder.tsx](file:///d:/USE/save/code/abase/src/components/canvas/CardPlaceholder.tsx#L1-L31) 定义了但从未在 `nodeTypes` 中注册。
+
+---
+
+## 总结：最严重的问题排序
+
+| 优先级 | 问题 | 影响 |
+|--------|------|------|
+| 🔴 P0 | 全局事件总线滥用 | 可维护性极差，难以调试 |
+| 🔴 P0 | 撤销/重做系统不完整 | 核心功能缺陷 |
+| 🟡 P1 | 性能问题（RAF循环、全量遍历） | 100+卡片时卡顿 |
+| 🟡 P1 | Store 直接互调 | 状态不一致风险 |
+| 🟡 P1 | 类型断言泛滥 | 运行时错误风险 |
+| 🟢 P2 | 双击创建未实现 | 功能缺失 |
+| 🟢 P2 | 魔法数字硬编码 | 维护成本 |
+| 🟢 P2 | DevTools 生产环境开启 | 安全问题 |
+
+这个项目虽然功能看起来丰富，但**技术债务很重**。核心问题是：
+1. **通信机制混乱**：全局事件 + Store 互调 + Props 传递混用
+2. **状态管理不统一**：React Flow 状态、Zustand Store、refs 三者并存
+3. **性能优化不足**：大画布场景下会有明显卡顿
+4. **类型安全薄弱**：大量 `any` 和类型断言
+
+如果要继续维护，建议优先重构事件通信机制和状态管理架构。

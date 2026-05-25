@@ -12,6 +12,7 @@ export function VectorIndexSettings() {
     cardCount,
     lastIndexedAt,
     modelAvailable,
+    modelDir,
     threshold,
     startIndexing,
     cancelIndexing,
@@ -58,7 +59,7 @@ export function VectorIndexSettings() {
               border: '1px solid hsl(45, 80%, 75%)',
             }}
           >
-            未检测到向量模型文件。请将 model.onnx 放置到工作区目录后重启应用。
+            未检测到向量模型文件。请将 model_q4f16.onnx 和 tokenizer.json 放置到应用共享目录后重启应用：{modelDir || '（加载中...）'}
           </div>
         )}
 

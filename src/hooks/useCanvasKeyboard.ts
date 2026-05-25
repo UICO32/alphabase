@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import type { HistoryEntry } from './useHistory'
+import { useLibraryStore } from '../stores/libraryStore'
 
 interface UseCanvasKeyboardOptions {
   undo: () => HistoryEntry | null
@@ -30,6 +31,11 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear }: Use
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCtrl = e.ctrlKey || e.metaKey
       if (!isCtrl) return
+
+      const editingCardId = useLibraryStore.getState().editingCardId
+      const activeEl = document.activeElement
+      const inEditor = editingCardId || (activeEl && activeEl.closest('.card-blocknote-editor'))
+      if (inEditor) return
 
       if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault()

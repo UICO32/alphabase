@@ -1,7 +1,7 @@
 import type { WorkspaceSyncEngine } from './syncEngine'
 import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
-import { useTrashStore } from '../stores/trashStore'
+import { useTrashStore, type TrashItem } from '../stores/trashStore'
 import { globalCardToCardFile } from '../converters/cardConverter'
 import type { WorkspaceMetadata } from '../utils/workspace/types'
 
@@ -45,7 +45,7 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
   let prevBoards = useBoardStore.getState().boards
   let prevBoardData = useBoardStore.getState().boardData
 
-  return useBoardStore.subscribe((state) => {
+  const unsub = useBoardStore.subscribe((state) => {
     if (state.boards !== prevBoards) {
       syncEngine.scheduleWriteManifest({ boards: state.boards })
       if (state.boards.length !== prevBoards.length) {
@@ -62,9 +62,9 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
             version: 2,
             nodes: data.nodes.map(n => ({
               id: n.id,
-              type: (n.type === 'card' || n.type === 'section') ? n.type as 'card' | 'section' : 'card',
+              type: (n.type === 'card' || n.type === 'section' || n.type === 'media') ? n.type as 'card' | 'section' | 'media' : 'card',
               position: { x: n.position.x, y: n.position.y },
-              data: n.data as { cardId?: string; color?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string },
+              data: n.data as { cardId?: string; color?: string; variant?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string; url?: string },
               width: n.width,
               height: n.height,
             })),
@@ -73,6 +73,8 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
               source: e.source,
               target: e.target,
               type: 'connection' as const,
+              sourceHandle: e.sourceHandle ?? undefined,
+              targetHandle: e.targetHandle ?? undefined,
             })),
             viewport: { x: 0, y: 0, zoom: 1 },
           })
@@ -81,15 +83,21 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
       prevBoardData = state.boardData
     }
   })
+
+  return unsub
 }
 
 export function subscribeTrashStore(syncEngine: WorkspaceSyncEngine) {
-  let prevItems = useTrashStore.getState().items
+  // 用 Map 代替 Array，将 O(n²) find 操作降为 O(1)
+  let prevItemsMap = new Map<string, TrashItem>(
+    useTrashStore.getState().items.map(i => [i.cardId, i])
+  )
 
   return useTrashStore.subscribe((state) => {
+    const currentMap = new Map<string, TrashItem>(state.items.map(i => [i.cardId, i]))
+
     for (const item of state.items) {
-      const prev = prevItems.find(i => i.cardId === item.cardId)
-      if (!prev) {
+      if (!prevItemsMap.has(item.cardId)) {
         syncEngine.scheduleWriteTrash({
           id: item.id,
           cardId: item.cardId,
@@ -103,12 +111,12 @@ export function subscribeTrashStore(syncEngine: WorkspaceSyncEngine) {
       }
     }
 
-    for (const prev of prevItems) {
-      if (!state.items.find(i => i.cardId === prev.cardId)) {
-        syncEngine.scheduleDeleteTrashFile(prev.cardId)
+    for (const [cardId] of prevItemsMap) {
+      if (!currentMap.has(cardId)) {
+        syncEngine.scheduleDeleteTrashFile(cardId)
       }
     }
 
-    prevItems = state.items
+    prevItemsMap = currentMap
   })
 }

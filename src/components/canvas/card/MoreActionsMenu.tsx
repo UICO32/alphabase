@@ -33,9 +33,8 @@ export function MoreActionsMenu({
   const [position, setPosition] = useState({ top: 0, left: 0 })
 
   const handleColorChange = useCallback((c: CardColor) => {
-    console.log('[CardActionBar] handleColorChange:', { cardId, color: c })
     onColorChange(c)
-  }, [cardId, onColorChange])
+  }, [onColorChange])
 
   const otherBoards = boards.filter(b => b.id !== activeBoardId)
 
@@ -91,7 +90,6 @@ export function MoreActionsMenu({
               key={c}
               onClick={(e) => {
                 e.stopPropagation()
-                console.log('[CardActionBar] color button clicked:', c, 'cardId:', cardId)
                 handleColorChange(c)
               }}
               className="rounded-full border-2 cursor-pointer"

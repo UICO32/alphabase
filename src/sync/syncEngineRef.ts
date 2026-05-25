@@ -10,6 +10,12 @@ export function getActiveSyncEngine(): WorkspaceSyncEngine | null {
   return activeEngine
 }
 
+export async function flushActiveSyncEngine() {
+  if (activeEngine) {
+    await activeEngine.flushAll()
+  }
+}
+
 export async function stopActiveSyncEngine() {
   if (activeEngine) {
     const engine = activeEngine

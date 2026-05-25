@@ -9,29 +9,8 @@ export function CardFormattingToolbar() {
     if (!wrapper) return
 
     const observer = new MutationObserver(() => {
-      const floatingEl = wrapper.querySelector('[style*="position: fixed"], [style*="position:fixed"]')
-      if (floatingEl) {
-        const style = (floatingEl as HTMLElement).style
-        console.log('[CardFormattingToolbar] floating element found:', {
-          top: style.top,
-          left: style.left,
-          transform: style.transform,
-          zIndex: style.zIndex,
-          className: floatingEl.className?.substring(0, 60),
-          text: floatingEl.textContent?.substring(0, 40),
-          rect: floatingEl.getBoundingClientRect(),
-        })
-      } else {
-        console.log('[CardFormattingToolbar] no floating element in wrapper, childCount:', wrapper.children.length)
-        for (let i = 0; i < wrapper.children.length; i++) {
-          const child = wrapper.children[i] as HTMLElement
-          console.log(`  child[${i}]:`, {
-            position: child.style.position,
-            className: child.className?.substring(0, 40),
-            text: child.textContent?.substring(0, 30),
-          })
-        }
-      }
+      const floatingEl = wrapper.querySelector('[style*="position: fixed"], [style*="position:fixed"]') as HTMLElement | null
+      if (!floatingEl) return
     })
 
     observer.observe(wrapper, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] })

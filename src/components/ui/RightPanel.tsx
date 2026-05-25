@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore } from '../../stores/cardStore'
@@ -135,9 +135,8 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         exit={{ opacity: 0, scale: 0.9 }}
         transition={{ duration: 0.2 }}
         onClick={() => setRightPanelCollapsed(false)}
-        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md"
+        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel"
         style={{
-          backgroundColor: surface.panelBg,
           color: surface.muted,
           border: `1px solid ${surface.divider}`,
         }}
@@ -152,10 +151,25 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 function CardEditorView({ cardId }: { cardId: string }) {
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
   const handleChange = useCallback((content: string) => {
     updateCard(cardId, { content })
   }, [cardId, updateCard])
+
+  useEffect(() => {
+    const el = wrapperRef.current
+    if (!el) return
+    const onDragOverCapture = (e: DragEvent) => {
+      const types = e.dataTransfer?.types ? Array.from(e.dataTransfer.types) : []
+      if (types.includes('blocknote/html')) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+      }
+    }
+    el.addEventListener('dragover', onDragOverCapture, true)
+    return () => el.removeEventListener('dragover', onDragOverCapture, true)
+  }, [])
 
   if (!card) {
     return (
@@ -166,11 +180,12 @@ function CardEditorView({ cardId }: { cardId: string }) {
   }
 
   return (
-    <div className="flex-1 overflow-auto p-2">
+    <div ref={wrapperRef} className="flex-1 overflow-auto p-6">
       <CardBlockNoteEditor
         content={card.content}
         onChange={handleChange}
         editable={true}
+        showSideMenu={true}
       />
     </div>
   )

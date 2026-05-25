@@ -1,6 +1,10 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { join } from 'path'
-import { EmbeddingService } from './EmbeddingService'
+import { existsSync } from 'fs'
+import { EmbeddingService, EMBEDDING_ERRORS } from './EmbeddingService'
+
+const EMBEDDING_MODEL_DIR = join(app.getPath('userData'), 'embedding')
+const MODEL_FILENAME = 'model_q4f16.onnx'
 
 let service: EmbeddingService | null = null
 let currentWorkspacePath = ''
@@ -16,19 +20,21 @@ export function registerEmbeddingIPC(): void {
 
   // Renderer calls this when workspace loads, before any other embedding operations
   ipcMain.handle('embedding:init', async (_event, workspacePath: string) => {
-    currentWorkspacePath = workspacePath
-    return { initialized: true }
+    try {
+      currentWorkspacePath = workspacePath
+      service = new EmbeddingService()
+      await service.init(workspacePath, EMBEDDING_MODEL_DIR)
+      console.log('[embedding] init success, modelDir:', EMBEDDING_MODEL_DIR)
+      return { initialized: true }
+    } catch (err: any) {
+      console.error('[embedding] init failed:', err.message)
+      return { initialized: false, error: err.message }
+    }
   })
 
   ipcMain.handle('embedding:indexAll', async () => {
     if (!service || !currentWorkspacePath) {
-      try {
-        if (!currentWorkspacePath) return { error: 'Workspace not initialized' }
-        service = new EmbeddingService()
-        await service.init(currentWorkspacePath)
-      } catch (err: any) {
-        return { error: err.message }
-      }
+      return { error: EMBEDDING_ERRORS.NOT_INITIALIZED }
     }
     try {
       const cardsDir = join(currentWorkspacePath, 'cards')
@@ -67,12 +73,17 @@ export function registerEmbeddingIPC(): void {
   })
 
   ipcMain.handle('embedding:getStatus', async () => {
-    if (!service) return { initialized: false, modelAvailable: false, indexing: false, docCount: 0, indexCompleteness: {} }
+    if (!service) {
+      const modelAvailable = existsSync(join(EMBEDDING_MODEL_DIR, MODEL_FILENAME))
+      return { initialized: false, modelAvailable, indexing: false, docCount: 0, indexCompleteness: {}, modelDir: EMBEDDING_MODEL_DIR }
+    }
     return service.getStatus()
   })
 
   ipcMain.handle('embedding:checkModel', async () => {
-    if (!service) return { available: false }
+    if (!service) {
+      return { available: existsSync(join(EMBEDDING_MODEL_DIR, MODEL_FILENAME)) }
+    }
     return { available: service.isModelAvailable() }
   })
 

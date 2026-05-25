@@ -7,10 +7,9 @@ export function TitleBar() {
 
   return (
     <div
-      className="flex items-center h-7 shrink-0 select-none"
+      className="flex items-center h-7 shrink-0 select-none glass-panel"
       style={{
         WebkitAppRegion: 'drag',
-        backgroundColor: surface.panelBg,
         paddingRight: 138,
       } as React.CSSProperties}
     >

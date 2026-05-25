@@ -17,6 +17,8 @@ export class WorkspaceService {
   async loadManifest(): Promise<BoardManifest> {
     const path = `${this.workspacePath}/boards/_manifest.json`
     if (!(await exists(path))) {
+      const boardsDir = `${this.workspacePath}/boards`
+      if (!(await exists(boardsDir))) await mkdir(boardsDir)
       const empty: BoardManifest = { boards: [] }
       await writeJSON(path, empty)
       return empty
@@ -25,6 +27,8 @@ export class WorkspaceService {
   }
 
   async saveManifest(manifest: BoardManifest): Promise<void> {
+    const boardsDir = `${this.workspacePath}/boards`
+    if (!(await exists(boardsDir))) await mkdir(boardsDir)
     await writeJSON(`${this.workspacePath}/boards/_manifest.json`, manifest)
   }
 

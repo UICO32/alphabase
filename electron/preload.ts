@@ -23,4 +23,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
     fetchMemos: (accessToken: string, lastSyncTime?: string) => ipcRenderer.invoke('flomo:fetchMemos', { accessToken, lastSyncTime }),
     downloadImg: (url: string, destPath: string) => ipcRenderer.invoke('flomo:downloadImg', { url, destPath }),
   },
+  embedding: {
+    init: (workspacePath: string) => ipcRenderer.invoke('embedding:init', workspacePath),
+    indexAll: () => ipcRenderer.invoke('embedding:indexAll'),
+    search: (cardId: string, topK?: number) => ipcRenderer.invoke('embedding:search', { cardId, topK }),
+    cancel: () => ipcRenderer.invoke('embedding:cancel'),
+    getStatus: () => ipcRenderer.invoke('embedding:getStatus'),
+    checkModel: () => ipcRenderer.invoke('embedding:checkModel'),
+    setThreshold: (value: number) => ipcRenderer.invoke('embedding:setThreshold', { value }),
+    onProgress: (callback: (data: any) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('embedding:progress', handler)
+      return () => ipcRenderer.removeListener('embedding:progress', handler as any)
+    },
+    onComplete: (callback: (data: any) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('embedding:complete', handler)
+      return () => ipcRenderer.removeListener('embedding:complete', handler as any)
+    },
+    onError: (callback: (data: any) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('embedding:error', handler)
+      return () => ipcRenderer.removeListener('embedding:error', handler as any)
+    },
+  },
 })

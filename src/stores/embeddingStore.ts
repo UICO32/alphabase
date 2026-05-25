@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { useWorkspaceStore } from './workspaceStore'
+import { flushActiveSyncEngine } from '../sync/syncEngineRef'
 
 interface EmbeddingState {
   indexing: boolean
@@ -9,7 +11,9 @@ interface EmbeddingState {
   cardCount: number
   lastIndexedAt: string | null
   modelAvailable: boolean
+  modelDir: string
   searchResults: Array<{ cardId: string; score: number }>
+  searchScores: Record<string, number>
   searching: boolean
   threshold: number
 
@@ -31,20 +35,36 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
   cardCount: 0,
   lastIndexedAt: null,
   modelAvailable: false,
+  modelDir: '',
   searchResults: [],
+  searchScores: {},
   searching: false,
   threshold: 0.75,
 
   initEmbedding: async (workspacePath: string) => {
-    await window.electronAPI.embedding.init(workspacePath)
+    const result = await window.electronAPI.embedding.init(workspacePath)
+    // [需谨慎] 保留 error 检查，生产环境仍需感知初始化失败
+    if (result.error) console.error('[embeddingStore] init failed:', result.error)
   },
 
   startIndexing: async () => {
     set({ indexing: true, progress: 0, total: 0 })
 
+    await flushActiveSyncEngine()
+
     const offProgress = window.electronAPI.embedding.onProgress((data) => {
       set({ progress: data.current, total: data.total })
     })
+
+    // 提取统一的 cleanup 函数，避免正常/错误路径重复调用 offProgress+offComplete+offError
+    let cleanedUp = false
+    const cleanup = () => {
+      if (cleanedUp) return
+      cleanedUp = true
+      offProgress()
+      offComplete()
+      offError()
+    }
 
     const offComplete = window.electronAPI.embedding.onComplete((data) => {
       set({
@@ -53,27 +73,33 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
         cardCount: data.indexed,
         lastIndexedAt: new Date().toISOString(),
       })
-      offProgress()
-      offComplete()
+      cleanup()
     })
 
     const offError = window.electronAPI.embedding.onError((data) => {
+      console.error('[embeddingStore] error:', data.message)
       set({ indexing: false })
-      console.error('Embedding error:', data.message)
-      offProgress()
-      offComplete()
-      offError()
+      cleanup()
     })
 
-    const result = await window.electronAPI.embedding.indexAll()
+    let result = await window.electronAPI.embedding.indexAll()
+    if (result.error === 'NOT_INITIALIZED') {
+      const workspacePath = useWorkspaceStore.getState().currentWorkspace?.path
+        || localStorage.getItem('hepta-last-workspace-path')
+      if (workspacePath) {
+        const initResult = await window.electronAPI.embedding.init(workspacePath)
+        if (!initResult.error) {
+          result = await window.electronAPI.embedding.indexAll()
+        }
+      }
+    }
     if (result.error) {
+      console.error('[embeddingStore] indexAll error:', result.error)
       set({ indexing: false })
       if (result.error === 'MODEL_MISSING') {
         set({ modelAvailable: false })
       }
-      offProgress()
-      offComplete()
-      offError()
+      cleanup()
     }
   },
 
@@ -83,16 +109,20 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
   },
 
   searchRelated: async (cardId: string, topK = 20) => {
-    set({ searching: true, searchResults: [] })
+    set({ searching: true, searchResults: [], searchScores: {} })
     try {
       const { results } = await window.electronAPI.embedding.search(cardId, topK)
-      set({ searchResults: results || [], searching: false })
+      const scores: Record<string, number> = {}
+      for (const r of (results || [])) {
+        scores[r.cardId] = r.score
+      }
+      set({ searchResults: results || [], searchScores: scores, searching: false })
     } catch {
-      set({ searchResults: [], searching: false })
+      set({ searchResults: [], searchScores: {}, searching: false })
     }
   },
 
-  clearResults: () => set({ searchResults: [], searching: false }),
+  clearResults: () => set({ searchResults: [], searchScores: {}, searching: false }),
 
   setThreshold: async (value: number) => {
     set({ threshold: value })
@@ -105,7 +135,10 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
       set({
         indexed: status.docCount > 0,
         modelAvailable: status.modelAvailable ?? false,
+        modelDir: status.modelDir ?? '',
       })
-    } catch { /* not initialized yet */ }
+    } catch {
+      // checkStatus 失败不影响主流程，静默处理
+    }
   },
 }))

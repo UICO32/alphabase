@@ -43,9 +43,8 @@ export function ExpandButton({ direction, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="btn-base fixed top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-12 rounded-lg hover:shadow-xl"
+      className="btn-base fixed top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-12 rounded-lg hover:shadow-xl glass-panel"
       style={{
-        backgroundColor: surface.panelBg,
         color: surface.text,
         left: direction === 'left' ? '0' : undefined,
         right: direction === 'right' ? '0' : undefined,

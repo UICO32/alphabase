@@ -38,6 +38,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const isCollapsed = data.collapsed ?? false
 
+  // 合并 dragHandle 和 collapsed height 的更新，避免两次 setNodes 遍历
   useEffect(() => {
     setNodes((nds) =>
       nds.map((n) => {
@@ -71,6 +72,14 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
+  // 提取节点尺寸计算为独立函数，避免 inline 的 Record<string, unknown> 类型断言重复
+  const getNodeSize = useCallback((node: Node) => {
+    const d = node.data as Record<string, unknown>
+    const w = (d.width as number) ?? 280
+    const h = d.collapsed ? 80 : ((d.height as number) ?? 200)
+    return { w, h }
+  }, [])
+
   const handleCardClick = useCallback(
     (e: React.MouseEvent) => {
       if (isConnectionTarget || isNearbyTarget) {
@@ -79,19 +88,15 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         const sourceNode = pending ? getNode(pending.sourceNodeId) : undefined
         const targetNode = getNode(data.cardId)
         if (sourceNode && targetNode) {
-          const sd = sourceNode.data as Record<string, unknown>
-          const td = targetNode.data as Record<string, unknown>
-          const sw = (sd.width as number) ?? 280
-          const sh = sd.collapsed ? 80 : ((sd.height as number) ?? 200)
-          const tw = (td.width as number) ?? 280
-          const th = td.collapsed ? 80 : ((td.height as number) ?? 200)
+          const ss = getNodeSize(sourceNode)
+          const ts = getNodeSize(targetNode)
           connectionMediator.complete(
             data.cardId,
             '',
             sourceNode.position,
-            { w: sw, h: sh },
+            { w: ss.w, h: ss.h },
             targetNode.position,
-            { w: tw, h: th },
+            { w: ts.w, h: ts.h },
           )
         } else {
           connectionMediator.complete(data.cardId, '')
@@ -103,7 +108,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         setIsEditing(true)
       }
     },
-    [isConnectionTarget, isNearbyTarget, data.cardId, selected, card, isEditing, isCollapsed, getNode],
+    // getNodeSize 是 stable ref，不影响依赖列表
+    [isConnectionTarget, isNearbyTarget, data.cardId, selected, card, isEditing, isCollapsed, getNode, getNodeSize],
   )
 
   const handleContentChange = useCallback(
@@ -120,19 +126,50 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     setIsEditing(false)
   }, [])
 
+  const handleDragBlocksOutside = useCallback((blocks: unknown[]) => {
+    if (!card) return
+    const currentNode = getNode(data.cardId)
+    if (!currentNode) return
+
+    const newCardId = crypto.randomUUID()
+    const newContent = JSON.stringify(blocks)
+
+    useCardStore.getState().addCard({
+      id: newCardId,
+      content: newContent,
+      color: card.color,
+      createdAt: Date.now(),
+    })
+
+    const offsetX = 320
+    const offsetY = 0
+    setNodes((nds) => [
+      ...nds,
+      {
+        id: newCardId,
+        type: 'card',
+        position: {
+          x: currentNode.position.x + offsetX,
+          y: currentNode.position.y + offsetY,
+        },
+        data: {
+          cardId: newCardId,
+          color: card.color,
+          width: data.width ?? 280,
+          height: data.height ?? 200,
+        },
+      },
+    ])
+  }, [data.cardId, card, data.width, data.height, getNode, setNodes])
+
   useEffect(() => {
-    if (isEditing && editorRef.current) {
-      const coords = clickCoordsRef.current
-      clickCoordsRef.current = null
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (coords) {
-            editorRef.current!.focusAtCoords(coords)
-          } else {
-            editorRef.current!.focus()
-          }
-        })
-      })
+    if (!isEditing || !editorRef.current) return
+    const coords = clickCoordsRef.current
+    clickCoordsRef.current = null
+    if (coords) {
+      editorRef.current.focusAtCoords(coords)
+    } else {
+      editorRef.current.focus()
     }
   }, [isEditing])
 
@@ -226,12 +263,14 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const outlineWidth = selected ? 2 : 1
   const outlineColor = selected
     ? 'var(--border-active)'
-    : isHovered
-      ? 'var(--border-hover)'
-      : getCardStroke(data.color)
+    : getCardStroke(data.color)
 
   const cardBg = getCardFill(data.color, isDarkMode)
   const textColor = getCardTextColor(data.color, isDarkMode)
+
+  const hoverOutline = isHovered && !selected
+    ? `0 0 0 3px ${getCardStroke(data.color)}33`
+    : ''
 
   const cursor = isCollapsed ? 'grab'
     : isEditing ? 'text'
@@ -266,7 +305,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           : isConnectionTarget && isHovered
             ? 'var(--shadow-glow-green)'
           : isHovered
-            ? 'var(--shadow-lg)'
+            ? `${hoverOutline}, var(--shadow-lg)`
           : selected
             ? 'var(--shadow-glow-blue)'
             : 'var(--shadow-sm)',
@@ -281,8 +320,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           minWidth={200}
           minHeight={120}
           isVisible={selected}
-          handleClassName="!w-3 !h-3 !bg-blue-500 !border-2 !border-white !rounded-sm !shadow-sm"
-          lineClassName="!bg-transparent"
+          handleClassName="!w-4 !h-4 !bg-transparent !border-0 !rounded-sm"
+          lineClassName="!bg-transparent !border-0 !w-3 !cursor-col-resize"
           onResize={(_, params) => {
             setNodes((nds) =>
               nds.map((n) =>
@@ -335,6 +374,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           onBlur={handleEditorBlur}
           editorRef={editorRef}
           textColor={textColor}
+          onDragBlocksOutside={handleDragBlocksOutside}
         />
       )}
     </div>

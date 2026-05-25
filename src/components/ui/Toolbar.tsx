@@ -15,9 +15,9 @@ export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
     <div
       className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-2 rounded-xl z-40 animate-fadeInUp"
       style={{
-        backgroundColor: surface.panelBg,
+        backgroundColor: surface.surface,
+        boxShadow: 'var(--shadow-lg)',
         border: `1px solid ${surface.divider}`,
-        boxShadow: surface.shadow,
       }}
     >
       <button
@@ -25,7 +25,7 @@ export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
         className="btn-base btn-primary flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
       >
         <Plus size={14} />
-        <span>卡片</span>
+        <span className="toolbar-label">卡片</span>
       </button>
 
       <button
@@ -35,7 +35,7 @@ export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
         title="剪藏网页"
       >
         <Scissors size={14} />
-        <span>剪藏</span>
+        <span className="toolbar-label">剪藏</span>
       </button>
 
       <div
@@ -52,7 +52,7 @@ export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
         <ZoomOut size={16} />
       </button>
       <span
-        className="text-sm px-2 cursor-default"
+        className="text-sm px-2 cursor-default toolbar-label"
         style={{ color: surface.muted }}
       >
         {Math.round(zoom * 100)}%

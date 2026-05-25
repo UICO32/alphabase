@@ -24,12 +24,24 @@ interface CardDragData {
 
 export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOptions) {
   const handleDragOver = useCallback((event: React.DragEvent) => {
+    // 编辑器内的拖拽（BlockNote DragHandle）不应被画布拦截
+    const target = event.target as HTMLElement
+    if (target?.closest?.('.card-blocknote-editor, .ProseMirror, .bn-editor')) return
+    // BlockNote 块拖拽设置 effectAllowed='move' 和 blocknote/html，
+    // 若画布设置 dropEffect='copy' 会与 effectAllowed 冲突导致禁止图标
+    if (event.dataTransfer?.types?.includes('blocknote/html')) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'copy'
   }, [])
 
   const handleDrop = useCallback(
     (event: React.DragEvent) => {
+      // 编辑器内的 drop 由 Prosemirror 处理，画布不应拦截
+      const target = event.target as HTMLElement
+      if (target?.closest?.('.card-blocknote-editor, .ProseMirror, .bn-editor')) return
+      // BlockNote 块拖拽不应被画布处理
+      if (event.dataTransfer?.types?.includes('blocknote/html')) return
+
       const instance = reactFlowInstance.current
       if (!instance) return
 

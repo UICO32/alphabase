@@ -92,13 +92,20 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
         switchToBoard(boardStore.boards[0].id)
       }
 
-      // Initialize embedding service for current workspace
-      try {
+      // Initialize embedding service in background — don't block board rendering
+      const scheduleEmbeddingInit = () => {
         const workspacePath = localStorage.getItem('hepta-last-workspace-path')
         if (workspacePath) {
-          await window.electronAPI.embedding.init(workspacePath)
+          window.electronAPI.embedding.init(workspacePath).catch((err: any) => {
+            console.error('[lifecycle] embedding.init failed:', err)
+          })
         }
-      } catch { /* embedding init is optional, don't block app startup */ }
+      }
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(scheduleEmbeddingInit, { timeout: 5000 })
+      } else {
+        setTimeout(scheduleEmbeddingInit, 3000)
+      }
 
       // Subscribe stores to the new sync engine
       const syncEngine = getActiveSyncEngine()

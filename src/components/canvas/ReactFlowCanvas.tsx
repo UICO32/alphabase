@@ -66,11 +66,12 @@ export function ReactFlowCanvas() {
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
   useEffect(() => { setNodesRef(nodes) }, [nodes])
+
+  // 合并 RAF 清理到 nodesRef 的 effect 中，避免单独的 cleanup effect
+  const rafRef = useRef<number | null>(null)
   useEffect(() => {
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current)
-      }
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
   }, [])
 
@@ -178,6 +179,7 @@ export function ReactFlowCanvas() {
       })),
     )
     editingNodeIdRef.current = null
+    useLibraryStore.getState().setEditingCardId(null)
   }, [setNodes])
 
   const onNodeClick = useCallback(
@@ -195,7 +197,6 @@ export function ReactFlowCanvas() {
     [],
   )
 
-  const rafRef = useRef<number | null>(null)
   const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
 
   const onMouseMove = useCallback((event: React.MouseEvent) => {
@@ -291,26 +292,6 @@ export function ReactFlowCanvas() {
       </ReactFlow>
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
 
-      {(canUndo || canRedo) && (
-        <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium pointer-events-none"
-          style={{
-            backgroundColor: surface.surface,
-            color: surface.muted,
-            border: `1px solid ${surface.divider}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            zIndex: 10,
-          }}
-        >
-          <span className={canUndo ? 'opacity-100' : 'opacity-40'}>
-            Ctrl+Z 撤销
-          </span>
-          <span style={{ color: surface.divider }}>|</span>
-          <span className={canRedo ? 'opacity-100' : 'opacity-40'}>
-            Ctrl+Shift+Z 重做
-          </span>
-        </div>
-      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
+import { useWorkspaceStore } from '../stores/workspaceStore'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/migrateFromLocalStorage'
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
@@ -62,6 +63,7 @@ function ensureDefaultBoard() {
       { id: `edge-board-default-b`, source: 'card-demo-2', target: 'card-demo-3', type: 'connection' as const },
     ],
   })
+  boardStore.setLoaded(true)
 }
 
 export function useWorkspaceDataLoader() {
@@ -201,6 +203,15 @@ export function useWorkspaceDataLoader() {
     }
 
     createFileSystemBackup(workspacePath).catch(() => {})
+
+    // Ensure workspaceStore and localStorage reflect the loaded workspace
+    const name = workspacePath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
+    useWorkspaceStore.getState().setCurrentWorkspace({
+      path: workspacePath,
+      name,
+      lastOpened: Date.now(),
+    })
+    localStorage.setItem(LAST_WORKSPACE_KEY, workspacePath)
 
     setDataReady(true)
   }, [])

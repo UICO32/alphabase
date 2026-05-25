@@ -11,8 +11,8 @@
     "electron:build": "tsc && vite build --mode electron",
     "electron:start": "electron .",
     "electron:all": "vite --mode electron",
-    "electron:pack": "pnpm electron:build && electron-builder --dir",
-    "electron:dist": "pnpm electron:build && electron-builder",
+    "electron:pack": "pnpm electron:build && node scripts/electron-pack.mjs --dir",
+    "electron:dist": "pnpm electron:build && node scripts/electron-pack.mjs",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "playwright test"
@@ -48,6 +48,7 @@
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^4.3.0",
     "electron": "^42.1.0",
+    "electron-builder": "^26.8.1",
     "typescript": "^5.9.3",
     "vite": "^5.4.0",
     "vite-plugin-electron": "^0.29.0"
@@ -62,21 +63,18 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
-    "extraResources": [
-      {
-        "from": "node_modules/sharp",
-        "to": "node_modules/sharp"
-      },
-      {
-        "from": "node_modules/onnxruntime-node",
-        "to": "node_modules/onnxruntime-node"
-      }
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**/*",
+      "node_modules/sharp/**/*"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "${productName}-${version}-Setup.${ext}"
@@ -92,7 +90,7 @@
   "type": "module",
   "pnpm": {
     "onlyBuiltDependencies": [
-            "onnxruntime-node",
+      "onnxruntime-node",
       "sharp"
     ]
   }

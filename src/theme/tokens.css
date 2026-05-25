@@ -234,18 +234,10 @@
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   background-color: var(--surface-panel);
   box-shadow: var(--panel-border-glow), var(--shadow-lg);
-  will-change: transform;
-  transform: translateZ(0);
-  contain: layout style paint;
 }
 
-/* 性能优化：减少模糊区域的重绘 */
-.glass-panel,
-.glass-card {
-  will-change: transform;
-  transform: translateZ(0);
-  contain: layout style paint;
-}
+/* backdrop-filter needs to sample beneath the element,
+   so containment / forced compositing break the blur effect */
 
 /* 降级：不支持 backdrop-filter 的浏览器 */
 @supports not (backdrop-filter: blur(20px)) {
@@ -277,4 +269,46 @@
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ============================================
+   Skeleton Shimmer Animation
+   ============================================ */
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.card-skeleton {
+  padding: 12px 24px;
+}
+
+.card-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-200) 50%, var(--color-gray-100) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  margin-bottom: 10px;
+}
+
+.card-skeleton-line:nth-child(1) { width: 60%; }
+.card-skeleton-line:nth-child(2) { width: 90%; }
+.card-skeleton-line:nth-child(3) { width: 75%; }
+.card-skeleton-line:nth-child(4) { width: 50%; }
+
+[data-theme="dark"] .card-skeleton-line {
+  background: linear-gradient(90deg, hsl(var(--panel-hue, 220), 18%, 16%) 25%, hsl(var(--panel-hue, 220), 18%, 22%) 50%, hsl(var(--panel-hue, 220), 18%, 16%) 75%);
+  background-size: 800px 100%;
+}
+
+/* React Flow card node entrance animation */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.react-flow__node-card {
+  animation: card-enter 0.2s ease-out both;
 }

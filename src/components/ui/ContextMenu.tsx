@@ -18,13 +18,11 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const surface = usePanelSurface()
   return (
     <div
-      className="fixed z-50 py-1 rounded-lg min-w-[160px] animate-scaleIn"
+      className="fixed z-50 py-1 rounded-lg min-w-[160px] animate-scaleIn glass-panel"
       style={{
         left: x,
         top: y,
-        backgroundColor: surface.panelBg,
-        border: `1px solid ${surface.divider}`,
-        boxShadow: surface.shadow,
+        boxShadow: 'var(--shadow-lg)',
       }}
       onClick={(e) => e.stopPropagation()}
     >

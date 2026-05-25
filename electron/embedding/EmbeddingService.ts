@@ -1,25 +1,19 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join, basename } from 'path'
 import { InferenceSession, Tensor } from 'onnxruntime-node'
-import {
-  ZVecCreateAndOpen,
-  ZVecOpen,
-  ZVecCollectionSchema,
-  ZVecCollection,
-  ZVecDoc,
-  ZVecDataType,
-  ZVecIndexType,
-  ZVecMetricType,
-} from '@zvec/zvec'
 import { extractEmbeddingText } from './textExtractor'
+import { JinaTokenizer } from './tokenizer'
 
 // --- Constants ---
-const MODEL_ID = 'jina-embeddings-v5'
+const MODEL_ID = 'jina-embeddings-v5-text-nano-retrieval'
 const TRUNCATED_DIMENSIONS = 256
-const DEFAULT_THRESHOLD = 0.7
+const DEFAULT_THRESHOLD = 0.5
 const VECTORS_DIR_NAME = '.vectors'
 const META_FILE = 'meta.json'
-const COLLECTION_NAME = 'cards'
+const MODEL_FILENAME = 'model_q4f16.onnx'
+const TOKENIZER_FILENAME = 'tokenizer.json'
+const MAX_SEQ_LENGTH = 8192
+const BATCH_SIZE = 8
 
 // --- Error codes ---
 export const EMBEDDING_ERRORS = {
@@ -50,77 +44,90 @@ export interface MetaInfo {
   threshold: number
 }
 
-// --- ZVec collection schema ---
-const collectionSchema = new ZVecCollectionSchema({
-  name: COLLECTION_NAME,
-  vectors: {
-    name: 'embedding',
-    dataType: ZVecDataType.VECTOR_FP32,
-    dimension: TRUNCATED_DIMENSIONS,
-    indexParams: {
-      indexType: ZVecIndexType.HNSW,
-      metricType: ZVecMetricType.COSINE,
-      m: 16,
-      efConstruction: 200,
-    },
-  },
-  fields: [
-    { name: 'updatedAt', dataType: ZVecDataType.STRING },
-    { name: 'modality', dataType: ZVecDataType.STRING },
-  ],
-})
+interface VectorDoc {
+  id: string
+  vector: number[]
+  fields: Record<string, string>
+}
 
-/**
- * EmbeddingService: coordinates ONNX Runtime for embedding generation
- * and ZVec for vector storage/search.
- */
+interface VectorStore {
+  docs: Record<string, VectorDoc>
+}
+
 export class EmbeddingService {
   private session: InferenceSession | null = null
-  private collection: ZVecCollection | null = null
+  private tokenizer: JinaTokenizer | null = null
+  private store: VectorStore = { docs: {} }
+  private storePath: string = ''
   private vectorsDir: string = ''
+  private modelDir: string = ''
   private isIndexing: boolean = false
   private abortController: AbortController | null = null
   private threshold: number = DEFAULT_THRESHOLD
 
-  async init(workspacePath: string): Promise<void> {
+  async init(workspacePath: string, modelDir?: string): Promise<void> {
     this.vectorsDir = join(workspacePath, VECTORS_DIR_NAME)
+    this.modelDir = modelDir || this.vectorsDir
+    this.storePath = join(this.vectorsDir, 'vectors.json')
 
-    // 1. Ensure vectors directory exists
     if (!existsSync(this.vectorsDir)) {
       mkdirSync(this.vectorsDir, { recursive: true })
     }
 
-    // 2. Check model file exists
-    const modelPath = join(this.vectorsDir, 'model.onnx')
+    const modelPath = join(this.modelDir, MODEL_FILENAME)
+    const tokenizerPath = join(this.modelDir, TOKENIZER_FILENAME)
     if (!existsSync(modelPath)) {
       throw new Error(EMBEDDING_ERRORS.MODEL_MISSING)
     }
 
-    // 3. Create ONNX InferenceSession
     try {
-      this.session = await InferenceSession.create(modelPath, {
-        executionProviders: ['cuda', 'cpu'],
-      })
+      this.tokenizer = new JinaTokenizer(tokenizerPath)
     } catch (err) {
-      this.session = null
-      throw new Error(`${EMBEDDING_ERRORS.INIT_FAILED}: ${(err as Error).message}`)
+      this.tokenizer = null
+      throw new Error(`${EMBEDDING_ERRORS.INIT_FAILED}: tokenizer load failed - ${(err as Error).message}`)
     }
 
-    // 4. Open or create ZVec collection
-    const collectionPath = join(this.vectorsDir, 'zvec_data')
+    const providers: string[] = ['dml', 'cpu']
     try {
-      this.collection = ZVecOpen(collectionPath)
+      this.session = await InferenceSession.create(modelPath, {
+        executionProviders: providers,
+      })
     } catch {
-      // Collection doesn't exist yet, create it
-      this.collection = ZVecCreateAndOpen(collectionPath, collectionSchema)
+      try {
+        this.session = await InferenceSession.create(modelPath, {
+          executionProviders: ['cpu'],
+        })
+      } catch (err) {
+        this.session = null
+        throw new Error(`${EMBEDDING_ERRORS.INIT_FAILED}: ${(err as Error).message}`)
+      }
     }
+
+    this.loadStore()
+  }
+
+  private loadStore(): void {
+    if (existsSync(this.storePath)) {
+      try {
+        const raw = readFileSync(this.storePath, 'utf-8')
+        this.store = JSON.parse(raw)
+      } catch {
+        this.store = { docs: {} }
+      }
+    } else {
+      this.store = { docs: {} }
+    }
+  }
+
+  private saveStore(): void {
+    writeFileSync(this.storePath, JSON.stringify(this.store), 'utf-8')
   }
 
   async indexAll(
     cardsDir: string,
     onProgress?: (progress: IndexProgress) => void,
   ): Promise<{ indexed: number; skipped: number }> {
-    if (!this.session || !this.collection) {
+    if (!this.session) {
       throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
     }
     if (this.isIndexing) {
@@ -139,46 +146,51 @@ export class EmbeddingService {
       )
       const total = files.length
 
+      // Read and prepare all cards first
+      const pending: Array<{ cardId: string; text: string; updatedAt: string }> = []
       for (let i = 0; i < files.length; i++) {
-        // Check abort signal
-        if (this.abortController.signal.aborted) break
-
         const filePath = join(cardsDir, files[i])
         const cardId = basename(files[i], '.json')
-
         try {
           const raw = readFileSync(filePath, 'utf-8')
           const card = JSON.parse(raw)
-
           const text = extractEmbeddingText(card.content ?? '')
           if (!text) {
             skipped++
             if (onProgress) onProgress({ indexed, skipped, total })
             continue
           }
-
-          const vector = await this.encode(text)
-          const updatedAt = card.updatedAt ?? new Date().toISOString().split('T')[0]
-          const modality = 'text'
-
-          this.collection.upsertSync({
-            id: `card:${cardId}`,
-            vectors: { embedding: vector },
-            fields: { updatedAt, modality },
+          pending.push({
+            cardId,
+            text,
+            updatedAt: card.updatedAt ?? new Date().toISOString().split('T')[0],
           })
-
-          indexed++
         } catch {
           skipped++
+          if (onProgress) onProgress({ indexed, skipped, total })
+        }
+      }
+
+      // Batch encode
+      for (let batchStart = 0; batchStart < pending.length; batchStart += BATCH_SIZE) {
+        if (this.abortController.signal.aborted) break
+
+        const batch = pending.slice(batchStart, batchStart + BATCH_SIZE)
+        const vectors = await this.encodeBatch(batch.map(b => b.text))
+
+        for (let j = 0; j < batch.length; j++) {
+          this.store.docs[`card_${batch[j].cardId}`] = {
+            id: `card_${batch[j].cardId}`,
+            vector: vectors[j],
+            fields: { updatedAt: batch[j].updatedAt, modality: 'text' },
+          }
+          indexed++
         }
 
         if (onProgress) onProgress({ indexed, skipped, total })
       }
 
-      // Optimize index after bulk insert
-      this.collection.optimizeSync()
-
-      // Write meta.json
+      this.saveStore()
       this.writeMeta(indexed)
 
       return { indexed, skipped }
@@ -189,34 +201,23 @@ export class EmbeddingService {
   }
 
   async search(cardId: string, topK: number = 20): Promise<SearchResult[]> {
-    if (!this.collection) {
-      throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
-    }
-
-    // Fetch the card's vector
-    const docs = this.collection.fetchSync(`card:${cardId}`)
-    const doc = docs[`card:${cardId}`]
+    const doc = this.store.docs[`card_${cardId}`]
     if (!doc) return []
 
-    const targetVector = doc.vectors.embedding as number[]
+    const targetVector = doc.vector
 
-    // Query with topK+1 to filter out self
-    const results = this.collection.querySync({
-      fieldName: 'embedding',
-      topk: topK + 1,
-      vector: targetVector,
-      params: { indexType: ZVecIndexType.HNSW, ef: 300 },
-    })
-
-    // Filter out self and results below threshold
-    return results
-      .filter((r: ZVecDoc) => r.id !== `card:${cardId}` && r.score >= this.threshold)
-      .slice(0, topK)
-      .map((r: ZVecDoc) => ({
-        cardId: r.id.replace('card:', ''),
-        score: r.score,
-        modality: r.fields.modality as string,
+    const scored = Object.values(this.store.docs)
+      .filter(d => d.id !== `card_${cardId}`)
+      .map(d => ({
+        cardId: d.id.replace('card_', ''),
+        score: cosineSimilarity(targetVector, d.vector),
+        modality: d.fields.modality,
       }))
+      .filter(r => r.score >= this.threshold)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
+
+    return scored
   }
 
   cancel(): void {
@@ -226,12 +227,16 @@ export class EmbeddingService {
   }
 
   isModelAvailable(): boolean {
-    if (!this.vectorsDir) return false
-    return existsSync(join(this.vectorsDir, 'model.onnx'))
+    if (!this.modelDir) return false
+    return existsSync(join(this.modelDir, MODEL_FILENAME))
+  }
+
+  getModelDir(): string {
+    return this.modelDir
   }
 
   isInitialized(): boolean {
-    return this.session !== null && this.collection !== null
+    return this.session !== null
   }
 
   getStatus(): {
@@ -239,18 +244,14 @@ export class EmbeddingService {
     modelAvailable: boolean
     indexing: boolean
     docCount: number
-    indexCompleteness: Record<string, number>
+    modelDir: string
   } {
-    const stats = this.collection?.stats ?? {
-      docCount: 0,
-      indexCompleteness: {},
-    }
     return {
       initialized: this.isInitialized(),
       modelAvailable: this.isModelAvailable(),
       indexing: this.isIndexing,
-      docCount: stats.docCount,
-      indexCompleteness: stats.indexCompleteness,
+      docCount: Object.keys(this.store.docs).length,
+      modelDir: this.modelDir,
     }
   }
 
@@ -263,89 +264,74 @@ export class EmbeddingService {
   }
 
   dispose(): void {
-    if (this.collection) {
-      this.collection.closeSync()
-      this.collection = null
-    }
     if (this.session) {
       this.session.release()
       this.session = null
     }
+    this.tokenizer = null
+    this.store = { docs: {} }
     this.isIndexing = false
     this.abortController = null
   }
 
-  // --- Private methods ---
-
-  /**
-   * Encode text to truncated + L2-normalized embedding vector.
-   * Matryoshka: model outputs 1024-dim, truncate to first 256, then normalize.
-   */
-  private async encode(text: string): Promise<number[]> {
-    if (!this.session) {
+  private async encodeBatch(texts: string[]): Promise<number[][]> {
+    if (!this.session || !this.tokenizer) {
       throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
     }
 
-    // TODO: Replace with actual jina tokenizer integration.
-    // For now, use a simple placeholder tokenizer that produces
-    // token IDs from character codes. This will NOT produce meaningful
-    // embeddings — it's a stub for integration testing only.
-    const tokens = this.placeholderTokenize(text)
+    const encoded = texts.map(t => {
+      const e = this.tokenizer!.encode(t)
+      return {
+        ids: e.ids.slice(0, MAX_SEQ_LENGTH),
+        mask: e.attentionMask.slice(0, MAX_SEQ_LENGTH),
+      }
+    })
 
-    const inputIds = new Tensor('int64', BigInt64Array.from(tokens.map(BigInt)), [1, tokens.length])
-    const attentionMask = new Tensor('int64', BigInt64Array.from(tokens.map(() => BigInt(1))), [1, tokens.length])
+    // Pad all sequences to the max length in this batch
+    const maxLen = Math.max(...encoded.map(e => e.ids.length))
+
+    const batchSize = encoded.length
+    const flatIds = new BigInt64Array(batchSize * maxLen)
+    const flatMask = new BigInt64Array(batchSize * maxLen)
+
+    for (let i = 0; i < batchSize; i++) {
+      const ids = encoded[i].ids
+      const mask = encoded[i].mask
+      for (let j = 0; j < maxLen; j++) {
+        flatIds[i * maxLen + j] = j < ids.length ? BigInt(ids[j]) : BigInt(0)
+        flatMask[i * maxLen + j] = j < mask.length ? BigInt(mask[j]) : BigInt(0)
+      }
+    }
+
+    const inputIds = new Tensor('int64', flatIds, [batchSize, maxLen])
+    const attentionMask = new Tensor('int64', flatMask, [batchSize, maxLen])
 
     const output = await this.session.run({
       input_ids: inputIds,
       attention_mask: attentionMask,
     })
 
-    // Get the embedding output tensor
-    const outputName = this.session.outputNames[0]
-    const embeddingTensor = output[outputName]
+    const embeddingTensor = output['sentence_embedding']
     if (!embeddingTensor) {
-      throw new Error('ONNX model did not produce expected output')
+      throw new Error('ONNX model did not produce sentence_embedding output')
     }
 
-    const fullVector = embeddingTensor.data as Float32Array
+    const data = embeddingTensor.data as Float32Array
+    const outputDims = embeddingTensor.dims as number[]
 
-    // Matryoshka truncation: take first 256 elements
-    const truncated = fullVector.slice(0, TRUNCATED_DIMENSIONS)
+    // Output shape: [batchSize, dimensions]
+    const dimCount = outputDims[1] || data.length / batchSize
 
-    // L2 normalize
-    return this.l2Normalize(Array.from(truncated))
+    const results: number[][] = []
+    for (let i = 0; i < batchSize; i++) {
+      const start = i * dimCount
+      const fullVec = data.slice(start, start + TRUNCATED_DIMENSIONS)
+      results.push(l2Normalize(Array.from(fullVec)))
+    }
+
+    return results
   }
 
-  /**
-   * Placeholder tokenizer — maps characters to small integer token IDs.
-   * This is NOT a real tokenizer and will produce meaningless embeddings.
-   * Replace with the actual jina tokenizer when available.
-   */
-  private placeholderTokenize(text: string): number[] {
-    // Simple: split by whitespace, map each char to a code offset
-    // This is purely for structural testing — real tokenizer TBD
-    const chars = text.split('')
-    const ids = chars.map((c) => {
-      const code = c.charCodeAt(0)
-      // Clamp to a range that won't go out of vocabulary bounds
-      return code % 50000 + 1
-    })
-    // Truncate to max length (8192 tokens for jina v5)
-    return ids.slice(0, 8192)
-  }
-
-  /**
-   * L2-normalize a vector: divide each element by the L2 norm.
-   */
-  private l2Normalize(vec: number[]): number[] {
-    const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0))
-    if (norm === 0) return vec
-    return vec.map((v) => v / norm)
-  }
-
-  /**
-   * Write meta.json with indexing metadata.
-   */
   private writeMeta(cardCount: number): void {
     const meta: MetaInfo = {
       lastIndexedAt: new Date().toISOString(),
@@ -356,4 +342,24 @@ export class EmbeddingService {
     }
     writeFileSync(join(this.vectorsDir, META_FILE), JSON.stringify(meta, null, 2), 'utf-8')
   }
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0
+  let normA = 0
+  let normB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB)
+  if (denom === 0) return 0
+  return dot / denom
+}
+
+function l2Normalize(vec: number[]): number[] {
+  const norm = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0))
+  if (norm === 0) return vec
+  return vec.map((v) => v / norm)
 }

@@ -75,6 +75,7 @@ export default defineConfig(({ mode }) => {
                 external: [
                   'canvas', 'linkedom', 'sharp',
                   '@mozilla/readability',
+                  'onnxruntime-node',
                 ],
               },
             },
@@ -97,6 +98,16 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'xyflow': ['@xyflow/react'],
+            'blocknote': ['@blocknote/core', '@blocknote/react', '@blocknote/mantine'],
+            'framer': ['framer-motion'],
+          },
+        },
+      },
     },
     resolve: {
       alias: {

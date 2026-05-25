@@ -23,21 +23,20 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center animate-fadeIn"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+      style={{ backgroundColor: 'var(--surface-overlay)' }}
     >
       <div
-        className="w-[480px] rounded-xl flex flex-col animate-scaleIn overflow-hidden"
+        className="w-[480px] rounded-xl flex flex-col animate-scaleIn overflow-hidden glass-panel"
         style={{
-          backgroundColor: surface.panelBg,
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          boxShadow: 'var(--shadow-xl)',
         }}
       >
         {/* Header */}
         <div
           className="flex items-center gap-3 px-6 py-4 border-b"
-          style={{ borderColor: surface.divider, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+          style={{ borderColor: surface.divider, backgroundColor: 'hsla(var(--panel-hue, 220), 60%, 50%, 0.08)' }}
         >
-          <AlertTriangle size={24} style={{ color: '#ef4444' }} />
+          <AlertTriangle size={24} style={{ color: 'var(--text-danger)' }} />
           <div>
             <h3 className="font-semibold text-base" style={{ color: surface.text }}>
               工作区数据不一致
@@ -64,7 +63,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
                   卡片数量
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: '#ef4444' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-danger)' }}>
                     磁盘有 {conflict.actualCards} 张卡片
                   </span>
                   <span className="text-sm" style={{ color: surface.muted }}>·</span>
@@ -84,7 +83,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
                   画板数量
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: '#ef4444' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-danger)' }}>
                     磁盘有 {conflict.actualBoards} 个画板
                   </span>
                   <span className="text-sm" style={{ color: surface.muted }}>·</span>
@@ -98,7 +97,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
 
           <div
             className="p-3 rounded-lg text-sm"
-            style={{ backgroundColor: 'rgba(234, 179, 8, 0.1)', color: '#eab308' }}
+            style={{ backgroundColor: 'hsla(var(--panel-hue, 220), 80%, 50%, 0.08)', color: 'var(--color-blue-400)' }}
           >
             可能原因：数据文件被意外删除、同步失败、或程序异常退出导致数据未完整保存。
           </div>
@@ -130,14 +129,14 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
             onClick={() => onChoice('continue')}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{
-              color: '#fff',
-              backgroundColor: '#3b82f6',
+              color: 'var(--text-inverse)',
+              backgroundColor: 'var(--color-blue-500)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#2563eb'
+              e.currentTarget.style.backgroundColor = 'var(--color-blue-600)'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#3b82f6'
+              e.currentTarget.style.backgroundColor = 'var(--color-blue-500)'
             }}
           >
             保留磁盘数据

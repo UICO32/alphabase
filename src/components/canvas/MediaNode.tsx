@@ -1,6 +1,7 @@
 import { memo, useState, useEffect } from 'react'
 import { NodeResizer, useReactFlow, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
+import { CardHandles } from './card/CardHandles'
 
 export interface MediaNodeData extends Record<string, unknown> {
   url: string
@@ -73,6 +74,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Loading...</span>
         </div>
       )}
+      <CardHandles />
     </div>
   )
 })
