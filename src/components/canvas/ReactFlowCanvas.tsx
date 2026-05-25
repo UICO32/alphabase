@@ -37,6 +37,7 @@ import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
 import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
+import type { CardNodeData } from '../../types/card'
 
 const nodeTypes = {
   card: CardNode,

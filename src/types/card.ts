@@ -20,6 +20,14 @@ export const DEFAULT_CARD_CONTENT = '[{"type":"heading","props":{"level":2},"con
 
 export const COLLAPSED_CARD_HEIGHT = 80
 export const PROXIMITY_THRESHOLD = 60
+
+export interface CardNodeData extends Record<string, unknown> {
+  cardId: string
+  color: CardColor
+  width?: number
+  height?: number
+  collapsed?: boolean
+}
 export const FIXED_CARD_HEIGHT = 280
 export const MIN_AUTO_CARD_HEIGHT = 120
 export const MAX_AUTO_CARD_HEIGHT = 1800

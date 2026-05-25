@@ -5,7 +5,7 @@ import { useCardStore, useCard } from '../../stores/cardStore'
 import { getCardFill, getCardStroke, getCardTextColor } from '../../utils/cardStyles'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { renderBlocksToHTML } from '../../converters/renderBlocks'
-import type { CardColor } from '../../types/card'
+import type { CardColor, CardNodeData } from '../../types/card'
 import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useBoardStore } from '../../stores/boardStore'
@@ -13,15 +13,6 @@ import { CardHandles } from './card/CardHandles'
 import { CardActionBar } from './card/CardActionBar'
 import { CardContent } from './card/CardContent'
 import { CollapsedContent } from './card/CollapsedContent'
-
-export interface CardNodeData extends Record<string, unknown> {
-  cardId: string
-  color: CardColor
-  collapsed?: boolean
-  fixedHeight?: boolean
-  width?: number
-  height?: number
-}
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
@@ -71,9 +62,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   // 提取节点尺寸计算为独立函数，避免 inline 的 Record<string, unknown> 类型断言重复
   const getNodeSize = useCallback((node: Node) => {
-    const d = node.data as Record<string, unknown>
-    const w = (d.width as number) ?? DEFAULT_CARD_WIDTH
-    const h = d.collapsed ? COLLAPSED_CARD_HEIGHT : ((d.height as number) ?? DEFAULT_CARD_HEIGHT)
+    const d = node.data as CardNodeData
+    const w = d.width ?? DEFAULT_CARD_WIDTH
+    const h = d.collapsed ? COLLAPSED_CARD_HEIGHT : (d.height ?? DEFAULT_CARD_HEIGHT)
     return { w, h }
   }, [])
 
@@ -184,7 +175,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
             height: COLLAPSED_CARD_HEIGHT,
           }
         }
-        const prevHeight = (n.data as Record<string, unknown>).prevHeight as number | undefined
+        const prevHeight = (n.data as CardNodeData).prevHeight as number | undefined
         return {
           ...n,
           data: { ...n.data, collapsed: false },
@@ -226,8 +217,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         type: node.type || 'card',
         position: { x: node.position.x, y: node.position.y },
         data: { ...node.data },
-        width: (node.data as Record<string, unknown>).width as number | undefined,
-        height: (node.data as Record<string, unknown>).height as number | undefined,
+        width: (node.data as CardNodeData).width,
+        height: (node.data as CardNodeData).height,
       })
       targetData.edges.push(...relatedEdges.map((e) => ({
         id: e.id,
