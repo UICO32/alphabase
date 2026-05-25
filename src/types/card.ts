@@ -27,6 +27,9 @@ export interface CardNodeData extends Record<string, unknown> {
   width?: number
   height?: number
   collapsed?: boolean
+  frameId?: string
+  localX?: number
+  localY?: number
 }
 export const FIXED_CARD_HEIGHT = 280
 export const MIN_AUTO_CARD_HEIGHT = 120

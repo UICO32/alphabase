@@ -25,7 +25,7 @@ export interface BoardManifest {
 
 export interface BoardNode {
   id: string
-  type: 'card' | 'section' | 'media'
+  type: 'card' | 'frame' | 'media'
   position: { x: number; y: number }
   data: {
     cardId?: string
@@ -37,6 +37,11 @@ export interface BoardNode {
     height?: number
     name?: string
     url?: string
+    layout?: string
+    childCardIds?: string[]
+    frameId?: string
+    localX?: number
+    localY?: number
   }
   width?: number
   height?: number
