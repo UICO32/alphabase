@@ -116,7 +116,7 @@ function App() {
         if (electronAPI?.dialog?.openDirectory) {
           const result = await electronAPI.dialog.openDirectory()
           if (result) {
-            folderPath = typeof result === 'string' ? result : result.canceled ? null : result.filePaths?.[0] || null
+            folderPath = result
           }
         }
 

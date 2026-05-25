@@ -1,5 +1,6 @@
 import { useLibraryStore } from '../../stores/libraryStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
+import { appEvents } from '../../utils/appEvents'
 import { Plus, ZoomIn, ZoomOut, Maximize, Scissors } from 'lucide-react'
 
 interface ToolbarProps {
@@ -44,7 +45,7 @@ export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
       />
 
       <button
-        onClick={() => window.dispatchEvent(new CustomEvent('hepta-zoom-out'))}
+        onClick={() => appEvents.emit('hepta-zoom-out')}
         className="btn-base p-2 rounded-lg"
         style={{ color: surface.text }}
         title="缩小"
@@ -58,7 +59,7 @@ export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
         {Math.round(zoom * 100)}%
       </span>
       <button
-        onClick={() => window.dispatchEvent(new CustomEvent('hepta-zoom-in'))}
+        onClick={() => appEvents.emit('hepta-zoom-in')}
         className="btn-base p-2 rounded-lg"
         style={{ color: surface.text }}
         title="放大"
@@ -72,7 +73,7 @@ export function Toolbar({ onAddCard, onClipUrl }: ToolbarProps) {
       />
 
       <button
-        onClick={() => window.dispatchEvent(new CustomEvent('hepta-fit-view'))}
+        onClick={() => appEvents.emit('hepta-fit-view')}
         className="btn-base p-2 rounded-lg"
         style={{ color: surface.text }}
         title="适应视图"
