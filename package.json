@@ -11,6 +11,8 @@
     "electron:build": "tsc && vite build --mode electron",
     "electron:start": "electron .",
     "electron:all": "vite --mode electron",
+    "electron:pack": "pnpm electron:build && electron-builder --dir",
+    "electron:dist": "pnpm electron:build && electron-builder",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "playwright test"
@@ -24,7 +26,6 @@
     "@tailwindcss/vite": "^4.3.0",
     "@tiptap/pm": "^2.11.0",
     "@xyflow/react": "^12.0.0",
-    "@zvec/zvec": "^0.4.0",
     "framer-motion": "^12.38.0",
     "idb": "^8.0.0",
     "linkedom": "^0.18.12",
@@ -51,11 +52,47 @@
     "vite": "^5.4.0",
     "vite-plugin-electron": "^0.29.0"
   },
+  "build": {
+    "appId": "com.heptabase.canvas-v2",
+    "productName": "Heptabase Canvas",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/sharp",
+        "to": "node_modules/sharp"
+      },
+      {
+        "from": "node_modules/onnxruntime-node",
+        "to": "node_modules/onnxruntime-node"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "asar": true
+  },
   "type": "module",
   "pnpm": {
     "onlyBuiltDependencies": [
-      "@zvec/zvec",
-      "onnxruntime-node",
+            "onnxruntime-node",
       "sharp"
     ]
   }
