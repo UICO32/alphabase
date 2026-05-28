@@ -1,4 +1,5 @@
-import { useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
+import { useState, useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ReactFlow,
   ConnectionMode,
@@ -15,15 +16,17 @@ import '@xyflow/react/dist/style.css'
 
 import { CardNode } from './CardNode'
 import { MediaNode } from './MediaNode'
-import { FrameNode } from './FrameNode'
+import { FrameNode, type FrameNodeData } from './FrameNode'
+import { CardEditDialog } from '../ui/CardEditDialog'
+import { useLibraryStore } from '../../stores/libraryStore'
 import { MemoizedConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
 import { AdaptiveBackground } from './AdaptiveBackground'
 import { ConnectionPreview } from './ConnectionPreview'
+import { AlignmentToolbar } from './AlignmentToolbar'
 
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
-import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle'
 import { useBoardSync } from '../../hooks/useBoardSync'
 import { useFrameSync } from '../../hooks/useFrameSync'
@@ -35,9 +38,12 @@ import { useCanvasDrag } from '../../hooks/useCanvasDrag'
 import { useHistory } from '../../hooks/useHistory'
 import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
 import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
-import { useCardStore } from '../../stores/cardStore'
+import { useCardStore, type GlobalCard } from '../../stores/cardStore'
 import { connectionMediator } from '../../utils/connectionMediator'
-import { PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
+import { kanbanDragPreview } from '../../utils/kanbanDragPreview'
+import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from '../../utils/frameInteraction'
+import type { FrameLayout } from '../../utils/frameLayouts'
+import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../../types/card'
 
 const nodeTypes = {
   card: CardNode,
@@ -55,12 +61,18 @@ export function ReactFlowCanvas() {
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
   const setZoom = useLibraryStore((s) => s.setZoom)
+  const isLassoMode = useFrameInteraction((s) => s.lassoMode)
+  const lassoRect = useFrameInteraction((s) => s.lassoRect)
   const editingCardId = useLibraryStore((s) => s.editingCardId)
+  const kanbanEditDialogCardId = useLibraryStore((s) => s.kanbanEditDialogCardId)
+  const kanbanEditDialogSourceRect = useLibraryStore((s) => s.kanbanEditDialogSourceRect)
+  const closeKanbanEditDialog = useLibraryStore((s) => s.closeKanbanEditDialog)
   const surface = usePanelSurface()
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
   const edgesRef = useRef<Edge[]>(edges)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeIds: string[] } | null>(null)
 
   const { canUndo, canRedo, record, undo, redo, clear } = useHistory({ maxHistory: 20 })
 
@@ -106,27 +118,51 @@ export function ReactFlowCanvas() {
 
   const recordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const recordCurrentState = useCallback((type: 'canvas' | 'structure', description: string) => {
+  const recordCurrentState = useCallback((deletedCardsContent?: Record<string, GlobalCard>) => {
     if (recordTimerRef.current) {
       clearTimeout(recordTimerRef.current)
     }
     recordTimerRef.current = setTimeout(() => {
       record({
-        type,
-        description,
         nodes: nodesRef.current.map(n => ({ ...n })),
         edges: edgesRef.current.map(e => ({ ...e })),
-        cardSnapshot: { ...useCardStore.getState().cards },
+        deletedCardsContent,
       })
     }, 300)
   }, [record])
 
-  const { handleDoubleClick } = useCanvasDoubleClick({ nodes, setNodes, setEdges, reactFlowInstance, recordCurrentState })
+  // 操作前立即记录当前状态（无 debounce），确保 undo 能回到操作前
+  const snapshotNow = useCallback((deletedCardsContent?: Record<string, GlobalCard>) => {
+    if (recordTimerRef.current) {
+      clearTimeout(recordTimerRef.current)
+      recordTimerRef.current = null
+    }
+    record({
+      nodes: nodesRef.current.map(n => ({ ...n })),
+      edges: edgesRef.current.map(e => ({ ...e })),
+      deletedCardsContent,
+    })
+  }, [record])
 
-  const onNodeDragStop = useCallback((_event: React.MouseEvent, _node: Node, _nodes: Node[]) => {
+  // Bug1: 拖拽 Frame 时禁用 backdrop-filter 避免遮盖卡片
+  // 拖拽开始前立即记录当前状态（无 debounce），确保 undo 能回到拖拽前位置
+  const onNodeDragStart = useCallback((_event: React.MouseEvent, node: Node) => {
+    snapshotNow()
+    if (node.type === 'frame') {
+      const el = document.querySelector(`[data-id="${node.id}"]`)
+      if (el) el.classList.add('frame-dragging')
+    }
+  }, [snapshotNow])
+
+  const onNodeDragStopWithCleanup = useCallback((_event: React.MouseEvent, _node: Node, _nodes: Node[]) => {
+    // Bug1: 拖拽结束后恢复 backdrop-filter
+    document.querySelectorAll('.frame-dragging').forEach((el) => el.classList.remove('frame-dragging'))
+
     originalOnNodeDragStop(_event, _node)
-    recordCurrentState('canvas', '移动卡片')
+    recordCurrentState()
   }, [originalOnNodeDragStop, recordCurrentState])
+
+  const { handleDoubleClick } = useCanvasDoubleClick({ nodes, setNodes, setEdges, reactFlowInstance, recordCurrentState, snapshotNow })
 
   useEffect(() => {
     const id = 'rf-hide-selection-rect'
@@ -144,6 +180,7 @@ export function ReactFlowCanvas() {
       const { cardId, color } = (e as CustomEvent).detail
       const instance = reactFlowInstance.current
       if (!instance) return
+      snapshotNow()
       const center = instance.screenToFlowPosition({
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
@@ -155,48 +192,159 @@ export function ReactFlowCanvas() {
           type: 'card',
           position: center,
           data: { cardId, color, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
+          zIndex: 10,
         },
       ])
       setTimeout(() => {
-        recordCurrentState('structure', '添加卡片')
+        recordCurrentState()
       }, 0)
     }
     window.addEventListener('hepta-add-card-node', onAddCardNode)
     return () => window.removeEventListener('hepta-add-card-node', onAddCardNode)
-  }, [setNodes, recordCurrentState])
+  }, [setNodes, recordCurrentState, snapshotNow])
 
-  // 创建 Frame 节点
+  // 框选模式：鼠标拖拽创建 Frame
+  const lassoStartRef = useRef<{ x: number; y: number } | null>(null)
+  const lassoActiveRef = useRef(false)
+
   useEffect(() => {
-    const onAddFrame = () => {
+    if (!isLassoMode) {
+      lassoStartRef.current = null
+      lassoActiveRef.current = false
+      return
+    }
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return
       const instance = reactFlowInstance.current
       if (!instance) return
-      const center = instance.screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      })
-      const frameId = crypto.randomUUID()
-      setNodes((nds) => [
-        ...nds,
-        {
-          id: frameId,
-          type: 'frame',
-          position: { x: center.x - 300, y: center.y - 200 },
-          data: {
-            name: 'Frame',
-            layout: 'free',
-            width: 600,
-            height: 400,
-            childCardIds: [],
-          },
-        },
-      ])
-      setTimeout(() => {
-        recordCurrentState('structure', '添加 Frame')
-      }, 0)
+      const flowPos = instance.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      lassoStartRef.current = { x: flowPos.x, y: flowPos.y }
+      lassoActiveRef.current = true
+      setLassoRect({ x: flowPos.x, y: flowPos.y, width: 0, height: 0 })
+      setLassoSelectedCardIds(new Set())
     }
-    window.addEventListener('hepta-add-frame', onAddFrame)
-    return () => window.removeEventListener('hepta-add-frame', onAddFrame)
-  }, [setNodes, recordCurrentState])
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!lassoActiveRef.current || !lassoStartRef.current) return
+      const instance = reactFlowInstance.current
+      if (!instance) return
+      const flowPos = instance.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      const start = lassoStartRef.current
+      const x = Math.min(start.x, flowPos.x)
+      const y = Math.min(start.y, flowPos.y)
+      const width = Math.abs(flowPos.x - start.x)
+      const height = Math.abs(flowPos.y - start.y)
+      setLassoRect({ x, y, width, height })
+
+      const allNodes = instance.getNodes()
+      const selected = new Set<string>()
+      for (const node of allNodes) {
+        if (node.type !== 'card') continue
+        const nd = node.data as CardNodeData
+        const nw = nd.width ?? DEFAULT_CARD_WIDTH
+        const nh = nd.collapsed ? 44 : (nd.height ?? DEFAULT_CARD_HEIGHT)
+        const cx = node.position.x + nw / 2
+        const cy = node.position.y + nh / 2
+        if (cx >= x && cx <= x + width && cy >= y && cy <= y + height) {
+          selected.add(node.id)
+        }
+      }
+      setLassoSelectedCardIds(selected)
+    }
+
+    const handleMouseUp = () => {
+      if (!lassoActiveRef.current) return
+      lassoActiveRef.current = false
+
+      const state = useFrameInteraction.getState()
+      const rect = state.lassoRect
+      const selectedCardIds = state.lassoSelectedCardIds
+
+      if (!rect || (rect.width < 30 && rect.height < 30)) {
+        exitLassoMode()
+        return
+      }
+
+      snapshotNow()
+
+      const padding = 40
+      const frameX = rect.x - padding
+      const frameY = rect.y - padding
+      const frameW = rect.width + padding * 2
+      const frameH = rect.height + padding * 2
+
+      const frameId = crypto.randomUUID()
+
+      setNodes((nds) => {
+        const updatedNodes = nds.map((n) => {
+          if (!selectedCardIds.has(n.id)) return n
+          const localX = n.position.x - frameX
+          const localY = n.position.y - frameY
+          const cardData = n.data as CardNodeData
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              frameId,
+              localX,
+              localY,
+              layoutSnapshots: {
+                ...cardData.layoutSnapshots,
+                free: { localX, localY, width: cardData.width, height: cardData.height },
+              },
+            },
+          }
+        })
+
+        return [
+          ...updatedNodes,
+          {
+            id: frameId,
+            type: 'frame',
+            position: { x: frameX, y: frameY },
+            data: {
+              name: 'Frame',
+              layout: 'free',
+              width: frameW,
+              height: frameH,
+              childCardIds: [],
+            },
+            zIndex: -10,
+            dragHandle: '.frame-drag-handle',
+          },
+        ]
+      })
+
+      exitLassoMode()
+      setTimeout(() => recordCurrentState(), 0)
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') exitLassoMode()
+    }
+
+    window.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isLassoMode, setNodes, snapshotNow, recordCurrentState])
+
+  // 删除卡片时立即记录操作前状态（含墓碑），然后 debounced 记录操作后状态
+  useEffect(() => {
+    const onRemoveCardFromBoard = (e: Event) => {
+      const { cardId, cardContent } = (e as CustomEvent).detail
+      snapshotNow({ [cardId]: cardContent })
+    }
+    window.addEventListener('hepta-remove-card-from-board', onRemoveCardFromBoard)
+    return () => window.removeEventListener('hepta-remove-card-from-board', onRemoveCardFromBoard)
+  }, [snapshotNow])
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     reactFlowInstance.current = instance
@@ -211,6 +359,8 @@ export function ReactFlowCanvas() {
 
   const onPaneClick = useCallback(() => {
     connectionMediator.clear()
+    kanbanDragPreview.clear()
+    setContextMenu(null)
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -235,6 +385,112 @@ export function ReactFlowCanvas() {
     },
     [],
   )
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault()
+    const allNodes = nodesRef.current
+    const selectedCardNodes = allNodes.filter((n) => n.selected && n.type === 'card')
+    const nodeIds = selectedCardNodes.length > 0
+      ? selectedCardNodes.map((n) => n.id)
+      : (node.type === 'card' ? [node.id] : [])
+    if (nodeIds.length === 0) return
+    setContextMenu({ x: event.clientX, y: event.clientY, nodeIds })
+  }, [])
+
+  const handleMoveToNewFrame = useCallback(() => {
+    if (!contextMenu) return
+    const { nodeIds } = contextMenu
+    const allNodes = nodesRef.current
+    const cardNodes = allNodes.filter((n) => nodeIds.includes(n.id))
+    if (cardNodes.length === 0) return
+
+    const xs = cardNodes.map((n) => n.position.x)
+    const ys = cardNodes.map((n) => n.position.y)
+    const padding = 40
+    const headerH = 36
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+
+    const frameId = `frame-${Date.now()}`
+    setNodes((nds) => {
+      const updated = nds.map((n) => {
+        if (!nodeIds.includes(n.id)) return n
+        const localX = n.position.x - (minX - padding)
+        const localY = n.position.y - (minY - padding - headerH)
+        const cardData = n.data as CardNodeData
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            frameId,
+            localX,
+            localY,
+            layoutSnapshots: {
+              ...cardData.layoutSnapshots,
+              free: { localX, localY, width: cardData.width, height: cardData.height },
+            },
+          },
+        }
+      })
+      return [
+        ...updated,
+        {
+          id: frameId,
+          type: 'frame',
+          position: { x: minX - padding, y: minY - padding - headerH },
+          data: {
+            name: '新 Frame',
+            layout: 'free' as const,
+            width: Math.max(600, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).width ?? 240 + n.position.x)) - minX + padding * 2),
+            height: Math.max(400, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).height ?? 160 + n.position.y)) - minY + padding * 2 + headerH),
+            color: '#6366f1',
+            layoutSnapshots: {
+              free: {
+                width: Math.max(600, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).width ?? 240 + n.position.x)) - minX + padding * 2),
+                height: Math.max(400, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).height ?? 160 + n.position.y)) - minY + padding * 2 + headerH),
+              },
+            },
+          } as FrameNodeData,
+          zIndex: -10,
+          dragHandle: '.frame-drag-handle',
+        },
+      ]
+    })
+    setContextMenu(null)
+  }, [contextMenu, setNodes])
+
+  const handleMoveToExistingFrame = useCallback((targetFrameId: string) => {
+    if (!contextMenu) return
+    const { nodeIds } = contextMenu
+    const allNodes = nodesRef.current
+    const frameNode = allNodes.find((n) => n.id === targetFrameId)
+    if (!frameNode) return
+
+    const targetFrameLayout = ((frameNode.data as FrameNodeData).layout ?? 'free') as FrameLayout
+
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (!nodeIds.includes(n.id)) return n
+        const localX = n.position.x - frameNode.position.x
+        const localY = n.position.y - frameNode.position.y - 36
+        const cardData = n.data as CardNodeData
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            frameId: targetFrameId,
+            localX,
+            localY,
+            layoutSnapshots: {
+              ...cardData.layoutSnapshots,
+              [targetFrameLayout]: { localX, localY, width: cardData.width, height: cardData.height },
+            },
+          },
+        }
+      }),
+    )
+    setContextMenu(null)
+  }, [contextMenu, setNodes])
 
   const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
 
@@ -288,20 +544,70 @@ export function ReactFlowCanvas() {
     return true
   }, [])
 
+  // 确保 Frame 节点排在数组最前面，DOM 先渲染 = paint 底层，背景不会覆盖卡片
+  const sortedNodes = useMemo(() => {
+    const frames = nodes.filter(n => n.type === 'frame')
+    const others = nodes.filter(n => n.type !== 'frame')
+    return [...frames, ...others]
+  }, [nodes])
+
+  const alignableNodes = useMemo(() => {
+    return nodes.filter(n => n.selected && (n.type === 'card' || n.type === 'media'))
+  }, [nodes])
+
+  const onApplyAlignment = useCallback((updates: Map<string, { x: number; y: number }>) => {
+    snapshotNow()
+    setNodes((nds) =>
+      nds.map((n) => {
+        const pos = updates.get(n.id)
+        if (!pos) return n
+        return { ...n, position: { x: pos.x, y: pos.y } }
+      }),
+    )
+    recordCurrentState()
+  }, [setNodes, snapshotNow, recordCurrentState])
+
+  // 看板 Frame 内的卡片之间隐藏连接线
+  const visibleEdges = useMemo(() => {
+    const kanbanFrameIds = new Set(
+      nodes
+        .filter(n => n.type === 'frame' && (n.data as FrameNodeData).layout === 'kanban')
+        .map(n => n.id),
+    )
+    if (kanbanFrameIds.size === 0) return edges
+
+    const nodeFrameMap = new Map<string, string>()
+    for (const n of nodes) {
+      const nd = n.data as Record<string, unknown>
+      if (nd.frameId && kanbanFrameIds.has(nd.frameId as string)) {
+        nodeFrameMap.set(n.id, nd.frameId as string)
+      }
+    }
+
+    return edges.filter(e => {
+      const sFrame = nodeFrameMap.get(e.source)
+      const tFrame = nodeFrameMap.get(e.target)
+      if (sFrame && tFrame && sFrame === tFrame) return false
+      return true
+    })
+  }, [nodes, edges])
+
   return (
-    <div className="w-full h-full" style={{ backgroundColor: surface.appBg }} ref={canvasRef} onDoubleClick={handleDoubleClick}>
+    <div className={`w-full h-full ${isLassoMode ? 'lasso-mode' : ''}`} style={{ backgroundColor: surface.appBg }} ref={canvasRef} onDoubleClick={handleDoubleClick}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={sortedNodes}
+        edges={visibleEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onInit={onInit}
         onPaneClick={onPaneClick}
         onNodeClick={onNodeClick}
+        onNodeContextMenu={onNodeContextMenu}
         onMouseMove={onMouseMove}
         onNodeDrag={onNodeDrag}
-        onNodeDragStop={onNodeDragStop}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDragStop={onNodeDragStopWithCleanup}
         onReconnect={(oldEdge, newConn) => onReconnect(oldEdge, newConn)}
         onReconnectEnd={(e, edge) => onReconnectEnd(e, edge)}
         onDragOver={handleDragOver}
@@ -313,11 +619,12 @@ export function ReactFlowCanvas() {
         connectionLineComponent={connectionLineComponent}
         isValidConnection={isValidConnection}
         autoPanOnNodeDrag={false}
-        panOnDrag={editingCardId ? false : [2]}
-        selectionOnDrag={!editingCardId}
+        panOnDrag={isLassoMode ? false : [2]}
+        selectionOnDrag={isLassoMode ? false : !editingCardId}
         selectionMode={SelectionMode.Partial}
         panActivationKeyCode="Space"
         onMove={onMove}
+        elevateNodesOnSelect={false}
         fitView
         zoomOnScroll
         zoomOnPinch
@@ -330,6 +637,88 @@ export function ReactFlowCanvas() {
         />
       </ReactFlow>
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
+      <AlignmentToolbar
+        selectedNodes={alignableNodes}
+        reactFlowInstance={reactFlowInstance}
+        onApplyAlignment={onApplyAlignment}
+      />
+
+      {/* 框选矩形 */}
+      {isLassoMode && lassoRect && lassoRect.width > 0 && lassoRect.height > 0 && (() => {
+        const rf = reactFlowInstance.current
+        if (!rf) return null
+        const topLeft = rf.flowToScreenPosition({ x: lassoRect.x, y: lassoRect.y })
+        const bottomRight = rf.flowToScreenPosition({ x: lassoRect.x + lassoRect.width, y: lassoRect.y + lassoRect.height })
+        const screenW = bottomRight.x - topLeft.x
+        const screenH = bottomRight.y - topLeft.y
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              left: topLeft.x,
+              top: topLeft.y,
+              width: screenW,
+              height: screenH,
+              border: '2px dashed rgba(99,102,241,0.6)',
+              background: 'rgba(99,102,241,0.08)',
+              borderRadius: 8,
+              pointerEvents: 'none',
+              zIndex: 9998,
+            }}
+          />
+        )
+      })()}
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 py-1 rounded-lg min-w-[180px]"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            background: surface.surface,
+            border: `1px solid ${surface.divider}`,
+            boxShadow: 'var(--shadow-lg)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5"
+            style={{ color: surface.text }}
+            onClick={handleMoveToNewFrame}
+          >
+            归入新 Frame
+          </button>
+          {nodesRef.current
+            .filter((n) => n.type === 'frame')
+            .map((frameNode) => {
+              const fd = frameNode.data as FrameNodeData
+              return (
+                <button
+                  key={frameNode.id}
+                  className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5"
+                  style={{ color: surface.text }}
+                  onClick={() => handleMoveToExistingFrame(frameNode.id)}
+                >
+                  <span
+                    className="w-3 h-3 rounded-full inline-block"
+                    style={{ backgroundColor: fd.color ?? '#6366f1' }}
+                  />
+                  归入 {fd.name || 'Frame'}
+                </button>
+              )
+            })}
+        </div>
+      )}
+
+      {/* Bug4: 看板视图下点击 MiniCard 唤起居中编辑弹窗 */}
+      {kanbanEditDialogCardId && createPortal(
+        <CardEditDialog
+          cardId={kanbanEditDialogCardId}
+          sourceRect={kanbanEditDialogSourceRect}
+          onClose={closeKanbanEditDialog}
+        />,
+        document.body,
+      )}
 
     </div>
   )
