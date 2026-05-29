@@ -67,8 +67,8 @@ export class WorkspaceService {
       try {
         const card = await readJSON<CardFile>(`${dir}/${file}`)
         cards.push(card)
-      } catch (e) {
-        console.warn(`Failed to load card ${file}:`, e)
+      } catch {
+        // skip invalid card files
       }
     }
     return cards
@@ -99,8 +99,8 @@ export class WorkspaceService {
       try {
         const item = await readJSON<TrashFile>(`${dir}/${file}`)
         items.push(item)
-      } catch (e) {
-        console.warn(`Failed to load trash ${file}:`, e)
+      } catch {
+        // skip invalid trash files
       }
     }
     return items
@@ -135,7 +135,6 @@ export class WorkspaceService {
     try {
       const data = await readJSON<WorkspaceMetadata>(path)
       if (data.version !== 1) {
-        console.warn('Metadata version mismatch, treating as missing')
         return null
       }
       return data

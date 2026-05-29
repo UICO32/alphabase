@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
+import type { EditorState } from '@tiptap/pm/state'
+import type { Node as PmNode } from '@tiptap/pm/model'
 
 type PmView = {
   posAtCoords: (coords: { left: number; top: number }) => { pos: number; inside: number } | null
   dom: HTMLElement
-  state: any
+  state: EditorState
   nodeDOM: (pos: number) => HTMLElement | null
 }
 
@@ -49,7 +51,7 @@ export function usePosAtCoordsScalePatch(editor: unknown) {
       const state = currentPm.state
       if (!state) return original(coords)
 
-      state.doc.descendants((node: any, pos: number) => {
+      state.doc.descendants((node: PmNode, pos: number) => {
         if (!node.isBlock) return true
         try {
           const nodeDom = currentPm.nodeDOM(pos) as HTMLElement | null

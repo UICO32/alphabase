@@ -12,22 +12,24 @@ function buildCurrentMetadata(): WorkspaceMetadata {
 }
 
 export function subscribeCardStore(syncEngine: WorkspaceSyncEngine) {
-  let prevCards = useCardStore.getState().cards
+  let prevCardsMap = new Map<string, ReturnType<typeof useCardStore.getState>['cards'][string]>(
+    Object.entries(useCardStore.getState().cards)
+  )
 
   return useCardStore.subscribe((state) => {
-    const cards = state.cards
+    const currentMap = new Map(Object.entries(state.cards))
     let cardCountChanged = false
 
-    for (const id in cards) {
-      if (cards[id] !== prevCards[id]) {
-        const cardFile = globalCardToCardFile(cards[id])
-        syncEngine.scheduleWriteCard(cardFile)
-        if (!(id in prevCards)) cardCountChanged = true
+    for (const [id, card] of currentMap) {
+      const prev = prevCardsMap.get(id)
+      if (prev !== card) {
+        syncEngine.scheduleWriteCard(globalCardToCardFile(card))
+        if (!prev) cardCountChanged = true
       }
     }
 
-    for (const id in prevCards) {
-      if (!(id in cards)) {
+    for (const [id] of prevCardsMap) {
+      if (!currentMap.has(id)) {
         syncEngine.scheduleDeleteCard(id)
         cardCountChanged = true
       }
@@ -37,13 +39,12 @@ export function subscribeCardStore(syncEngine: WorkspaceSyncEngine) {
       syncEngine.scheduleWriteMetadata(buildCurrentMetadata())
     }
 
-    prevCards = cards
+    prevCardsMap = currentMap
   })
 }
 
 export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
   let prevBoards = useBoardStore.getState().boards
-  let prevBoardData = useBoardStore.getState().boardData
 
   const unsub = useBoardStore.subscribe((state) => {
     if (state.boards !== prevBoards) {
@@ -53,35 +54,7 @@ export function subscribeBoardStore(syncEngine: WorkspaceSyncEngine) {
       }
       prevBoards = state.boards
     }
-
-    if (state.boardData !== prevBoardData) {
-      for (const boardId in state.boardData) {
-        if (state.boardData[boardId] !== prevBoardData[boardId]) {
-          const data = state.boardData[boardId]
-          syncEngine.scheduleWriteBoard(boardId, {
-            version: 2,
-            nodes: data.nodes.map(n => ({
-              id: n.id,
-              type: (n.type === 'card' || n.type === 'frame' || n.type === 'media') ? n.type as 'card' | 'frame' | 'media' : 'card',
-              position: { x: n.position.x, y: n.position.y },
-              data: n.data as { cardId?: string; color?: string; variant?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string; url?: string; layout?: string; childCardIds?: string[]; frameId?: string; localX?: number; localY?: number },
-              width: n.width,
-              height: n.height,
-            })),
-            edges: data.edges.map(e => ({
-              id: e.id,
-              source: e.source,
-              target: e.target,
-              type: 'connection' as const,
-              sourceHandle: e.sourceHandle ?? undefined,
-              targetHandle: e.targetHandle ?? undefined,
-            })),
-            viewport: { x: 0, y: 0, zoom: 1 },
-          })
-        }
-      }
-      prevBoardData = state.boardData
-    }
+    // boardData 由 useBoardSync 直写 syncEngine，此处不再订阅
   })
 
   return unsub

@@ -144,8 +144,7 @@ export async function createFileSystemBackup(workspacePath: string): Promise<str
     }
 
     return backupDir
-  } catch (e) {
-    console.warn('File system backup failed:', e)
+  } catch {
     return null
   }
 }

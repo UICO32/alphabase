@@ -8,8 +8,13 @@ export class WorkspaceSyncEngine {
   private workspacePath: string = ''
   private pendingWrites = new Map<string, { data: string; timer: ReturnType<typeof setTimeout> }>()
   private running = false
+  private isDragging = false
 
   constructor() {}
+
+  setDragging(isDragging: boolean): void {
+    this.isDragging = isDragging
+  }
 
   async init(workspacePath: string) {
     this.workspacePath = workspacePath
@@ -101,6 +106,7 @@ export class WorkspaceSyncEngine {
   }
 
   scheduleWriteBoard(boardId: string, snapshot: BoardSnapshot, debounceMs = 600) {
+    if (this.isDragging) return
     const path = joinPath(this.boardsDir, `${boardId}.json`)
     this.scheduleWrite(path, JSON.stringify(snapshot, null, 2), debounceMs)
   }

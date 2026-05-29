@@ -2,12 +2,7 @@ import { memo, useState, useEffect } from 'react'
 import { NodeResizer, useReactFlow, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { CardHandles } from './card/CardHandles'
-
-export interface MediaNodeData extends Record<string, unknown> {
-  url: string
-  type: 'image'
-  name?: string
-}
+import type { MediaNodeData } from '../../types/card'
 
 type MediaNodeType = Node<MediaNodeData, 'media'>
 

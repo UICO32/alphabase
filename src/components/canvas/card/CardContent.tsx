@@ -1,4 +1,5 @@
-import { memo, lazy, Suspense } from 'react'
+import DOMPurify from 'dompurify'
+import { memo, lazy, Suspense, useMemo } from 'react'
 import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { renderBlocksToHTML } from '../../../converters/renderBlocks'
 
@@ -13,6 +14,7 @@ interface CardContentProps {
   previewHTML?: string
   enforceInitialHeading?: boolean
   onChange: (content: string) => void
+  onFocus?: () => void
   onBlur: () => void
   editorRef: React.Ref<BlockNoteEditorHandle>
   textColor: string
@@ -26,12 +28,18 @@ export const CardContent = memo(function CardContent({
   previewHTML,
   enforceInitialHeading,
   onChange,
+  onFocus,
   onBlur,
   editorRef,
   textColor,
   onDragBlocksOutside,
 }: CardContentProps) {
   const canScroll = isSelected || isEditing
+
+  const sanitizedHTML = useMemo(() => {
+    const raw = previewHTML || renderBlocksToHTML(content) || '<span style="opacity:0.5">双击编辑...</span>'
+    return DOMPurify.sanitize(raw)
+  }, [previewHTML, content])
 
   return (
     <div
@@ -44,7 +52,7 @@ export const CardContent = memo(function CardContent({
       }}
       onWheelCapture={canScroll ? (e) => e.stopPropagation() : undefined}
     >
-      {isEditing ? (
+      {isSelected ? (
         <div
           className="h-full overflow-y-auto px-6"
           style={{ fontSize: '13px', lineHeight: '1.5' }}
@@ -54,10 +62,11 @@ export const CardContent = memo(function CardContent({
               ref={editorRef}
               content={content}
               onChange={onChange}
+              onFocus={onFocus}
               onBlur={onBlur}
               theme="light"
-              editable={true}
-              showSideMenu={true}
+              editable={isEditing}
+              showSideMenu={isEditing}
               enforceInitialHeading={enforceInitialHeading}
               onDragBlocksOutside={onDragBlocksOutside}
             />
@@ -71,12 +80,7 @@ export const CardContent = memo(function CardContent({
             lineHeight: '1.5',
             wordBreak: 'break-word',
           }}
-          dangerouslySetInnerHTML={{
-            __html:
-              previewHTML ||
-              renderBlocksToHTML(content) ||
-              '<span style="opacity:0.5">双击编辑...</span>',
-          }}
+          dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
         />
       )}
     </div>

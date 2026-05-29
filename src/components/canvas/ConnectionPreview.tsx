@@ -4,7 +4,7 @@ import { edgePointOnRect } from '../../utils/geometry'
 import { getBezierPath, Position } from '@xyflow/react'
 import type { Node, ReactFlowInstance } from '@xyflow/react'
 import type { CardNodeData } from '../../types/card'
-import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../../types/card'
+import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 interface ConnectionPreviewProps {
   nodesRef: React.RefObject<Node[]>

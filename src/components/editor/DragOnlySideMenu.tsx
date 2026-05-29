@@ -1,15 +1,12 @@
 import { useComponentsContext, useDictionary, DragHandleMenu } from '@blocknote/react'
-import { MdDragIndicator } from 'react-icons/md'
+import { GripVertical } from 'lucide-react'
 import type { SideMenuProps } from '@blocknote/react'
+import type { BlockSchema, InlineContentSchema, StyleSchema } from '@blocknote/core'
 
-/**
- * 自定义 SideMenu，只显示拖拽抓手，不显示 + 新增按钮
- * 这解决了左侧冗余图标占用空间、导致文本偏移的问题
- */
 export function DragOnlySideMenu<
-  BSchema extends { [key: string]: any } = { [key: string]: any },
-  I extends { [key: string]: any } = { [key: string]: any },
-  S extends { [key: string]: any } = { [key: string]: any }
+  BSchema extends BlockSchema = BlockSchema,
+  I extends InlineContentSchema = InlineContentSchema,
+  S extends StyleSchema = StyleSchema
 >(
   props: SideMenuProps<BSchema, I, S> & { children?: React.ReactNode }
 ) {
@@ -40,7 +37,7 @@ export function DragOnlySideMenu<
             onDragStart={(e) => props.blockDragStart(e as unknown as React.DragEvent, props.block)}
             onDragEnd={props.blockDragEnd}
             className="bn-button bn-drag-handle-button"
-            icon={<MdDragIndicator size={20} data-test="dragHandle" />}
+            icon={<GripVertical size={20} data-test="dragHandle" />}
           />
         </Components.Generic.Menu.Trigger>
         <DragHandleMenu block={props.block}>

@@ -27,22 +27,7 @@ export interface BoardNode {
   id: string
   type: 'card' | 'frame' | 'media'
   position: { x: number; y: number }
-  data: {
-    cardId?: string
-    color?: string
-    variant?: string
-    collapsed?: boolean
-    fixedHeight?: boolean
-    width?: number
-    height?: number
-    name?: string
-    url?: string
-    layout?: string
-    childCardIds?: string[]
-    frameId?: string
-    localX?: number
-    localY?: number
-  }
+  data: Record<string, unknown>
   width?: number
   height?: number
 }

@@ -21,12 +21,12 @@ interface AlignmentToolbarProps {
 }
 
 const ALIGN_ITEMS: { mode: AlignmentMode; Icon: typeof AlignStartHorizontal; title: string; group: 'align' | 'distribute' }[] = [
-  { mode: 'left', Icon: AlignStartHorizontal, title: '左对齐', group: 'align' },
-  { mode: 'centerH', Icon: AlignCenterHorizontal, title: '水平居中', group: 'align' },
-  { mode: 'right', Icon: AlignEndHorizontal, title: '右对齐', group: 'align' },
-  { mode: 'top', Icon: AlignStartVertical, title: '上对齐', group: 'align' },
-  { mode: 'centerV', Icon: AlignCenterVertical, title: '垂直居中', group: 'align' },
-  { mode: 'bottom', Icon: AlignEndVertical, title: '下对齐', group: 'align' },
+  { mode: 'left', Icon: AlignStartVertical, title: '左对齐', group: 'align' },
+  { mode: 'centerH', Icon: AlignCenterVertical, title: '水平居中', group: 'align' },
+  { mode: 'right', Icon: AlignEndVertical, title: '右对齐', group: 'align' },
+  { mode: 'top', Icon: AlignStartHorizontal, title: '上对齐', group: 'align' },
+  { mode: 'centerV', Icon: AlignCenterHorizontal, title: '垂直居中', group: 'align' },
+  { mode: 'bottom', Icon: AlignEndHorizontal, title: '下对齐', group: 'align' },
   { mode: 'distributeH', Icon: AlignHorizontalDistributeCenter, title: '水平等间距', group: 'distribute' },
   { mode: 'distributeV', Icon: AlignVerticalDistributeCenter, title: '垂直等间距', group: 'distribute' },
 ]

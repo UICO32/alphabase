@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify'
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useCardStore } from '../../stores/cardStore'
@@ -162,23 +163,24 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
                     setSourceRect(e.currentTarget.getBoundingClientRect())
                     setEditingResultId(card.id)
                   }}
-                  className="hepta-list-item group relative p-3 rounded-lg cursor-pointer active:cursor-grabbing"
+                  className="hepta-list-item group relative p-3 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col"
                   style={{
                     backgroundColor: surface.surface,
                     border: `1px solid ${surface.divider}`,
+                    aspectRatio: '4/3',
                   }}
                 >
                   {card.title && card.title !== '新卡片' ? (
-                    <div className="text-sm font-medium mb-1" style={{ color: surface.text }}>
+                    <div className="text-sm font-medium mb-1 truncate" style={{ color: surface.text }}>
                       {card.title}
                     </div>
                   ) : null}
                   <div
-                    className="text-xs line-clamp-3 card-preview-html"
+                    className="text-xs line-clamp-3 card-preview-html overflow-hidden"
                     style={{ color: surface.muted }}
-                    dangerouslySetInnerHTML={{ __html: card.previewHTML || '无内容' }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(card.previewHTML || '') || '无内容' }}
                   />
-                  <div className="mt-2 flex items-center justify-between text-[10px]" style={{ color: surface.muted }}>
+                  <div className="mt-auto flex items-center justify-between text-[10px]" style={{ color: surface.muted }}>
                     <span>{new Date(card.createdAt).toLocaleDateString('zh-CN')}</span>
                     {score !== undefined && (
                       <span className="px-1.5 py-0.5 rounded" style={{ backgroundColor: surface.panelBg }}>

@@ -43,8 +43,7 @@ export async function readClipboardImageFiles() {
     }
 
     return files
-  } catch (error) {
-    console.warn('Could not read image from clipboard API:', error)
+  } catch {
     return []
   }
 }
@@ -113,41 +112,3 @@ export function toComparableJson(value: unknown) {
   })
 }
 
-function extractText(value: unknown, parts: string[]) {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (trimmed) parts.push(trimmed)
-    return
-  }
-  if (!value || typeof value !== 'object') return
-  if (Array.isArray(value)) {
-    for (const item of value) extractText(item, parts)
-    return
-  }
-  const record = value as Record<string, unknown>
-  if (record.type === 'image') parts.push('[Image]')
-  if (typeof record.text === 'string') {
-    const text = record.text.trim()
-    if (text) parts.push(text)
-  }
-  if (typeof record.caption === 'string') {
-    const caption = record.caption.trim()
-    if (caption) parts.push(caption)
-  }
-  if (typeof record.name === 'string') {
-    const name = record.name.trim()
-    if (name) parts.push(name)
-  }
-  if ('content' in record) extractText(record.content, parts)
-  if ('children' in record) extractText(record.children, parts)
-}
-
-export function summarizeRichTextPreview(content: string) {
-  const parts: string[] = []
-  try {
-    extractText(JSON.parse(content), parts)
-  } catch {
-    if (content.trim()) parts.push(content.trim())
-  }
-  return parts.join(' ').replace(/\s+/g, ' ').trim()
-}

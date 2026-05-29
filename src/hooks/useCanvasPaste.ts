@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { type Node } from '@xyflow/react'
 import type { ReactFlowInstance } from '@xyflow/react'
-import type { MediaNodeData } from '../components/canvas/MediaNode'
+import type { MediaNodeData } from '../types/card'
 import { fileToDataUrl, generateId } from '../utils/fileUtils'
 
 interface UseCanvasPasteOptions {

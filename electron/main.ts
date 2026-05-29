@@ -14,35 +14,6 @@ app.commandLine.appendSwitch('disable-breakpad')
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 let mainWindow: BrowserWindow | null = null
-let splashWindow: BrowserWindow | null = null
-
-const splashHTML = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{width:300px;height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1a1a2e;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
-.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,0.15);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
-.title{font-size:18px;font-weight:600;letter-spacing:0.5px;color:#e0e0e0}
-@keyframes spin{to{transform:rotate(360deg)}
-</style></head><body>
-<div class="spinner"></div>
-<div class="title">Heptabase Canvas</div>
-</body></html>`
-
-function createSplash() {
-  splashWindow = new BrowserWindow({
-    width: 300,
-    height: 300,
-    transparent: false,
-    frame: false,
-    resizable: false,
-    center: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-  })
-  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHTML)}`)
-  splashWindow.on('closed', () => { splashWindow = null })
-}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -75,9 +46,6 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
-    if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.close()
-    }
     mainWindow?.show()
   })
 

@@ -12,6 +12,11 @@ interface LibraryStore {
   openCardEditor: (cardId: string) => void
   closeCardEditor: () => void
 
+  kanbanEditDialogCardId: string | null
+  kanbanEditDialogSourceRect: DOMRect | null
+  openKanbanEditDialog: (cardId: string, sourceRect: DOMRect | null) => void
+  closeKanbanEditDialog: () => void
+
   isDarkMode: boolean
   themeMode: ThemeMode
   setThemeMode: (mode: ThemeMode) => void
@@ -58,6 +63,8 @@ export const useLibraryStore = create<LibraryStore>()(
   (set, get) => ({
       viewMode: 'board',
       editingCardId: null,
+      kanbanEditDialogCardId: null,
+      kanbanEditDialogSourceRect: null,
       themeMode: initialThemeMode,
       isDarkMode: initialIsDarkMode,
       panelHue: (() => {
@@ -86,6 +93,11 @@ export const useLibraryStore = create<LibraryStore>()(
 
       openCardEditor: (cardId) => set({ editingCardId: cardId }),
       closeCardEditor: () => set({ editingCardId: null }),
+
+      openKanbanEditDialog: (cardId, sourceRect) =>
+        set({ kanbanEditDialogCardId: cardId, kanbanEditDialogSourceRect: sourceRect }),
+      closeKanbanEditDialog: () =>
+        set({ kanbanEditDialogCardId: null, kanbanEditDialogSourceRect: null }),
       setEditingCardId: (cardId) => set({ editingCardId: cardId }),
 
       setThemeMode: (mode) => {

@@ -1,22 +1,27 @@
 import { useCallback } from 'react'
-import { type Node, type Edge } from '@xyflow/react'
+import { type Node } from '@xyflow/react'
 import { useCardStore } from '../stores/cardStore'
+import type { GlobalCard } from '../stores/cardStore'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 
 interface UseCanvasDoubleClickOptions {
   nodes: Node[]
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void
-  setEdges: (edges: Edge[] | ((prev: Edge[]) => Edge[])) => void
   reactFlowInstance: React.RefObject<import('@xyflow/react').ReactFlowInstance | null>
-  recordCurrentState: (type: 'canvas' | 'structure', description: string) => void
+  recordCurrentState: (deletedCardsContent?: Record<string, GlobalCard>) => void
+  snapshotNow: (deletedCardsContent?: Record<string, GlobalCard>) => void
 }
 
-export function useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recordCurrentState }: UseCanvasDoubleClickOptions) {
+export function useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recordCurrentState, snapshotNow }: UseCanvasDoubleClickOptions) {
   const addCard = useCardStore((s) => s.addCard)
 
   const handleDoubleClick = useCallback((event: React.MouseEvent) => {
+    if ((event.target as HTMLElement).closest('.frame-node, .card-node-default')) return
+
     const instance = reactFlowInstance.current
     if (!instance) return
+
+    snapshotNow()
 
     const position = instance.screenToFlowPosition({
       x: event.clientX,
@@ -44,9 +49,9 @@ export function useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recor
     ])
 
     setTimeout(() => {
-      recordCurrentState('structure', '双击创建卡片')
+      recordCurrentState()
     }, 0)
-  }, [nodes, setNodes, addCard, reactFlowInstance, recordCurrentState])
+  }, [nodes, setNodes, addCard, reactFlowInstance, recordCurrentState, snapshotNow])
 
   return { handleDoubleClick }
 }

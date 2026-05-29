@@ -121,12 +121,15 @@ export function ReactFlowCanvas() {
       clearTimeout(recordTimerRef.current)
     }
     recordTimerRef.current = setTimeout(() => {
+      const nodes = nodesRef.current.map(n => ({ ...n }))
+      const edges = edgesRef.current.map(e => ({ ...e }))
       record({
-        nodes: nodesRef.current.map(n => ({ ...n })),
-        edges: edgesRef.current.map(e => ({ ...e })),
+        nodes,
+        edges,
         deletedCardsContent,
+        _size: nodes.length * 500 + edges.length * 100,
       })
-    }, 300)
+    }, 500)
   }, [record])
 
   // 操作前立即记录当前状态（无 debounce），确保 undo 能回到操作前
@@ -135,10 +138,13 @@ export function ReactFlowCanvas() {
       clearTimeout(recordTimerRef.current)
       recordTimerRef.current = null
     }
+    const nodes = nodesRef.current.map(n => ({ ...n }))
+    const edges = edgesRef.current.map(e => ({ ...e }))
     record({
-      nodes: nodesRef.current.map(n => ({ ...n })),
-      edges: edgesRef.current.map(e => ({ ...e })),
+      nodes,
+      edges,
       deletedCardsContent,
+      _size: nodes.length * 500 + edges.length * 100,
     })
   }, [record])
 
@@ -484,9 +490,12 @@ export function ReactFlowCanvas() {
 
   const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
 
+  const isConnectingRef = useRef(isConnecting)
+  useEffect(() => { isConnectingRef.current = isConnecting }, [isConnecting])
+
   const onMouseMove = useCallback((event: React.MouseEvent) => {
     lastMousePosRef.current = { x: event.clientX, y: event.clientY }
-    if (!isConnecting) return
+    if (!isConnectingRef.current) return
     pendingMouseEventRef.current = event
     if (rafRef.current !== null) return
     rafRef.current = requestAnimationFrame(() => {
@@ -518,7 +527,7 @@ export function ReactFlowCanvas() {
       }
       connectionMediator.setNearbyTarget(closestId)
     })
-  }, [isConnecting])
+  }, [])
 
   const connectionLineComponent = useCallback(
     (props: Parameters<typeof CustomConnectionLine>[0]) => (
@@ -594,6 +603,7 @@ export function ReactFlowCanvas() {
       <ReactFlow
         nodes={sortedNodes}
         edges={visibleEdges}
+        onlyRenderVisibleElements
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -605,8 +615,8 @@ export function ReactFlowCanvas() {
         onNodeDrag={onNodeDrag}
         onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStopWithCleanup}
-        onReconnect={(oldEdge, newConn) => onReconnect(oldEdge, newConn)}
-        onReconnectEnd={(e, edge) => onReconnectEnd(e, edge)}
+        onReconnect={onReconnect}
+        onReconnectEnd={onReconnectEnd}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         edgesReconnectable

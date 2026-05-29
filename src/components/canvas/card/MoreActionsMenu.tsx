@@ -8,7 +8,6 @@ import { MenuItem } from './MenuItem'
 import { BoardSubmenu } from './BoardSubmenu'
 
 interface MoreActionsMenuProps {
-  cardId: string
   color: CardColor
   onClose: () => void
   onRemoveFromBoard: () => void
@@ -18,7 +17,6 @@ interface MoreActionsMenuProps {
 }
 
 export function MoreActionsMenu({
-  cardId,
   color,
   onClose,
   onRemoveFromBoard,

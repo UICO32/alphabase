@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { type Node, type Edge } from '@xyflow/react'
 import { useBoardStore } from '../stores/boardStore'
 import { useEvent } from './useEvent'
+import { getActiveSyncEngine } from '../sync/syncEngineRef'
 
 // 提取共享的序列化逻辑，避免 syncToStore 和 unmount effect 中重复定义
 function serializeBoardData(nodes: Node[], edges: Edge[]) {
@@ -36,7 +37,32 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
 
   const syncToStore = useCallback(() => {
     if (!activeBoardId || !isLoadedRef.current) return
-    saveBoardData(activeBoardId, serializeBoardData(nodes, edges))
+    const data = serializeBoardData(nodes, edges)
+    saveBoardData(activeBoardId, data)
+
+    const syncEngine = getActiveSyncEngine()
+    if (syncEngine) {
+      syncEngine.scheduleWriteBoard(activeBoardId, {
+        version: 2,
+        nodes: data.nodes.map(n => ({
+          id: n.id,
+          type: (n.type === 'card' || n.type === 'frame' || n.type === 'media') ? n.type as 'card' | 'frame' | 'media' : 'card',
+          position: { x: n.position.x, y: n.position.y },
+          data: n.data as { cardId?: string; color?: string; variant?: string; collapsed?: boolean; fixedHeight?: boolean; width?: number; height?: number; name?: string; url?: string; layout?: string; childCardIds?: string[]; frameId?: string; localX?: number; localY?: number; columns?: unknown[]; layoutSnapshots?: Record<string, unknown> },
+          width: n.width,
+          height: n.height,
+        })),
+        edges: data.edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: 'connection' as const,
+          sourceHandle: e.sourceHandle ?? undefined,
+          targetHandle: e.targetHandle ?? undefined,
+        })),
+        viewport: { x: 0, y: 0, zoom: 1 },
+      })
+    }
   }, [activeBoardId, nodes, edges, saveBoardData])
 
   useEffect(() => {

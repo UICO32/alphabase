@@ -88,3 +88,28 @@ export function localToGlobal(
     y: local.y + frame.position.y,
   }
 }
+
+export function rectsOverlap(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  )
+}
+
+export function cardOverlapsFrame(cardNode: Node, frameNode: Node): boolean {
+  const cd = cardNode.data as Record<string, unknown>
+  const cw = (cd.width as number) ?? cardNode.width ?? 280
+  const ch = (cd.height as number) ?? cardNode.height ?? 200
+  const fd = frameNode.data as Record<string, unknown>
+  const fw = (fd.width as number) ?? frameNode.width ?? 600
+  const fh = (fd.height as number) ?? frameNode.height ?? 400
+  return rectsOverlap(
+    { x: cardNode.position.x, y: cardNode.position.y, w: cw, h: ch },
+    { x: frameNode.position.x, y: frameNode.position.y, w: fw, h: fh },
+  )
+}

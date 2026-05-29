@@ -18,11 +18,11 @@ declare global {
         openDirectory: () => Promise<string | null>
       }
       clipper: {
-        clip: (url: string, workspacePath?: string) => Promise<any>
+        clip: (url: string, workspacePath?: string) => Promise<{ title: string; html: string; markdown: string; sourceUrl: string; sourceName: string; favicon?: string; images: Array<{ originalUrl: string; localFilename: string; originalSize: number; compressedSize: number }> }>
       }
       flomo: {
         login: (email: string, password: string) => Promise<{ accessToken: string }>
-        fetchMemos: (accessToken: string, lastSyncTime?: string) => Promise<{ memos: any[] }>
+        fetchMemos: (accessToken: string, lastSyncTime?: string) => Promise<{ memos: Array<{ slug: string; content: string; tags: Array<{ name: string }>; created_at: string; updated_at: string; files: Array<{ url: string; type: string }> }> }>
         downloadImg: (url: string, destPath: string) => Promise<{ success: boolean; error?: string }>
       }
       embedding: {

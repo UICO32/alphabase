@@ -5,14 +5,13 @@ import { useCardStore } from '../../stores/cardStore'
 import { useTrashStore } from '../../stores/trashStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { X, Trash2 } from 'lucide-react'
+import { clearProseMirrorSuppression } from '../../utils/editorHandleRegistry'
 import { CARD_COLORS, type CardColor } from '../../types/card'
 
 const LazyCardBlockNoteEditor = lazy(() =>
   import('../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
 )
 
-const DIALOG_WIDTH = 700
-const DIALOG_HEIGHT = 600
 const MORPH_TRANSITION = {
   duration: 0.5,
   ease: [0.2, 0.8, 0.2, 1] as [number, number, number, number],
@@ -34,8 +33,18 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
   const addItem = useTrashStore(s => s.addItem)
 
   const handleChange = useCallback((content: string) => {
+    clearProseMirrorSuppression(cardId)
     updateCard(cardId, { content })
   }, [cardId, updateCard])
+
+  const handleEditorFocus = useCallback(() => {
+    useCardStore.getState().recordCardContentSnapshot(cardId)
+  }, [cardId])
+
+  const handleCloseWithSnapshot = useCallback(() => {
+    useCardStore.getState().recordCardContentSnapshot(cardId)
+    onClose()
+  }, [cardId, onClose])
 
   const handleColorChange = useCallback((color: CardColor) => {
     updateCard(cardId, { color })
@@ -43,16 +52,19 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleCloseWithSnapshot()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [handleCloseWithSnapshot])
 
   if (!card) return null
 
-  const centerX = (window.innerWidth - DIALOG_WIDTH) / 2
-  const centerY = (window.innerHeight - DIALOG_HEIGHT) / 2
+  const dialogWidth = Math.min(700, window.innerWidth * 0.85)
+  const dialogHeight = Math.min(600, window.innerHeight * 0.8)
+
+  const centerX = (window.innerWidth - dialogWidth) / 2
+  const centerY = (window.innerHeight - dialogHeight) / 2
 
   const initialStyle = sourceRect
     ? {
@@ -65,16 +77,16 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
     : {
         top: centerY,
         left: centerX,
-        width: DIALOG_WIDTH,
-        height: DIALOG_HEIGHT,
+        width: dialogWidth,
+        height: dialogHeight,
         borderRadius: 16,
       }
 
   const animateStyle = {
     top: centerY,
     left: centerX,
-    width: DIALOG_WIDTH,
-    height: DIALOG_HEIGHT,
+    width: dialogWidth,
+    height: dialogHeight,
     borderRadius: 16,
   }
 
@@ -99,16 +111,16 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={FADE_TRANSITION}
-          onClick={onClose}
+          onClick={handleCloseWithSnapshot}
         />
 
         <motion.div
-          className="fixed z-[60] overflow-hidden flex flex-col glass-panel"
+          className="fixed z-[60] overflow-hidden flex flex-col"
           initial={initialStyle}
           animate={animateStyle}
           exit={exitStyle}
           transition={MORPH_TRANSITION}
-          style={{ boxShadow: 'var(--shadow-xl)' }}
+          style={{ boxShadow: 'var(--shadow-xl)', background: '#fafafa' }}
         >
           <div
             className="flex items-center justify-between px-5 py-3 border-b shrink-0"
@@ -133,7 +145,7 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
                       fixedHeight: card.fixedHeight,
                       collapsed: card.collapsed,
                     })
-                    onClose()
+                    handleCloseWithSnapshot()
                   }
                 }}
                 className="btn-base btn-danger flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
@@ -142,7 +154,7 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
                 删除
               </button>
               <button
-                onClick={onClose}
+                onClick={handleCloseWithSnapshot}
                 className="btn-base p-2 rounded-lg"
                 style={{ color: surface.muted }}
               >
@@ -171,6 +183,7 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
               <LazyCardBlockNoteEditor
                 content={card.content}
                 onChange={handleChange}
+                onFocus={handleEditorFocus}
                 editable={true}
                 theme={isDarkMode ? 'dark' : 'light'}
               />

@@ -30,8 +30,8 @@ export function migrateFromLocalStorageIfNeeded(): boolean {
         migrated = true
       }
     }
-  } catch (e) {
-    console.warn('Failed to migrate card store:', e)
+  } catch {
+    // skip migration failure
   }
 
   // Migrate boards
@@ -56,8 +56,8 @@ export function migrateFromLocalStorageIfNeeded(): boolean {
         migrated = true
       }
     }
-  } catch (e) {
-    console.warn('Failed to migrate board store:', e)
+  } catch {
+    // skip migration failure
   }
 
   return migrated

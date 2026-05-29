@@ -140,7 +140,6 @@ export const CardActionBar = memo(function CardActionBar({
           />
           {moreOpen && (
             <MoreActionsMenu
-              cardId={cardId}
               color={color}
               onClose={() => setMoreOpen(false)}
               onRemoveFromBoard={onRemoveFromBoard}

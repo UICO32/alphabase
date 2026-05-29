@@ -1,7 +1,5 @@
 # Heptabase Canvas v2 项目规范
 
-## 项目概述
-
 基于 React Flow 的画布知识管理桌面应用，从 tldraw 迁移到 React Flow 以解决编辑器冲突问题。
 
 技术栈：React 18 + TypeScript 5.6 + Vite 5 + React Flow + BlockNote + Zustand 5 + Electron 35 + Tailwind CSS 4
@@ -26,77 +24,32 @@
 用户请求新功能 → 调用 superpowers:brainstorming 技能 → 探索需求 → 确认方案 → 实现
 ```
 
-**触发条件**：
-- 添加新功能或组件
-- 修改现有行为
-- 架构调整
-- 技术选型变更
-
-**不触发**：
-- 简单 bug 修复
-- 文档更新
-- 配置微调
+**触发条件**：添加新功能或组件、修改现有行为、架构调整、技术选型变更  
+**不触发**：简单 bug 修复、文档更新、配置微调
 
 ### 3. 调试与验证
 
-**自主验证优先**，使用以下工具：
-
-| 工具 | 用途 |
-|------|------|
-| Playwright | E2E 测试、用户流程验证 |
-| Chrome DevTools MCP | DOM 检查、性能分析、网络请求 |
-| React DevTools | 组件状态、props 检查 |
-| Electron DevTools | 主进程调试、IPC 监控 |
-
-**验证流程**：
-1. 实现功能后，启动开发服务器
-2. 使用 Playwright 或 DevTools 进行交互测试
-3. 验证核心路径和边界情况
-4. 确认无回归后再提交
+自主验证优先，使用 Playwright、Chrome DevTools MCP、React DevTools、Electron DevTools 进行交互测试，验证核心路径和边界情况，确认无回归后再提交。
 
 ### 4. Git 分支管理
 
-**分支策略**：
-
 ```
-main (主分支，稳定版本)
-  ├── feature/<功能名>  (新功能开发)
-  ├── fix/<问题名>      (bug 修复)
-  ├── refactor/<模块名> (重构)
-  └── experiment/<描述> (实验性尝试)
+main
+  ├── feature/<功能名>
+  ├── fix/<问题名>
+  ├── refactor/<模块名>
+  └── experiment/<描述>
 ```
 
-**提交规范**：
-
-```
-<type>(<scope>): <subject>
-
-type: feat|fix|refactor|docs|style|test|chore
+提交规范：`<type>(<scope>): <subject>`  
+type: feat|fix|refactor|docs|style|test|chore  
 scope: canvas|editor|workspace|ui|sync|electron
 
-示例：
-feat(canvas): 实现 CardNode 组件
-fix(editor): 修复图片粘贴后高度不更新
-refactor(sync): 简化 syncEngine 订阅逻辑
-```
-
-**新功能开发流程**：
-1. 确认方案后，创建功能分支：`git checkout -b feature/<功能名>`
-2. 开发并验证功能
-3. 提交代码：`git commit -m "feat(scope): 描述"`
-4. 推送到远程：`git push -u origin feature/<功能名>`
-5. 通知用户创建 PR 或合并
+新功能开发流程：确认方案 → `git checkout -b feature/<功能名>` → 开发验证 → `git commit` → `git push -u origin feature/<功能名>` → 通知用户创建 PR 或合并
 
 ### 5. Review 提醒
 
-**在持续引入多个新功能后（3+ 个功能或 1 周开发周期），提醒用户**：
-
-> 已完成多个功能开发，建议进行以下 review：
-> - **性能 review**：检查组件渲染性能、内存使用、bundle 大小
-> - **代码冗余 review**：识别重复代码、可复用模块、死代码
-> - **架构 review**：评估模块划分、依赖关系、扩展性
->
-> 是否现在进行 review？
+在持续引入多个新功能后（3+ 个功能或 1 周开发周期），提醒用户进行性能 review、代码冗余 review、架构 review。
 
 **Review 检查点**：
 - [ ] 组件是否使用 React.memo 优化
@@ -109,23 +62,10 @@ refactor(sync): 简化 syncEngine 订阅逻辑
 
 **测试框架**：Playwright
 
-**目录结构**：
-```
-tests/
-  e2e/           # E2E 测试
-    *.spec.ts
-  unit/          # 单元测试（如需要）
-    *.test.ts
-```
-
-**命名规范**：
-- E2E 测试：`<功能>.spec.ts`
-- 单元测试：`<模块>.test.ts`
-
-**测试要求**：
+- E2E 测试：`tests/e2e/<功能>.spec.ts`
+- 单元测试：`tests/unit/<模块>.test.ts`
 - 核心用户流程必须有 E2E 测试覆盖
-- 新功能提交时附带测试用例
-- Bug 修复提交时附带回归测试
+- 新功能提交时附带测试用例，Bug 修复提交时附带回归测试
 
 ---
 
@@ -133,9 +73,7 @@ tests/
 
 GitHub: https://github.com/UICO32/-base.git
 
-**同步策略**：
-- 功能分支推送到远程
-- 主分支保持稳定可发布状态
+- 功能分支推送到远程，主分支保持稳定可发布状态
 - 合并前确保测试通过
 
 ---
@@ -181,23 +119,13 @@ GitHub: https://github.com/UICO32/-base.git
 
 ### 文件访问限制
 
-**禁止读取以下目录/文件：**
-- `node_modules/` — 依赖包，无需查看
-- `dist/`、`build/`、`.vite/` — 构建产物
-- `.git/` — Git 内部数据
-- `*.lock`、`package-lock.json`、`pnpm-lock.yaml` — 锁文件
-- `.cache/`、`*.log` — 缓存和日志
+**禁止读取**：`node_modules/`、`dist/`、`build/`、`.vite/`、`.git/`、锁文件、`.cache/`、`*.log`
 
-**例外情况（需用户明确要求）：**
-- 排查依赖问题时可查看 `package.json`
-- 构建配置问题时可查看 `vite.config.ts`、`tsconfig.json`
+**例外**（需用户明确要求）：排查依赖时可查看 `package.json`；构建配置问题可查看 `vite.config.ts`、`tsconfig.json`
 
 ### 搜索范围限制
 
-使用 `SearchCodebase`、`Grep`、`Glob` 时：
-- 默认在 `src/`、`electron/`、`tests/` 目录搜索
-- 避免全项目搜索导致命中 `node_modules`
-- 使用 `target_directories` 参数限定范围
+使用 `SearchCodebase`、`Grep`、`Glob` 时，默认在 `src/`、`electron/`、`tests/` 目录搜索，避免全项目搜索命中 `node_modules`。
 
 ### 代码修改原则
 
@@ -207,7 +135,85 @@ GitHub: https://github.com/UICO32/-base.git
 
 ---
 
+## GitNexus — 核心速查
+
+> 完整文档见 [AGENTS.md](file:///d:/USE/save/code/abase/AGENTS.md)
+
+<!-- gitnexus:start -->
+
+### Always Do
+
+- **MUST run impact analysis before editing any symbol.** Run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report blast radius.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify affected scope.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk.
+- Use `gitnexus_query({query: "concept"})` instead of grepping when exploring unfamiliar code.
+- Use `gitnexus_context({name: "symbolName"})` for full symbol details.
+
+### Never Do
+
+- NEVER edit a function/class/method without first running `gitnexus_impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename`.
+- NEVER commit without running `gitnexus_detect_changes()`.
+
+### 高频 CLI
+
+```bash
+npx gitnexus analyze   # 构建/刷新索引（首次使用、大改后、过期时）
+npx gitnexus status    # 检查索引新鲜度
+```
+
+### 高频 MCP 工具
+
+| Tool | 用途 |
+|------|------|
+| `gitnexus_query` | 按概念找执行流 |
+| `gitnexus_context` | 符号 360° 视图 |
+| `gitnexus_impact` | 影响分析（编辑前必做） |
+| `gitnexus_detect_changes` | 提交前检测影响范围 |
+
+### 索引刷新策略
+
+**GitNexus 不会自动监听文件变化。** 首次使用、大改代码后必须运行 `npx gitnexus analyze`；工具返回 "index stale" 时必须立即刷新。
+
+<!-- gitnexus:end -->
+
+---
+
+## CodeGraph — 核心速查
+
+> 完整文档见 [AGENTS.md](file:///d:/USE/save/code/abase/AGENTS.md)
+
+### 启动配置
+
+```json
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}
+```
+
+### 高频 CLI
+
+```bash
+codegraph init -i       # 初始化索引
+codegraph sync [path]   # 增量同步（外部编辑器修改后手动执行）
+codegraph status        # 检查统计信息
+```
+
+### 索引刷新策略
+
+**CodeGraph 在 Claude Code 内编辑时自动 sync；外部编辑器修改后需手动 `codegraph sync`。**
+
+---
+
 ## 参考文档
 
 - `PROMPT.md` - 项目背景、技术栈、开发顺序
 - `PROJECT_REFERENCE.md` - 老项目完整技术参考
+- `AGENTS.md` - GitNexus & CodeGraph 完整工具文档

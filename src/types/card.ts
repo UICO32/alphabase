@@ -21,6 +21,21 @@ export const DEFAULT_CARD_CONTENT = '[{"type":"heading","props":{"level":2},"con
 export const COLLAPSED_CARD_HEIGHT = 80
 export const PROXIMITY_THRESHOLD = 60
 
+import type { FrameLayout } from '../utils/frameLayouts'
+
+export interface LayoutSnapshot {
+  localX: number
+  localY: number
+  width?: number
+  height?: number
+}
+
+export interface MediaNodeData extends Record<string, unknown> {
+  url: string
+  type: 'image' | 'video' | 'embed'
+  name?: string
+}
+
 export interface CardNodeData extends Record<string, unknown> {
   cardId: string
   color: CardColor
@@ -30,6 +45,7 @@ export interface CardNodeData extends Record<string, unknown> {
   frameId?: string
   localX?: number
   localY?: number
+  layoutSnapshots?: Partial<Record<FrameLayout, LayoutSnapshot>>
 }
 export const FIXED_CARD_HEIGHT = 280
 export const MIN_AUTO_CARD_HEIGHT = 120
