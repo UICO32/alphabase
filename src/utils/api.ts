@@ -253,6 +253,5 @@ export const heptabaseAPI = {
 export function initAPI() {
   if (typeof window !== 'undefined') {
     window.heptabaseAPI = heptabaseAPI
-    console.log('Heptabase API initialized. Use window.heptabaseAPI or heptabaseAPI.info() to see available commands.')
   }
 }

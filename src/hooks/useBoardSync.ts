@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { type Node, type Edge } from '@xyflow/react'
 import { useBoardStore } from '../stores/boardStore'
+import { useEvent } from './useEvent'
 
 // 提取共享的序列化逻辑，避免 syncToStore 和 unmount effect 中重复定义
 function serializeBoardData(nodes: Node[], edges: Edge[]) {
@@ -63,11 +64,7 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
   }, [nodes, edges])
 
   // Force-save current board when workspace is about to switch
-  useEffect(() => {
-    const handler = () => {
-      syncToStore()
-    }
-    window.addEventListener('hepta-save-current-board', handler)
-    return () => window.removeEventListener('hepta-save-current-board', handler)
+  useEvent('save-current-board', () => {
+    syncToStore()
   }, [syncToStore])
 }

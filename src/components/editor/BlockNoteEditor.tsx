@@ -1,9 +1,11 @@
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle, type ForwardedRef } from 'react'
 import { dropCursor } from '@tiptap/pm/dropcursor'
-import { TextSelection } from '@tiptap/pm/state'
+import { TextSelection, EditorState } from '@tiptap/pm/state'
 import { Node as ProseMirrorNode } from '@tiptap/pm/model'
+import { undoDepth, redoDepth } from 'prosemirror-history'
 import { useCreateBlockNote, SideMenuController } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
+import type { PartialBlock } from '@blocknote/core'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { ImageToolbar } from './ImageToolbar'
@@ -27,6 +29,9 @@ export interface BlockNoteEditorHandle {
   blur: () => void
   setEditable: (editable: boolean) => void
   focusAtCoords: (point: { x: number; y: number }) => void
+  canUndo: () => boolean
+  canRedo: () => boolean
+  setContent: (contentJson: string) => void
 }
 
 export interface BlockNoteEditorProps {
@@ -119,17 +124,10 @@ const CardBlockNoteEditorInner = (
           if (paragraph) editor.setTextCursorPosition(paragraph, 'start')
         }
 
-        const clipboardItemTypes = Array.from(clipboardData.items).map((item) => item.type)
         const hasImageFileItem = Array.from(clipboardData.items).some((item) => item.kind === 'file' && item.type.startsWith('image/'))
           || Array.from(clipboardData.files).some((file) => isImageFile(file))
 
-        console.debug('[card paste]', {
-          itemTypes: clipboardItemTypes,
-          fileCount: clipboardData.files.length,
-        })
-
         if (hasImageFileItem) {
-          console.debug('[card paste] use default image file paste')
           return fallbackPaste()
         }
 
@@ -152,22 +150,18 @@ const CardBlockNoteEditorInner = (
         const hasUnreadableImages = imageUrls.some((url) => !isReadableImageUrl(url))
 
         if (!hasUnreadableImages || !hasOnlyImages) {
-          console.debug('[card paste] use default html paste')
           return fallbackPaste()
         }
 
-        console.debug('[card paste] try clipboard.read fallback for local image html')
         void readClipboardImageFiles()
           .then((files) => {
             if (files.length === 0) {
-              console.warn('[card paste] clipboard.read returned no image files, fallback to default paste')
               fallbackPaste()
               return
             }
             return insertImages(files)
           })
-          .catch((error) => {
-            console.warn('[card paste] clipboard.read fallback failed, use default paste', error)
+          .catch(() => {
             fallbackPaste()
           })
 
@@ -231,6 +225,26 @@ const CardBlockNoteEditorInner = (
           })
         })
       },
+      canUndo: () => {
+        const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as { state: EditorState } | undefined
+        if (!pm) return false
+        return undoDepth(pm.state) > 0
+      },
+      canRedo: () => {
+        const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as { state: EditorState } | undefined
+        if (!pm) return false
+        return redoDepth(pm.state) > 0
+      },
+      setContent: (contentJson: string) => {
+        const nextBlocks = parseContentToBlocks(contentJson)
+        const replacement = nextBlocks && nextBlocks.length > 0
+          ? nextBlocks
+          : [{ type: 'paragraph' }]
+        const currentIds = editor.document.map((block) => block.id)
+        if (currentIds.length > 0) {
+          editor.replaceBlocks(currentIds, replacement as PartialBlock[])
+        }
+      },
     }))
 
     const flushPending = useCallback(() => {
@@ -279,7 +293,7 @@ const CardBlockNoteEditorInner = (
         : [{ type: 'paragraph' }]
 
       if (currentIds.length > 0) {
-        editor.replaceBlocks(currentIds, replacement as any)
+        editor.replaceBlocks(currentIds, replacement as PartialBlock[])
       }
     }, [content, editor, editable])
 

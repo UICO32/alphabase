@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { convertFlomoMemo, type FlomoMemo } from '../converters/flomoConverter'
 import { useCardStore, type GlobalCard } from '../stores/cardStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { flushActiveSyncEngine } from './syncEngineRef'
 
 export interface FlomoSyncState {
   syncing: boolean
@@ -36,14 +37,14 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
       const result = await window.electronAPI.flomo.login(email, password)
       set({ accessToken: result.accessToken, email })
       await get()._saveState()
-    } catch (e: any) {
-      set({ error: e.message || '登录失败' })
+    } catch (e: unknown) {
+      set({ error: e instanceof Error ? e.message : '登录失败' })
       throw e
     }
   },
 
   sync: async () => {
-    const { syncing, accessToken, importedSlugs } = get()
+    const { syncing, accessToken } = get()
     if (syncing || !accessToken) return 0
 
     set({ syncing: true, error: null })
@@ -53,8 +54,14 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
         get().lastSyncTime || undefined
       )
 
-      const slugSet = new Set(importedSlugs)
-      const newMemos = (memos as FlomoMemo[]).filter(m => !slugSet.has(m.slug))
+      // 基于本地已存在的卡片做去重，而非 importedSlugs
+      // importedSlugs 可能与磁盘实际写入不一致（进程崩溃/提前退出时）
+      const existingCards = useCardStore.getState().cards
+      const existingFlomoSlugs = new Set<string>()
+      for (const card of Object.values(existingCards)) {
+        if (card.flomoSlug) existingFlomoSlugs.add(card.flomoSlug)
+      }
+      const newMemos = (memos as FlomoMemo[]).filter(m => !existingFlomoSlugs.has(m.slug))
 
       if (newMemos.length === 0) {
         set({ syncing: false, lastSyncTime: new Date().toISOString() })
@@ -76,9 +83,9 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
             const destPath = `${workspaceDir}/assets/flomo/${fileName}`
             const result = await window.electronAPI.flomo.downloadImg(imgUrl, destPath)
             if (result.success) {
-              converted.blocks = converted.blocks.map((b: any) => {
-                if (b.type === 'image' && b.props?.url === imgUrl) {
-                  return { ...b, props: { ...b.props, url: `assets/flomo/${fileName}` } }
+              converted.blocks = converted.blocks.map((b: Record<string, unknown>) => {
+                if (b.type === 'image' && (b.props as { url?: string })?.url === imgUrl) {
+                  return { ...b, props: { ...(b.props as Record<string, unknown>), url: `assets/flomo/${fileName}` } }
                 }
                 return b
               })
@@ -104,21 +111,24 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
         Object.fromEntries(cards.map(c => [c.id, c]))
       )
 
-      const newSlugs = [...importedSlugs, ...newMemos.map(m => m.slug)]
+      // 等待 syncEngine 将卡片写入磁盘后再保存同步状态
+      // 防止进程崩溃/退出时卡片未落盘但 slug 已记录导致数据丢失
+      await new Promise(r => setTimeout(r, 50))
+      await flushActiveSyncEngine()
 
       set({
         syncing: false,
         lastSyncTime: new Date().toISOString(),
         importedCount: get().importedCount + newMemos.length,
-        importedSlugs: newSlugs,
       })
       await get()._saveState()
       return newMemos.length
-    } catch (e: any) {
-      if (e.message === 'TOKEN_EXPIRED') {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '同步失败'
+      if (message === 'TOKEN_EXPIRED') {
         set({ syncing: false, error: '登录已过期，请重新登录', accessToken: null })
       } else {
-        set({ syncing: false, error: e.message || '同步失败' })
+        set({ syncing: false, error: message })
       }
       return 0
     }
@@ -149,10 +159,10 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
   },
 
   _saveState: async () => {
-    const { lastSyncTime, importedCount, accessToken, email, importedSlugs } = get()
+    const { lastSyncTime, importedCount, accessToken, email } = get()
     const workspaceDir = useWorkspaceStore.getState().currentWorkspace?.path
     if (!workspaceDir) return
-    const data = { lastSyncTime, importedCount, accessToken, email, importedSlugs }
+    const data = { lastSyncTime, importedCount, accessToken, email }
     await window.electronAPI.fs.writeFile(
       `${workspaceDir}/flomo-sync.json`,
       JSON.stringify(data, null, 2)

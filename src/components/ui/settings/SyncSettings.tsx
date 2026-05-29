@@ -37,8 +37,9 @@ export function SyncSettings() {
     try {
       await login(inputEmail, inputPassword)
       setInputPassword('')
-    } catch (e: any) {
-      setLoginError(e.message || '登录失败')
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '登录失败';
+      setLoginError(message);
     }
   }
 
@@ -50,8 +51,9 @@ export function SyncSettings() {
       } else if (!error) {
         alert('没有新的 flomo 内容')
       }
-    } catch (e: any) {
-      alert(`同步失败: ${e.message || '未知错误'}`)
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '未知错误';
+      alert(`同步失败: ${message}`)
     }
   }
 

@@ -4,11 +4,13 @@ import { useBoardStore } from '../../stores/boardStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { SearchInput, EmptyState } from './SharedUI'
 import { LayoutGrid, FileText } from 'lucide-react'
+import { useEventBus } from '../../stores/eventBus'
 
 export function BoardLibraryView() {
   const setViewMode = useLibraryStore(s => s.setViewMode)
   const boards = useBoardStore(s => s.boards)
   const activeBoardId = useBoardStore(s => s.activeBoardId)
+  const emit = useEventBus(s => s.emit)
 
   const surface = usePanelSurface()
   const [searchQuery, setSearchQuery] = useState('')
@@ -22,7 +24,7 @@ export function BoardLibraryView() {
   }, [boards, searchQuery])
 
   const handleBoardClick = (boardId: string) => {
-    window.dispatchEvent(new CustomEvent('hepta-switch-board', { detail: { boardId } }))
+    emit('switch-board', { boardId })
     setViewMode('board')
   }
 

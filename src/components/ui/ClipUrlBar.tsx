@@ -5,6 +5,7 @@ import { htmlToBlocks } from '../../converters/htmlToBlocks'
 import { useCardStore } from '../../stores/cardStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { useEventBus } from '../../stores/eventBus'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 
 interface ClipUrlBarProps {
@@ -19,6 +20,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const surface = usePanelSurface()
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path)
+  const emit = useEventBus(s => s.emit)
 
   useEffect(() => {
     if (open) {
@@ -57,7 +59,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
       title: '剪藏中…',
     })
 
-    window.dispatchEvent(new CustomEvent('hepta-add-card-node', { detail: { cardId, color: 'blue' } }))
+    emit('add-card-node', { cardId, color: 'blue' })
 
     try {
       const result = await clipUrl(trimmed, workspacePath)
@@ -83,13 +85,15 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
       useLibraryStore.getState().setRightPanelActiveTab('editor')
 
       onClose()
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const code = (err as Record<string, unknown>)?.code as string | undefined
+      const msg = err instanceof Error ? err.message : '未知错误'
       const errorMessage =
-        err.code === 'TIMEOUT' ? '请求超时，请检查网络后重试'
-        : err.code === 'NO_CONTENT' ? '该页面无法提取有效内容'
-        : err.code === 'WECHAT_CAPTCHA' ? '微信反爬验证拦截，请在浏览器中打开文章后重试'
-        : err.code === 'FETCH_ERROR' ? `无法访问该页面 (${err.message})`
-        : `剪藏失败: ${err.message || '未知错误'}`
+        code === 'TIMEOUT' ? '请求超时，请检查网络后重试'
+        : code === 'NO_CONTENT' ? '该页面无法提取有效内容'
+        : code === 'WECHAT_CAPTCHA' ? '微信反爬验证拦截，请在浏览器中打开文章后重试'
+        : code === 'FETCH_ERROR' ? `无法访问该页面 (${msg})`
+        : `剪藏失败: ${msg}`
 
       useCardStore.getState().updateCard(cardId, {
         content: JSON.stringify([

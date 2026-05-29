@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useBoardStore } from '../stores/boardStore'
 import { useLibraryStore } from '../stores/libraryStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useEventBus } from '../stores/eventBus'
 
 export function useBoardActions() {
   const boards = useBoardStore(s => s.boards)
@@ -9,6 +10,7 @@ export function useBoardActions() {
   const viewMode = useLibraryStore(s => s.viewMode)
   const setViewMode = useLibraryStore(s => s.setViewMode)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
+  const emit = useEventBus(s => s.emit)
 
   const createBoard = useCallback((name: string) => {
     const trimmed = name.trim()
@@ -23,9 +25,9 @@ export function useBoardActions() {
     boardStore.addBoard(newBoard)
     boardStore.saveBoardData(newBoard.id, { nodes: [], edges: [] })
     if (viewMode !== 'board') setViewMode('board')
-    window.dispatchEvent(new CustomEvent('hepta-switch-board', { detail: { boardId: newBoard.id } }))
+    emit('switch-board', { boardId: newBoard.id })
     return newBoard
-  }, [viewMode, setViewMode])
+  }, [viewMode, setViewMode, emit])
 
   const renameBoard = useCallback((boardId: string, name: string) => {
     const trimmed = name.trim()
@@ -45,15 +47,13 @@ export function useBoardActions() {
       if (activeBoardId === boardId) {
         const remaining = boards.filter(b => b.id !== boardId)
         if (remaining.length > 0) {
-          window.dispatchEvent(new CustomEvent('hepta-switch-board', {
-            detail: { boardId: remaining[0].id }
-          }))
+          emit('switch-board', { boardId: remaining[0].id })
         }
       }
       return true
     }
     return false
-  }, [boards, activeBoardId])
+  }, [boards, activeBoardId, emit])
 
   const duplicateBoard = useCallback((boardId: string) => {
     const board = boards.find(b => b.id === boardId)
@@ -72,16 +72,14 @@ export function useBoardActions() {
   const switchBoard = useCallback((boardId: string) => {
     if (boardId === activeBoardId && viewMode === 'board') return
     if (viewMode !== 'board') setViewMode('board')
-    window.dispatchEvent(new CustomEvent('hepta-switch-board', { detail: { boardId } }))
-  }, [activeBoardId, viewMode, setViewMode])
+    emit('switch-board', { boardId })
+  }, [activeBoardId, viewMode, setViewMode, emit])
 
   const openInExplorer = useCallback(() => {
     if (currentWorkspace?.path) {
-      window.dispatchEvent(new CustomEvent('hepta-open-in-explorer', {
-        detail: { path: currentWorkspace.path }
-      }))
+      emit('open-in-explorer', { path: currentWorkspace.path })
     }
-  }, [currentWorkspace])
+  }, [currentWorkspace, emit])
 
   return {
     boards,

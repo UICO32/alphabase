@@ -3,6 +3,7 @@ import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useEvent } from './useEvent'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/migrateFromLocalStorage'
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
@@ -86,7 +87,6 @@ export function useWorkspaceDataLoader() {
 
     if (choice === 'backup' && pendingWorkspacePath) {
       // TODO: Implement backup restoration
-      console.warn('Backup restoration not yet implemented')
     }
 
     // Continue loading: proceed with the workspace
@@ -200,7 +200,7 @@ export function useWorkspaceDataLoader() {
         lastModified: Date.now(),
       })
     } catch {
-      console.warn('Failed to save workspace metadata')
+      // skip metadata save failure
     }
 
     createFileSystemBackup(workspacePath).catch(() => {})
@@ -217,16 +217,12 @@ export function useWorkspaceDataLoader() {
     setDataReady(true)
   }, [])
 
-  useEffect(() => {
-    const handleReinit = () => {
-      setInitKey(k => k + 1)
-      setDataReady(false)
-      setConflict(null)
-      setPendingWorkspacePath(null)
-    }
-    window.addEventListener('hepta-reinit-workspace', handleReinit)
-    return () => window.removeEventListener('hepta-reinit-workspace', handleReinit)
-  }, [])
+  useEvent('reinit-workspace', () => {
+    setInitKey(k => k + 1)
+    setDataReady(false)
+    setConflict(null)
+    setPendingWorkspacePath(null)
+  })
 
   useEffect(() => {
     let cancelled = false

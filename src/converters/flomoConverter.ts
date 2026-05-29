@@ -15,7 +15,7 @@ export interface FlomoMemo {
 
 export interface ConvertedCard {
   title: string
-  blocks: any[]
+  blocks: Record<string, unknown>[]
   tags: string[]
   flomoSlug: string
   flomoCreatedAt: string
@@ -28,9 +28,9 @@ const turndown = new TurndownService({
   codeBlockStyle: 'fenced',
 })
 
-function parseMarkdownToBlocks(md: string): any[] {
+function parseMarkdownToBlocks(md: string): Record<string, unknown>[] {
   const lines = md.split('\n')
-  const blocks: any[] = []
+  const blocks: Record<string, unknown>[] = []
 
   let i = 0
   while (i < lines.length) {

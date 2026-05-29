@@ -2,37 +2,31 @@ import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } 
 import { useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore, useCard } from '../../stores/cardStore'
+import { useLibraryStore } from '../../stores/libraryStore'
 import { getCardFill, getCardStroke, getCardTextColor } from '../../utils/cardStyles'
 import { connectionMediator } from '../../utils/connectionMediator'
+import { registerEditorHandle, clearProseMirrorSuppression } from '../../utils/editorHandleRegistry'
 import { renderBlocksToHTML } from '../../converters/renderBlocks'
 import type { CardColor, CardNodeData } from '../../types/card'
 import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
+import { useFrameInteraction } from '../../utils/frameInteraction'
 import { useBoardStore } from '../../stores/boardStore'
+import { useEventBus } from '../../stores/eventBus'
 import { CardHandles } from './card/CardHandles'
 import { CardActionBar } from './card/CardActionBar'
 import { CardContent } from './card/CardContent'
 import { CollapsedContent } from './card/CollapsedContent'
+import { MiniCard } from './card/MiniCard'
+import type { FrameNodeData } from './FrameNode'
+import type { FrameLayout } from '../../utils/frameLayouts'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const isCollapsed = data.collapsed ?? false
-
-  // 卡片在 Frame 内时渲染不可见占位
-  // 使用 opacity:0 保持节点存在，使连接线和选中状态正常工作
-  if (data.frameId) {
-    return (
-      <div
-        style={{
-          width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
-          height: isCollapsed ? COLLAPSED_CARD_HEIGHT : ((data.height ?? DEFAULT_CARD_HEIGHT) as number),
-          opacity: 0,
-          pointerEvents: 'none',
-        }}
-      />
-    )
-  }
+  const isInFrame = !!data.frameId
+  const isLassoSelected = useFrameInteraction(s => s.lassoSelectedCardIds.has(data.cardId))
 
   const [isEditing, setIsEditing] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -41,7 +35,20 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const { setNodes, setEdges, getNode } = useReactFlow()
   const isDarkMode = useIsDarkMode()
 
-  // 合并 dragHandle 和 collapsed height 的更新，避免两次 setNodes 遍历
+  // 注册/注销编辑器 handle，供 useCanvasKeyboard 查询 canUndo
+  useEffect(() => {
+    registerEditorHandle(data.cardId, editorRef.current ?? null)
+    return () => registerEditorHandle(data.cardId, null)
+  }, [data.cardId, isEditing, selected])
+
+  const frameLayout: FrameLayout = (() => {
+    if (!data.frameId) return 'free'
+    const frameNode = getNode(data.frameId)
+    if (!frameNode) return 'free'
+    return (frameNode.data as FrameNodeData).layout ?? 'free'
+  })()
+  const showMiniCard = isInFrame && frameLayout === 'kanban' && !isEditing
+
   useEffect(() => {
     setNodes((nds) =>
       nds.map((n) => {
@@ -75,7 +82,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
-  // 提取节点尺寸计算为独立函数，避免 inline 的 Record<string, unknown> 类型断言重复
   const getNodeSize = useCallback((node: Node) => {
     const d = node.data as CardNodeData
     const w = d.width ?? DEFAULT_CARD_WIDTH
@@ -111,12 +117,12 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         setIsEditing(true)
       }
     },
-    // getNodeSize 是 stable ref，不影响依赖列表
     [isConnectionTarget, isNearbyTarget, data.cardId, selected, card, isEditing, isCollapsed, getNode, getNodeSize],
   )
 
   const handleContentChange = useCallback(
     (content: string) => {
+      clearProseMirrorSuppression(data.cardId)
       updateCard(data.cardId, {
         content,
         previewHTML: renderBlocksToHTML(content),
@@ -125,9 +131,15 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     [data.cardId, updateCard],
   )
 
+  const handleEditorFocus = useCallback(() => {
+    useCardStore.getState().recordCardContentSnapshot(data.cardId)
+    useLibraryStore.getState().setEditingCardId(data.cardId)
+  }, [data.cardId])
+
   const handleEditorBlur = useCallback(() => {
+    useCardStore.getState().recordCardContentSnapshot(data.cardId)
     setIsEditing(false)
-  }, [])
+  }, [data.cardId])
 
   const handleDragBlocksOutside = useCallback((blocks: unknown[]) => {
     if (!card) return
@@ -211,10 +223,16 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }, [data.cardId, updateCard, setNodes])
 
+  const emit = useEventBus(s => s.emit)
+
   const handleRemoveFromBoard = useCallback(() => {
+    const cardData = useCardStore.getState().cards[data.cardId]
+    if (cardData) {
+      emit('remove-card-from-board', { cardId: data.cardId, cardContent: cardData })
+    }
     setNodes((nds) => nds.filter((n) => n.id !== data.cardId))
     setEdges((eds) => eds.filter((e) => e.source !== data.cardId && e.target !== data.cardId))
-  }, [data.cardId, setNodes, setEdges])
+  }, [data.cardId, setNodes, setEdges, emit])
 
   const handleMoveToBoard = useCallback((boardId: string) => {
     const node = getNode(data.cardId)
@@ -263,6 +281,16 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
+  if (showMiniCard) {
+    return (
+      <MiniCard
+        cardId={data.cardId}
+        width={data.width}
+        height={data.height}
+      />
+    )
+  }
+
   const outlineWidth = selected ? 2 : 1
   const outlineColor = selected
     ? 'var(--border-active)'
@@ -288,6 +316,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     (isEditing || selected) ? 'overflow-visible' : 'overflow-hidden',
     isConnectingSource ? 'card-node-connecting-source' : '',
     isNearbyTarget ? 'card-node-nearby-target' : '',
+    isLassoSelected ? 'card-node-lasso-selected' : '',
   ].filter(Boolean).join(' ')
 
   const nodeHeight = isCollapsed ? COLLAPSED_CARD_HEIGHT : (data.height ?? DEFAULT_CARD_HEIGHT) as number
@@ -374,6 +403,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           previewHTML={card.previewHTML}
           enforceInitialHeading={card.enforceInitialHeading}
           onChange={handleContentChange}
+          onFocus={handleEditorFocus}
           onBlur={handleEditorBlur}
           editorRef={editorRef}
           textColor={textColor}

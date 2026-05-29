@@ -14,6 +14,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
+import { ErrorBoundary } from '../ErrorBoundary'
+
 import { CardNode } from './CardNode'
 import { MediaNode } from './MediaNode'
 import { FrameNode, type FrameNodeData } from './FrameNode'
@@ -37,13 +39,14 @@ import { useCanvasConnection } from '../../hooks/useCanvasConnection'
 import { useCanvasDrag } from '../../hooks/useCanvasDrag'
 import { useHistory } from '../../hooks/useHistory'
 import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
+import { useEvent } from '../../hooks/useEvent'
 import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
-import { useCardStore, type GlobalCard } from '../../stores/cardStore'
+import { type GlobalCard } from '../../stores/cardStore'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { kanbanDragPreview } from '../../utils/kanbanDragPreview'
 import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from '../../utils/frameInteraction'
 import type { FrameLayout } from '../../utils/frameLayouts'
-import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../../types/card'
+import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 const nodeTypes = {
   card: CardNode,
@@ -74,7 +77,7 @@ export function ReactFlowCanvas() {
   const edgesRef = useRef<Edge[]>(edges)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeIds: string[] } | null>(null)
 
-  const { canUndo, canRedo, record, undo, redo, clear } = useHistory({ maxHistory: 20 })
+  const { record, undo, redo, clear } = useHistory({ maxHistory: 20 })
 
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
@@ -101,17 +104,12 @@ export function ReactFlowCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null)
   useCanvasZoom({ canvasRef, reactFlowInstance })
 
-  useEffect(() => {
-    const onFocusCard = (e: Event) => {
-      const { cardId } = (e as CustomEvent<{ cardId: string }>).detail
-      const node = nodesRef.current.find(n => (n.data as Record<string, unknown>)?.cardId === cardId)
-      if (node) {
-        reactFlowInstance.current?.fitView({ nodes: [node], duration: 300, padding: 0.3 })
-      }
+  useEvent('focus-card', (detail) => {
+    const node = nodesRef.current.find(n => (n.data as Record<string, unknown>)?.cardId === detail.cardId)
+    if (node) {
+      reactFlowInstance.current?.fitView({ nodes: [node], duration: 300, padding: 0.3 })
     }
-    window.addEventListener('hepta-focus-card', onFocusCard)
-    return () => window.removeEventListener('hepta-focus-card', onFocusCard)
-  }, [])
+  })
   const { onConnect, onReconnect, onReconnectEnd } = useCanvasConnection({ setEdges })
   const { onNodeDrag, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges, setNodes })
   useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear })
@@ -162,7 +160,7 @@ export function ReactFlowCanvas() {
     recordCurrentState()
   }, [originalOnNodeDragStop, recordCurrentState])
 
-  const { handleDoubleClick } = useCanvasDoubleClick({ nodes, setNodes, setEdges, reactFlowInstance, recordCurrentState, snapshotNow })
+  const { handleDoubleClick } = useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recordCurrentState, snapshotNow })
 
   useEffect(() => {
     const id = 'rf-hide-selection-rect'
@@ -175,32 +173,28 @@ export function ReactFlowCanvas() {
 
   const { handleDragOver, handleDrop } = useDropHandler({ reactFlowInstance, setNodes })
 
-  useEffect(() => {
-    const onAddCardNode = (e: Event) => {
-      const { cardId, color } = (e as CustomEvent).detail
-      const instance = reactFlowInstance.current
-      if (!instance) return
-      snapshotNow()
-      const center = instance.screenToFlowPosition({
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-      })
-      setNodes((nds) => [
-        ...nds,
-        {
-          id: cardId,
-          type: 'card',
-          position: center,
-          data: { cardId, color, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
-          zIndex: 10,
-        },
-      ])
-      setTimeout(() => {
-        recordCurrentState()
-      }, 0)
-    }
-    window.addEventListener('hepta-add-card-node', onAddCardNode)
-    return () => window.removeEventListener('hepta-add-card-node', onAddCardNode)
+  useEvent('add-card-node', (detail) => {
+    const { cardId, color } = detail
+    const instance = reactFlowInstance.current
+    if (!instance) return
+    snapshotNow()
+    const center = instance.screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    })
+    setNodes((nds) => [
+      ...nds,
+      {
+        id: cardId,
+        type: 'card',
+        position: center,
+        data: { cardId, color, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
+        zIndex: 10,
+      },
+    ])
+    setTimeout(() => {
+      recordCurrentState()
+    }, 0)
   }, [setNodes, recordCurrentState, snapshotNow])
 
   // 框选模式：鼠标拖拽创建 Frame
@@ -337,13 +331,9 @@ export function ReactFlowCanvas() {
   }, [isLassoMode, setNodes, snapshotNow, recordCurrentState])
 
   // 删除卡片时立即记录操作前状态（含墓碑），然后 debounced 记录操作后状态
-  useEffect(() => {
-    const onRemoveCardFromBoard = (e: Event) => {
-      const { cardId, cardContent } = (e as CustomEvent).detail
-      snapshotNow({ [cardId]: cardContent })
-    }
-    window.addEventListener('hepta-remove-card-from-board', onRemoveCardFromBoard)
-    return () => window.removeEventListener('hepta-remove-card-from-board', onRemoveCardFromBoard)
+  useEvent('remove-card-from-board', (detail) => {
+    const { cardId, cardContent } = detail
+    snapshotNow({ [cardId]: cardContent as Record<string, GlobalCard>[string] })
   }, [snapshotNow])
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
@@ -351,7 +341,7 @@ export function ReactFlowCanvas() {
   }, [])
 
   const onMove = useCallback(
-    (_event: any, viewport: { zoom: number }) => {
+    (_event: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => {
       setZoom(viewport.zoom)
     },
     [setZoom],
@@ -407,7 +397,7 @@ export function ReactFlowCanvas() {
     const xs = cardNodes.map((n) => n.position.x)
     const ys = cardNodes.map((n) => n.position.y)
     const padding = 40
-    const headerH = 36
+    const headerH = 44
     const minX = Math.min(...xs)
     const minY = Math.min(...ys)
 
@@ -472,7 +462,7 @@ export function ReactFlowCanvas() {
       nds.map((n) => {
         if (!nodeIds.includes(n.id)) return n
         const localX = n.position.x - frameNode.position.x
-        const localY = n.position.y - frameNode.position.y - 36
+        const localY = n.position.y - frameNode.position.y - 44
         const cardData = n.data as CardNodeData
         return {
           ...n,
@@ -556,7 +546,8 @@ export function ReactFlowCanvas() {
   }, [nodes])
 
   const onApplyAlignment = useCallback((updates: Map<string, { x: number; y: number }>) => {
-    snapshotNow()
+    const currentNodes = nodesRef.current.map(n => ({ ...n }))
+    const currentEdges = edgesRef.current.map(e => ({ ...e }))
     setNodes((nds) =>
       nds.map((n) => {
         const pos = updates.get(n.id)
@@ -564,8 +555,13 @@ export function ReactFlowCanvas() {
         return { ...n, position: { x: pos.x, y: pos.y } }
       }),
     )
+    // Record the pre-alignment state for undo
+    record({
+      nodes: currentNodes,
+      edges: currentEdges,
+    })
     recordCurrentState()
-  }, [setNodes, snapshotNow, recordCurrentState])
+  }, [setNodes, record, recordCurrentState])
 
   // 看板 Frame 内的卡片之间隐藏连接线
   const visibleEdges = useMemo(() => {
@@ -593,6 +589,7 @@ export function ReactFlowCanvas() {
   }, [nodes, edges])
 
   return (
+    <ErrorBoundary>
     <div className={`w-full h-full ${isLassoMode ? 'lasso-mode' : ''}`} style={{ backgroundColor: surface.appBg }} ref={canvasRef} onDoubleClick={handleDoubleClick}>
       <ReactFlow
         nodes={sortedNodes}
@@ -721,5 +718,6 @@ export function ReactFlowCanvas() {
       )}
 
     </div>
+    </ErrorBoundary>
   )
 }

@@ -1,33 +1,48 @@
 import { useCallback, useEffect } from 'react'
+import type { Node, Edge } from '@xyflow/react'
 import type { HistoryEntry } from './useHistory'
-import { useLibraryStore } from '../stores/libraryStore'
 import { useCardStore } from '../stores/cardStore'
+import { useLibraryStore } from '../stores/libraryStore'
+import { getEditorHandleForCard, suppressProseMirrorUndo, isProseMirrorSuppressed } from '../utils/editorHandleRegistry'
+import { useEvent } from './useEvent'
 
 interface UseCanvasKeyboardOptions {
   undo: () => HistoryEntry | null
   redo: () => HistoryEntry | null
-  setNodes: (updater: any) => void
-  setEdges: (updater: any) => void
+  setNodes: (updater: Node[] | ((prev: Node[]) => Node[])) => void
+  setEdges: (updater: Edge[] | ((prev: Edge[]) => Edge[])) => void
   clear: () => void
 }
 
-function restoreEntry(entry: HistoryEntry, setNodes: (updater: any) => void, setEdges: (updater: any) => void) {
+function applyEntry(entry: HistoryEntry, setNodes: (updater: Node[] | ((prev: Node[]) => Node[])) => void, setEdges: (updater: Edge[] | ((prev: Edge[]) => Edge[])) => void) {
   setNodes(entry.nodes.map(n => ({ ...n, selected: false })))
   setEdges(entry.edges.map(e => ({ ...e })))
-  if (entry.cardSnapshot) {
-    useCardStore.getState().importCards(entry.cardSnapshot)
+  if (entry.deletedCardsContent) {
+    const cardStore = useCardStore.getState()
+    const nodeIds = new Set(entry.nodes.map(n => n.id))
+    for (const [id, card] of Object.entries(entry.deletedCardsContent)) {
+      if (nodeIds.has(id)) {
+        if (!cardStore.cards[id]) {
+          cardStore.addCard(card)
+        }
+      } else {
+        if (cardStore.cards[id]) {
+          cardStore.deleteCard(id)
+        }
+      }
+    }
   }
 }
 
 export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear }: UseCanvasKeyboardOptions) {
   const handleUndo = useCallback(() => {
     const entry = undo()
-    if (entry) restoreEntry(entry, setNodes, setEdges)
+    if (entry) applyEntry(entry, setNodes, setEdges)
   }, [undo, setNodes, setEdges])
 
   const handleRedo = useCallback(() => {
     const entry = redo()
-    if (entry) restoreEntry(entry, setNodes, setEdges)
+    if (entry) applyEntry(entry, setNodes, setEdges)
   }, [redo, setNodes, setEdges])
 
   useEffect(() => {
@@ -35,15 +50,61 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear }: Use
       const isCtrl = e.ctrlKey || e.metaKey
       if (!isCtrl) return
 
-      const editingCardId = useLibraryStore.getState().editingCardId
-      const activeEl = document.activeElement
-      const inEditor = editingCardId || (activeEl && activeEl.closest('.card-blocknote-editor'))
-      if (inEditor) return
+      const isUndo = e.key === 'z' && !e.shiftKey
+      const isRedo = (e.key === 'z' && e.shiftKey) || e.key === 'y'
+      if (!isUndo && !isRedo) return
 
-      if (e.key === 'z' && !e.shiftKey) {
+      const activeEl = document.activeElement
+      const inEditor = activeEl && activeEl.closest('.card-blocknote-editor')
+      if (inEditor) {
+        const editingCardId = useLibraryStore.getState().editingCardId
+        const editorHandle = editingCardId ? getEditorHandleForCard(editingCardId) : null
+        const pmSuppressed = editingCardId ? isProseMirrorSuppressed(editingCardId) : false
+
+        if (isUndo) {
+          if (!pmSuppressed && editorHandle && editorHandle.canUndo()) {
+            e.stopImmediatePropagation()
+            return
+          }
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          if (editingCardId) {
+            const cardStore = useCardStore.getState()
+            const content = cardStore.undoCardContent(editingCardId)
+            if (content) {
+              cardStore.updateCard(editingCardId, { content })
+              if (editorHandle) editorHandle.setContent(content)
+              suppressProseMirrorUndo(editingCardId)
+            }
+          }
+          return
+        }
+
+        if (isRedo) {
+          if (!pmSuppressed && editorHandle && editorHandle.canRedo()) {
+            e.stopImmediatePropagation()
+            return
+          }
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          if (editingCardId) {
+            const cardStore = useCardStore.getState()
+            const content = cardStore.redoCardContent(editingCardId)
+            if (content) {
+              cardStore.updateCard(editingCardId, { content })
+              if (editorHandle) editorHandle.setContent(content)
+              suppressProseMirrorUndo(editingCardId)
+            }
+          }
+          return
+        }
+      }
+
+      // 非编辑态 → 画布撤销/重做
+      if (isUndo) {
         e.preventDefault()
         handleUndo()
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+      } else {
         e.preventDefault()
         handleRedo()
       }
@@ -53,12 +114,9 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear }: Use
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleUndo, handleRedo])
 
-  useEffect(() => {
-    const handleWorkspaceChange = () => {
-      clear()
-    }
-    window.addEventListener('hepta-reinit-workspace', handleWorkspaceChange)
-    return () => window.removeEventListener('hepta-reinit-workspace', handleWorkspaceChange)
+  useEvent('reinit-workspace', () => {
+    clear()
+    useCardStore.getState().clearCardHistory()
   }, [clear])
 
   return { handleUndo, handleRedo }

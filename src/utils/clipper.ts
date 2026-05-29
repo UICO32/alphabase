@@ -8,8 +8,10 @@ export async function clipUrl(url: string, workspacePath?: string): Promise<Clip
 
   try {
     return await electronAPI.clipper.clip(url, workspacePath)
-  } catch (err: any) {
-    const errorBody = { error: err.message || '未知错误', code: err.code || 'FETCH_ERROR' }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : '未知错误'
+    const code = (err as Record<string, unknown>)?.code || 'FETCH_ERROR'
+    const errorBody = { error: message, code }
     throw Object.assign(new Error(errorBody.error), { code: errorBody.code })
   }
 }

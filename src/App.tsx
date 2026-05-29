@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useCallback, lazy, Suspense } from 'react'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { ReactFlowCanvas } from './components/canvas/ReactFlowCanvas'
 import { LeftPanel } from './components/ui/LeftPanel'
 import { RightPanel } from './components/ui/RightPanel'
@@ -10,8 +11,12 @@ import { useCardStore } from './stores/cardStore'
 import { useBoardStore } from './stores/boardStore'
 import { useTrashStore } from './stores/trashStore'
 import { useWorkspaceStore } from './stores/workspaceStore'
+import { useEventBus } from './stores/eventBus'
+import { useEvent } from './hooks/useEvent'
 import { flushActiveSyncEngine, stopActiveSyncEngine } from './sync/syncEngineRef'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
+import { useAppDialogs } from './hooks/useAppDialogs'
+import { useAppEvents } from './hooks/useAppEvents'
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
 const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
@@ -22,133 +27,75 @@ const WorkspaceConflictDialog = lazy(() => import('./components/ui/WorkspaceConf
 
 function App() {
   const viewMode = useLibraryStore(s => s.viewMode)
-  const panelHue = useLibraryStore(s => s.panelHue)
-  const [showTrash, setShowTrash] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showWorkspacePicker, setShowWorkspacePicker] = useState(false)
-  const [showClipUrlBar, setShowClipUrlBar] = useState(false)
-  const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
+  const {
+    showTrash, setShowTrash,
+    showSettings, setShowSettings,
+    showWorkspacePicker, setShowWorkspacePicker,
+    showClipUrlBar, setShowClipUrlBar,
+  } = useAppDialogs()
   const { dataReady, conflict, handleConflictChoice } = useWorkspaceDataLoader()
 
-  useEffect(() => {
-    const splash = document.getElementById('splash')
-    if (splash) {
-      splash.classList.add('fade-out')
-      setTimeout(() => splash.remove(), 300)
+  useAppEvents({ dataReady, setShowWorkspacePicker })
+
+  const emit = useEventBus(s => s.emit)
+
+  useEvent('switch-board', (detail) => {
+    if (detail.boardId) {
+      useBoardStore.getState().setActiveBoard(detail.boardId)
     }
-  }, [])
+  })
 
-  useEffect(() => {
-    // 同步 store 中的 hue 到 CSS 变量
-    document.documentElement.style.setProperty('--panel-hue', String(panelHue))
-    // 同时保存到 localStorage
-    localStorage.setItem('hepta-panel-hue', String(panelHue))
-  }, [panelHue])
+  useEvent('workspace-changed', async () => {
+    emit('save-current-board', undefined)
 
-  useEffect(() => {
-    if (dataReady) {
-      window.dispatchEvent(new CustomEvent('hepta-data-ready'))
-    }
-  }, [dataReady])
+    await new Promise(r => setTimeout(r, 50))
+    await flushActiveSyncEngine()
 
-  useEffect(() => {
-    const savedPath = localStorage.getItem('hepta-last-workspace-path')
-    if (savedPath && !currentWorkspace) {
-      const name = savedPath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
-      useWorkspaceStore.getState().setCurrentWorkspace({
-        path: savedPath,
-        name,
-        lastOpened: Date.now(),
-      })
-      useWorkspaceStore.getState().addRecentWorkspace({
-        path: savedPath,
-        name,
-        lastOpened: Date.now(),
-      })
-    }
-  }, [])
+    await stopActiveSyncEngine()
+    useCardStore.setState({ cards: {}, isLoaded: false })
+    useBoardStore.setState({ boards: [], activeBoardId: null, isLoaded: false, boardData: {} })
+    useTrashStore.setState({ items: [] })
+    emit('reinit-workspace', undefined)
+  })
 
-  useEffect(() => {
-    const savedPath = localStorage.getItem('hepta-last-workspace-path')
-    if (!currentWorkspace && !savedPath) {
-      setShowWorkspacePicker(true)
-    }
-  }, [currentWorkspace])
+  useEvent('select-folder', async () => {
+    try {
+      let folderPath: string | null = null
 
-  useEffect(() => {
-    const handleBoardSwitch = (e: Event) => {
-      const boardId = (e as CustomEvent).detail?.boardId
-      if (boardId) {
-        useBoardStore.getState().setActiveBoard(boardId)
+      const electronAPI = window.electronAPI
+      if (electronAPI?.dialog?.openDirectory) {
+        const result = await electronAPI.dialog.openDirectory()
+        if (result) {
+          folderPath = result
+        }
       }
-    }
-    window.addEventListener('hepta-switch-board', handleBoardSwitch)
-    return () => window.removeEventListener('hepta-switch-board', handleBoardSwitch)
-  }, [])
 
-  useEffect(() => {
-    const handleWorkspaceChanged = async () => {
-      const boardStore = useBoardStore.getState()
-
-      // Force-save current board data to store before switching
-      window.dispatchEvent(new CustomEvent('hepta-save-current-board'))
-
-      // Wait for store subscriptions to schedule writes, then flush to disk
-      await new Promise(r => setTimeout(r, 50))
-      await flushActiveSyncEngine()
-
-      await stopActiveSyncEngine()
-      useCardStore.setState({ cards: {}, isLoaded: false })
-      useBoardStore.setState({ boards: [], activeBoardId: null, isLoaded: false, boardData: {} })
-      useTrashStore.setState({ items: [] })
-      window.dispatchEvent(new CustomEvent('hepta-reinit-workspace'))
-    }
-    window.addEventListener('hepta-workspace-changed', handleWorkspaceChanged)
-    return () => window.removeEventListener('hepta-workspace-changed', handleWorkspaceChanged)
-  }, [])
-
-  useEffect(() => {
-    const handleSelectFolder = async () => {
-      try {
-        let folderPath: string | null = null
-
-        const electronAPI = window.electronAPI
-        if (electronAPI?.dialog?.openDirectory) {
-          const result = await electronAPI.dialog.openDirectory()
-          if (result) {
-            folderPath = result
-          }
+      if (!folderPath && typeof (window as unknown as { showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker === 'function') {
+        try {
+          const dirHandle = await (window as unknown as { showDirectoryPicker: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' })
+          folderPath = dirHandle.name
+        } catch {
+          // User cancelled
         }
-
-        if (!folderPath && typeof (window as any).showDirectoryPicker === 'function') {
-          try {
-            const dirHandle = await (window as any).showDirectoryPicker({ mode: 'readwrite' })
-            folderPath = dirHandle.name
-          } catch {
-            // User cancelled
-          }
-        }
-
-        if (folderPath) {
-          const name = folderPath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
-          const workspaceMeta = {
-            path: folderPath,
-            name,
-            lastOpened: Date.now(),
-          }
-          useWorkspaceStore.getState().setCurrentWorkspace(workspaceMeta)
-          useWorkspaceStore.getState().addRecentWorkspace(workspaceMeta)
-          localStorage.setItem('hepta-last-workspace-path', folderPath)
-          setShowWorkspacePicker(false)
-          window.dispatchEvent(new CustomEvent('hepta-workspace-changed', { detail: { path: folderPath } }))
-        }
-      } catch (e) {
-        console.error('Failed to select folder:', e)
       }
+
+      if (folderPath) {
+        const name = folderPath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
+        const workspaceMeta = {
+          path: folderPath,
+          name,
+          lastOpened: Date.now(),
+        }
+        useWorkspaceStore.getState().setCurrentWorkspace(workspaceMeta)
+        useWorkspaceStore.getState().addRecentWorkspace(workspaceMeta)
+        localStorage.setItem('hepta-last-workspace-path', folderPath)
+        setShowWorkspacePicker(false)
+        emit('workspace-changed', { path: folderPath })
+      }
+    } catch (e) {
+      console.error('Failed to select folder:', e)
     }
-    window.addEventListener('hepta-select-folder', handleSelectFolder as EventListener)
-    return () => window.removeEventListener('hepta-select-folder', handleSelectFolder as EventListener)
-  }, [])
+  })
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -174,11 +121,11 @@ function App() {
       title: '新卡片',
     })
 
-    window.dispatchEvent(new CustomEvent('hepta-add-card-node', { detail: { cardId, color: 'white' } }))
+    emit('add-card-node', { cardId, color: 'white' })
 
     useLibraryStore.getState().setEditingCardId(cardId)
     useLibraryStore.getState().setRightPanelActiveTab('editor')
-  }, [])
+  }, [emit])
 
   const renderMainContent = () => {
     switch (viewMode) {
@@ -200,6 +147,7 @@ function App() {
   const isBoardView = viewMode === 'board'
 
   return (
+    <ErrorBoundary>
     <div className="w-full h-full flex flex-col" style={{ backgroundColor: 'var(--surface-panel)' }}>
       <TitleBar />
       <div className={`flex-1 min-h-0 ${isBoardView ? 'relative' : 'flex'}`}>
@@ -240,6 +188,7 @@ function App() {
         </Suspense>
       )}
     </div>
+    </ErrorBoundary>
   )
 }
 

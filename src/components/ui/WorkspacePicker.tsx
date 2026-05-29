@@ -2,6 +2,7 @@ import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { EmptyState } from './SharedUI'
 import { Folder, Plus, Clock, X } from 'lucide-react'
+import { useEventBus } from '../../stores/eventBus'
 
 interface WorkspacePickerProps {
   onClose: () => void
@@ -11,6 +12,7 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
   const surface = usePanelSurface()
   const recentWorkspaces = useWorkspaceStore(s => s.recentWorkspaces)
   const setCurrentWorkspace = useWorkspaceStore(s => s.setCurrentWorkspace)
+  const emit = useEventBus(s => s.emit)
 
   const handleSelectWorkspace = (workspace: { path: string; name: string; lastOpened: number }) => {
     setCurrentWorkspace({
@@ -19,12 +21,12 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
       lastOpened: Date.now(),
     })
     localStorage.setItem('hepta-last-workspace-path', workspace.path)
-    window.dispatchEvent(new CustomEvent('hepta-workspace-changed', { detail: { path: workspace.path } }))
+    emit('workspace-changed', { path: workspace.path })
     onClose()
   }
 
   const handleCreateWorkspace = () => {
-    window.dispatchEvent(new CustomEvent('hepta-select-folder'))
+    emit('select-folder', undefined)
   }
 
   return (
