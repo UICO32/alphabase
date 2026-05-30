@@ -1,12 +1,13 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../stores/libraryStore'
-import { useCardStore } from '../../stores/cardStore'
+import { useCardStore, useCard } from '../../stores/cardStore'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
 import { RelatedCardsTab } from './RelatedCardsTab'
 import { CardBlockNoteEditor } from '../editor/BlockNoteEditor'
-import { Layers, FileText, Search, PanelRightOpen } from 'lucide-react'
+import { Layers, FileText, Search, PanelRightOpen, Globe } from 'lucide-react'
+import { WebviewPanel } from './WebviewPanel'
 
 interface RightPanelProps {
   onOpenSettings?: () => void
@@ -21,6 +22,10 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
   const setRightPanelWidth = useLibraryStore(s => s.setRightPanelWidth)
   const viewMode = useLibraryStore(s => s.viewMode)
   const editingCardId = useLibraryStore(s => s.editingCardId)
+  const webviewUrl = useLibraryStore(s => s.webviewUrl)
+  const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
+  const editingCard = useCard(editingCardId ?? '')
+  const isClipCard = !!(editingCard?.sourceUrl)
 
   const isDragging = useRef(false)
 
@@ -84,6 +89,21 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
             <FileText size={14} />
             卡片编辑器
           </button>
+          {isClipCard && (
+            <button
+              onClick={() => {
+                if (webviewUrl) {
+                  setWebviewUrl(null)
+                } else {
+                  setWebviewUrl(editingCard!.sourceUrl!, editingCardId)
+                }
+              }}
+              className={`panel-tab panel-tab-hover flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs ${webviewUrl ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+              title={webviewUrl ? '查看抓取内容' : '查看原始网页'}
+            >
+              <Globe size={14} />
+            </button>
+          )}
           <button
             onClick={() => setRightPanelActiveTab('related')}
             className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'related' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
@@ -100,6 +120,8 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           <CardLibraryView onOpenSettings={onOpenSettings} />
         ) : rightPanelActiveTab === 'related' ? (
           <RelatedCardsTab />
+        ) : webviewUrl ? (
+          <WebviewPanel url={webviewUrl} />
         ) : editingCardId ? (
           <CardEditorView cardId={editingCardId} />
         ) : (
@@ -130,25 +152,10 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 function CardEditorView({ cardId }: { cardId: string }) {
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
-  const wrapperRef = useRef<HTMLDivElement>(null)
 
   const handleChange = useCallback((content: string) => {
     updateCard(cardId, { content })
   }, [cardId, updateCard])
-
-  useEffect(() => {
-    const el = wrapperRef.current
-    if (!el) return
-    const onDragOverCapture = (e: DragEvent) => {
-      const types = e.dataTransfer?.types ? Array.from(e.dataTransfer.types) : []
-      if (types.includes('blocknote/html')) {
-        e.preventDefault()
-        e.stopImmediatePropagation()
-      }
-    }
-    el.addEventListener('dragover', onDragOverCapture, true)
-    return () => el.removeEventListener('dragover', onDragOverCapture, true)
-  }, [])
 
   if (!card) {
     return (
@@ -159,12 +166,11 @@ function CardEditorView({ cardId }: { cardId: string }) {
   }
 
   return (
-    <div ref={wrapperRef} className="flex-1 overflow-auto p-6">
+    <div className="flex-1 overflow-auto p-6">
       <CardBlockNoteEditor
         content={card.content}
         onChange={handleChange}
         editable={true}
-        showSideMenu={true}
       />
     </div>
   )
