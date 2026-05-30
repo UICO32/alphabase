@@ -48,6 +48,10 @@ interface LibraryStore {
 
   searchMode: SearchMode
   setSearchMode: (mode: SearchMode) => void
+
+  webviewUrl: string | null
+  webviewSourceCardId: string | null
+  setWebviewUrl: (url: string | null, cardId?: string | null) => void
 }
 
 const SIDEBAR_WIDTH_MIN = 260
@@ -76,11 +80,18 @@ export const useLibraryStore = create<LibraryStore>()(
       zoom: 1,
       sortBy: 'updatedAt',
       searchMode: 'hybrid',
+      webviewUrl: null,
+      webviewSourceCardId: null,
 
       setViewMode: (mode) => set({ viewMode: mode }),
       setZoom: (zoom) => set({ zoom }),
       setSortBy: (sortBy) => set({ sortBy }),
       setSearchMode: (mode) => set({ searchMode: mode }),
+      setWebviewUrl: (url, cardId) => set({
+        webviewUrl: url,
+        webviewSourceCardId: cardId ?? null,
+        ...(url ? { rightPanelActiveTab: 'editor', rightPanelCollapsed: false } : {}),
+      }),
       openCardEditor: (cardId) => set({ editingCardId: cardId }),
       closeCardEditor: () => set({ editingCardId: null }),
 
