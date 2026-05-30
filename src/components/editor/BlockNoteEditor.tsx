@@ -3,7 +3,7 @@ import { dropCursor } from '@tiptap/pm/dropcursor'
 import { TextSelection, EditorState } from '@tiptap/pm/state'
 import { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { undoDepth, redoDepth } from 'prosemirror-history'
-import { useCreateBlockNote, SideMenuController } from '@blocknote/react'
+import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import type { PartialBlock } from '@blocknote/core'
 import '@blocknote/core/fonts/inter.css'
@@ -12,8 +12,8 @@ import { ImageToolbar } from './ImageToolbar'
 import { CardFormattingToolbar } from './CardFormattingToolbar'
 import { CardSlashMenu } from './CardSlashMenu'
 import { useImageColumnDrop } from './useImageColumnDrop'
-import { DragOnlySideMenu } from './DragOnlySideMenu'
 import { usePosAtCoordsScalePatch } from './usePosAtCoordsScalePatch'
+import { useLibraryStore } from '../../stores/libraryStore'
 import {
   fileToDataUrl,
   isImageFile,
@@ -41,13 +41,11 @@ export interface BlockNoteEditorProps {
   onBlur?: () => void
   theme?: 'light' | 'dark'
   editable?: boolean
-  showSideMenu?: boolean
   enforceInitialHeading?: boolean
-  onDragBlocksOutside?: (blocks: unknown[]) => void
 }
 
 const CardBlockNoteEditorInner = (
-  { content, onChange, onFocus, onBlur, theme = 'light', editable = true, showSideMenu = false, enforceInitialHeading = false }: BlockNoteEditorProps,
+  { content, onChange, onFocus, onBlur, theme = 'light', editable = true, enforceInitialHeading = false }: BlockNoteEditorProps,
   ref: ForwardedRef<BlockNoteEditorHandle>
 ) => {
     const initialContent = useRef<unknown[] | undefined>(undefined)
@@ -343,45 +341,6 @@ const CardBlockNoteEditorInner = (
     useImageColumnDrop(containerRef, editor as any, editable)
     usePosAtCoordsScalePatch(editor)
 
-    // 编辑器容器级别处理：块间隙/抓手/draggable 元素上方也需要 accept drop，否则浏览器显示禁止图标
-    // 同时阻止拖拽进行中抓手元素触发二次 dragstart（"New drag was started while an existing drag is ongoing"）
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el || !editable) return
-      const isBlockNoteDrag = (e: DragEvent) => e.dataTransfer?.types?.includes('blocknote/html')
-      let dragActive = false
-      const handleDragOver = (e: DragEvent) => {
-        if (!isBlockNoteDrag(e) || e.defaultPrevented) return
-        e.preventDefault()
-        e.dataTransfer!.dropEffect = 'move'
-      }
-      const handleDragEnter = (e: DragEvent) => {
-        if (!isBlockNoteDrag(e) || e.defaultPrevented) return
-        e.preventDefault()
-      }
-      const handleDragStart = (e: DragEvent) => {
-        if (!isBlockNoteDrag(e)) return
-        if (dragActive) {
-          e.preventDefault()
-          return
-        }
-        dragActive = true
-      }
-      const handleDragEnd = () => {
-        dragActive = false
-      }
-      window.addEventListener('dragover', handleDragOver, true)
-      window.addEventListener('dragenter', handleDragEnter, true)
-      window.addEventListener('dragstart', handleDragStart, true)
-      window.addEventListener('dragend', handleDragEnd, true)
-      return () => {
-        window.removeEventListener('dragover', handleDragOver, true)
-        window.removeEventListener('dragenter', handleDragEnter, true)
-        window.removeEventListener('dragstart', handleDragStart, true)
-        window.removeEventListener('dragend', handleDragEnd, true)
-      }
-    }, [editable])
-
     // Ctrl+A 两段式：第一次选中当前内容块，第二次选中所有内容块
     useEffect(() => {
       const el = containerRef.current
@@ -471,7 +430,14 @@ const CardBlockNoteEditorInner = (
     }, [editor, editable])
 
     return (
-      <div ref={containerRef} spellCheck={false} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`}>
+      <div ref={containerRef} spellCheck={false} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`} onClickCapture={(e) => {
+        const anchor = (e.target as HTMLElement).closest('a')
+        if (anchor && anchor.href && (anchor.href.startsWith('http://') || anchor.href.startsWith('https://'))) {
+          e.preventDefault()
+          e.stopPropagation()
+          useLibraryStore.getState().setWebviewUrl(anchor.href)
+        }
+      }}>
         <style>{`
           .card-blocknote-editor {
           }
@@ -502,21 +468,6 @@ const CardBlockNoteEditorInner = (
             display: block !important;
             margin: 4px 0 !important;
           }
-          .card-blocknote-editor .bn-drag-handle-button {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-          }
-          .card-blocknote-editor .bn-drag-handle-button svg {
-            width: 16px !important;
-            height: 16px !important;
-            opacity: 0.35 !important;
-            transition: opacity 0.15s !important;
-          }
-          .card-blocknote-editor .bn-drag-handle-button:hover svg,
-          .card-blocknote-editor .bn-drag-handle-button[data-state="open"] svg {
-            opacity: 1 !important;
-          }
         `}</style>
         <BlockNoteView
           editor={editor}
@@ -526,7 +477,6 @@ const CardBlockNoteEditorInner = (
           slashMenu={false}
           sideMenu={false}
         >
-          {showSideMenu && editable && <SideMenuController sideMenu={DragOnlySideMenu} />}
           {editable && <CardFormattingToolbar />}
           {editable && <CardSlashMenu />}
         </BlockNoteView>
