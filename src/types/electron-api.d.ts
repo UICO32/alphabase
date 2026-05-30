@@ -18,6 +18,9 @@ declare global {
       dialog: {
         openDirectory: () => Promise<string | null>
       }
+      shell: {
+        openExternal: (url: string) => Promise<void>
+      }
       clipper: {
         clip: (url: string, workspacePath?: string) => Promise<{ title: string; html: string; markdown: string; sourceUrl: string; sourceName: string; favicon?: string; images: Array<{ originalUrl: string; localFilename: string; originalSize: number; compressedSize: number }> }>
       }
