@@ -89,24 +89,6 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
             <FileText size={14} />
             卡片编辑器
           </button>
-          {isClipCard && rightPanelActiveTab === 'editor' && (
-            <div className="flex items-center rounded-md bg-surface-card border border-border-default p-0.5">
-              <button
-                onClick={() => setWebviewUrl(null)}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${!webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-              >
-                <FileText size={11} />
-                编辑
-              </button>
-              <button
-                onClick={() => setWebviewUrl(editingCard!.sourceUrl!, editingCardId)}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-              >
-                <Globe size={11} />
-                网页
-              </button>
-            </div>
-          )}
           <button
             onClick={() => setRightPanelActiveTab('related')}
             className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'related' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
@@ -123,10 +105,14 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           <CardLibraryView onOpenSettings={onOpenSettings} />
         ) : rightPanelActiveTab === 'related' ? (
           <RelatedCardsTab />
-        ) : webviewUrl ? (
-          <WebviewPanel url={webviewUrl} />
         ) : editingCardId ? (
-          <CardEditorView cardId={editingCardId} />
+          <ClipAwareEditorView
+            cardId={editingCardId}
+            isClipCard={isClipCard}
+            sourceUrl={editingCard?.sourceUrl}
+            webviewUrl={webviewUrl}
+            setWebviewUrl={setWebviewUrl}
+          />
         ) : (
           <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-text-secondary">
             <FileText size={48} className="mb-4 opacity-30" />
@@ -152,7 +138,13 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
   )
 }
 
-function CardEditorView({ cardId }: { cardId: string }) {
+function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWebviewUrl }: {
+  cardId: string
+  isClipCard: boolean
+  sourceUrl?: string
+  webviewUrl: string | null
+  setWebviewUrl: (url: string | null, cardId?: string | null) => void
+}) {
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
 
@@ -169,12 +161,38 @@ function CardEditorView({ cardId }: { cardId: string }) {
   }
 
   return (
-    <div className="flex-1 overflow-auto p-6">
-      <CardBlockNoteEditor
-        content={card.content}
-        onChange={handleChange}
-        editable={true}
-      />
+    <div className="flex flex-col h-full">
+      {isClipCard && (
+        <div className="flex justify-center px-6 pt-3">
+          <div className="flex items-center rounded-full bg-surface-card border border-border-default p-0.5">
+            <button
+              onClick={() => setWebviewUrl(null)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${!webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              <FileText size={11} />
+              剪藏
+            </button>
+            <button
+              onClick={() => setWebviewUrl(sourceUrl!, cardId)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+            >
+              <Globe size={11} />
+              网页
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 overflow-auto p-6">
+        {webviewUrl ? (
+          <WebviewPanel url={webviewUrl} embedded />
+        ) : (
+          <CardBlockNoteEditor
+            content={card.content}
+            onChange={handleChange}
+            editable={true}
+          />
+        )}
+      </div>
     </div>
   )
 }
