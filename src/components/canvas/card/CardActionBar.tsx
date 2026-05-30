@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react'
-import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal } from 'lucide-react'
+import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal, Globe } from 'lucide-react'
 import { useLibraryStore } from '../../../stores/libraryStore'
-import { useCardStore } from '../../../stores/cardStore'
+import { useCardStore, useCard } from '../../../stores/cardStore'
 import { connectionMediator } from '../../../utils/connectionMediator'
 import { type CardColor } from '../../../types/card'
 import { MoreActionsMenu } from './MoreActionsMenu'
@@ -48,6 +48,11 @@ export const CardActionBar = memo(function CardActionBar({
 }: CardActionBarProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
+
+  const card = useCard(cardId)
+  const isClipCard = !!(card?.sourceUrl)
+  const webviewUrl = useLibraryStore(s => s.webviewUrl)
+  const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
 
   const html = cardPreviewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
   const displayTitle = cardTitle || useMemo(() => extractTitle(html), [html, cardTitle])
@@ -114,6 +119,19 @@ export const CardActionBar = memo(function CardActionBar({
           }}
           onPointerDown={(e) => e.stopPropagation()}
         />
+        {isClipCard && (
+          <ActionBarButton
+            icon={<Globe size={14} />}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (webviewUrl) {
+                setWebviewUrl(null)
+              } else {
+                setWebviewUrl(card!.sourceUrl!, cardId)
+              }
+            }}
+          />
+        )}
         <ActionBarButton
           icon={<PanelRight size={14} />}
           onClick={(e) => {
