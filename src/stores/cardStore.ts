@@ -17,6 +17,7 @@ export interface GlobalCard {
   deletedAt?: number
   tags?: string[]
   flomoSlug?: string
+  sourceUrl?: string  // clip 来源 URL
 }
 
 interface CardHistoryState {
@@ -43,15 +44,6 @@ interface CardStore {
   undoCardContent: (cardId: string) => string | null
   redoCardContent: (cardId: string) => string | null
   clearCardHistory: (cardId?: string) => void
-}
-
-// Generate previewHTML for a single card, cache on the object
-function ensurePreview(card: GlobalCard): string {
-  if (card.previewHTML) return card.previewHTML
-  if (!card.content) { card.previewHTML = ''; return '' }
-  const html = renderBlocksToHTML(card.content)
-  card.previewHTML = html
-  return html
 }
 
 export const useCardStore = create<CardStore>()(

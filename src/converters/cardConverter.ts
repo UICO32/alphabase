@@ -13,6 +13,7 @@ export function cardFileToGlobalCard(file: CardFile): GlobalCard {
     fixedHeight: file.fixedHeight,
     collapsed: file.collapsed,
     deletedAt: file.deletedAt,
+    sourceUrl: file.sourceUrl,
   }
 }
 
@@ -28,6 +29,7 @@ export function globalCardToCardFile(card: GlobalCard): CardFile {
     fixedHeight: card.fixedHeight,
     collapsed: card.collapsed,
     deletedAt: card.deletedAt,
+    sourceUrl: card.sourceUrl,
   }
 }
 

@@ -61,6 +61,7 @@ export interface CardFile {
   tags?: string[]
   updatedAt?: number
   deletedAt?: number
+  sourceUrl?: string
 }
 
 export interface TrashFile {
