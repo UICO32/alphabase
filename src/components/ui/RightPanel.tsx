@@ -88,22 +88,35 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           >
             <FileText size={14} />
             卡片编辑器
+            {isClipCard && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (webviewUrl) {
+                    setWebviewUrl(null)
+                  } else {
+                    setWebviewUrl(editingCard!.sourceUrl!, editingCardId)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation()
+                    if (webviewUrl) {
+                      setWebviewUrl(null)
+                    } else {
+                      setWebviewUrl(editingCard!.sourceUrl!, editingCardId)
+                    }
+                  }
+                }}
+                className={`ml-0.5 flex items-center justify-center rounded p-0.5 hover:bg-surface-hover ${webviewUrl ? 'text-blue-500' : 'text-text-secondary'}`}
+                title={webviewUrl ? '查看抓取内容' : '查看原始网页'}
+              >
+                <Globe size={12} />
+              </span>
+            )}
           </button>
-          {isClipCard && (
-            <button
-              onClick={() => {
-                if (webviewUrl) {
-                  setWebviewUrl(null)
-                } else {
-                  setWebviewUrl(editingCard!.sourceUrl!, editingCardId)
-                }
-              }}
-              className={`panel-tab panel-tab-hover flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs ${webviewUrl ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
-              title={webviewUrl ? '查看抓取内容' : '查看原始网页'}
-            >
-              <Globe size={14} />
-            </button>
-          )}
           <button
             onClick={() => setRightPanelActiveTab('related')}
             className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'related' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}

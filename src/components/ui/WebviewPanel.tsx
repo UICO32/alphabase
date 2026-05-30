@@ -1,5 +1,5 @@
-import { useRef, useCallback, useEffect } from 'react'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { useRef, useCallback, useEffect, useState } from 'react'
+import { ArrowLeft, ExternalLink, Loader2 } from 'lucide-react'
 import { useLibraryStore } from '../../stores/libraryStore'
 
 interface WebviewPanelProps {
@@ -9,6 +9,7 @@ interface WebviewPanelProps {
 export function WebviewPanel({ url }: WebviewPanelProps) {
   const webviewRef = useRef<Electron.WebviewTag>(null)
   const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
+  const [loading, setLoading] = useState(true)
 
   const handleBack = useCallback(() => {
     setWebviewUrl(null)
@@ -26,16 +27,21 @@ export function WebviewPanel({ url }: WebviewPanelProps) {
   useEffect(() => {
     const webview = webviewRef.current
     if (!webview) return
-    const handler = (e: Electron.IpcMessageEvent) => {
-      if (e.channel === 'will-navigate') {
-        e.preventDefault()
-      }
-    }
-    webview.addEventListener('will-navigate', handler as EventListener)
+
+    const onDidStartLoading = () => setLoading(true)
+    const onDidStopLoading = () => setLoading(false)
+    const onDomReady = () => setLoading(false)
+
+    webview.addEventListener('did-start-loading', onDidStartLoading)
+    webview.addEventListener('did-stop-loading', onDidStopLoading)
+    webview.addEventListener('dom-ready', onDomReady)
+
     return () => {
-      webview.removeEventListener('will-navigate', handler as EventListener)
+      webview.removeEventListener('did-start-loading', onDidStartLoading)
+      webview.removeEventListener('did-stop-loading', onDidStopLoading)
+      webview.removeEventListener('dom-ready', onDomReady)
     }
-  }, [])
+  }, [url])
 
   return (
     <div className="flex flex-col h-full">
@@ -50,6 +56,7 @@ export function WebviewPanel({ url }: WebviewPanelProps) {
         <div className="flex-1 px-2 py-1 rounded text-xs text-text-secondary bg-surface-card truncate select-all" title={url}>
           {url}
         </div>
+        {loading && <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />}
         <button
           onClick={handleOpenExternal}
           className="flex items-center justify-center w-6 h-6 rounded hover:bg-surface-card-hover text-text-secondary"
@@ -58,12 +65,20 @@ export function WebviewPanel({ url }: WebviewPanelProps) {
           <ExternalLink size={14} />
         </button>
       </div>
-      <div className="flex-1">
+      <div className="flex-1 relative">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-surface-panel z-10">
+            <Loader2 size={24} className="animate-spin text-text-secondary" />
+          </div>
+        )}
         <webview
           ref={webviewRef as any}
           src={url}
           style={{ width: '100%', height: '100%' }}
           partition="webview"
+          preload={undefined}
+          httpreferrer=""
+          useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
         />
       </div>
     </div>
