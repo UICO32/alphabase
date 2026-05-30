@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
@@ -32,6 +32,7 @@ function createWindow() {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
     },
     titleBarStyle: 'hidden',
     titleBarOverlay: {
@@ -43,7 +44,6 @@ function createWindow() {
 
   createMenu(mainWindow)
   registerClipperHandlers()
-  registerEmbeddingIPC()
 
   // Forward renderer console.log to main process stdout in dev mode
   if (!app.isPackaged) {
@@ -77,6 +77,19 @@ function createWindow() {
       mainWindow?.show()
       __t2 = Date.now()
       console.log(`[startup] early-show (did-start-loading): ${__t2 - __t0}ms`)
+    }
+  })
+
+  mainWindow.webContents.setWindowOpenHandler(() => {
+    return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowed = url.startsWith('hepta-media://')
+      || (process.env.VITE_DEV_SERVER_URL && url.startsWith(process.env.VITE_DEV_SERVER_URL))
+      || url.includes('localhost')
+    if (!allowed) {
+      event.preventDefault()
     }
   })
 
@@ -131,6 +144,11 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+
+  // Defer embedding IPC registration — onnxruntime-node is heavy (~500ms)
+  setTimeout(() => {
+    registerEmbeddingIPC()
+  }, 0)
 })
 
 app.on('window-all-closed', () => {
@@ -247,6 +265,10 @@ ipcMain.handle('dialog:openDirectory', async () => {
     properties: ['openDirectory'],
   })
   return result.canceled ? null : result.filePaths[0]
+})
+
+ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+  await shell.openExternal(url)
 })
 
 // Flomo sync IPC handlers
