@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dialog: {
     openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   },
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  },
   clipper: {
     clip: (url: string, workspacePath?: string) => ipcRenderer.invoke('clipper:clip', { url, workspacePath }),
   },
