@@ -2,6 +2,7 @@ import DOMPurify from 'dompurify'
 import { memo, lazy, Suspense, useMemo } from 'react'
 import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { useCardStore } from '../../../stores/cardStore'
+import { useLibraryStore } from '../../../stores/libraryStore'
 
 const LazyCardBlockNoteEditor = lazy(() =>
   import('../../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
@@ -19,7 +20,6 @@ interface CardContentProps {
   onBlur: () => void
   editorRef: React.Ref<BlockNoteEditorHandle>
   textColor: string
-  onDragBlocksOutside?: (blocks: unknown[]) => void
 }
 
 export const CardContent = memo(function CardContent({
@@ -34,7 +34,6 @@ export const CardContent = memo(function CardContent({
   onBlur,
   editorRef,
   textColor,
-  onDragBlocksOutside,
 }: CardContentProps) {
   const canScroll = isSelected || isEditing
 
@@ -55,7 +54,7 @@ export const CardContent = memo(function CardContent({
       }}
       onWheelCapture={canScroll ? (e) => e.stopPropagation() : undefined}
     >
-      {isSelected ? (
+      {(isSelected || isEditing) ? (
         <div
           className="h-full overflow-y-auto px-6"
           style={{ fontSize: '13px', lineHeight: '1.5' }}
@@ -69,9 +68,7 @@ export const CardContent = memo(function CardContent({
               onBlur={onBlur}
               theme="light"
               editable={isEditing}
-              showSideMenu={isEditing}
               enforceInitialHeading={enforceInitialHeading}
-              onDragBlocksOutside={onDragBlocksOutside}
             />
           </Suspense>
         </div>
@@ -84,6 +81,14 @@ export const CardContent = memo(function CardContent({
             wordBreak: 'break-word',
           }}
           dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
+          onClickCapture={(e) => {
+            const anchor = (e.target as HTMLElement).closest('a')
+            if (anchor && anchor.href && (anchor.href.startsWith('http://') || anchor.href.startsWith('https://'))) {
+              e.preventDefault()
+              e.stopPropagation()
+              useLibraryStore.getState().setWebviewUrl(anchor.href)
+            }
+          }}
         />
       )}
     </div>
