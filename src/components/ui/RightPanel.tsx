@@ -88,35 +88,25 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           >
             <FileText size={14} />
             卡片编辑器
-            {isClipCard && (
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (webviewUrl) {
-                    setWebviewUrl(null)
-                  } else {
-                    setWebviewUrl(editingCard!.sourceUrl!, editingCardId)
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.stopPropagation()
-                    if (webviewUrl) {
-                      setWebviewUrl(null)
-                    } else {
-                      setWebviewUrl(editingCard!.sourceUrl!, editingCardId)
-                    }
-                  }
-                }}
-                className={`ml-0.5 flex items-center justify-center rounded p-0.5 hover:bg-surface-hover ${webviewUrl ? 'text-blue-500' : 'text-text-secondary'}`}
-                title={webviewUrl ? '查看抓取内容' : '查看原始网页'}
-              >
-                <Globe size={12} />
-              </span>
-            )}
           </button>
+          {isClipCard && rightPanelActiveTab === 'editor' && (
+            <div className="flex items-center rounded-md bg-surface-card border border-border-default p-0.5">
+              <button
+                onClick={() => setWebviewUrl(null)}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${!webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                <FileText size={11} />
+                编辑
+              </button>
+              <button
+                onClick={() => setWebviewUrl(editingCard!.sourceUrl!, editingCardId)}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors ${webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                <Globe size={11} />
+                网页
+              </button>
+            </div>
+          )}
           <button
             onClick={() => setRightPanelActiveTab('related')}
             className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'related' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
