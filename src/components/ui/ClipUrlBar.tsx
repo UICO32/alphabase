@@ -55,6 +55,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         { type: 'paragraph', content: [{ type: 'link', href: trimmed, content: [{ type: 'text', text: trimmed, styles: {} }] }] },
       ]),
       color: 'blue',
+      sourceUrl: trimmed,
       createdAt: Date.now(),
       title: '剪藏中…',
     })
