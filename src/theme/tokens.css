@@ -1,10 +1,48 @@
 @import "tailwindcss";
 
 /* ============================================
+   Tailwind v4 Theme Tokens
+   ============================================ */
+
+@theme {
+  /* Surface Colors */
+  --color-surface-app: var(--surface-app);
+  --color-surface-panel: var(--surface-panel);
+  --color-surface-panel-alt: var(--surface-panel-alt);
+  --color-surface-panel-hover: var(--surface-panel-hover);
+  --color-surface-card: var(--surface-card);
+  --color-surface-card-hover: var(--surface-card-hover);
+  --color-surface-card-active: var(--surface-card-active);
+  --color-surface-input: var(--surface-input);
+  --color-surface-overlay: var(--surface-overlay);
+
+  /* Text Colors */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-inverse: var(--text-inverse);
+  --color-text-link: var(--text-link);
+  --color-text-danger: var(--text-danger);
+
+  /* Border Colors */
+  --color-border-default: var(--border-default);
+  --color-border-hover: var(--border-hover);
+  --color-border-active: var(--border-active);
+  --color-border-focus: var(--border-focus);
+  --color-border-danger: var(--border-danger);
+
+  /* Accent Colors */
+  --color-accent-blue: var(--color-blue-500);
+  --color-accent-green: var(--color-green-500);
+  --color-accent-red: var(--color-red-500);
+}
+
+/* ============================================
    Design Token System v2
    ============================================
    Token 层级：
-   1. Primitive: 基础色值、数值
+   1. Primitive: 基础色值
    2. Semantic: 语义化颜色（surface、text、border）
    3. Component: 组件级 token（由 semantic 推导）
    ============================================ */
@@ -16,17 +54,17 @@
   --color-white: #ffffff;
   --color-black: #000000;
 
-  /* Gray Scale */
+  /* Gray Scale — Vercel-inspired neutral */
   --color-gray-50: #fafafa;
-  --color-gray-100: #f4f4f5;
+  --color-gray-100: #ebebeb;
   --color-gray-200: #e4e4e7;
   --color-gray-300: #d4d4d8;
-  --color-gray-400: #a1a1aa;
-  --color-gray-500: #71717a;
-  --color-gray-600: #52525b;
+  --color-gray-400: #808080;
+  --color-gray-500: #666666;
+  --color-gray-600: #4d4d4d;
   --color-gray-700: #3f3f46;
   --color-gray-800: #27272a;
-  --color-gray-900: #18181b;
+  --color-gray-900: #171717;
 
   /* Accent Colors */
   --color-blue-50: #eff6ff;
@@ -42,37 +80,34 @@
 
   /* ============================================
      2. Semantic Colors - Light Theme
-     ============================================
-     基于 panel-hue 的动态色彩系统
      ============================================ */
 
   /* App Background */
-  --surface-app: hsl(var(--panel-hue, 0), 8%, 98%);
+  --surface-app: hsl(0, 0%, 98%);
 
-  /* Panel Surfaces - 受 hue 影响 */
-  /* 使用半透明颜色以支持 backdrop-filter 模糊效果 */
-  --surface-panel: hsla(var(--panel-hue, 0), 6%, 96%, 0.85);
-  --surface-panel-alt: hsla(var(--panel-hue, 0), 8%, 92%, 0.75);
-  --surface-panel-hover: hsla(var(--panel-hue, 0), 10%, 88%, 0.9);
+  /* Panel Surfaces */
+  --surface-panel: hsla(0, 0%, 96%, 0.85);
+  --surface-panel-alt: hsla(0, 0%, 92%, 0.75);
+  --surface-panel-hover: hsla(0, 0%, 88%, 0.9);
 
   /* Card Surfaces */
-  --surface-card: hsla(var(--panel-hue, 0), 4%, 100%, 0.95);
-  --surface-card-hover: hsla(var(--panel-hue, 0), 6%, 98%, 0.98);
-  --surface-card-active: hsla(var(--panel-hue, 0), 8%, 95%, 1);
+  --surface-card: hsla(0, 0%, 100%, 0.95);
+  --surface-card-hover: hsla(0, 0%, 98%, 0.98);
+  --surface-card-active: hsla(0, 0%, 95%, 1);
 
   /* Input Surfaces */
-  --surface-input: hsla(var(--panel-hue, 0), 4%, 100%, 0.95);
-  --surface-input-hover: hsla(var(--panel-hue, 0), 6%, 98%, 0.98);
+  --surface-input: hsla(0, 0%, 100%, 0.95);
+  --surface-input-hover: hsla(0, 0%, 98%, 0.98);
 
   /* Overlay */
-  --surface-overlay: hsla(var(--panel-hue, 0), 20%, 10%, 0.5);
+  --surface-overlay: hsla(0, 0%, 10%, 0.5);
 
   /* Text Colors */
-  --text-primary: hsl(var(--panel-hue, 0), 15%, 12%);
-  --text-secondary: hsl(var(--panel-hue, 0), 10%, 42%);
-  --text-tertiary: hsl(var(--panel-hue, 0), 8%, 58%);
-  --text-disabled: hsl(var(--panel-hue, 0), 10%, 78%);
-  --text-inverse: hsl(var(--panel-hue, 0), 4%, 98%);
+  --text-primary: hsl(0, 0%, 12%);
+  --text-secondary: hsl(0, 0%, 42%);
+  --text-tertiary: hsl(0, 0%, 58%);
+  --text-disabled: hsl(0, 0%, 78%);
+  --text-inverse: hsl(0, 0%, 98%);
 
   /* Interactive Text */
   --text-link: var(--color-blue-500);
@@ -80,8 +115,8 @@
   --text-danger: var(--color-red-500);
 
   /* Border Colors */
-  --border-default: hsla(var(--panel-hue, 0), 10%, 88%, 0.6);
-  --border-hover: hsla(var(--panel-hue, 0), 12%, 82%, 0.8);
+  --border-default: hsla(0, 0%, 88%, 0.6);
+  --border-hover: hsla(0, 0%, 82%, 0.8);
   --border-active: var(--color-blue-500);
   --border-focus: rgba(59, 130, 246, 0.35);
   --border-danger: var(--color-red-500);
@@ -96,10 +131,10 @@
   --blur-overlay: blur(8px);
 
   /* Shadow */
-  --shadow-sm: 0 1px 2px hsla(var(--panel-hue, 0), 20%, 10%, 0.04);
-  --shadow-md: 0 4px 12px hsla(var(--panel-hue, 0), 20%, 10%, 0.06);
-  --shadow-lg: 0 8px 24px hsla(var(--panel-hue, 0), 25%, 15%, 0.10);
-  --shadow-xl: 0 18px 40px hsla(var(--panel-hue, 0), 25%, 15%, 0.12);
+  --shadow-sm: 0 1px 2px hsla(0, 0%, 10%, 0.04);
+  --shadow-md: 0 4px 12px hsla(0, 0%, 10%, 0.06);
+  --shadow-lg: 0 8px 24px hsla(0, 0%, 15%, 0.10);
+  --shadow-xl: 0 18px 40px hsla(0, 0%, 15%, 0.12);
   --shadow-glow-blue: 0 0 0 2px rgba(59, 130, 246, 0.22), 0 8px 24px rgba(59, 130, 246, 0.15);
   --shadow-glow-green: 0 0 0 2px rgba(34, 197, 94, 0.40), 0 4px 16px rgba(34, 197, 94, 0.15);
   --shadow-glow-red: 0 0 0 2px rgba(239, 68, 68, 0.35);
@@ -107,7 +142,7 @@
   --shadow-inner-active: inset 0 0 0 1px var(--border-active);
 
   /* Panel Border Glow */
-  --panel-border-glow: inset 0 0 0 1px hsla(var(--panel-hue, 0), 30%, 70%, 0.15);
+  --panel-border-glow: inset 0 0 0 1px hsla(0, 0%, 70%, 0.15);
 
   /* Radius */
   --radius-none: 0px;
@@ -158,31 +193,31 @@
 
 [data-theme="dark"] {
   /* App Background */
-  --surface-app: hsl(var(--panel-hue, 220), 25%, 7%);
+  --surface-app: hsl(220, 25%, 7%);
 
-  /* Panel Surfaces - 半透明以支持模糊 */
-  --surface-panel: hsla(var(--panel-hue, 220), 20%, 10%, 0.82);
-  --surface-panel-alt: hsla(var(--panel-hue, 220), 22%, 13%, 0.72);
-  --surface-panel-hover: hsla(var(--panel-hue, 220), 24%, 16%, 0.88);
+  /* Panel Surfaces */
+  --surface-panel: hsla(220, 20%, 10%, 0.82);
+  --surface-panel-alt: hsla(220, 22%, 13%, 0.72);
+  --surface-panel-hover: hsla(220, 24%, 16%, 0.88);
 
   /* Card Surfaces */
-  --surface-card: hsla(var(--panel-hue, 220), 18%, 12%, 0.92);
-  --surface-card-hover: hsla(var(--panel-hue, 220), 20%, 15%, 0.96);
-  --surface-card-active: hsla(var(--panel-hue, 220), 22%, 18%, 1);
+  --surface-card: hsla(220, 18%, 12%, 0.92);
+  --surface-card-hover: hsla(220, 20%, 15%, 0.96);
+  --surface-card-active: hsla(220, 22%, 18%, 1);
 
   /* Input Surfaces */
-  --surface-input: hsla(var(--panel-hue, 220), 18%, 12%, 0.92);
-  --surface-input-hover: hsla(var(--panel-hue, 220), 20%, 15%, 0.96);
+  --surface-input: hsla(220, 18%, 12%, 0.92);
+  --surface-input-hover: hsla(220, 20%, 15%, 0.96);
 
   /* Overlay */
-  --surface-overlay: hsla(var(--panel-hue, 220), 30%, 5%, 0.65);
+  --surface-overlay: hsla(220, 30%, 5%, 0.65);
 
   /* Text Colors */
-  --text-primary: hsl(var(--panel-hue, 220), 15%, 92%);
-  --text-secondary: hsl(var(--panel-hue, 220), 12%, 68%);
-  --text-tertiary: hsl(var(--panel-hue, 220), 10%, 52%);
-  --text-disabled: hsl(var(--panel-hue, 220), 12%, 38%);
-  --text-inverse: hsl(var(--panel-hue, 220), 20%, 10%);
+  --text-primary: hsl(220, 15%, 92%);
+  --text-secondary: hsl(220, 12%, 68%);
+  --text-tertiary: hsl(220, 10%, 52%);
+  --text-disabled: hsl(220, 12%, 38%);
+  --text-inverse: hsl(220, 20%, 10%);
 
   /* Interactive Text */
   --text-link: var(--color-blue-400);
@@ -190,25 +225,25 @@
   --text-danger: var(--color-red-400);
 
   /* Border Colors */
-  --border-default: hsla(var(--panel-hue, 220), 18%, 22%, 0.6);
-  --border-hover: hsla(var(--panel-hue, 220), 20%, 28%, 0.8);
+  --border-default: hsla(220, 18%, 22%, 0.6);
+  --border-hover: hsla(220, 20%, 28%, 0.8);
   --border-active: var(--color-blue-400);
   --border-focus: rgba(96, 165, 250, 0.35);
   --border-danger: var(--color-red-400);
 
   /* Shadow */
-  --shadow-sm: 0 1px 2px hsla(var(--panel-hue, 220), 30%, 5%, 0.2);
-  --shadow-md: 0 4px 12px hsla(var(--panel-hue, 220), 30%, 5%, 0.25);
-  --shadow-lg: 0 10px 30px hsla(var(--panel-hue, 220), 35%, 5%, 0.35);
-  --shadow-xl: 0 18px 40px hsla(var(--panel-hue, 220), 35%, 5%, 0.45);
+  --shadow-sm: 0 1px 2px hsla(220, 30%, 5%, 0.2);
+  --shadow-md: 0 4px 12px hsla(220, 30%, 5%, 0.25);
+  --shadow-lg: 0 10px 30px hsla(220, 35%, 5%, 0.35);
+  --shadow-xl: 0 18px 40px hsla(220, 35%, 5%, 0.45);
   --shadow-glow-blue: 0 0 0 2px rgba(96, 165, 250, 0.28), 0 8px 24px rgba(96, 165, 250, 0.2);
   --shadow-glow-green: 0 0 0 2px rgba(34, 197, 94, 0.45), 0 4px 20px rgba(34, 197, 94, 0.2);
   --shadow-glow-red: 0 0 0 2px rgba(239, 68, 68, 0.4);
   --shadow-inner: inset 0 0 0 1px var(--border-default);
   --shadow-inner-active: inset 0 0 0 1px var(--border-active);
 
-  /* Panel Border Glow - 暗色模式下更微妙 */
-  --panel-border-glow: inset 0 0 0 1px hsla(var(--panel-hue, 220), 30%, 40%, 0.12);
+  /* Panel Border Glow */
+  --panel-border-glow: inset 0 0 0 1px hsla(220, 30%, 40%, 0.12);
 }
 
 /* ============================================
@@ -236,29 +271,26 @@
   box-shadow: var(--panel-border-glow), var(--shadow-lg);
 }
 
-/* backdrop-filter needs to sample beneath the element,
-   so containment / forced compositing break the blur effect */
-
 /* 降级：不支持 backdrop-filter 的浏览器 */
 @supports not (backdrop-filter: blur(20px)) {
   .glass-panel {
-    background-color: hsl(var(--panel-hue, 0), 6%, 96%);
+    background-color: hsl(0, 0%, 96%);
   }
   .glass-card {
-    background-color: hsl(var(--panel-hue, 0), 4%, 100%);
+    background-color: hsl(0, 0%, 100%);
   }
   .glass-panel-large {
-    background-color: hsl(var(--panel-hue, 0), 6%, 96%);
+    background-color: hsl(0, 0%, 96%);
   }
 
   [data-theme="dark"] .glass-panel {
-    background-color: hsl(var(--panel-hue, 220), 20%, 10%);
+    background-color: hsl(220, 20%, 10%);
   }
   [data-theme="dark"] .glass-card {
-    background-color: hsl(var(--panel-hue, 220), 18%, 12%);
+    background-color: hsl(220, 18%, 12%);
   }
   [data-theme="dark"] .glass-panel-large {
-    background-color: hsl(var(--panel-hue, 220), 20%, 10%);
+    background-color: hsl(220, 20%, 10%);
   }
 }
 
@@ -299,7 +331,7 @@
 .card-skeleton-line:nth-child(4) { width: 50%; }
 
 [data-theme="dark"] .card-skeleton-line {
-  background: linear-gradient(90deg, hsl(var(--panel-hue, 220), 18%, 16%) 25%, hsl(var(--panel-hue, 220), 18%, 22%) 50%, hsl(var(--panel-hue, 220), 18%, 16%) 75%);
+  background: linear-gradient(90deg, hsl(220, 18%, 16%) 25%, hsl(220, 18%, 22%) 50%, hsl(220, 18%, 16%) 75%);
   background-size: 800px 100%;
 }
 
@@ -311,4 +343,22 @@
 
 .react-flow__node-card {
   animation: card-enter 0.2s ease-out both;
+}
+
+/* ============================================
+   BlockNote Editor Theme Overrides
+   ============================================ */
+
+.bn-container {
+  --bn-colors-editor-text: var(--text-primary);
+  --bn-colors-editor-background: var(--surface-card);
+  --bn-colors-menu-background: var(--surface-card);
+  --bn-colors-menu-text: var(--text-primary);
+  --bn-colors-menu-hover-background: var(--surface-card-hover);
+  --bn-colors-menu-hover-text: var(--text-primary);
+  --bn-colors-tooltip-background: var(--surface-panel);
+  --bn-colors-tooltip-text: var(--text-secondary);
+  --bn-colors-selected-item-color: var(--color-blue-500);
+  --bn-colors-side-menu-color: var(--text-tertiary);
+  --bn-colors-side-menu-hover-color: var(--text-primary);
 }

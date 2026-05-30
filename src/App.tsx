@@ -146,6 +146,18 @@ function App() {
 
   const isBoardView = viewMode === 'board'
 
+  // Hide splash when data is ready (must be before early return)
+  useEffect(() => {
+    if (!dataReady) return
+    const splash = document.getElementById('splash')
+    if (splash) {
+      splash.classList.add('fade-out')
+      setTimeout(() => splash.remove(), 350)
+    }
+  }, [dataReady])
+
+  if (!dataReady) return null
+
   return (
     <ErrorBoundary>
     <div className="w-full h-full flex flex-col" style={{ backgroundColor: 'var(--surface-panel)' }}>

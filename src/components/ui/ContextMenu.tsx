@@ -1,5 +1,3 @@
-import { usePanelSurface } from '../../hooks/usePanelSurface'
-
 export interface ContextMenuItem {
   icon?: React.ReactNode
   label?: string
@@ -15,7 +13,6 @@ interface ContextMenuProps {
 }
 
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
-  const surface = usePanelSurface()
   return (
     <div
       className="fixed z-50 py-1 rounded-lg min-w-[160px] animate-scaleIn glass-panel"
@@ -28,12 +25,11 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     >
       {items.map((item, i) =>
         item.type === 'separator' ? (
-          <div key={i} className="h-px my-1" style={{ backgroundColor: surface.divider }} />
+          <div key={i} className="h-px my-1 bg-border-default" />
         ) : (
           <button
             key={i}
-            className="btn-base flex items-center gap-2 px-3 py-1.5 w-full text-left text-sm"
-            style={{ color: surface.text }}
+            className="btn-base flex items-center gap-2 px-3 py-1.5 w-full text-left text-sm text-text-primary"
             onClick={() => {
               item.onClick?.()
               onClose()

@@ -53,8 +53,6 @@ const LAYOUT_OPTIONS: { value: FrameLayout; label: string }[] = [
   { value: 'kanban', label: '看板' },
 ]
 
-const MINI_MODE_THRESHOLD = 0.4
-
 export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>) => {
   const { setNodes } = useReactFlow()
   const zoom = useStore((s) => s.transform[2])
@@ -80,7 +78,6 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
 
   const currentLayout = data.layout ?? 'free'
   const frameColor = data.color ?? '#6366f1'
-  const isMiniMode = zoom < MINI_MODE_THRESHOLD
 
   const handleColorChange = useCallback((color: string) => {
     setShowColorMenu(false)
@@ -441,11 +438,9 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
   const tagGap = 2 * ts
   const tagMaxWidth = 80 * ts
   const tagInputWidth = 24 * ts
-  const tagOffsetX = 12 * ts
-  const tagOffsetY = 8 * ts
   const tagBorderWidth = 1 * ts
   const tagBorderRadius = 6 * ts
-  const dragHandleHeight = Math.max(4, 28 * ts)
+  const dragHandleHeight = Math.max(44, 28 * ts)
 
   const rs = tagScale
   const edgeSize = Math.max(2, EDGE_SIZE * rs)
@@ -471,8 +466,8 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         width: size.width,
         height: size.height,
         background: isDarkMode
-          ? `color-mix(in srgb, ${frameColor} 10%, rgba(255,255,255,0.03))`
-          : `color-mix(in srgb, ${frameColor} 10%, rgba(255,255,255,0.72))`,
+          ? `color-mix(in srgb, ${frameColor} 8%, rgba(30,30,30,0.03))`
+          : `color-mix(in srgb, ${frameColor} 8%, rgba(255,255,255,0.3))`,
         borderRadius: 18,
         border: `${Math.max(0.5, 1.5 * ts)}px solid ${borderColor}`,
         boxShadow,
@@ -480,118 +475,77 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
     >
-      {/* 迷你模式：只显示色块+标题 */}
-      {isMiniMode && (
+      {/* 标签区域 — 拖拽 + hover + 双击编辑 */}
+      <div
+        className="frame-drag-handle select-none absolute"
+        style={{
+          top: 0,
+          left: 0,
+          height: dragHandleHeight,
+          zIndex: 3,
+          pointerEvents: 'auto',
+          cursor: 'grab',
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <div
+          className="inline-flex items-center"
           style={{
-            position: 'absolute',
-            top: 6 * ts,
-            left: 6 * ts,
-            right: 6 * ts,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4 * ts,
-            overflow: 'hidden',
-            pointerEvents: 'none',
+            marginTop: 4 * ts,
+            marginLeft: 6 * ts,
+            background: isDarkMode
+              ? `color-mix(in srgb, ${frameColor} 18%, rgba(25,25,25,0.98))`
+              : `color-mix(in srgb, ${frameColor} 18%, rgba(255,255,255,0.98))`,
+            border: `${tagBorderWidth}px solid ${isDarkMode ? frameColor + '60' : frameColor + '50'}`,
+            borderRadius: tagBorderRadius,
+            padding: `${tagPaddingV}px ${tagPaddingH}px`,
+            gap: tagGap,
+            fontSize: tagFontSize,
+            lineHeight: 1.4,
+            transition: 'border-color 0.15s',
+            boxShadow: isDarkMode ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.08)',
           }}
         >
-          <span
-            style={{
-              width: 6 * ts,
-              height: 6 * ts,
-              borderRadius: '50%',
-              backgroundColor: frameColor,
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 8 * ts,
-              fontWeight: 700,
-              lineHeight: 1.2,
-              color: isDarkMode ? '#b0b0b0' : '#444',
-              letterSpacing: -0.2 * ts,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {name}
-          </span>
-        </div>
-      )}
+          {isEditing ? (
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={handleNameSubmit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleNameSubmit()
+              }}
+              style={{
+                width: tagInputWidth,
+                fontSize: tagFontSize,
+                fontWeight: 600,
+                color: isDarkMode ? '#c8c8c8' : '#333',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+              }}
+              autoFocus
+            />
+          ) : (
+            <span
+              style={{
+                fontWeight: 600,
+                color: isDarkMode ? '#c8c8c8' : '#333',
+                letterSpacing: -0.3,
+                cursor: 'pointer',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: tagMaxWidth,
+              }}
+              onDoubleClick={() => setIsEditing(true)}
+            >
+              {name}
+            </span>
+          )}
 
-      {/* 正常模式：拖拽条 + 标签 */}
-      {!isMiniMode && (
-        <div
-          className="frame-drag-handle select-none pointer-events-auto absolute"
-          style={{
-            top: 0,
-            left: 0,
-            right: 0,
-            height: dragHandleHeight,
-            zIndex: 3,
-          }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          <div
-            className="inline-flex items-center"
-            style={{
-              marginTop: 4 * ts,
-              marginLeft: 6 * ts,
-              background: isDarkMode
-                ? `color-mix(in srgb, ${frameColor} 18%, rgba(25,25,25,0.98))`
-                : `color-mix(in srgb, ${frameColor} 18%, rgba(255,255,255,0.98))`,
-              border: `${tagBorderWidth}px solid ${isDarkMode ? frameColor + '60' : frameColor + '50'}`,
-              borderRadius: tagBorderRadius,
-              padding: `${tagPaddingV}px ${tagPaddingH}px`,
-              gap: tagGap,
-              fontSize: tagFontSize,
-              lineHeight: 1.4,
-              transition: 'border-color 0.15s',
-              boxShadow: isDarkMode ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.08)',
-            }}
-          >
-            {isEditing ? (
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={handleNameSubmit}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleNameSubmit()
-                }}
-                style={{
-                  width: tagInputWidth,
-                  fontSize: tagFontSize,
-                  fontWeight: 600,
-                  color: isDarkMode ? '#c8c8c8' : '#333',
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                }}
-                autoFocus
-              />
-            ) : (
-              <span
-                style={{
-                  fontWeight: 600,
-                  color: isDarkMode ? '#c8c8c8' : '#333',
-                  letterSpacing: -0.3,
-                  cursor: 'pointer',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: tagMaxWidth,
-                }}
-                onDoubleClick={() => setIsEditing(true)}
-              >
-                {name}
-              </span>
-            )}
-
-            <button
+          <button
               style={{
                 width: tagDotSize,
                 height: tagDotSize,
@@ -639,10 +593,9 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
             </button>
           </div>
         </div>
-      )}
 
-      {/* 看板列头（仅正常模式显示） */}
-      {!isMiniMode && currentLayout === 'kanban' && kanbanColumns.length > 0 && (
+        {/* 看板列头 */}
+        {currentLayout === 'kanban' && kanbanColumns.length > 0 && (
         <div
           className="absolute inset-0 flex pointer-events-none"
           style={{ top: HEADER_HEIGHT + 1 }}
@@ -675,8 +628,8 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         </div>
       )}
 
-      {/* Resize 手柄（仅选中 + 正常模式） */}
-      {!isMiniMode && resizeEdges.map(({ dir, style }) => (
+      {/* Resize 手柄（仅选中时显示） */}
+      {resizeEdges.map(({ dir, style }) => (
         <div
           key={dir}
           className="absolute pointer-events-auto"

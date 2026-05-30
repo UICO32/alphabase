@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { renderBlocksToHTML } from '../../../converters/renderBlocks'
+import { useCardStore } from '../../../stores/cardStore'
 
 interface CollapsedContentProps {
+  cardId: string
   content: string
   previewHTML?: string
   textColor: string
@@ -25,9 +26,9 @@ function extractFirstBlock(html: string): string {
   }
 }
 
-export function CollapsedContent({ content, previewHTML, textColor }: CollapsedContentProps) {
-  const html = previewHTML || renderBlocksToHTML(content)
-  const preview = useMemo(() => extractFirstBlock(html), [html])
+export function CollapsedContent({ cardId, content, previewHTML, textColor }: CollapsedContentProps) {
+  const html = previewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
+  const preview = useMemo(() => extractFirstBlock(html), [html, content])
 
   return (
     <div

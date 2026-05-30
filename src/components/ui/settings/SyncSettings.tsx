@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useFlomoSyncStore } from '../../../sync/flomoSync'
 import { useWorkspaceStore } from '../../../stores/workspaceStore'
-import { usePanelSurface } from '../../../hooks/usePanelSurface'
 import { RefreshCw, LogOut, Link } from 'lucide-react'
 
 export function SyncSettings() {
-  const surface = usePanelSurface()
   const syncing = useFlomoSyncStore(s => s.syncing)
   const accessToken = useFlomoSyncStore(s => s.accessToken)
   const email = useFlomoSyncStore(s => s.email)
@@ -62,56 +60,40 @@ export function SyncSettings() {
   return (
     <>
       <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4" style={{ color: surface.text }}>
+        <h3 className="text-sm font-medium mb-4 text-text-primary">
           Flomo 同步
         </h3>
 
         {!isLoggedIn ? (
           <div className="space-y-3">
             <div>
-              <label className="text-xs mb-1 block" style={{ color: surface.muted }}>邮箱</label>
+              <label className="text-xs mb-1 block text-text-secondary">邮箱</label>
               <input
                 type="email"
                 value={inputEmail}
                 onChange={e => setInputEmail(e.target.value)}
-                className="w-full p-3 rounded-lg text-sm"
-                style={{
-                  backgroundColor: surface.surface,
-                  color: surface.text,
-                  border: `1px solid ${surface.divider}`,
-                  outline: 'none',
-                }}
+                className="w-full p-3 rounded-lg text-sm bg-surface-card text-text-primary border border-border-default outline-none"
                 placeholder="输入 flomo 邮箱"
               />
             </div>
             <div>
-              <label className="text-xs mb-1 block" style={{ color: surface.muted }}>密码</label>
+              <label className="text-xs mb-1 block text-text-secondary">密码</label>
               <input
                 type="password"
                 value={inputPassword}
                 onChange={e => setInputPassword(e.target.value)}
-                className="w-full p-3 rounded-lg text-sm"
-                style={{
-                  backgroundColor: surface.surface,
-                  color: surface.text,
-                  border: `1px solid ${surface.divider}`,
-                  outline: 'none',
-                }}
+                className="w-full p-3 rounded-lg text-sm bg-surface-card text-text-primary border border-border-default outline-none"
                 placeholder="输入 flomo 密码"
               />
             </div>
             {loginError && (
-              <p className="text-xs text-red-500">{loginError}</p>
+              <p className="text-xs text-text-danger">{loginError}</p>
             )}
             <button
               onClick={handleLogin}
               disabled={!inputEmail || !inputPassword}
-              className="btn-base flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm"
-              style={{
-                backgroundColor: surface.text,
-                color: surface.panelBg,
-                opacity: !inputEmail || !inputPassword ? 0.5 : 1,
-              }}
+              className="btn-base flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm bg-text-primary text-surface-app"
+              style={{ opacity: !inputEmail || !inputPassword ? 0.5 : 1 }}
             >
               <Link size={16} />
               连接 Flomo
@@ -119,58 +101,47 @@ export function SyncSettings() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div
-              className="flex items-center justify-between p-3 rounded-lg"
-              style={{ backgroundColor: surface.surface }}
-            >
+            <div className="flex items-center justify-between p-3 rounded-lg bg-surface-card">
               <div className="flex items-center gap-2">
-                <span className="text-sm" style={{ color: surface.text }}>
+                <span className="text-sm text-text-primary">
                   已连接
                 </span>
-                <span className="text-xs" style={{ color: surface.muted }}>
+                <span className="text-xs text-text-secondary">
                   {email}
                 </span>
               </div>
               <button
                 onClick={logout}
-                className="btn-base flex items-center gap-1 p-1.5 rounded-md text-xs"
-                style={{ color: surface.muted }}
+                className="btn-base flex items-center gap-1 p-1.5 rounded-md text-xs text-text-secondary"
               >
                 <LogOut size={14} />
                 断开
               </button>
             </div>
 
-            <div
-              className="p-3 rounded-lg"
-              style={{ backgroundColor: surface.surface }}
-            >
-              <div className="text-xs mb-2" style={{ color: surface.muted }}>
+            <div className="p-3 rounded-lg bg-surface-card">
+              <div className="text-xs mb-2 text-text-secondary">
                 同步状态
               </div>
-              <div className="text-sm" style={{ color: surface.text }}>
+              <div className="text-sm text-text-primary">
                 已导入 {importedCount} 条 memo
               </div>
               {lastSyncTime && (
-                <div className="text-xs mt-1" style={{ color: surface.muted }}>
+                <div className="text-xs mt-1 text-text-secondary">
                   上次同步：{new Date(lastSyncTime).toLocaleString('zh-CN')}
                 </div>
               )}
             </div>
 
             {error && (
-              <p className="text-xs text-red-500">{error}</p>
+              <p className="text-xs text-text-danger">{error}</p>
             )}
 
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="btn-base flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm"
-              style={{
-                backgroundColor: surface.text,
-                color: surface.panelBg,
-                opacity: syncing ? 0.5 : 1,
-              }}
+              className="btn-base flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm bg-text-primary text-surface-app"
+              style={{ opacity: syncing ? 0.5 : 1 }}
             >
               <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
               {syncing ? '同步中...' : '同步 Flomo'}

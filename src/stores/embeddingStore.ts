@@ -21,6 +21,7 @@ interface EmbeddingState {
   startIndexing: () => Promise<void>
   cancelIndexing: () => Promise<void>
   searchRelated: (cardId: string, topK?: number) => Promise<void>
+  searchByText: (query: string, topK?: number) => Promise<void>
   clearResults: () => void
   setThreshold: (value: number) => Promise<void>
   checkStatus: () => Promise<void>
@@ -112,6 +113,20 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
     set({ searching: true, searchResults: [], searchScores: {} })
     try {
       const { results } = await window.electronAPI.embedding.search(cardId, topK)
+      const scores: Record<string, number> = {}
+      for (const r of (results || [])) {
+        scores[r.cardId] = r.score
+      }
+      set({ searchResults: results || [], searchScores: scores, searching: false })
+    } catch {
+      set({ searchResults: [], searchScores: {}, searching: false })
+    }
+  },
+
+  searchByText: async (query: string, topK = 20) => {
+    set({ searching: true, searchResults: [], searchScores: {} })
+    try {
+      const { results } = await window.electronAPI.embedding.searchByText(query, topK)
       const scores: Record<string, number> = {}
       for (const r of (results || [])) {
         scores[r.cardId] = r.score

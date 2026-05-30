@@ -12,7 +12,6 @@ import {
   AlignVerticalDistributeCenter,
 } from 'lucide-react'
 import { computeAlignment, type AlignmentMode, computeBoundingBox } from '../../utils/alignment'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 
 interface AlignmentToolbarProps {
   selectedNodes: Node[]
@@ -32,7 +31,6 @@ const ALIGN_ITEMS: { mode: AlignmentMode; Icon: typeof AlignStartHorizontal; tit
 ]
 
 export function AlignmentToolbar({ selectedNodes, reactFlowInstance, onApplyAlignment }: AlignmentToolbarProps) {
-  const surface = usePanelSurface()
   const canDistribute = selectedNodes.length >= 3
 
   const position = useMemo(() => {
@@ -62,14 +60,12 @@ export function AlignmentToolbar({ selectedNodes, reactFlowInstance, onApplyAlig
 
   const toolbar = (
     <div
-      className="fixed z-40 flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg animate-fadeInUp"
+      className="fixed z-40 flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg animate-fadeInUp bg-surface-card border border-border-default"
       style={{
         left: position.x,
         top: position.y,
         transform: 'translate(-50%, -100%)',
-        backgroundColor: surface.surface,
         boxShadow: 'var(--shadow-md)',
-        border: `1px solid ${surface.divider}`,
       }}
     >
       {ALIGN_ITEMS.map((item, i) => {
@@ -78,14 +74,10 @@ export function AlignmentToolbar({ selectedNodes, reactFlowInstance, onApplyAlig
         return (
           <span key={item.mode} className="contents">
             {isDivider && (
-              <div
-                className="w-px h-4 mx-0.5"
-                style={{ backgroundColor: surface.divider }}
-              />
+              <div className="w-px h-4 mx-0.5 bg-border-default" />
             )}
             <button
-              className="btn-base p-1.5 rounded-md disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ color: disabled ? surface.muted : surface.text }}
+              className="btn-base p-1.5 rounded-md disabled:opacity-30 disabled:cursor-not-allowed text-text-primary disabled:text-text-secondary"
               title={disabled ? `${item.title}（需要至少 3 张卡片）` : item.title}
               disabled={disabled}
               onClick={() => handleClick(item.mode)}

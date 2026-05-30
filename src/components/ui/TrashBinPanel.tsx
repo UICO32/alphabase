@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { useCardStore } from '../../stores/cardStore'
 import { useTrashStore } from '../../stores/trashStore'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { EmptyState } from './SharedUI'
 import { Trash2, RotateCcw, Trash, X } from 'lucide-react'
 
@@ -10,7 +9,6 @@ interface TrashBinPanelProps {
 }
 
 export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
-  const surface = usePanelSurface()
   const cards = useCardStore(s => s.cards)
   const restoreCard = useCardStore(s => s.restoreCard)
   const deleteCard = useCardStore(s => s.deleteCard)
@@ -59,20 +57,15 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between px-6 py-4 border-b transition-theme"
-          style={{ borderColor: surface.divider }}
+          className="flex items-center justify-between px-6 py-4 border-b border-border-default transition-theme"
         >
           <div className="flex items-center gap-3">
-            <Trash2 size={20} style={{ color: surface.text }} />
-            <span className="font-semibold" style={{ color: surface.text }}>
+            <Trash2 size={20} className="text-text-primary" />
+            <span className="font-semibold text-text-primary">
               回收站
             </span>
             <span
-              className="text-sm px-2 py-0.5 rounded-full"
-              style={{
-                backgroundColor: surface.surface,
-                color: surface.muted,
-              }}
+              className="text-sm px-2 py-0.5 rounded-full bg-surface-card text-text-secondary"
             >
               {deletedCards.length} 项
             </span>
@@ -88,8 +81,7 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
             )}
             <button
               onClick={onClose}
-              className="btn-base p-2 rounded-lg"
-              style={{ color: surface.muted }}
+              className="btn-base p-2 rounded-lg text-text-secondary"
             >
               <X size={18} />
             </button>
@@ -101,31 +93,25 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
             <EmptyState
               icon={<Trash2 size={48} />}
               text="回收站为空"
-              surface={surface}
             />
           ) : (
             <div className="space-y-2">
               {deletedCards.map((card) => (
                 <div
                   key={card.id}
-                  className="hepta-list-item flex items-center justify-between p-3 rounded-lg"
-                  style={{
-                    backgroundColor: surface.surface,
-                    border: `1px solid ${surface.divider}`,
-                  }}
+                  className="hepta-list-item flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-default"
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: surface.panelBg }}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-panel"
                     >
-                      <Trash2 size={14} style={{ color: surface.muted }} />
+                      <Trash2 size={14} className="text-text-secondary" />
                     </div>
                     <div>
-                      <div className="text-sm font-medium" style={{ color: surface.text }}>
+                      <div className="text-sm font-medium text-text-primary">
                         {card.title || '无标题'}
                       </div>
-                      <div className="text-xs" style={{ color: surface.muted }}>
+                      <div className="text-xs text-text-secondary">
                         删除于 {card.deletedAt ? new Date(card.deletedAt).toLocaleString('zh-CN') : ''}
                       </div>
                     </div>
@@ -133,11 +119,7 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleRestore(card.id)}
-                      className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
-                      style={{
-                        backgroundColor: surface.panelBg,
-                        color: surface.text,
-                      }}
+                      className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-surface-panel text-text-primary"
                     >
                       <RotateCcw size={14} />
                       恢复

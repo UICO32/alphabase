@@ -5,9 +5,9 @@ import { extractEmbeddingText } from './textExtractor'
 import { JinaTokenizer } from './tokenizer'
 
 // --- Constants ---
-const MODEL_ID = 'jina-embeddings-v5-text-nano-retrieval'
+const MODEL_ID = 'jina-embeddings-v5-text-nano-text-matching'
 const TRUNCATED_DIMENSIONS = 256
-const DEFAULT_THRESHOLD = 0.5
+const DEFAULT_THRESHOLD = 0.45
 const VECTORS_DIR_NAME = '.vectors'
 const META_FILE = 'meta.json'
 const MODEL_FILENAME = 'model_q4f16.onnx'
@@ -220,6 +220,27 @@ export class EmbeddingService {
     return scored
   }
 
+  async searchByText(query: string, topK: number = 20): Promise<SearchResult[]> {
+    if (!this.session) {
+      throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
+    }
+
+    const vectors = await this.encodeBatch([query], true)
+    const queryVector = vectors[0]
+
+    const scored = Object.values(this.store.docs)
+      .map(d => ({
+        cardId: d.id.replace('card_', ''),
+        score: cosineSimilarity(queryVector, d.vector),
+        modality: d.fields.modality,
+      }))
+      .filter(r => r.score >= this.threshold)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
+
+    return scored
+  }
+
   cancel(): void {
     if (this.abortController) {
       this.abortController.abort()
@@ -274,12 +295,16 @@ export class EmbeddingService {
     this.abortController = null
   }
 
-  private async encodeBatch(texts: string[]): Promise<number[][]> {
+  private async encodeBatch(texts: string[], isQuery: boolean = false): Promise<number[][]> {
     if (!this.session || !this.tokenizer) {
       throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
     }
 
-    const encoded = texts.map(t => {
+    // text-matching 模型需要前缀区分查询和文档
+    const prefix = isQuery ? 'Query: ' : 'Document: '
+    const prefixedTexts = texts.map(t => `${prefix}${t}`)
+
+    const encoded = prefixedTexts.map(t => {
       const e = this.tokenizer!.encode(t)
       return {
         ids: e.ids.slice(0, MAX_SEQ_LENGTH),
@@ -311,20 +336,35 @@ export class EmbeddingService {
       attention_mask: attentionMask,
     })
 
-    const embeddingTensor = output['sentence_embedding']
-    if (!embeddingTensor) {
-      throw new Error('ONNX model did not produce sentence_embedding output')
+    // text-matching 模型使用 last-token pooling，从 last_hidden_state 提取
+    const hiddenStateTensor = output['last_hidden_state']
+    if (!hiddenStateTensor) {
+      throw new Error('ONNX model did not produce last_hidden_state output')
     }
 
-    const data = embeddingTensor.data as Float32Array
-    const outputDims = embeddingTensor.dims as number[]
+    const data = hiddenStateTensor.data as Float32Array
+    const outputDims = hiddenStateTensor.dims as number[]
 
-    // Output shape: [batchSize, dimensions]
-    const dimCount = outputDims[1] || data.length / batchSize
+    // Output shape: [batchSize, seqLen, hiddenDim]
+    const seqLen = outputDims[1]
+    const hiddenDim = outputDims[2]
+
+    // 计算每个序列的实际长度（最后一个非 padding token 的位置）
+    const sequenceLengths: number[] = []
+    for (let i = 0; i < batchSize; i++) {
+      let length = 0
+      for (let j = 0; j < maxLen; j++) {
+        if (flatMask[i * maxLen + j] === BigInt(1)) {
+          length = j
+        }
+      }
+      sequenceLengths.push(length)
+    }
 
     const results: number[][] = []
     for (let i = 0; i < batchSize; i++) {
-      const start = i * dimCount
+      const lastTokenIdx = sequenceLengths[i]
+      const start = i * seqLen * hiddenDim + lastTokenIdx * hiddenDim
       const fullVec = data.slice(start, start + TRUNCATED_DIMENSIONS)
       results.push(l2Normalize(Array.from(fullVec)))
     }

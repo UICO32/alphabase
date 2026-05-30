@@ -1,5 +1,6 @@
 import { writeFile, deleteFile, exists, mkdir, rename } from '../utils/workspace/fs'
 import type { CardFile, BoardSnapshot, BoardManifest, TrashFile, WorkspaceMetadata } from '../utils/workspace/types'
+import { useEventBus } from '../stores/eventBus'
 
 export class WorkspaceSyncEngine {
   private cardsDir: string = ''
@@ -71,8 +72,11 @@ export class WorkspaceSyncEngine {
         await writeFile(tmpPath, data)
         await rename(tmpPath, path)
       }
-    } catch {
-      /* noop — 防止单个写入失败阻塞其他 */
+    } catch (err) {
+      useEventBus.getState().emit('write-error', {
+        path,
+        error: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -97,7 +101,7 @@ export class WorkspaceSyncEngine {
     if (existing) clearTimeout(existing.timer)
     this.pendingWrites.set(key, {
       data: '__DELETE__',
-      timer: setTimeout(() => this.executeWrite(key, path, '__DELETE__'), 0),
+      timer: setTimeout(() => this.executeWrite(key, path, '__DELETE__'), 500),
     })
   }
 

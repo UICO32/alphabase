@@ -1,9 +1,7 @@
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 
 export function TitleBar() {
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
-  const surface = usePanelSurface()
 
   return (
     <div
@@ -14,7 +12,7 @@ export function TitleBar() {
       } as React.CSSProperties}
     >
       <div className="flex items-center gap-2 px-4 min-w-0" style={{ width: 260 }}>
-        <span className="text-xs truncate" style={{ color: surface.muted }}>
+        <span className="text-xs truncate text-text-secondary">
           {currentWorkspace?.name || 'Heptabase'}
         </span>
       </div>

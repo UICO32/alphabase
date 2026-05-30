@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify'
 import { memo, lazy, Suspense, useMemo } from 'react'
 import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
-import { renderBlocksToHTML } from '../../../converters/renderBlocks'
+import { useCardStore } from '../../../stores/cardStore'
 
 const LazyCardBlockNoteEditor = lazy(() =>
   import('../../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
@@ -10,6 +10,7 @@ const LazyCardBlockNoteEditor = lazy(() =>
 interface CardContentProps {
   isEditing: boolean
   isSelected: boolean
+  cardId: string
   content: string
   previewHTML?: string
   enforceInitialHeading?: boolean
@@ -24,6 +25,7 @@ interface CardContentProps {
 export const CardContent = memo(function CardContent({
   isEditing,
   isSelected,
+  cardId,
   content,
   previewHTML,
   enforceInitialHeading,
@@ -37,9 +39,10 @@ export const CardContent = memo(function CardContent({
   const canScroll = isSelected || isEditing
 
   const sanitizedHTML = useMemo(() => {
-    const raw = previewHTML || renderBlocksToHTML(content) || '<span style="opacity:0.5">双击编辑...</span>'
-    return DOMPurify.sanitize(raw)
-  }, [previewHTML, content])
+    // Use store's lazy getPreviewHTML — generates on first access, caches after
+    const raw = previewHTML || useCardStore.getState().getPreviewHTML(cardId) || '<span style="opacity:0.5">双击编辑...</span>'
+    return DOMPurify.sanitize(raw, { ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i })
+  }, [previewHTML, cardId, content])
 
   return (
     <div

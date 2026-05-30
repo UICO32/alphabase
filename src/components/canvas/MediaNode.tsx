@@ -46,7 +46,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
           minWidth={100}
           minHeight={50}
           isVisible={selected}
-          handleClassName="!w-3 !h-3 !bg-blue-500 !border-2 !border-white !rounded-sm !shadow-sm"
+          handleClassName="!w-3 !h-3 !bg-accent-blue !border-2 !border-white !rounded-sm !shadow-sm"
           lineClassName="!bg-transparent"
         />
       )}

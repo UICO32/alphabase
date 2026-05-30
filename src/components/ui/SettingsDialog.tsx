@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { X } from 'lucide-react'
 import { SystemSettings } from './settings/SystemSettings'
 import { SyncSettings } from './settings/SyncSettings'
@@ -14,7 +13,6 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
-  const surface = usePanelSurface()
 
   return (
     <div
@@ -30,16 +28,14 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between px-6 py-4 border-b transition-theme"
-          style={{ borderColor: surface.divider }}
+          className="flex items-center justify-between px-6 py-4 border-b border-border-default transition-theme"
         >
-          <span className="font-semibold" style={{ color: surface.text }}>
+          <span className="font-semibold text-text-primary">
             设置
           </span>
           <button
             onClick={onClose}
-            className="btn-base p-2 rounded-lg"
-            style={{ color: surface.muted }}
+            className="btn-base p-2 rounded-lg text-text-secondary"
           >
             <X size={18} />
           </button>
@@ -47,26 +43,22 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
 
         <div className="flex flex-1 overflow-hidden">
           <div
-            className="w-[140px] shrink-0 border-r p-3 space-y-1"
-            style={{ borderColor: surface.divider }}
+            className="w-[140px] shrink-0 border-r border-border-default p-3 space-y-1"
           >
             <NavButton
               active={activeTab === 'system'}
               onClick={() => setActiveTab('system')}
               label="系统设置"
-              surface={surface}
             />
             <NavButton
               active={activeTab === 'sync'}
               onClick={() => setActiveTab('sync')}
               label="同步设置"
-              surface={surface}
             />
             <NavButton
               active={activeTab === 'export'}
               onClick={() => setActiveTab('export')}
               label="导入导出"
-              surface={surface}
             />
           </div>
 
@@ -81,21 +73,19 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
   )
 }
 
-function NavButton({ active, onClick, label, surface }: {
+function NavButton({ active, onClick, label }: {
   active: boolean
   onClick: () => void
   label: string
-  surface: ReturnType<typeof usePanelSurface>
 }) {
   return (
     <button
       onClick={onClick}
-      className="btn-base w-full px-3 py-2 rounded-lg text-sm text-left"
-      style={{
-        backgroundColor: active ? surface.surface : 'transparent',
-        color: active ? surface.text : surface.muted,
-        border: active ? `1px solid ${surface.divider}` : '1px solid transparent',
-      }}
+      className={`btn-base w-full px-3 py-2 rounded-lg text-sm text-left border ${
+        active
+          ? 'bg-surface-card text-text-primary border-border-default'
+          : 'bg-transparent text-text-secondary border-transparent'
+      }`}
     >
       {label}
     </button>

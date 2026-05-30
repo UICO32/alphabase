@@ -11,6 +11,7 @@ export interface FSAdapter {
   writeFile(path: string, data: Uint8Array | string): Promise<void>
   deleteFile(path: string): Promise<void>
   readdir(path: string): Promise<string[]>
+  readDirFiles(dirPath: string): Promise<Record<string, string> | null>
   mkdir(path: string): Promise<void>
   stat(path: string): Promise<{ isDirectory: boolean; size: number; mtimeMs: number }>
   exists(path: string): Promise<boolean>
@@ -44,6 +45,10 @@ export async function deleteFile(path: string): Promise<void> {
 
 export async function readdir(path: string): Promise<string[]> {
   return await getFSAdapter().readdir(path)
+}
+
+export async function readDirFiles(dirPath: string): Promise<Record<string, string> | null> {
+  return await getFSAdapter().readDirFiles(dirPath)
 }
 
 export async function mkdir(path: string): Promise<void> {

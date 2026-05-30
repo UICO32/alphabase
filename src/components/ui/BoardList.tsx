@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { FileText, Plus, MoreHorizontal, Pencil, Trash, Copy, FolderOpen } from 'lucide-react'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { PanelSeparator } from './SharedUI'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 
@@ -34,7 +33,6 @@ export function BoardList({
   onCreateBoard,
   onOpenInExplorer,
 }: BoardListProps) {
-  const surface = usePanelSurface()
 
   const [newBoardName, setNewBoardName] = useState('')
   const [isCreatingBoard, setIsCreatingBoard] = useState(false)
@@ -139,24 +137,11 @@ export function BoardList({
                     setEditingBoardName('')
                   }
                 }}
-                className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none"
-                style={{
-                  backgroundColor: surface.surface,
-                  color: surface.text,
-                  border: `1px solid ${surface.divider}`,
-                }}
+                className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-text-primary border border-border-default"
               />
             ) : (
               <div
-                className="hepta-list-item flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group"
-                style={{
-                  backgroundColor: board.id === activeBoardId && viewMode === 'board'
-                    ? surface.surface
-                    : 'transparent',
-                  color: board.id === activeBoardId && viewMode === 'board'
-                    ? surface.text
-                    : surface.muted,
-                }}
+                className={`hepta-list-item flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
                 onClick={() => onSwitchBoard(board.id)}
                 onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 onContextMenu={(e) => handleBoardContextMenu(e, board.id)}
@@ -172,7 +157,7 @@ export function BoardList({
                     handleBoardContextMenu(e, board.id)
                   }}
                 >
-                  <MoreHorizontal size={12} style={{ color: surface.muted }} />
+                  <MoreHorizontal size={12} className="text-text-secondary" />
                 </button>
               </div>
             )}
@@ -194,18 +179,12 @@ export function BoardList({
                 }
               }}
               placeholder="输入画板名称..."
-              className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none"
-              style={{
-                backgroundColor: surface.surface,
-                color: surface.text,
-                border: `1px solid ${surface.divider}`,
-              }}
+              className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-text-primary border border-border-default"
             />
           </div>
         ) : (
           <button
-            className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full"
-            style={{ color: surface.muted }}
+            className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-text-secondary"
             onClick={() => setIsCreatingBoard(true)}
           >
             <Plus size={14} />

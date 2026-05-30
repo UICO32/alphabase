@@ -2,7 +2,6 @@ import { useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { useBoardActions } from '../../hooks/useBoardActions'
 import { CollapseButton, PanelSeparator } from './SharedUI'
 import { BoardList } from './BoardList'
@@ -32,8 +31,6 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
 
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
 
-  const surface = usePanelSurface()
-
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation()
   }, [])
@@ -58,23 +55,19 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         onWheel={handleWheel}
       >
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b transition-theme"
-        style={{ borderColor: surface.divider }}
-      >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border-default transition-theme">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div
             className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer transition-theme hover:opacity-80"
             onClick={onOpenWorkspacePicker}
           >
-            <Folder size={16} style={{ color: surface.muted }} />
-            <span className="text-sm font-medium truncate" style={{ color: surface.text }}>
+            <Folder size={16} className="text-text-secondary" />
+            <span className="text-sm font-medium truncate text-text-primary">
               {currentWorkspace?.name || '未选择工作区'}
             </span>
           </div>
           <button
-            className="p-1.5 rounded-lg cursor-pointer transition-theme hover:opacity-80"
-            style={{ color: surface.muted }}
+            className="p-1.5 rounded-lg cursor-pointer transition-theme hover:opacity-80 text-text-secondary"
             onClick={onOpenSettings}
           >
             <Settings size={14} />
@@ -89,14 +82,12 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
                 onClick={() => setViewMode('boardLibrary')}
                 icon={<LayoutGrid size={14} />}
                 label="画板库"
-                surface={surface}
               />
               <ViewModeButton
                 active={viewMode === 'cards'}
                 onClick={() => setViewMode('cards')}
                 icon={<Layers size={14} />}
                 label="卡片库"
-                surface={surface}
               />
             </div>
 
@@ -116,8 +107,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
 
             <div className="px-2 py-2">
               <button
-                className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full"
-                style={{ color: surface.muted }}
+                className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-text-secondary"
                 onClick={onOpenTrash}
               >
                 <Trash2 size={14} />
@@ -133,11 +123,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
           exit={{ opacity: 0, scale: 0.9 }}
           transition={{ duration: 0.2 }}
           onClick={() => setLeftPanelCollapsed(false)}
-          className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel"
-          style={{
-            color: surface.muted,
-            border: `1px solid ${surface.divider}`,
-          }}
+          className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-text-secondary border border-border-default"
         >
           <PanelLeftOpen size={16} />
         </motion.button>
@@ -146,21 +132,16 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
   )
 }
 
-function ViewModeButton({ active, onClick, icon, label, surface }: {
+function ViewModeButton({ active, onClick, icon, label }: {
   active: boolean
   onClick: () => void
   icon: React.ReactNode
   label: string
-  surface: ReturnType<typeof usePanelSurface>
 }) {
   return (
     <button
       onClick={onClick}
-      className="panel-tab panel-tab-hover flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs flex-1 justify-center cursor-pointer"
-      style={{
-        backgroundColor: active ? surface.surface : 'transparent',
-        color: active ? surface.text : surface.muted,
-      }}
+      className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs flex-1 justify-center cursor-pointer ${active ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
     >
       {icon}
       <span>{label}</span>

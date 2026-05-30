@@ -28,7 +28,6 @@ import { ConnectionPreview } from './ConnectionPreview'
 import { AlignmentToolbar } from './AlignmentToolbar'
 
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { useWorkspaceLifecycle } from '../../hooks/useWorkspaceLifecycle'
 import { useBoardSync } from '../../hooks/useBoardSync'
 import { useFrameSync } from '../../hooks/useFrameSync'
@@ -70,7 +69,6 @@ export function ReactFlowCanvas() {
   const kanbanEditDialogCardId = useLibraryStore((s) => s.kanbanEditDialogCardId)
   const kanbanEditDialogSourceRect = useLibraryStore((s) => s.kanbanEditDialogSourceRect)
   const closeKanbanEditDialog = useLibraryStore((s) => s.closeKanbanEditDialog)
-  const surface = usePanelSurface()
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
@@ -111,7 +109,7 @@ export function ReactFlowCanvas() {
     }
   })
   const { onConnect, onReconnect, onReconnectEnd } = useCanvasConnection({ setEdges })
-  const { onNodeDrag, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges, setNodes })
+  const { onNodeDrag, onNodeDragStart: snapDragStart, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges, setNodes })
   useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear })
 
   const recordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -150,13 +148,14 @@ export function ReactFlowCanvas() {
 
   // Bug1: 拖拽 Frame 时禁用 backdrop-filter 避免遮盖卡片
   // 拖拽开始前立即记录当前状态（无 debounce），确保 undo 能回到拖拽前位置
-  const onNodeDragStart = useCallback((_event: React.MouseEvent, node: Node) => {
+  const onNodeDragStart = useCallback((event: React.MouseEvent, node: Node) => {
+    snapDragStart(event, node)
     snapshotNow()
     if (node.type === 'frame') {
       const el = document.querySelector(`[data-id="${node.id}"]`)
       if (el) el.classList.add('frame-dragging')
     }
-  }, [snapshotNow])
+  }, [snapDragStart, snapshotNow])
 
   const onNodeDragStopWithCleanup = useCallback((_event: React.MouseEvent, _node: Node, _nodes: Node[]) => {
     // Bug1: 拖拽结束后恢复 backdrop-filter
@@ -599,7 +598,7 @@ export function ReactFlowCanvas() {
 
   return (
     <ErrorBoundary>
-    <div className={`w-full h-full ${isLassoMode ? 'lasso-mode' : ''}`} style={{ backgroundColor: surface.appBg }} ref={canvasRef} onDoubleClick={handleDoubleClick}>
+    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onDoubleClick={handleDoubleClick}>
       <ReactFlow
         nodes={sortedNodes}
         edges={visibleEdges}
@@ -638,6 +637,7 @@ export function ReactFlowCanvas() {
         zoomOnDoubleClick={false}
         minZoom={0.1}
         maxZoom={4}
+        nodeDragThreshold={3}
       >
         <AdaptiveBackground
           color={isDarkMode ? '#ffffff' : '#18181b'}
@@ -678,19 +678,16 @@ export function ReactFlowCanvas() {
 
       {contextMenu && (
         <div
-          className="fixed z-50 py-1 rounded-lg min-w-[180px]"
+          className="fixed z-50 py-1 rounded-lg min-w-[180px] bg-surface-card border border-border-default"
           style={{
             left: contextMenu.x,
             top: contextMenu.y,
-            background: surface.surface,
-            border: `1px solid ${surface.divider}`,
             boxShadow: 'var(--shadow-lg)',
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5"
-            style={{ color: surface.text }}
+            className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5 text-text-primary"
             onClick={handleMoveToNewFrame}
           >
             归入新 Frame
@@ -702,8 +699,7 @@ export function ReactFlowCanvas() {
               return (
                 <button
                   key={frameNode.id}
-                  className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5"
-                  style={{ color: surface.text }}
+                  className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5 text-text-primary"
                   onClick={() => handleMoveToExistingFrame(frameNode.id)}
                 >
                   <span

@@ -4,17 +4,37 @@ import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { useEvent } from './useEvent'
+import { useEventBus } from '../stores/eventBus'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/migrateFromLocalStorage'
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
-import { createFileSystemBackup } from '../stores/backupStore'
+import { exists } from '../utils/workspace/fs'
+import type { ConflictDiffItem } from '../utils/workspace/types'
+import { createFileSystemBackup, startAutoBackup, stopAutoBackup } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import type { CardColor } from '../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
+
+function emitStartupProgress(step: string, progress: number, total: number) {
+  const emit = useEventBus.getState().emit
+  emit('startup-progress', { step, progress, total })
+  const bar = document.getElementById('splash-bar')
+  const label = document.getElementById('splash-label')
+  if (bar) bar.style.width = `${total > 0 ? (progress / total) * 100 : 0}%`
+  if (label) label.textContent = step
+}
+
+const __t = { start: 0, steps: [] as { name: string; ms: number }[] }
+function stepTime(name: string) {
+  const now = performance.now()
+  if (__t.start === 0) __t.start = now
+  __t.steps.push({ name, ms: Math.round(now - __t.start) })
+  console.log(`[startup-renderer] ${name}: ${Math.round(now - __t.start)}ms`)
+}
 
 function createDemoCardContent(title: string) {
   return `[{"type":"heading","props":{"level":2},"content":[{"type":"text","text":"${title}"}]}]`
@@ -74,71 +94,143 @@ export function useWorkspaceDataLoader() {
   const [conflict, setConflict] = useState<ConflictData | null>(null)
   const [pendingWorkspacePath, setPendingWorkspacePath] = useState<string | null>(null)
 
-  const handleConflictChoice = useCallback((choice: 'backup' | 'continue' | 'cancel') => {
-    setConflict(null)
-
-    if (choice === 'cancel') {
-      setPendingWorkspacePath(null)
-      ensureGlobalDemoCards()
-      ensureDefaultBoard()
-      setDataReady(true)
-      return
-    }
-
-    if (choice === 'backup' && pendingWorkspacePath) {
-      // TODO: Implement backup restoration
-    }
-
-    // Continue loading: proceed with the workspace
-    if (pendingWorkspacePath) {
-      loadWorkspaceData(pendingWorkspacePath, true)
-    }
-  }, [pendingWorkspacePath])
-
   const loadWorkspaceData = useCallback(async (workspacePath: string, skipValidation: boolean = false) => {
+    __t.start = 0; __t.steps = []
+    stepTime('loadWorkspaceData-enter')
     const service = new WorkspaceService()
     service.setWorkspacePath(workspacePath)
 
-    if (!skipValidation) {
-      const validation = await service.validateConsistency()
+    emitStartupProgress('加载数据...', 0, 4)
 
-      if (!validation.consistent && validation.metadata) {
+    // Load all data in one pass: manifest + cards + metadata + sync engine init
+    // Run syncEngine.init in parallel with data reads — it only creates dirs
+    const syncEngine = new WorkspaceSyncEngine()
+    const [manifest, cardFiles, metadata] = await Promise.all([
+      syncEngine.init(workspacePath).then(() => service.loadManifest()),
+      service.loadAllCards(),
+      service.loadMetadata(),
+    ])
+    setActiveSyncEngine(syncEngine)
+    stepTime('data-loaded')
+
+    emitStartupProgress('处理卡片...', 1, 4)
+
+    const globalCards: Record<string, ReturnType<typeof cardFileToGlobalCard>> = {}
+    for (const cf of cardFiles) {
+      globalCards[cf.id] = cardFileToGlobalCard(cf)
+    }
+
+    // Load cards into store first (without previewHTML generation — deferred to render)
+    useBoardStore.getState().setBoards(manifest.boards)
+
+    // Load cards + board snapshots in parallel — cards go to store, boards to boardData
+    const [boardSnapshots] = await Promise.all([
+      service.loadAllBoards(),
+      useCardStore.getState().loadCardsFromDB(globalCards),
+    ])
+    stepTime('cards+boards-loaded')
+
+    // Apply board snapshots
+    for (const [boardId, snapshot] of boardSnapshots) {
+      useBoardStore.getState().saveBoardData(boardId, {
+        nodes: snapshot.nodes,
+        edges: snapshot.edges,
+      })
+    }
+
+    // Set active board after all board data is loaded
+    const lastBoardId = useBoardStore.getState().activeBoardId || manifest.boards[0]?.id
+    if (lastBoardId) {
+      useBoardStore.getState().setActiveBoard(lastBoardId)
+    }
+
+    stepTime('boards-loaded')
+
+    // Validation — skip if requested, or defer if no metadata
+    if (!skipValidation && metadata) {
+      const cardCountMismatch = metadata.cardCount !== cardFiles.length
+      const boardCountMismatch = metadata.boardCount !== manifest.boards.length
+
+      // Check for missing board files in parallel
+      const missingBoards: string[] = []
+      if (!boardCountMismatch) {
+        const existsResults = await Promise.all(
+          manifest.boards.map(async (board) => {
+            const boardPath = `${workspacePath}/boards/${board.id}.json`
+            const fileExists = await exists(boardPath)
+            return { id: board.id, exists: fileExists }
+          })
+        )
+        for (const { id, exists: fileExists } of existsResults) {
+          if (!fileExists) missingBoards.push(id)
+        }
+      }
+
+      if (missingBoards.length > 0 || cardCountMismatch || boardCountMismatch) {
+        const diffItems: ConflictDiffItem[] = []
+
+        for (const id of missingBoards) {
+          const board = manifest.boards.find(b => b.id === id)
+          diffItems.push({
+            id,
+            title: board?.name || id,
+            type: 'board',
+            diffType: 'missing',
+            updatedAt: board?.updatedAt,
+          })
+        }
+
+        if (cardCountMismatch) {
+          if (cardFiles.length > metadata.cardCount) {
+            const extraCount = cardFiles.length - metadata.cardCount
+            const sortedByTime = [...cardFiles].sort((a, b) =>
+              (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt)
+            )
+            for (let i = 0; i < Math.min(extraCount, sortedByTime.length); i++) {
+              const c = sortedByTime[i]
+              diffItems.push({
+                id: c.id,
+                title: c.title || c.id,
+                type: 'card',
+                diffType: 'extra',
+                updatedAt: c.updatedAt ?? c.createdAt,
+              })
+            }
+          } else {
+            const missingCount = metadata.cardCount - cardFiles.length
+            diffItems.push({
+              id: '__missing_cards',
+              title: `${missingCount} 张卡片`,
+              type: 'card',
+              diffType: 'missing',
+            })
+          }
+        }
+
+        if (boardCountMismatch && manifest.boards.length < metadata.boardCount) {
+          diffItems.push({
+            id: '__missing_boards',
+            title: `${metadata.boardCount - manifest.boards.length} 个画板`,
+            type: 'board',
+            diffType: 'missing',
+          })
+        }
+
         setConflict({
-          expectedCards: validation.metadata.cardCount,
-          actualCards: validation.actualCards,
-          expectedBoards: validation.metadata.boardCount,
-          actualBoards: validation.actualBoards,
+          expectedCards: metadata.cardCount,
+          actualCards: cardFiles.length,
+          expectedBoards: metadata.boardCount,
+          actualBoards: manifest.boards.length,
+          diffItems,
         })
         setPendingWorkspacePath(workspacePath)
         return
       }
     }
 
-    const syncEngine = new WorkspaceSyncEngine()
-    await syncEngine.init(workspacePath)
-    setActiveSyncEngine(syncEngine)
-
-    const manifest = await service.loadManifest()
-    useBoardStore.getState().setBoards(manifest.boards)
-
-    const cardFiles = await service.loadAllCards()
-    const globalCards: Record<string, ReturnType<typeof cardFileToGlobalCard>> = {}
-    for (const cf of cardFiles) {
-      globalCards[cf.id] = cardFileToGlobalCard(cf)
-    }
-    await useCardStore.getState().loadCardsFromDB(globalCards)
+    emitStartupProgress('加载回收站...', 3, 4)
 
     migrateFromLocalStorageIfNeeded()
-
-    for (const board of manifest.boards) {
-      const snapshot = await service.loadBoard(board.id)
-      if (snapshot) {
-        useBoardStore.getState().saveBoardData(board.id, {
-          nodes: snapshot.nodes,
-          edges: snapshot.edges,
-        })
-      }
-    }
 
     try {
       const trashItems = await service.loadAllTrash()
@@ -185,27 +277,24 @@ export function useWorkspaceDataLoader() {
       /* noop */
     }
 
-    try {
-      await service.cleanExpiredTrash()
-    } catch {
-      /* noop */
-    }
+    stepTime('trash-loaded')
 
-    // Update metadata after successful load
-    try {
-      await service.saveMetadata({
+    emitStartupProgress('启动完成', 4, 4)
+
+    // Non-critical: clean expired trash + save metadata + backup — run in parallel, don't block UI
+    Promise.all([
+      service.cleanExpiredTrash().catch(() => {}),
+      service.saveMetadata({
         version: 1,
         cardCount: cardFiles.length,
         boardCount: manifest.boards.length,
         lastModified: Date.now(),
-      })
-    } catch {
-      // skip metadata save failure
-    }
+      }).catch(() => {}),
+      createFileSystemBackup(workspacePath).catch(() => {}),
+    ])
 
-    createFileSystemBackup(workspacePath).catch(() => {})
+    startAutoBackup(workspacePath)
 
-    // Ensure workspaceStore and localStorage reflect the loaded workspace
     const name = workspacePath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
     useWorkspaceStore.getState().setCurrentWorkspace({
       path: workspacePath,
@@ -214,8 +303,60 @@ export function useWorkspaceDataLoader() {
     })
     localStorage.setItem(LAST_WORKSPACE_KEY, workspacePath)
 
+    stepTime('dataReady')
+    const totalMs = __t.steps[__t.steps.length - 1].ms
+    console.log('[startup-renderer] total data load:', totalMs, 'ms')
+    console.log('[startup-renderer] breakdown:', __t.steps.map(s => `${s.name}=${s.ms}`).join(', '))
+    try {
+      sessionStorage.setItem('hepta-startup-log', JSON.stringify({ totalMs, steps: __t.steps }))
+    } catch { /* noop */ }
+    try {
+      await (window as any).electronAPI?.startup?.log?.({ totalMs, steps: __t.steps })
+    } catch { /* noop */ }
     setDataReady(true)
+    // Background: generate previewHTML for all cards (first 16 sync, then idle batches)
+    useCardStore.getState().schedulePreviewHTMLGeneration()
   }, [])
+
+  const handleConflictChoice = useCallback((choice: 'backup' | 'continue' | 'merge' | 'cancel') => {
+    setConflict(null)
+
+    if (choice === 'cancel') {
+      setPendingWorkspacePath(null)
+      ensureGlobalDemoCards()
+      ensureDefaultBoard()
+      setDataReady(true)
+      return
+    }
+
+    if (choice === 'backup' && pendingWorkspacePath) {
+      // TODO: Implement backup restoration
+    }
+
+    if (choice === 'merge' && pendingWorkspacePath) {
+      const service = new WorkspaceService()
+      service.setWorkspacePath(pendingWorkspacePath)
+      service.repairConsistency().then(() => {
+        loadWorkspaceData(pendingWorkspacePath!, true).catch((err) => {
+          console.error('[workspace] loadWorkspaceData after merge failed:', err)
+          ensureGlobalDemoCards()
+          ensureDefaultBoard()
+          setDataReady(true)
+        })
+      })
+      return
+    }
+
+    // Continue loading: proceed with the workspace
+    if (pendingWorkspacePath) {
+      loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
+        console.error('[workspace] loadWorkspaceData after conflict choice failed:', err)
+        ensureGlobalDemoCards()
+        ensureDefaultBoard()
+        setDataReady(true)
+      })
+    }
+  }, [pendingWorkspacePath, loadWorkspaceData])
 
   useEvent('reinit-workspace', () => {
     setInitKey(k => k + 1)
@@ -235,6 +376,11 @@ export function useWorkspaceDataLoader() {
           initElectronFSAdapter()
           ensureGlobalDemoCards()
           ensureDefaultBoard()
+          const ms = Math.round(performance.now())
+          console.log(`[startup-renderer] demo mode ready: ${ms}ms`)
+          try {
+            await (window as any).electronAPI?.startup?.log?.({ totalMs: ms, steps: [{ name: 'demo-ready', ms }] })
+          } catch { /* noop */ }
           if (!cancelled) setDataReady(true)
           return
         }
@@ -251,7 +397,10 @@ export function useWorkspaceDataLoader() {
       }
     })()
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      stopAutoBackup()
+    }
   }, [initKey, loadWorkspaceData])
 
   return { dataReady, conflict, handleConflictChoice }

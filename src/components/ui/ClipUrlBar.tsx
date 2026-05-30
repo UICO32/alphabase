@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { Scissors, X, Loader2 } from 'lucide-react'
+import { IconButton } from './IconButton'
+import { Button } from './Button'
 import { clipUrl, isValidHttpUrl } from '../../utils/clipper'
 import { htmlToBlocks } from '../../converters/htmlToBlocks'
 import { useCardStore } from '../../stores/cardStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useEventBus } from '../../stores/eventBus'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 
 interface ClipUrlBarProps {
   open: boolean
@@ -18,7 +19,6 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const surface = usePanelSurface()
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path)
   const emit = useEventBus(s => s.emit)
 
@@ -117,7 +117,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         boxShadow: 'var(--shadow-lg)',
       }}
     >
-      <Scissors size={16} style={{ color: surface.text, flexShrink: 0 }} />
+      <Scissors size={16} className="text-text-primary shrink-0" />
       <input
         ref={inputRef}
         value={url}
@@ -125,27 +125,18 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleClip() }}
         placeholder="粘贴网页链接..."
         disabled={loading}
-        className="flex-1 bg-transparent outline-none text-sm"
-        style={{ color: surface.text }}
+        className="flex-1 bg-transparent outline-none text-sm text-text-primary"
       />
       {loading ? (
-        <Loader2 size={16} className="animate-spin" style={{ color: surface.muted, flexShrink: 0 }} />
+        <Loader2 size={16} className="animate-spin text-text-secondary shrink-0" />
       ) : url ? (
-        <button
-          onClick={handleClip}
-          className="text-xs px-2 py-1 rounded-md font-medium"
-          style={{ backgroundColor: surface.accentBg, color: surface.accentText, flexShrink: 0 }}
-        >
+        <Button variant="primary" size="sm" onClick={handleClip} className="shrink-0">
           剪藏
-        </button>
+        </Button>
       ) : null}
-      <button
-        onClick={onClose}
-        className="p-1 rounded-md hover:opacity-70"
-        style={{ color: surface.muted, flexShrink: 0 }}
-      >
+      <IconButton size="sm" variant="ghost" onClick={onClose} className="shrink-0">
         <X size={14} />
-      </button>
+      </IconButton>
       {error && (
         <span className="text-xs" style={{ color: 'var(--text-danger)' }}>{error}</span>
       )}

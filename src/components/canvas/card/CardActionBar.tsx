@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react'
 import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal } from 'lucide-react'
 import { useLibraryStore } from '../../../stores/libraryStore'
+import { useCardStore } from '../../../stores/cardStore'
 import { connectionMediator } from '../../../utils/connectionMediator'
-import { renderBlocksToHTML } from '../../../converters/renderBlocks'
 import { type CardColor } from '../../../types/card'
 import { MoreActionsMenu } from './MoreActionsMenu'
 
@@ -29,7 +29,6 @@ interface CardActionBarProps {
   onMoveToBoard: (boardId: string) => void
   onColorChange: (color: CardColor) => void
   cardTitle?: string
-  cardContent?: string
   cardPreviewHTML?: string
 }
 
@@ -45,14 +44,13 @@ export const CardActionBar = memo(function CardActionBar({
   onMoveToBoard,
   onColorChange,
   cardTitle,
-  cardContent,
   cardPreviewHTML,
 }: CardActionBarProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
 
-  const html = cardPreviewHTML || renderBlocksToHTML(cardContent || '')
-  const displayTitle = cardTitle || useMemo(() => extractTitle(html), [html])
+  const html = cardPreviewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
+  const displayTitle = cardTitle || useMemo(() => extractTitle(html), [html, cardTitle])
 
   useEffect(() => {
     if (!moreOpen) return

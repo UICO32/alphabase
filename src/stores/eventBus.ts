@@ -11,6 +11,8 @@ export type EventMap = {
   'focus-card': { cardId: string }
   'remove-card-from-board': { cardId: string; cardContent: unknown }
   'open-in-explorer': { path: string }
+  'write-error': { path: string; error: string }
+  'startup-progress': { step: string; progress: number; total: number }
 }
 
 export type EventKey = keyof EventMap

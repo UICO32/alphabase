@@ -2,7 +2,6 @@ import { useCallback, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore } from '../../stores/cardStore'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
 import { RelatedCardsTab } from './RelatedCardsTab'
@@ -23,7 +22,6 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
   const viewMode = useLibraryStore(s => s.viewMode)
   const editingCardId = useLibraryStore(s => s.editingCardId)
 
-  const surface = usePanelSurface()
   const isDragging = useRef(false)
 
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
@@ -70,40 +68,25 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           onPointerDown={handleResizeStart}
         />
 
-      <div
-        className="flex items-center justify-between px-3 py-2 border-b transition-theme"
-        style={{ borderColor: surface.divider }}
-      >
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border-default transition-theme">
         <div className="flex gap-1">
           <button
             onClick={() => setRightPanelActiveTab('library')}
-            className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
-            style={{
-              backgroundColor: rightPanelActiveTab === 'library' ? surface.surface : 'transparent',
-              color: rightPanelActiveTab === 'library' ? surface.text : surface.muted,
-            }}
+            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'library' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
           >
             <Layers size={14} />
             卡片库
           </button>
           <button
             onClick={() => setRightPanelActiveTab('editor')}
-            className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
-            style={{
-              backgroundColor: rightPanelActiveTab === 'editor' ? surface.surface : 'transparent',
-              color: rightPanelActiveTab === 'editor' ? surface.text : surface.muted,
-            }}
+            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'editor' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
           >
             <FileText size={14} />
             卡片编辑器
           </button>
           <button
             onClick={() => setRightPanelActiveTab('related')}
-            className="panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs"
-            style={{
-              backgroundColor: rightPanelActiveTab === 'related' ? surface.surface : 'transparent',
-              color: rightPanelActiveTab === 'related' ? surface.text : surface.muted,
-            }}
+            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'related' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
           >
             <Search size={14} />
             相关
@@ -120,7 +103,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         ) : editingCardId ? (
           <CardEditorView cardId={editingCardId} />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full animate-fadeIn" style={{ color: surface.muted }}>
+          <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-text-secondary">
             <FileText size={48} className="mb-4 opacity-30" />
             <p className="text-sm">选择卡片进行编辑</p>
           </div>
@@ -135,11 +118,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         exit={{ opacity: 0, scale: 0.9 }}
         transition={{ duration: 0.2 }}
         onClick={() => setRightPanelCollapsed(false)}
-        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel"
-        style={{
-          color: surface.muted,
-          border: `1px solid ${surface.divider}`,
-        }}
+        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-text-secondary border border-border-default"
       >
         <PanelRightOpen size={16} />
       </motion.button>
@@ -173,7 +152,7 @@ function CardEditorView({ cardId }: { cardId: string }) {
 
   if (!card) {
     return (
-      <div className="flex flex-col items-center justify-center h-full animate-fadeIn" style={{ color: '#71717a' }}>
+      <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-text-secondary">
         <p className="text-sm">卡片不存在或已被删除</p>
       </div>
     )

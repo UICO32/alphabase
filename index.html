@@ -3,34 +3,118 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Heptabase Canvas</title>
+    <title>AlphaBase</title>
     <style>
+      /* Splash screen — reads theme from localStorage to match app theme */
       #splash {
         position: fixed; inset: 0; z-index: 9999;
-        display: flex; align-items: center; justify-content: center;
-        background: #1a1a2e; color: #e0e0e0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         transition: opacity 0.3s ease;
       }
       #splash.fade-out { opacity: 0; pointer-events: none; }
+
+      /* Light theme (default) */
+      :root #splash {
+        background: hsl(0, 0%, 98%);
+        color: hsl(0, 0%, 12%);
+      }
+      :root #splash .spinner {
+        border: 3px solid hsla(0, 0%, 88%, 0.6);
+        border-top-color: #3b82f6;
+      }
+      :root #splash .progress-track {
+        background: hsla(0, 0%, 88%, 0.6);
+      }
+      :root #splash .progress-bar {
+        background: #3b82f6;
+      }
+      :root #splash .step-label {
+        color: hsl(0, 0%, 42%);
+      }
+      :root #splash .credit {
+        color: hsl(0, 0%, 58%);
+      }
+
+      /* Dark theme */
+      [data-theme="dark"] #splash {
+        background: hsl(220, 25%, 7%);
+        color: hsl(220, 15%, 92%);
+      }
+      [data-theme="dark"] #splash .spinner {
+        border: 3px solid hsla(220, 18%, 22%, 0.6);
+        border-top-color: #60a5fa;
+      }
+      [data-theme="dark"] #splash .progress-track {
+        background: hsla(220, 18%, 22%, 0.6);
+      }
+      [data-theme="dark"] #splash .progress-bar {
+        background: #60a5fa;
+      }
+      [data-theme="dark"] #splash .step-label {
+        color: hsl(220, 12%, 68%);
+      }
+      [data-theme="dark"] #splash .credit {
+        color: hsl(220, 10%, 52%);
+      }
+
+      #splash .spinner-row {
+        display: flex; align-items: center; margin-bottom: 24px;
+      }
       #splash .spinner {
         width: 32px; height: 32px;
-        border: 3px solid rgba(255,255,255,0.15);
-        border-top-color: #6366f1;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
         margin-right: 14px;
       }
       @keyframes spin { to { transform: rotate(360deg); } }
+      #splash .progress-track {
+        width: 200px; height: 3px;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      #splash .progress-bar {
+        width: 0%; height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s ease;
+      }
+      #splash .step-label {
+        margin-top: 10px;
+        font-size: 12px;
+        min-height: 16px;
+      }
+      #splash .credit {
+        margin-top: 32px;
+        font-size: 11px;
+      }
     </style>
+    <script>
+      // Apply theme immediately to avoid flash of wrong theme
+      (function() {
+        var stored = localStorage.getItem('hepta-theme');
+        var mode = stored === 'dark' || stored === 'light' ? stored : 'system';
+        var resolved = mode;
+        if (mode === 'system') {
+          resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', resolved);
+      })();
+    </script>
   </head>
   <body spellcheck="false">
-    <div id="root">
-      <div id="splash">
+    <!-- Splash is outside #root so React doesn't destroy it -->
+    <div id="splash">
+      <div class="spinner-row">
         <div class="spinner"></div>
-        <span>加载中...</span>
+        <span style="font-weight:600;font-size:16px;letter-spacing:0.5px;">AlphaBase</span>
       </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="splash-bar"></div>
+      </div>
+      <div class="step-label" id="splash-label">正在启动...</div>
+      <div class="credit">Created by UICO</div>
     </div>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

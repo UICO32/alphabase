@@ -1,7 +1,8 @@
 import { create } from 'zustand'
-import { setTheme, setPanelHue, getTheme, resolveTheme, type ThemeMode } from '../theme'
+import { setTheme, getTheme, resolveTheme, type ThemeMode } from '../theme'
 export type ViewMode = 'board' | 'cards' | 'boardLibrary'
 export type SortBy = 'updatedAt' | 'createdAt' | 'title' | 'related'
+export type SearchMode = 'hybrid' | 'keyword' | 'semantic'
 
 interface LibraryStore {
   viewMode: ViewMode
@@ -22,9 +23,6 @@ interface LibraryStore {
   setThemeMode: (mode: ThemeMode) => void
   setDarkMode: (dark: boolean) => void
   syncDarkMode: (v: boolean) => void
-
-  panelHue: number
-  setPanelHue: (hue: number) => void
 
   leftPanelCollapsed: boolean
   setLeftPanelCollapsed: (collapsed: boolean) => void
@@ -47,6 +45,9 @@ interface LibraryStore {
 
   sortBy: SortBy
   setSortBy: (sortBy: SortBy) => void
+
+  searchMode: SearchMode
+  setSearchMode: (mode: SearchMode) => void
 }
 
 const SIDEBAR_WIDTH_MIN = 260
@@ -67,14 +68,6 @@ export const useLibraryStore = create<LibraryStore>()(
       kanbanEditDialogSourceRect: null,
       themeMode: initialThemeMode,
       isDarkMode: initialIsDarkMode,
-      panelHue: (() => {
-        const stored = localStorage.getItem('hepta-panel-hue')
-        if (stored) {
-          const hue = parseInt(stored, 10)
-          if (!isNaN(hue)) return hue
-        }
-        return 220
-      })(),
       leftPanelCollapsed: false,
       rightPanelCollapsed: false,
       rightPanelWidth: SIDEBAR_WIDTH_DEFAULT,
@@ -82,15 +75,12 @@ export const useLibraryStore = create<LibraryStore>()(
       userSwitchedTab: false,
       zoom: 1,
       sortBy: 'updatedAt',
+      searchMode: 'hybrid',
 
       setViewMode: (mode) => set({ viewMode: mode }),
       setZoom: (zoom) => set({ zoom }),
       setSortBy: (sortBy) => set({ sortBy }),
-      setPanelHue: (hue) => {
-        setPanelHue(hue)
-        set({ panelHue: hue })
-      },
-
+      setSearchMode: (mode) => set({ searchMode: mode }),
       openCardEditor: (cardId) => set({ editingCardId: cardId }),
       closeCardEditor: () => set({ editingCardId: null }),
 

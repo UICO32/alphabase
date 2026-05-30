@@ -6,7 +6,6 @@ import { useLibraryStore } from '../../stores/libraryStore'
 import { getCardFill, getCardStroke, getCardTextColor } from '../../utils/cardStyles'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { registerEditorHandle, clearProseMirrorSuppression } from '../../utils/editorHandleRegistry'
-import { renderBlocksToHTML } from '../../converters/renderBlocks'
 import type { CardColor, CardNodeData } from '../../types/card'
 import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
@@ -123,10 +122,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleContentChange = useCallback(
     (content: string) => {
       clearProseMirrorSuppression(data.cardId)
-      updateCard(data.cardId, {
-        content,
-        previewHTML: renderBlocksToHTML(content),
-      })
+      updateCard(data.cardId, { content })
     },
     [data.cardId, updateCard],
   )
@@ -270,13 +266,13 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   if (!card) {
     return (
       <div
-        className="rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center"
+        className="rounded-2xl border-2 border-dashed border-border-default flex items-center justify-center"
         style={{
           width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
           height: (data.height ?? DEFAULT_CARD_HEIGHT) as number,
         }}
       >
-        <span className="text-gray-400 text-sm">Card not found</span>
+        <span className="text-text-tertiary text-sm">Card not found</span>
       </div>
     )
   }
@@ -385,12 +381,12 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         onMoveToBoard={handleMoveToBoard}
         onColorChange={handleColorChange}
         cardTitle={card.title}
-        cardContent={card.content}
         cardPreviewHTML={card.previewHTML}
       />
 
       {isCollapsed ? (
         <CollapsedContent
+          cardId={data.cardId}
           content={card.content}
           previewHTML={card.previewHTML}
           textColor={textColor}
@@ -399,6 +395,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         <CardContent
           isEditing={isEditing}
           isSelected={!!selected}
+          cardId={data.cardId}
           content={card.content}
           previewHTML={card.previewHTML}
           enforceInitialHeading={card.enforceInitialHeading}

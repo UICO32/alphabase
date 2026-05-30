@@ -75,7 +75,7 @@ const CardBlockNoteEditorInner = (
       uploadFile,
       // 使用原生 prosemirror dropCursor，显示块级别的蓝色插入线
       dropCursor: () => dropCursor({
-        color: '#3b82f6',
+        color: 'var(--border-active, #3b82f6)',
         width: 3,
       }),
       pasteHandler: ({ event, defaultPasteHandler }) => {

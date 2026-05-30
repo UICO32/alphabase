@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir } from 'fs/promises'
+import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
 import { dirname as pathDirname } from 'path'
 import { createMenu } from './menu'
 import { registerClipperHandlers } from './clipper/handler'
@@ -10,6 +10,11 @@ import { Md5 } from 'ts-md5'
 
 // Disable crashpad to prevent Windows crash on handler disconnect
 app.commandLine.appendSwitch('disable-breakpad')
+
+const __t0 = Date.now()
+let __t1 = 0
+let __t2 = 0
+console.log(`[startup] main process loaded: ${__t0}`)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -40,13 +45,58 @@ function createWindow() {
   registerClipperHandlers()
   registerEmbeddingIPC()
 
-  // Open DevTools only in development
+  // Forward renderer console.log to main process stdout in dev mode
   if (!app.isPackaged) {
+    mainWindow.webContents.on('console-message', (_event, _level, message) => {
+      if (message.startsWith('[startup')) {
+        console.log(`[renderer] ${message}`)
+      }
+    })
+  }
+
+  // Write startup timing to file for CI/testing
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log(`[startup] did-finish-load: ${Date.now() - __t0}ms`)
+  })
+
+  // Open DevTools only in development and when explicitly requested
+  if (!app.isPackaged && process.env.HEPTA_DEVTOOLS === '1') {
     mainWindow.webContents.openDevTools()
   }
 
   mainWindow.once('ready-to-show', () => {
+    __t2 = Date.now()
+    console.log(`[startup] ready-to-show: ${__t2 - __t0}ms (window shown)`)
     mainWindow?.show()
+  })
+
+  // Show window early with splash screen if ready-to-show takes too long
+  mainWindow.webContents.on('did-start-loading', () => {
+    // Only show if not already visible (ready-to-show hasn't fired yet)
+    if (!mainWindow?.isVisible()) {
+      mainWindow?.show()
+      __t2 = Date.now()
+      console.log(`[startup] early-show (did-start-loading): ${__t2 - __t0}ms`)
+    }
+  })
+
+  // On window close: flush pending writes, then allow close
+  let pendingFlush = false
+  mainWindow.on('close', (e) => {
+    if (pendingFlush) return
+    e.preventDefault()
+    pendingFlush = true
+    // Tell renderer to flush, wait for it to respond, then close
+    mainWindow?.webContents.send('flush-before-close')
+    // Wait for renderer's flush-and-close-ready IPC, with a 1s timeout fallback
+    let closed = false
+    const closeAfterFlush = () => {
+      if (closed) return
+      closed = true
+      mainWindow?.close()
+    }
+    ipcMain.handleOnce('flush-and-close-ready', closeAfterFlush)
+    setTimeout(closeAfterFlush, 1000)
   })
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -57,6 +107,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  __t1 = Date.now()
+  console.log(`[startup] app.whenReady: ${__t1 - __t0}ms`)
   protocol.handle('hepta-media', async (request) => {
     try {
       const url = new URL(request.url)
@@ -82,11 +134,19 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin') {
+    // Small delay to allow renderer's beforeunload flush to complete
+    setTimeout(() => app.quit(), 100)
+  }
 })
 
 app.on('before-quit', async () => {
   await disposeEmbeddingService()
+})
+
+// Give renderer time to flush pending writes before the window closes
+ipcMain.handle('sync:flushAndQuit', async () => {
+  return true
 })
 
 app.on('activate', () => {
@@ -94,43 +154,79 @@ app.on('activate', () => {
 })
 
 // IPC handlers
+// Startup timing IPC
+ipcMain.handle('startup:log', async (_event, data: { totalMs: number; steps: { name: string; ms: number }[] }) => {
+  const wallClock = Date.now() - __t0
+  console.log(`[startup-renderer] total data load: ${data.totalMs}ms`)
+  console.log(`[startup-renderer] breakdown: ${data.steps.map(s => `${s.name}=${s.ms}`).join(', ')}`)
+  console.log(`[startup] === FULL TIMELINE ===`)
+  console.log(`[startup] main-process-loaded: 0ms`)
+  console.log(`[startup] app.whenReady: ${__t1 - __t0}ms`)
+  console.log(`[startup] ready-to-show: ${__t2 - __t0}ms`)
+  console.log(`[startup] renderer-data-ready: ${wallClock}ms (wall clock from main start)`)
+  console.log(`[startup] ==========================`)
+  // Write to file for automated testing
+  const report = {
+    mainProcessLoaded: 0,
+    appWhenReady: __t1 - __t0,
+    readyToShow: __t2 - __t0,
+    rendererDataReady: wallClock,
+    dataLoadMs: data.totalMs,
+    steps: data.steps,
+    timestamp: new Date().toISOString(),
+  }
+  try {
+    await fsWriteFile(join(app.getPath('userData'), 'startup-report.json'), JSON.stringify(report, null, 2))
+  } catch { /* noop */ }
+  return true
+})
+
 ipcMain.handle('fs:readFile', async (_event, path: string) => {
-  const fs = await import('fs/promises')
-  return await fs.readFile(path)
+  return await readFile(path)
 })
 
 ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: string) => {
-  console.log('[IPC] writeFile:', filePath, 'data length:', data?.length)
-  const fs = await import('fs/promises')
-  await fs.writeFile(filePath, data)
+  await fsWriteFile(filePath, data)
 })
 
 ipcMain.handle('fs:deleteFile', async (_event, path: string) => {
-  const fs = await import('fs/promises')
-  await fs.unlink(path)
+  await unlink(path)
 })
 
 ipcMain.handle('fs:readdir', async (_event, path: string) => {
-  const fs = await import('fs/promises')
-  return await fs.readdir(path)
+  return await fsReaddir(path)
+})
+
+ipcMain.handle('fs:readDirFiles', async (_event, dirPath: string) => {
+  // Batch read: returns all .json files in a directory as { filename: content }
+  try {
+    const files = await fsReaddir(dirPath)
+    const jsonFiles = files.filter(f => f.endsWith('.json'))
+    const results: Record<string, string> = {}
+    await Promise.all(jsonFiles.map(async file => {
+      try {
+        const data = await readFile(`${dirPath}/${file}`)
+        results[file] = new TextDecoder().decode(data)
+      } catch { /* skip unreadable files */ }
+    }))
+    return results
+  } catch {
+    return null
+  }
 })
 
 ipcMain.handle('fs:mkdir', async (_event, path: string) => {
-  const fs = await import('fs/promises')
-  await fs.mkdir(path, { recursive: true })
+  await fsMkdirDir(path, { recursive: true })
 })
 
 ipcMain.handle('fs:stat', async (_event, path: string) => {
-  const fs = await import('fs/promises')
-  const st = await fs.stat(path)
+  const st = await fsStat(path)
   return { isDirectory: st.isDirectory(), size: st.size, mtimeMs: st.mtimeMs }
 })
 
 ipcMain.handle('fs:exists', async (_event, filePath: string) => {
-  console.log('[IPC] exists:', filePath)
-  const fs = await import('fs/promises')
   try {
-    await fs.access(filePath)
+    await access(filePath)
     return true
   } catch {
     return false
@@ -138,13 +234,11 @@ ipcMain.handle('fs:exists', async (_event, filePath: string) => {
 })
 
 ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
-  const fs = await import('fs/promises')
-  await fs.rename(oldPath, newPath)
+  await fsRename(oldPath, newPath)
 })
 
 ipcMain.handle('fs:rmdir', async (_event, path: string) => {
-  const fs = await import('fs/promises')
-  await fs.rm(path, { recursive: true, force: true })
+  await rm(path, { recursive: true, force: true })
 })
 
 ipcMain.handle('dialog:openDirectory', async () => {

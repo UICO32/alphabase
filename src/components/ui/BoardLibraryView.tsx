@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useBoardStore } from '../../stores/boardStore'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { SearchInput, EmptyState } from './SharedUI'
 import { LayoutGrid, FileText } from 'lucide-react'
 import { useEventBus } from '../../stores/eventBus'
@@ -12,7 +11,6 @@ export function BoardLibraryView() {
   const activeBoardId = useBoardStore(s => s.activeBoardId)
   const emit = useEventBus(s => s.emit)
 
-  const surface = usePanelSurface()
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredBoards = useMemo(() => {
@@ -29,10 +27,10 @@ export function BoardLibraryView() {
   }
 
   return (
-    <div className="w-full h-full overflow-y-auto" style={{ backgroundColor: surface.panelBg }}>
+    <div className="w-full h-full overflow-y-auto bg-surface-panel">
       <div className="max-w-5xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold" style={{ color: surface.text }}>
+          <h1 className="text-xl font-semibold text-text-primary">
             画板库
           </h1>
           <div className="w-64">
@@ -48,7 +46,6 @@ export function BoardLibraryView() {
           <EmptyState
             icon={<LayoutGrid size={48} />}
             text={searchQuery ? '未找到匹配的画板' : '暂无画板'}
-            surface={surface}
           />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -56,32 +53,26 @@ export function BoardLibraryView() {
               <div
                 key={board.id}
                 onClick={() => handleBoardClick(board.id)}
-                className="hepta-list-item group relative p-4 rounded-xl cursor-pointer"
-                style={{
-                  backgroundColor: surface.surface,
-                  border: `1px solid ${board.id === activeBoardId ? surface.text : surface.divider}`,
-                }}
+                className={`hepta-list-item group relative p-4 rounded-xl cursor-pointer bg-surface-card border ${board.id === activeBoardId ? 'border-text-primary' : 'border-border-default'}`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: surface.panelBg }}
+                    className="w-10 h-10 rounded-lg flex items-center justify-center bg-surface-panel"
                   >
-                    <FileText size={20} style={{ color: surface.muted }} />
+                    <FileText size={20} className="text-text-secondary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-sm font-medium truncate"
-                      style={{ color: surface.text }}
+                      className="text-sm font-medium truncate text-text-primary"
                     >
                       {board.name}
                     </div>
-                    <div className="text-xs" style={{ color: surface.muted }}>
+                    <div className="text-xs text-text-secondary">
                       {new Date(board.updatedAt).toLocaleDateString('zh-CN')}
                     </div>
                   </div>
                 </div>
-                <div className="text-xs" style={{ color: surface.muted }}>
+                <div className="text-xs text-text-secondary">
                   {new Date(board.createdAt).toLocaleDateString('zh-CN')}
                 </div>
               </div>

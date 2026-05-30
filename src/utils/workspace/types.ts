@@ -86,6 +86,14 @@ export interface WorkspaceMetadata {
   lastModified: number
 }
 
+export interface ConflictDiffItem {
+  id: string
+  title: string
+  type: 'card' | 'board'
+  diffType: 'extra' | 'missing'
+  updatedAt?: number
+}
+
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   theme: 'light',
   autoCollapseCards: false,

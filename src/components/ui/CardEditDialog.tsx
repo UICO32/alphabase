@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../stores/cardStore'
 import { useTrashStore } from '../../stores/trashStore'
-import { usePanelSurface } from '../../hooks/usePanelSurface'
 import { X, Trash2 } from 'lucide-react'
 import { clearProseMirrorSuppression } from '../../utils/editorHandleRegistry'
 import { CARD_COLORS, type CardColor } from '../../types/card'
@@ -26,7 +25,6 @@ interface CardEditDialogProps {
 
 export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogProps) {
   const isDarkMode = useIsDarkMode()
-  const surface = usePanelSurface()
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
   const softDeleteCard = useCardStore(s => s.softDeleteCard)
@@ -123,10 +121,9 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
           style={{ boxShadow: 'var(--shadow-xl)', background: '#fafafa' }}
         >
           <div
-            className="flex items-center justify-between px-5 py-3 border-b shrink-0"
-            style={{ borderColor: surface.divider }}
+            className="flex items-center justify-between px-5 py-3 border-b shrink-0 border-border-default"
           >
-            <span className="text-sm font-medium truncate" style={{ color: surface.text }}>
+            <span className="text-sm font-medium truncate text-text-primary">
               {card.title || '无标题'}
             </span>
             <div className="flex items-center gap-2">
@@ -155,15 +152,14 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
               </button>
               <button
                 onClick={handleCloseWithSnapshot}
-                className="btn-base p-2 rounded-lg"
-                style={{ color: surface.muted }}
+                className="btn-base p-2 rounded-lg text-text-secondary"
               >
                 <X size={18} />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-5 py-2 border-b" style={{ borderColor: surface.divider }}>
+          <div className="flex items-center gap-1.5 px-5 py-2 border-b border-border-default">
             {(Object.keys(CARD_COLORS) as CardColor[]).map((color) => (
               <button
                 key={color}

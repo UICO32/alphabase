@@ -1,7 +1,8 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useEffect } from 'react'
 import { type Edge, type OnNodeDrag, type Node } from '@xyflow/react'
 import type { ReactFlowInstance } from '@xyflow/react'
 import { getBestHandles } from '../utils/geometry'
+import { calcSnapNudge, getNodesBounds, type SnapBounds } from '../utils/alignment'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../types/card'
 import type { CardNodeData } from '../types/card'
 import { globalToLocal, cardOverlapsFrame } from './useFrameSync'
@@ -11,6 +12,12 @@ import { kanbanDragPreview } from '../utils/kanbanDragPreview'
 import { setDragOverFrameId } from '../utils/frameInteraction'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
 
+const SNAP_THRESHOLD_PX = 3
+
+interface SnapLock {
+  targetValue: number
+}
+
 interface UseCanvasDragOptions {
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   setEdges: (updater: Edge[] | ((edges: Edge[]) => Edge[])) => void
@@ -19,11 +26,107 @@ interface UseCanvasDragOptions {
 
 export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanvasDragOptions) {
   const dragStartedRef = useRef(false)
+  const altPressedRef = useRef(false)
+  const snapLocksRef = useRef<{ x: SnapLock | null; y: SnapLock | null }>({ x: null, y: null })
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey) altPressedRef.current = true
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!e.altKey) altPressedRef.current = false
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
 
   const onNodeDrag: OnNodeDrag = useCallback(
     (_event, node) => {
       const instance = reactFlowInstance.current
       if (!instance) return
+
+      // 隐形边缘吸附：Alt 按下时跳过
+      if (!altPressedRef.current && (node.type === 'card' || node.type === 'frame')) {
+        const zoom = instance.getViewport().zoom
+        const threshold = SNAP_THRESHOLD_PX / zoom
+
+        const allNodes = instance.getNodes()
+        const selectedIds = new Set(allNodes.filter(n => n.selected).map(n => n.id))
+        const idsToNudge = selectedIds.size > 0 ? selectedIds : new Set([node.id])
+
+        // node.position 是 React Flow 给的未经吸附的"鼠标真实位置"
+        const dragData = node.data as CardNodeData
+        const dragWidth = dragData.width ?? DEFAULT_CARD_WIDTH
+        const dragHeight = dragData.collapsed ? COLLAPSED_CARD_HEIGHT : (dragData.height ?? DEFAULT_CARD_HEIGHT)
+        const dragW = node.type === 'frame' ? ((node.data as Record<string, unknown>).width as number) ?? 600 : dragWidth
+        const dragH = node.type === 'frame' ? ((node.data as Record<string, unknown>).height as number) ?? 400 : dragHeight
+
+        const dragBounds: SnapBounds = {
+          x: node.position.x,
+          y: node.position.y,
+          width: dragW,
+          height: dragH,
+        }
+
+        const otherNodes = allNodes.filter(n =>
+          !idsToNudge.has(n.id) &&
+          (n.type === 'card' || n.type === 'frame' || n.type === 'media')
+        )
+        const otherBoundsArray = getNodesBounds(otherNodes)
+
+        const locks = snapLocksRef.current
+        const freshNudge = calcSnapNudge(dragBounds, otherBoundsArray, threshold)
+
+        // X 轴
+        let nudgeX = 0
+        if (locks.x) {
+          // 已锁定：计算当前鼠标位置到锁定目标的偏移
+          nudgeX = locks.x.targetValue - dragBounds.x
+          // 判断是否应释放：如果鼠标位置与锁定目标距离超过释放阈值
+          if (Math.abs(nudgeX) > threshold * 3) {
+            locks.x = null
+            nudgeX = 0
+          }
+        }
+        if (!locks.x && freshNudge.x !== 0) {
+          const edgeValue = dragBounds.x + freshNudge.x
+          locks.x = { targetValue: edgeValue }
+          nudgeX = freshNudge.x
+        }
+
+        // Y 轴
+        let nudgeY = 0
+        if (locks.y) {
+          nudgeY = locks.y.targetValue - dragBounds.y
+          if (Math.abs(nudgeY) > threshold * 3) {
+            locks.y = null
+            nudgeY = 0
+          }
+        }
+        if (!locks.y && freshNudge.y !== 0) {
+          const edgeValue = dragBounds.y + freshNudge.y
+          locks.y = { targetValue: edgeValue }
+          nudgeY = freshNudge.y
+        }
+
+        if (nudgeX !== 0 || nudgeY !== 0) {
+          // 直接修改 node.position 引用，React Flow 会在当前帧使用修改后的值
+          node.position.x += nudgeX
+          node.position.y += nudgeY
+          // 同步偏移其他选中节点（直接修改引用，避免 setNodes 与 React Flow 内部状态冲突）
+          const allNodes = instance.getNodes()
+          for (const n of allNodes) {
+            if (n.id !== node.id && idsToNudge.has(n.id)) {
+              n.position.x += nudgeX
+              n.position.y += nudgeY
+            }
+          }
+        }
+      }
 
       // 看板拖拽预览：计算虚线框位置
       if (node.type === 'card') {
@@ -50,7 +153,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
             const CARD_GAP = 10
             const startY = HEADER_H + 16 + COL_HEADER_H + 4
 
-            // 计算行内位置：找到该列其他卡片，按 y 排序，确定插入行
             const allNodes = instance.getNodes()
             const siblings = allNodes.filter(n => {
               if (n.id === node.id) return false
@@ -82,7 +184,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
           kanbanDragPreview.clear()
         }
 
-        // 拖入 Frame 高亮反馈：检测卡片是否与某个 Frame 重叠
         const allNodesForHover = instance.getNodes()
         const frameNodesForHover = allNodesForHover.filter(n => n.type === 'frame')
         const hoveredFrame = frameNodesForHover.find(f => cardOverlapsFrame(node, f))
@@ -114,11 +215,17 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         return changed ? next : eds
       })
     },
-    [reactFlowInstance, setEdges],
+    [reactFlowInstance, setEdges, setNodes],
   )
+
+  const onNodeDragStart = useCallback((_event: MouseEvent | React.MouseEvent, _node: Node) => {
+    dragStartedRef.current = true
+    snapLocksRef.current = { x: null, y: null }
+  }, [])
 
   const onNodeDragStop = useCallback((_event: MouseEvent | React.MouseEvent, node: Node) => {
     dragStartedRef.current = false
+    snapLocksRef.current = { x: null, y: null }
     getActiveSyncEngine()?.setDragging(false)
     kanbanDragPreview.clear()
     setDragOverFrameId(null)
@@ -138,7 +245,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
     setNodes(nds => {
       let next = nds
 
-      // 先处理常规的 frame 进入/离开逻辑
       next = next.map(n => {
         if (!nodesToUpdate.some(u => u.id === n.id)) return n
         const nd = n.data as CardNodeData
@@ -167,7 +273,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
             data: { ...n.data, frameId: undefined, localX: undefined, localY: undefined },
           }
         }
-        // 卡片在同一 frame 内拖动：更新当前 layout 的快照
         if (nd.frameId) {
           const frame = frameNodes.find(f => f.id === nd.frameId)
           if (frame) {
@@ -183,7 +288,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         return n
       })
 
-      // 焋板布局重排：如果拖拽的卡片在 kanban frame 内，根据位置重新排列列内卡片
       const kanbanFrames = frameNodes.filter(f => {
         const fd = f.data as Record<string, unknown>
         return fd.layout === 'kanban'
@@ -196,7 +300,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
           { id: 'col-2', title: 'Done', color: '#10b981' },
         ]
 
-        // 找到该 frame 内的子卡片
         const children = next.filter(n => {
           const nd = n.data as Record<string, unknown>
           return nd.frameId === kf.id && n.type === 'card'
@@ -204,18 +307,15 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
 
         if (children.length === 0) continue
 
-        // 根据卡片位置计算它们属于哪一列
         const frameW = ((kf.data as Record<string, unknown>).width as number) ?? kf.width ?? 600
         const numCols = columns.length
         const colWidth = (frameW - 16 * 2 - (numCols - 1) * 16) / numCols
 
-        // 重新分配 cardIds 到各列
         const newColumns: KanbanColumn[] = columns.map(col => ({
           ...col,
           cardIds: [] as string[],
         }))
 
-        // 按 y 排序卡片（同列内保持纵向顺序）
         const sortedChildren = [...children].sort((a, b) => a.position.y - b.position.y)
 
         for (const child of sortedChildren) {
@@ -227,12 +327,10 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
           newColumns[colIdx].cardIds!.push(child.id)
         }
 
-        // 先更新 frame 的 columns，再基于新 columns 计算布局
         const updatedFrameData = { ...kf.data, columns: newColumns }
         const updatedFrame = { ...kf, data: updatedFrameData }
         const result = computeLayout(updatedFrame, children, 'kanban')
 
-        // 更新 frame 和子卡片位置（含 kanban 快照）
         const existingFrameSnapshots = ((kf.data as Record<string, unknown>).layoutSnapshots as Record<string, unknown> | undefined) ?? {}
         next = next.map(n => {
           if (n.id === kf.id) {
@@ -282,32 +380,31 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         })
       }
 
-      // 增加受影响 Frame 的 snapshotVersion，并重新保存当前 layout 的快照
-        const affectedFrameIds = new Set<string>()
-        for (const n of next) {
-          const nd = n.data as CardNodeData
-          if (nd.frameId) affectedFrameIds.add(nd.frameId as string)
+      const affectedFrameIds = new Set<string>()
+      for (const n of next) {
+        const nd = n.data as CardNodeData
+        if (nd.frameId) affectedFrameIds.add(nd.frameId as string)
+      }
+      for (const f of frameNodes) {
+        affectedFrameIds.add(f.id)
+      }
+      next = next.map(n => {
+        if (affectedFrameIds.has(n.id) && n.type === 'frame') {
+          const fd = n.data as Record<string, unknown>
+          const newVersion = ((fd.snapshotVersion as number) ?? 0) + 1
+          const frameLayout = ((fd.layout as string) ?? 'free') as FrameLayout
+          const updatedFrameData = saveFrameSnapshot(
+            { ...fd, snapshotVersion: newVersion } as FrameNodeData,
+            frameLayout,
+          )
+          return { ...n, data: { ...updatedFrameData, snapshotVersion: newVersion } }
         }
-        for (const f of frameNodes) {
-          affectedFrameIds.add(f.id)
-        }
-        next = next.map(n => {
-          if (affectedFrameIds.has(n.id) && n.type === 'frame') {
-            const fd = n.data as Record<string, unknown>
-            const newVersion = ((fd.snapshotVersion as number) ?? 0) + 1
-            const frameLayout = ((fd.layout as string) ?? 'free') as FrameLayout
-            const updatedFrameData = saveFrameSnapshot(
-              { ...fd, snapshotVersion: newVersion } as FrameNodeData,
-              frameLayout,
-            )
-            return { ...n, data: { ...updatedFrameData, snapshotVersion: newVersion } }
-          }
-          return n
-        })
+        return n
+      })
 
-        return next
+      return next
     })
   }, [setEdges, setNodes, reactFlowInstance])
 
-  return { onNodeDrag, onNodeDragStop }
+  return { onNodeDrag, onNodeDragStart, onNodeDragStop }
 }

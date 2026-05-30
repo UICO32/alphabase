@@ -67,6 +67,16 @@ export function registerEmbeddingIPC(): void {
     }
   })
 
+  ipcMain.handle('embedding:searchByText', async (_event, { query, topK }: { query: string; topK?: number }) => {
+    if (!service) return { results: [], error: 'Service not initialized' }
+    try {
+      const results = await service.searchByText(query, topK ?? 20)
+      return { results }
+    } catch (err: any) {
+      return { results: [], error: err.message }
+    }
+  })
+
   ipcMain.handle('embedding:cancel', async () => {
     service?.cancel()
     return { cancelled: true }
