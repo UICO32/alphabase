@@ -53,7 +53,8 @@ export function MoreActionsMenu({
       const target = e.target as Node
       if (
         menuRef.current && !menuRef.current.contains(target) &&
-        triggerRef.current && !triggerRef.current.contains(target)
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        !document.querySelector('[data-board-submenu]')?.contains(target)
       ) {
         onClose()
       }

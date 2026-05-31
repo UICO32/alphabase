@@ -48,6 +48,7 @@ export function BoardSubmenu({ boards, onSelect }: BoardSubmenuProps) {
 
   const submenuContent = hovered ? (
     <div
+      data-board-submenu
       className="animate-fadeIn"
       style={{
         position: 'fixed',
