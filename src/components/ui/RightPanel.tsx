@@ -4,9 +4,8 @@ import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
-import { RelatedCardsTab } from './RelatedCardsTab'
 import { CardBlockNoteEditor } from '../editor/BlockNoteEditor'
-import { Layers, FileText, Search, PanelRightOpen, Globe } from 'lucide-react'
+import { Layers, FileText, PanelRightOpen, Globe } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
 
 interface RightPanelProps {
@@ -89,13 +88,6 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
             <FileText size={14} />
             卡片编辑器
           </button>
-          <button
-            onClick={() => setRightPanelActiveTab('related')}
-            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'related' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
-          >
-            <Search size={14} />
-            相关
-          </button>
         </div>
         <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
       </div>
@@ -103,8 +95,6 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
       <div className="flex-1 overflow-y-auto">
         {rightPanelActiveTab === 'library' ? (
           <CardLibraryView onOpenSettings={onOpenSettings} />
-        ) : rightPanelActiveTab === 'related' ? (
-          <RelatedCardsTab />
         ) : editingCardId ? (
           <ClipAwareEditorView
             cardId={editingCardId}

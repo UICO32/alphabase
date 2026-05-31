@@ -31,8 +31,8 @@ interface LibraryStore {
   setRightPanelCollapsed: (collapsed: boolean) => void
   rightPanelWidth: number
   setRightPanelWidth: (width: number) => void
-  rightPanelActiveTab: 'library' | 'editor' | 'related'
-  setRightPanelActiveTab: (tab: 'library' | 'editor' | 'related') => void
+  rightPanelActiveTab: 'library' | 'editor'
+  setRightPanelActiveTab: (tab: 'library' | 'editor') => void
 
   userSwitchedTab: boolean
   markUserSwitchedTab: () => void
