@@ -40,14 +40,22 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
         lineHeight: 0,
         boxShadow: selected ? 'var(--shadow-glow-blue)' : 'var(--shadow-sm)',
       }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {selected && (
         <NodeResizer
           minWidth={100}
           minHeight={50}
           isVisible={selected}
+          keepAspectRatio
           handleClassName="!w-3 !h-3 !bg-accent-blue !border-2 !border-white !rounded-sm !shadow-sm"
           lineClassName="!bg-transparent"
+          handleStyle={{
+            top: { display: 'none' },
+            bottom: { display: 'none' },
+            left: { display: 'none' },
+            right: { display: 'none' },
+          }}
         />
       )}
       {loaded ? (
@@ -57,7 +65,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
             display: 'block',
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'fill',
           }}
           alt={data.name || ''}
         />
