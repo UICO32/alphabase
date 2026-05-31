@@ -11,6 +11,7 @@ import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useFrameInteraction } from '../../utils/frameInteraction'
 import { useBoardStore } from '../../stores/boardStore'
+import { getActiveSyncEngine } from '../../sync/syncEngineRef'
 import { useEventBus } from '../../stores/eventBus'
 import { CardHandles } from './card/CardHandles'
 import { CardActionBar } from './card/CardActionBar'
@@ -111,12 +112,16 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         }
         return
       }
-      if (!isEditing && selected && card && !isCollapsed) {
+      if (isCollapsed) return
+      if (isHovered && !selected && card) {
+        clickCoordsRef.current = { x: e.clientX, y: e.clientY }
+        setIsEditing(true)
+      } else if (!isEditing && selected && card) {
         clickCoordsRef.current = { x: e.clientX, y: e.clientY }
         setIsEditing(true)
       }
     },
-    [isConnectionTarget, isNearbyTarget, data.cardId, selected, card, isEditing, isCollapsed, getNode, getNodeSize],
+    [isConnectionTarget, isNearbyTarget, data.cardId, selected, card, isEditing, isCollapsed, isHovered, getNode, getNodeSize],
   )
 
   const handleContentChange = useCallback(
@@ -136,42 +141,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     useCardStore.getState().recordCardContentSnapshot(data.cardId)
     setIsEditing(false)
   }, [data.cardId])
-
-  const handleDragBlocksOutside = useCallback((blocks: unknown[]) => {
-    if (!card) return
-    const currentNode = getNode(data.cardId)
-    if (!currentNode) return
-
-    const newCardId = crypto.randomUUID()
-    const newContent = JSON.stringify(blocks)
-
-    useCardStore.getState().addCard({
-      id: newCardId,
-      content: newContent,
-      color: card.color,
-      createdAt: Date.now(),
-    })
-
-    const offsetX = 320
-    const offsetY = 0
-    setNodes((nds) => [
-      ...nds,
-      {
-        id: newCardId,
-        type: 'card',
-        position: {
-          x: currentNode.position.x + offsetX,
-          y: currentNode.position.y + offsetY,
-        },
-        data: {
-          cardId: newCardId,
-          color: card.color,
-          width: data.width ?? 280,
-          height: data.height ?? 200,
-        },
-      },
-    ])
-  }, [data.cardId, card, data.width, data.height, getNode, setNodes])
 
   useEffect(() => {
     if (!isEditing || !editorRef.current) return
@@ -234,6 +203,10 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     const node = getNode(data.cardId)
     if (!node) return
 
+    const nodeData = node.data as CardNodeData
+    const nodeWidth = nodeData.width
+    const nodeHeight = nodeData.height
+
     setNodes((nds) => nds.filter((n) => n.id !== data.cardId))
     setEdges((eds) => {
       const relatedEdges = eds.filter((e) => e.source === data.cardId || e.target === data.cardId)
@@ -243,11 +216,11 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       const targetData = boardStore.getBoardData(boardId) || { nodes: [], edges: [] }
       targetData.nodes.push({
         id: node.id,
-        type: node.type || 'card',
+        type: (node.type || 'card') as 'card' | 'frame' | 'media',
         position: { x: node.position.x, y: node.position.y },
         data: { ...node.data },
-        width: (node.data as CardNodeData).width,
-        height: (node.data as CardNodeData).height,
+        width: nodeWidth,
+        height: nodeHeight,
       })
       targetData.edges.push(...relatedEdges.map((e) => ({
         id: e.id,
@@ -258,6 +231,30 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         type: e.type,
       })))
       boardStore.saveBoardData(boardId, targetData)
+
+      const syncEngine = getActiveSyncEngine()
+      if (syncEngine) {
+        syncEngine.scheduleWriteBoard(boardId, {
+          version: 2,
+          nodes: targetData.nodes.map(n => ({
+            id: n.id,
+            type: (n.type === 'card' || n.type === 'frame' || n.type === 'media') ? n.type as 'card' | 'frame' | 'media' : 'card',
+            position: { x: n.position.x, y: n.position.y },
+            data: n.data as Record<string, unknown>,
+            width: n.width,
+            height: n.height,
+          })),
+          edges: targetData.edges.map(e => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            type: 'connection' as const,
+            sourceHandle: e.sourceHandle ?? undefined,
+            targetHandle: e.targetHandle ?? undefined,
+          })),
+          viewport: { x: 0, y: 0, zoom: 1 },
+        })
+      }
 
       return remainingEdges
     })
@@ -302,7 +299,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const cursor = isCollapsed ? 'grab'
     : isEditing ? 'text'
     : (isConnectionTarget || isNearbyTarget) ? 'crosshair'
-    : isHovered ? 'pointer'
     : 'default'
 
   const cardClasses = [
@@ -342,6 +338,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleCardClick}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {selected && !isCollapsed && (
         <NodeResizer
@@ -404,7 +401,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           onBlur={handleEditorBlur}
           editorRef={editorRef}
           textColor={textColor}
-          onDragBlocksOutside={handleDragBlocksOutside}
         />
       )}
     </div>
