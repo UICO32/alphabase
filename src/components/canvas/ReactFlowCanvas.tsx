@@ -44,7 +44,6 @@ import { type GlobalCard } from '../../stores/cardStore'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { kanbanDragPreview } from '../../utils/kanbanDragPreview'
 import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from '../../utils/frameInteraction'
-import type { FrameLayout } from '../../utils/frameLayouts'
 import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 const nodeTypes = {
@@ -73,7 +72,6 @@ export function ReactFlowCanvas() {
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
   const edgesRef = useRef<Edge[]>(edges)
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeIds: string[] } | null>(null)
 
   const { record, undo, redo, clear } = useHistory({ maxHistory: 20 })
 
@@ -110,7 +108,7 @@ export function ReactFlowCanvas() {
   })
   const { onConnect, onReconnect, onReconnectEnd } = useCanvasConnection({ setEdges })
   const { onNodeDrag, onNodeDragStart: snapDragStart, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges, setNodes })
-  useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear })
+  useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNodes: () => nodesRef.current })
 
   const recordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -149,6 +147,7 @@ export function ReactFlowCanvas() {
   // Bug1: 拖拽 Frame 时禁用 backdrop-filter 避免遮盖卡片
   // 拖拽开始前立即记录当前状态（无 debounce），确保 undo 能回到拖拽前位置
   const onNodeDragStart = useCallback((event: React.MouseEvent, node: Node) => {
+    setIsDraggingNode(true)
     snapDragStart(event, node)
     snapshotNow()
     if (node.type === 'frame') {
@@ -158,6 +157,7 @@ export function ReactFlowCanvas() {
   }, [snapDragStart, snapshotNow])
 
   const onNodeDragStopWithCleanup = useCallback((_event: React.MouseEvent, _node: Node, _nodes: Node[]) => {
+    setIsDraggingNode(false)
     // Bug1: 拖拽结束后恢复 backdrop-filter
     document.querySelectorAll('.frame-dragging').forEach((el) => el.classList.remove('frame-dragging'))
 
@@ -346,16 +346,21 @@ export function ReactFlowCanvas() {
   }, [])
 
   const onMove = useCallback(
-    (_event: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => {
-      setZoom(viewport.zoom)
-    },
+    (() => {
+      let lastCall = 0
+      return (_event: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => {
+        const now = performance.now()
+        if (now - lastCall < 100) return
+        lastCall = now
+        setZoom(viewport.zoom)
+      }
+    })(),
     [setZoom],
   )
 
   const onPaneClick = useCallback(() => {
     connectionMediator.clear()
     kanbanDragPreview.clear()
-    setContextMenu(null)
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
@@ -374,118 +379,14 @@ export function ReactFlowCanvas() {
         if (cardId) {
           const libStore = useLibraryStore.getState()
           libStore.setEditingCardId(cardId)
-          libStore.setRightPanelActiveTab('editor')
+          if (libStore.sortBy !== 'related') {
+            libStore.setRightPanelActiveTab('editor')
+          }
         }
       }
     },
     [],
   )
-
-  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
-    event.preventDefault()
-    const allNodes = nodesRef.current
-    const selectedCardNodes = allNodes.filter((n) => n.selected && n.type === 'card')
-    const nodeIds = selectedCardNodes.length > 0
-      ? selectedCardNodes.map((n) => n.id)
-      : (node.type === 'card' ? [node.id] : [])
-    if (nodeIds.length === 0) return
-    setContextMenu({ x: event.clientX, y: event.clientY, nodeIds })
-  }, [])
-
-  const handleMoveToNewFrame = useCallback(() => {
-    if (!contextMenu) return
-    const { nodeIds } = contextMenu
-    const allNodes = nodesRef.current
-    const cardNodes = allNodes.filter((n) => nodeIds.includes(n.id))
-    if (cardNodes.length === 0) return
-
-    const xs = cardNodes.map((n) => n.position.x)
-    const ys = cardNodes.map((n) => n.position.y)
-    const padding = 40
-    const headerH = 44
-    const minX = Math.min(...xs)
-    const minY = Math.min(...ys)
-
-    const frameId = `frame-${Date.now()}`
-    setNodes((nds) => {
-      const updated = nds.map((n) => {
-        if (!nodeIds.includes(n.id)) return n
-        const localX = n.position.x - (minX - padding)
-        const localY = n.position.y - (minY - padding - headerH)
-        const cardData = n.data as CardNodeData
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            frameId,
-            localX,
-            localY,
-            layoutSnapshots: {
-              ...cardData.layoutSnapshots,
-              free: { localX, localY, width: cardData.width, height: cardData.height },
-            },
-          },
-        }
-      })
-      return [
-        ...updated,
-        {
-          id: frameId,
-          type: 'frame',
-          position: { x: minX - padding, y: minY - padding - headerH },
-          data: {
-            name: '新 Frame',
-            layout: 'free' as const,
-            width: Math.max(600, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).width ?? 240 + n.position.x)) - minX + padding * 2),
-            height: Math.max(400, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).height ?? 160 + n.position.y)) - minY + padding * 2 + headerH),
-            color: '#6366f1',
-            layoutSnapshots: {
-              free: {
-                width: Math.max(600, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).width ?? 240 + n.position.x)) - minX + padding * 2),
-                height: Math.max(400, Math.max(...cardNodes.map((n) => (n.data as CardNodeData).height ?? 160 + n.position.y)) - minY + padding * 2 + headerH),
-              },
-            },
-          } as FrameNodeData,
-          zIndex: -10,
-          dragHandle: '.frame-drag-handle',
-        },
-      ]
-    })
-    setContextMenu(null)
-  }, [contextMenu, setNodes])
-
-  const handleMoveToExistingFrame = useCallback((targetFrameId: string) => {
-    if (!contextMenu) return
-    const { nodeIds } = contextMenu
-    const allNodes = nodesRef.current
-    const frameNode = allNodes.find((n) => n.id === targetFrameId)
-    if (!frameNode) return
-
-    const targetFrameLayout = ((frameNode.data as FrameNodeData).layout ?? 'free') as FrameLayout
-
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (!nodeIds.includes(n.id)) return n
-        const localX = n.position.x - frameNode.position.x
-        const localY = n.position.y - frameNode.position.y - 44
-        const cardData = n.data as CardNodeData
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            frameId: targetFrameId,
-            localX,
-            localY,
-            layoutSnapshots: {
-              ...cardData.layoutSnapshots,
-              [targetFrameLayout]: { localX, localY, width: cardData.width, height: cardData.height },
-            },
-          },
-        }
-      }),
-    )
-    setContextMenu(null)
-  }, [contextMenu, setNodes])
 
   const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
 
@@ -549,9 +450,11 @@ export function ReactFlowCanvas() {
     return [...frames, ...others]
   }, [nodes])
 
+  const [isDraggingNode, setIsDraggingNode] = useState(false)
   const alignableNodes = useMemo(() => {
+    if (isDraggingNode) return []
     return nodes.filter(n => n.selected && (n.type === 'card' || n.type === 'media'))
-  }, [nodes])
+  }, [nodes, isDraggingNode])
 
   const onApplyAlignment = useCallback((updates: Map<string, { x: number; y: number }>) => {
     const currentNodes = nodesRef.current.map(n => ({ ...n }))
@@ -598,7 +501,7 @@ export function ReactFlowCanvas() {
 
   return (
     <ErrorBoundary>
-    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onDoubleClick={handleDoubleClick}>
+    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
       <ReactFlow
         nodes={sortedNodes}
         edges={visibleEdges}
@@ -609,7 +512,6 @@ export function ReactFlowCanvas() {
         onInit={onInit}
         onPaneClick={onPaneClick}
         onNodeClick={onNodeClick}
-        onNodeContextMenu={onNodeContextMenu}
         onMouseMove={onMouseMove}
         onNodeDrag={onNodeDrag}
         onNodeDragStart={onNodeDragStart}
@@ -642,13 +544,14 @@ export function ReactFlowCanvas() {
         <AdaptiveBackground
           color={isDarkMode ? '#ffffff' : '#18181b'}
         />
+        <AlignmentToolbar
+          selectedNodes={alignableNodes}
+          reactFlowInstance={reactFlowInstance}
+          onApplyAlignment={onApplyAlignment}
+          isDraggingNode={isDraggingNode}
+        />
       </ReactFlow>
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
-      <AlignmentToolbar
-        selectedNodes={alignableNodes}
-        reactFlowInstance={reactFlowInstance}
-        onApplyAlignment={onApplyAlignment}
-      />
 
       {/* 框选矩形 */}
       {isLassoMode && lassoRect && lassoRect.width > 0 && lassoRect.height > 0 && (() => {
@@ -675,43 +578,6 @@ export function ReactFlowCanvas() {
           />
         )
       })()}
-
-      {contextMenu && (
-        <div
-          className="fixed z-50 py-1 rounded-lg min-w-[180px] bg-surface-card border border-border-default"
-          style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
-            boxShadow: 'var(--shadow-lg)',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5 text-text-primary"
-            onClick={handleMoveToNewFrame}
-          >
-            归入新 Frame
-          </button>
-          {nodesRef.current
-            .filter((n) => n.type === 'frame')
-            .map((frameNode) => {
-              const fd = frameNode.data as FrameNodeData
-              return (
-                <button
-                  key={frameNode.id}
-                  className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm rounded-md hover:bg-black/5 text-text-primary"
-                  onClick={() => handleMoveToExistingFrame(frameNode.id)}
-                >
-                  <span
-                    className="w-3 h-3 rounded-full inline-block"
-                    style={{ backgroundColor: fd.color ?? '#6366f1' }}
-                  />
-                  归入 {fd.name || 'Frame'}
-                </button>
-              )
-            })}
-        </div>
-      )}
 
       {/* Bug4: 看板视图下点击 MiniCard 唤起居中编辑弹窗 */}
       {kanbanEditDialogCardId && createPortal(

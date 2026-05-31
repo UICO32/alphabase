@@ -5,6 +5,19 @@ import { useCardStore } from '../stores/cardStore'
 import { useLibraryStore } from '../stores/libraryStore'
 import { getEditorHandleForCard, suppressProseMirrorUndo, isProseMirrorSuppressed } from '../utils/editorHandleRegistry'
 import { useEvent } from './useEvent'
+import type { CardColor } from '../types/card'
+
+const CLIPBOARD_MIME = 'application/x-hepta-cards'
+
+interface CopiedCard {
+  color: string
+  collapsed: boolean
+  width?: number
+  height?: number
+  content: string
+  title?: string
+  sourceUrl?: string
+}
 
 interface UseCanvasKeyboardOptions {
   undo: () => HistoryEntry | null
@@ -12,6 +25,7 @@ interface UseCanvasKeyboardOptions {
   setNodes: (updater: Node[] | ((prev: Node[]) => Node[])) => void
   setEdges: (updater: Edge[] | ((prev: Edge[]) => Edge[])) => void
   clear: () => void
+  getNodes: () => Node[]
 }
 
 function applyEntry(entry: HistoryEntry, setNodes: (updater: Node[] | ((prev: Node[]) => Node[])) => void, setEdges: (updater: Edge[] | ((prev: Edge[]) => Edge[])) => void) {
@@ -34,7 +48,7 @@ function applyEntry(entry: HistoryEntry, setNodes: (updater: Node[] | ((prev: No
   }
 }
 
-export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear }: UseCanvasKeyboardOptions) {
+export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNodes }: UseCanvasKeyboardOptions) {
   const handleUndo = useCallback(() => {
     const entry = undo()
     if (entry) applyEntry(entry, setNodes, setEdges)
@@ -113,6 +127,97 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear }: Use
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleUndo, handleRedo])
+
+  // Ctrl+C/V: 复制粘贴卡片
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey
+      if (!isCtrl) return
+
+      const activeEl = document.activeElement
+      const inEditor = activeEl && activeEl.closest('.card-blocknote-editor, .ProseMirror, .bn-editor, input, textarea, [contenteditable]')
+
+      if (e.key === 'c' && !inEditor) {
+        const selectedNodes = getNodes().filter(n => n.selected && n.type === 'card')
+        if (selectedNodes.length === 0) return
+
+        const cardStore = useCardStore.getState()
+        const copied: CopiedCard[] = []
+        for (const node of selectedNodes) {
+          const data = node.data as Record<string, unknown>
+          const cardId = data.cardId as string
+          const card = cardStore.cards[cardId]
+          if (!card) continue
+          copied.push({
+            color: (data.color as string) || card.color || 'white',
+            collapsed: (data.collapsed as boolean) ?? card.collapsed ?? false,
+            width: data.width as number | undefined,
+            height: data.height as number | undefined,
+            content: card.content,
+            title: card.title,
+            sourceUrl: card.sourceUrl,
+          })
+        }
+        if (copied.length === 0) return
+
+        e.preventDefault()
+        const json = JSON.stringify(copied)
+        navigator.clipboard.write([
+          new ClipboardItem({
+            [CLIPBOARD_MIME]: new Blob([json], { type: CLIPBOARD_MIME }),
+            'text/plain': new Blob([json], { type: 'text/plain' }),
+          }),
+        ]).catch(() => {})
+      }
+
+      if (e.key === 'v' && !inEditor) {
+        navigator.clipboard.read().then(async (items) => {
+          for (const item of items) {
+            if (!item.types.includes(CLIPBOARD_MIME)) continue
+
+            e.preventDefault()
+            const blob = await item.getType(CLIPBOARD_MIME)
+            const json = await blob.text()
+            const copied: CopiedCard[] = JSON.parse(json)
+
+            const cardStore = useCardStore.getState()
+            const newNodes: Node[] = []
+
+            for (let i = 0; i < copied.length; i++) {
+              const src = copied[i]
+              const newCardId = crypto.randomUUID()
+              cardStore.addCard({
+                id: newCardId,
+                content: src.content,
+                color: src.color as CardColor,
+                collapsed: src.collapsed,
+                title: src.title,
+                sourceUrl: src.sourceUrl,
+                createdAt: Date.now(),
+              })
+              newNodes.push({
+                id: newCardId,
+                type: 'card',
+                position: { x: 20 + i * 40, y: 20 + i * 40 },
+                data: {
+                  cardId: newCardId,
+                  color: src.color,
+                  collapsed: src.collapsed,
+                  width: src.width,
+                  height: src.height,
+                },
+              })
+            }
+            setNodes((nds) => [...nds, ...newNodes])
+            break
+          }
+        }).catch(() => {})
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [getNodes, setNodes])
 
   useEvent('reinit-workspace', () => {
     clear()
