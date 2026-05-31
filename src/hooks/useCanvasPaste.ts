@@ -24,8 +24,13 @@ function makeMediaNode(url: string, position: { x: number; y: number }): Node<Me
 export function useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef }: UseCanvasPasteOptions) {
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
+      if (e.defaultPrevented) return
+
       const target = e.target as HTMLElement
       if (target.closest('.ProseMirror, .bn-editor, .card-blocknote-editor, input, textarea, [contenteditable]')) return
+
+      const activeEl = document.activeElement
+      if (activeEl && activeEl.closest('.ProseMirror, .bn-editor, .card-blocknote-editor, [contenteditable]')) return
 
       const items = e.clipboardData?.items
       if (!items) return
