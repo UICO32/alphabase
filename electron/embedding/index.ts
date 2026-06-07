@@ -43,8 +43,7 @@ export function registerEmbeddingIPC(): void {
 
   ipcMain.handle('embedding:indexAll', async () => {
     if (!service || !currentWorkspacePath) {
-      const { EMBEDDING_ERRORS } = await import('./EmbeddingService')
-      return { error: EMBEDDING_ERRORS.NOT_INITIALIZED }
+      return { error: 'NOT_INITIALIZED' }
     }
     try {
       const result = await service.indexAll((done, total) => {
