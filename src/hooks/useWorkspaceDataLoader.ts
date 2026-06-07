@@ -4,7 +4,6 @@ import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { useEvent } from './useEvent'
-import { useEventBus } from '../stores/eventBus'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/migrateFromLocalStorage'
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
@@ -21,12 +20,17 @@ import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
 function emitStartupProgress(step: string, progress: number, total: number) {
-  const emit = useEventBus.getState().emit
-  emit('startup-progress', { step, progress, total })
-  const bar = document.getElementById('splash-bar')
-  const label = document.getElementById('splash-label')
-  if (bar) bar.style.width = `${total > 0 ? (progress / total) * 100 : 0}%`
-  if (label) label.textContent = step
+  const electronAPI = (window as any).electronAPI
+  if (electronAPI?.startup?.notifyProgress) {
+    electronAPI.startup.notifyProgress({ step, progress, total })
+  }
+}
+
+function notifyDataReady() {
+  const electronAPI = (window as any).electronAPI
+  if (electronAPI?.startup?.notifyDataReady) {
+    electronAPI.startup.notifyDataReady()
+  }
 }
 
 const __t = { start: 0, steps: [] as { name: string; ms: number }[] }
@@ -315,6 +319,7 @@ export function useWorkspaceDataLoader() {
       await (window as any).electronAPI?.startup?.log?.({ totalMs, steps: __t.steps })
     } catch { /* noop */ }
     setDataReady(true)
+    notifyDataReady()
     // Background: generate previewHTML for all cards (first 16 sync, then idle batches)
     useCardStore.getState().schedulePreviewHTMLGeneration()
 
@@ -335,6 +340,7 @@ export function useWorkspaceDataLoader() {
       ensureGlobalDemoCards()
       ensureDefaultBoard()
       setDataReady(true)
+    notifyDataReady()
       return
     }
 
@@ -351,6 +357,7 @@ export function useWorkspaceDataLoader() {
           ensureGlobalDemoCards()
           ensureDefaultBoard()
           setDataReady(true)
+    notifyDataReady()
         })
       })
       return
@@ -363,6 +370,7 @@ export function useWorkspaceDataLoader() {
         ensureGlobalDemoCards()
         ensureDefaultBoard()
         setDataReady(true)
+    notifyDataReady()
       })
     }
   }, [pendingWorkspacePath, loadWorkspaceData])
