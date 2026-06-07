@@ -1,4 +1,8 @@
-export function fileToDataUrl(file: File): Promise<string> {
+const COMPRESS_MAX_WIDTH = 1600
+const COMPRESS_QUALITY = 0.85
+const COMPRESS_SKIP_THRESHOLD = 300 * 1024
+
+function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
@@ -8,6 +12,48 @@ export function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'))
     reader.readAsDataURL(file)
   })
+}
+
+export async function fileToDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) return readAsDataUrl(file)
+  if (file.type === 'image/svg+xml' || file.type === 'image/gif') return readAsDataUrl(file)
+  if (file.size < COMPRESS_SKIP_THRESHOLD) return readAsDataUrl(file)
+
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const { width, height } = img
+      if (width <= COMPRESS_MAX_WIDTH) {
+        URL.revokeObjectURL(img.src)
+        readAsDataUrl(file).then(resolve)
+        return
+      }
+      const scale = COMPRESS_MAX_WIDTH / width
+      const canvas = document.createElement('canvas')
+      canvas.width = COMPRESS_MAX_WIDTH
+      canvas.height = Math.round(height * scale)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        URL.revokeObjectURL(img.src)
+        readAsDataUrl(file).then(resolve)
+        return
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(img.src)
+      const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+      resolve(canvas.toDataURL(outputType, COMPRESS_QUALITY))
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src)
+      readAsDataUrl(file).then(resolve)
+    }
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+export function isImageFile(file: File) {
+  if (file.type.toLowerCase().startsWith('image/')) return true
+  return /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i.test(file.name)
 }
 
 export function generateId(prefix: string = 'id'): string {

@@ -1,24 +1,7 @@
 export const SAVE_DEBOUNCE_MS = 400
 
-export async function fileToDataUrl(file: File) {
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result)
-      } else {
-        reject(new Error('Failed to read file as data URL'))
-      }
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'))
-    reader.readAsDataURL(file)
-  })
-}
-
-export function isImageFile(file: File) {
-  if (file.type.toLowerCase().startsWith('image/')) return true
-  return /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i.test(file.name)
-}
+// Deprecated: import directly from '../utils/fileUtils' instead
+export { fileToDataUrl, isImageFile } from '../utils/fileUtils'
 
 export function isReadableImageUrl(url: string) {
   return url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')

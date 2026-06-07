@@ -4,16 +4,11 @@ import type { ReactFlowInstance } from '@xyflow/react'
 import type { MediaNodeData } from '../types/card'
 import type { CardNodeData } from '../types/card'
 import { useCardStore } from '../stores/cardStore'
-import { fileToDataUrl, generateId } from '../utils/fileUtils'
+import { fileToDataUrl, generateId, isImageFile } from '../utils/fileUtils'
 
 interface UseDropHandlerOptions {
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void
-}
-
-function isImageFile(file: File) {
-  if (file.type.toLowerCase().startsWith('image/')) return true
-  return /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i.test(file.name)
 }
 
 interface CardDragData {
@@ -24,12 +19,9 @@ interface CardDragData {
 
 export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOptions) {
   const handleDragOver = useCallback((event: React.DragEvent) => {
-    // 编辑器内的拖拽（BlockNote DragHandle）不应被画布拦截
+    // 编辑器内的拖拽不应被画布拦截
     const target = event.target as HTMLElement
     if (target?.closest?.('.card-blocknote-editor, .ProseMirror, .bn-editor')) return
-    // BlockNote 块拖拽设置 effectAllowed='move' 和 blocknote/html，
-    // 若画布设置 dropEffect='copy' 会与 effectAllowed 冲突导致禁止图标
-    if (event.dataTransfer?.types?.includes('blocknote/html')) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'copy'
   }, [])
@@ -39,8 +31,6 @@ export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOp
       // 编辑器内的 drop 由 Prosemirror 处理，画布不应拦截
       const target = event.target as HTMLElement
       if (target?.closest?.('.card-blocknote-editor, .ProseMirror, .bn-editor')) return
-      // BlockNote 块拖拽不应被画布处理
-      if (event.dataTransfer?.types?.includes('blocknote/html')) return
 
       const instance = reactFlowInstance.current
       if (!instance) return
