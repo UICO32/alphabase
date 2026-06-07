@@ -398,7 +398,7 @@ export function useWorkspaceDataLoader() {
           try {
             await (window as any).electronAPI?.startup?.log?.({ totalMs: ms, steps: [{ name: 'demo-ready', ms }] })
           } catch { /* noop */ }
-          if (!cancelled) setDataReady(true)
+          if (!cancelled) { setDataReady(true); notifyDataReady() }
           return
         }
 
@@ -410,7 +410,7 @@ export function useWorkspaceDataLoader() {
       } catch {
         ensureGlobalDemoCards()
         ensureDefaultBoard()
-        if (!cancelled) setDataReady(true)
+        if (!cancelled) { setDataReady(true); notifyDataReady() }
       }
     })()
 

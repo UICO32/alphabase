@@ -14,6 +14,7 @@ import { dirname as pathDirname } from 'path'
 import { createMenu } from './menu'
 import { registerClipperHandlers } from './clipper/handler'
 import { registerEmbeddingIPC, disposeEmbeddingService } from './embedding'
+import { registerAISummaryIPC } from './ai'
 import { createSplashWindow, updateSplashProgress, closeSplashWindow } from './splash'
 import { Md5 } from 'ts-md5'
 
@@ -24,6 +25,8 @@ app.commandLine.appendSwitch('enable-font-antialiasing', '1')
 // Use GPU for rasterization to improve text rendering
 app.commandLine.appendSwitch('enable-gpu-rasterization', '1')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows', '1')
+// Prevent GPU shader disk cache errors (concurrent access in dev mode)
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 
 const __t0 = Date.now()
 let __t1 = 0
@@ -175,6 +178,7 @@ app.whenReady().then(() => {
   // Defer embedding IPC registration — onnxruntime-node is heavy (~500ms)
   setTimeout(() => {
     registerEmbeddingIPC()
+    registerAISummaryIPC()
   }, 0)
 
   ipcMain.on('startup:progress', (_event, data: { step: string; progress: number; total: number }) => {
