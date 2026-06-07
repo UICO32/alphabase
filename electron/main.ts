@@ -96,6 +96,13 @@ function createWindow() {
     __t2 = Date.now()
     console.log(`[startup] ready-to-show: ${__t2 - __t0}ms`)
     startupLog(`ready-to-show: ${__t2 - __t0}ms`)
+    // Fallback: if data-ready IPC hasn't fired yet, show window anyway
+    // to prevent the app from being stuck on splash forever
+    if (!mainWindow?.isVisible()) {
+      closeSplashWindow()
+      mainWindow?.show()
+      console.log(`[startup] ready-to-show fallback show: ${Date.now() - __t0}ms`)
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler(() => {
