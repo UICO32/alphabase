@@ -5,11 +5,9 @@ import { extractEmbeddingText } from './textExtractor'
 import { JinaTokenizer } from './tokenizer'
 
 // --- Constants ---
-const MODEL_ID = 'jina-embeddings-v5-text-nano-text-matching'
 const TRUNCATED_DIMENSIONS = 256
 const DEFAULT_THRESHOLD = 0.45
 const VECTORS_DIR_NAME = '.vectors'
-const META_FILE = 'meta.json'
 const MODEL_FILENAME = 'model_q4f16.onnx'
 const TOKENIZER_FILENAME = 'tokenizer.json'
 const MAX_SEQ_LENGTH = 8192
@@ -579,17 +577,6 @@ export class EmbeddingService {
     }
 
     return results
-  }
-
-  private _writeMeta(cardCount: number): void {
-    const meta: MetaInfo = {
-      lastIndexedAt: new Date().toISOString(),
-      cardCount,
-      modelId: MODEL_ID,
-      dimensions: TRUNCATED_DIMENSIONS,
-      threshold: this.threshold,
-    }
-    writeFileSync(join(this.vectorsDir, META_FILE), JSON.stringify(meta, null, 2), 'utf-8')
   }
 }
 
