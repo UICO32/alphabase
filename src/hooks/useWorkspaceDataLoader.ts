@@ -135,6 +135,8 @@ export function useWorkspaceDataLoader() {
     ])
     stepTime('cards+boards-loaded')
 
+    emitStartupProgress('加载画板...', 2, 4)
+
     // Apply board snapshots
     for (const [boardId, snapshot] of boardSnapshots) {
       useBoardStore.getState().saveBoardData(boardId, {
