@@ -13,6 +13,7 @@ import { exists } from '../utils/workspace/fs'
 import type { ConflictDiffItem } from '../utils/workspace/types'
 import { createFileSystemBackup, startAutoBackup, stopAutoBackup } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
+import { embeddingStore } from '../stores/embeddingStore'
 import type { CardColor } from '../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
@@ -316,6 +317,14 @@ export function useWorkspaceDataLoader() {
     setDataReady(true)
     // Background: generate previewHTML for all cards (first 16 sync, then idle batches)
     useCardStore.getState().schedulePreviewHTMLGeneration()
+
+    // Auto-init embedding index — loadStore() inside EmbeddingService will restore vectors.json
+    const wsPath = localStorage.getItem(LAST_WORKSPACE_KEY)
+    if (wsPath) {
+      embeddingStore.getState().init(wsPath).catch((err: unknown) => {
+        console.error('[workspace] embedding init failed:', err)
+      })
+    }
   }, [])
 
   const handleConflictChoice = useCallback((choice: 'backup' | 'continue' | 'merge' | 'cancel') => {

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { useCallback } from 'react'
 import { renderBlocksToHTML } from '../converters/renderBlocks'
+import { flushActiveSyncEngine } from '../sync/syncEngineRef'
 import type { CardColor } from '../types/card'
 
 export interface GlobalCard {
@@ -55,6 +56,7 @@ export const useCardStore = create<CardStore>()(
 
     addCard: (card) => {
       set((state) => ({ cards: { ...state.cards, [card.id]: card } }))
+      flushActiveSyncEngine()
     },
 
     updateCard: (id, props) => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { useHistory } from '../hooks/useHistory'
+import { renderHook, act } from '@testing-library/react'
+import { useHistory } from './useHistory'
 
 function makeEntry(nodeCount: number) {
   return {
@@ -20,52 +21,51 @@ function makeEntry(nodeCount: number) {
   }
 }
 
+function countUndos(result: { current: ReturnType<typeof useHistory> }, max = 100) {
+  let count = 0
+  for (let i = 0; i < max; i++) {
+    let returned: unknown
+    act(() => { returned = result.current.undo() })
+    if (returned === null) break
+    count++
+  }
+  return count
+}
+
 describe('useHistory memory limits', () => {
   it('should enforce maxHistory count', () => {
-    const history = useHistory({ maxHistory: 5 })
+    const { result } = renderHook(() => useHistory({ maxHistory: 5 }))
 
-    for (let i = 0; i < 8; i++) {
-      history.record(makeEntry(1))
-    }
+    act(() => {
+      for (let i = 0; i < 8; i++) {
+        result.current.record(makeEntry(1))
+      }
+    })
 
-    expect(history.canUndo).toBe(true)
-    let undoCount = 0
-    while (history.canUndo) {
-      history.undo()
-      undoCount++
-    }
-    expect(undoCount).toBeLessThanOrEqual(5)
+    expect(countUndos(result)).toBeLessThanOrEqual(5)
   })
 
   it('should enforce memory size limit by trimming old entries', () => {
-    const history = useHistory({ maxHistory: 100 })
+    const { result } = renderHook(() => useHistory({ maxHistory: 100 }))
 
-    for (let i = 0; i < 30; i++) {
-      history.record(makeEntry(500))
-    }
+    act(() => {
+      for (let i = 0; i < 30; i++) {
+        result.current.record(makeEntry(500))
+      }
+    })
 
-    expect(history.canUndo).toBe(true)
-    let undoCount = 0
-    while (history.canUndo) {
-      history.undo()
-      undoCount++
-    }
-    // 500 nodes × 500B = 250KB/条，30条 = 7.5MB > 5MB 上限
-    expect(undoCount).toBeLessThan(30)
+    expect(countUndos(result)).toBeLessThan(30)
   })
 
   it('should preserve at least 2 entries even if over size limit', () => {
-    const history = useHistory({ maxHistory: 100 })
+    const { result } = renderHook(() => useHistory({ maxHistory: 100 }))
 
-    for (let i = 0; i < 30; i++) {
-      history.record(makeEntry(500))
-    }
+    act(() => {
+      for (let i = 0; i < 30; i++) {
+        result.current.record(makeEntry(500))
+      }
+    })
 
-    let undoCount = 0
-    while (history.canUndo) {
-      history.undo()
-      undoCount++
-    }
-    expect(undoCount).toBeGreaterThanOrEqual(2)
+    expect(countUndos(result)).toBeGreaterThanOrEqual(2)
   })
 })

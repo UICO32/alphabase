@@ -1,3 +1,8 @@
+// Must run before ANY electron import — if ELECTRON_RUN_AS_NODE is set,
+// require('electron') returns the npm package path string instead of the
+// built-in module, causing contextBridge/ipcRenderer to be undefined.
+delete process.env.ELECTRON_RUN_AS_NODE
+
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -19,6 +24,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   },
+  window: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    maximize: () => ipcRenderer.invoke('window:maximize'),
+    close: () => ipcRenderer.invoke('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  },
   clipper: {
     clip: (url: string, workspacePath?: string) => ipcRenderer.invoke('clipper:clip', { url, workspacePath }),
   },
@@ -30,6 +41,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   embedding: {
     init: (workspacePath: string) => ipcRenderer.invoke('embedding:init', workspacePath),
     indexAll: () => ipcRenderer.invoke('embedding:indexAll'),
+    indexCard: (cardId: string) => ipcRenderer.invoke('embedding:indexCard', cardId),
+    cluster: (minClusterSize?: number) => ipcRenderer.invoke('embedding:cluster', minClusterSize),
     search: (cardId: string, topK?: number) => ipcRenderer.invoke('embedding:search', { cardId, topK }),
     searchByText: (query: string, topK?: number) => ipcRenderer.invoke('embedding:searchByText', { query, topK }),
     cancel: () => ipcRenderer.invoke('embedding:cancel'),

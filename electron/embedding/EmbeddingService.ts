@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs'
 import { join, basename } from 'path'
 import { InferenceSession, Tensor } from 'onnxruntime-node'
 import { extractEmbeddingText } from './textExtractor'
@@ -13,7 +13,6 @@ const META_FILE = 'meta.json'
 const MODEL_FILENAME = 'model_q4f16.onnx'
 const TOKENIZER_FILENAME = 'tokenizer.json'
 const MAX_SEQ_LENGTH = 8192
-const BATCH_SIZE = 8
 
 // --- Error codes ---
 export const EMBEDDING_ERRORS = {
@@ -48,10 +47,26 @@ interface VectorDoc {
   id: string
   vector: number[]
   fields: Record<string, string>
+  updatedAt?: number
 }
 
 interface VectorStore {
   docs: Record<string, VectorDoc>
+}
+
+export interface TerrainCluster {
+  id: string
+  label: string
+  centroid: number[]
+  cardIds: string[]
+  cohesion: number
+  cardSimilarities: Record<string, number>
+}
+
+export interface ClusterResult {
+  clusters: TerrainCluster[]
+  orphanCards: string[]
+  computedAt: number
 }
 
 export class EmbeddingService {
@@ -61,19 +76,47 @@ export class EmbeddingService {
   private storePath: string = ''
   private vectorsDir: string = ''
   private modelDir: string = ''
+  private cardsDir: string = ''
   private isIndexing: boolean = false
   private abortController: AbortController | null = null
   private threshold: number = DEFAULT_THRESHOLD
+  private clusterCache: ClusterResult | null = null
+  private clusterCacheComputedAt: number = 0
+  private lastStoreMutationAt: number = 0
 
-  async init(workspacePath: string, modelDir?: string): Promise<void> {
+  async init(workspacePath: string, modelDir?: string): Promise<{ modelLoaded: boolean; storeLoaded: boolean; docCount: number }> {
+    this.cardsDir = join(workspacePath, 'cards')
     this.vectorsDir = join(workspacePath, VECTORS_DIR_NAME)
-    this.modelDir = modelDir || this.vectorsDir
+    this.modelDir = modelDir || join(workspacePath, '.embedding-model')
     this.storePath = join(this.vectorsDir, 'vectors.json')
 
     if (!existsSync(this.vectorsDir)) {
       mkdirSync(this.vectorsDir, { recursive: true })
     }
 
+    // Restore store from disk first — even if model fails, vectors are still usable
+    let storeLoaded = false
+    let docCount = 0
+    try {
+      this.loadStore()
+      storeLoaded = true
+      docCount = Object.keys(this.store.docs).length
+    } catch {
+      // No saved store yet
+    }
+
+    let modelLoaded = false
+    try {
+      await this.loadModel()
+      modelLoaded = true
+    } catch {
+      // Model unavailable — store is still usable for search if previously indexed
+    }
+
+    return { modelLoaded, storeLoaded, docCount }
+  }
+
+  private async loadModel(): Promise<void> {
     const modelPath = join(this.modelDir, MODEL_FILENAME)
     const tokenizerPath = join(this.modelDir, TOKENIZER_FILENAME)
     if (!existsSync(modelPath)) {
@@ -102,8 +145,6 @@ export class EmbeddingService {
         throw new Error(`${EMBEDDING_ERRORS.INIT_FAILED}: ${(err as Error).message}`)
       }
     }
-
-    this.loadStore()
   }
 
   private loadStore(): void {
@@ -124,92 +165,132 @@ export class EmbeddingService {
   }
 
   async indexAll(
-    cardsDir: string,
-    onProgress?: (progress: IndexProgress) => void,
-  ): Promise<{ indexed: number; skipped: number }> {
-    if (!this.session) {
-      throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
-    }
-    if (this.isIndexing) {
-      throw new Error(EMBEDDING_ERRORS.INDEXING_IN_PROGRESS)
-    }
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ totalCards: number; newIndexed: number; skipped: number; removed: number }> {
+    if (this.isIndexing) throw new Error(EMBEDDING_ERRORS.INDEXING_IN_PROGRESS)
+    if (!this.session || !this.tokenizer) throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
 
     this.isIndexing = true
     this.abortController = new AbortController()
 
-    let indexed = 0
-    let skipped = 0
-
     try {
-      const files = readdirSync(cardsDir).filter(
-        (f) => f.endsWith('.json') && !f.endsWith('.trash.json'),
-      )
-      const total = files.length
+      if (!existsSync(this.cardsDir)) {
+        return { totalCards: 0, newIndexed: 0, skipped: 0, removed: 0 }
+      }
 
-      // Read and prepare all cards first
-      const pending: Array<{ cardId: string; text: string; updatedAt: string }> = []
-      for (let i = 0; i < files.length; i++) {
-        const filePath = join(cardsDir, files[i])
-        const cardId = basename(files[i], '.json')
+      const cardFiles = readdirSync(this.cardsDir).filter(f => f.endsWith('.json'))
+      const totalCards = cardFiles.length
+      let newIndexed = 0
+      let skipped = 0
+
+      for (let i = 0; i < cardFiles.length; i++) {
+        if (this.abortController.signal.aborted) break
+
+        const filename = cardFiles[i]
+        const cardId = basename(filename, '.json')
+        const filePath = join(this.cardsDir, filename)
+
+        // Incremental: skip cards whose vector is up-to-date
+        const fileMtime = statSync(filePath).mtimeMs
+        const existingDoc = this.store.docs[cardId]
+        if (existingDoc?.updatedAt && existingDoc.updatedAt >= fileMtime) {
+          skipped++
+          onProgress?.(i + 1, totalCards)
+          continue
+        }
+
         try {
           const raw = readFileSync(filePath, 'utf-8')
           const card = JSON.parse(raw)
           const text = extractEmbeddingText(card.content ?? '')
-          if (!text) {
-            skipped++
-            if (onProgress) onProgress({ indexed, skipped, total })
+          if (!text.trim()) {
+            onProgress?.(i + 1, totalCards)
             continue
           }
-          pending.push({
-            cardId,
-            text,
-            updatedAt: card.updatedAt ?? new Date().toISOString().split('T')[0],
-          })
-        } catch {
-          skipped++
-          if (onProgress) onProgress({ indexed, skipped, total })
-        }
-      }
 
-      // Batch encode
-      for (let batchStart = 0; batchStart < pending.length; batchStart += BATCH_SIZE) {
-        if (this.abortController.signal.aborted) break
-
-        const batch = pending.slice(batchStart, batchStart + BATCH_SIZE)
-        const vectors = await this.encodeBatch(batch.map(b => b.text))
-
-        for (let j = 0; j < batch.length; j++) {
-          this.store.docs[`card_${batch[j].cardId}`] = {
-            id: `card_${batch[j].cardId}`,
-            vector: vectors[j],
-            fields: { updatedAt: batch[j].updatedAt, modality: 'text' },
+          const vector = await this.encodeText(text)
+          this.store.docs[cardId] = {
+            id: cardId,
+            vector,
+            fields: { title: card.title || '' },
+            updatedAt: Date.now(),
           }
-          indexed++
+          newIndexed++
+        } catch {
+          // Skip unreadable cards
         }
 
-        if (onProgress) onProgress({ indexed, skipped, total })
+        onProgress?.(i + 1, totalCards)
       }
 
-      this.saveStore()
-      this.writeMeta(indexed)
+      // Clean up vectors for deleted cards
+      const currentCardIds = new Set(cardFiles.map(f => basename(f, '.json')))
+      const removed = this.cleanStaleVectors(currentCardIds)
 
-      return { indexed, skipped }
+      if (newIndexed > 0 || removed > 0) {
+        this.lastStoreMutationAt = Date.now()
+        this.saveStore()
+      }
+
+      return { totalCards, newIndexed, skipped, removed }
     } finally {
       this.isIndexing = false
       this.abortController = null
     }
   }
 
+  async indexCard(cardId: string): Promise<boolean> {
+    if (!this.session || !this.tokenizer) throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
+
+    const filePath = join(this.cardsDir, `${cardId}.json`)
+    if (!existsSync(filePath)) {
+      if (this.store.docs[cardId]) {
+        delete this.store.docs[cardId]
+        this.lastStoreMutationAt = Date.now()
+        this.saveStore()
+      }
+      return false
+    }
+
+    const raw = readFileSync(filePath, 'utf-8')
+    const card = JSON.parse(raw)
+    const text = extractEmbeddingText(card.content ?? '')
+    if (!text.trim()) return false
+
+    const vector = await this.encodeText(text)
+    this.store.docs[cardId] = {
+      id: cardId,
+      vector,
+      fields: { title: card.title || '' },
+      updatedAt: Date.now(),
+    }
+    this.lastStoreMutationAt = Date.now()
+    this.saveStore()
+    return true
+  }
+
+  private cleanStaleVectors(currentCardIds: Set<string>): number {
+    let removed = 0
+    for (const docId of Object.keys(this.store.docs)) {
+      if (!currentCardIds.has(docId)) {
+        delete this.store.docs[docId]
+        removed++
+      }
+    }
+    return removed
+  }
+
   async search(cardId: string, topK: number = 20): Promise<SearchResult[]> {
-    const doc = this.store.docs[`card_${cardId}`]
+    // Support both old (card_xxx) and new (xxx) key formats
+    const doc = this.store.docs[cardId] || this.store.docs[`card_${cardId}`]
     if (!doc) return []
 
     const targetVector = doc.vector
 
     const scored = Object.values(this.store.docs)
-      .filter(d => d.id !== `card_${cardId}`)
+      .filter(d => d !== doc)
       .map(d => ({
-        cardId: d.id.replace('card_', ''),
+        cardId: d.id.replace(/^card_/, ''),
         score: cosineSimilarity(targetVector, d.vector),
         modality: d.fields.modality,
       }))
@@ -245,6 +326,129 @@ export class EmbeddingService {
     if (this.abortController) {
       this.abortController.abort()
     }
+  }
+
+  // --- Clustering ---
+
+  async cluster(minClusterSize = 2, clusterThreshold?: number): Promise<ClusterResult> {
+    // Return cached result if store hasn't changed
+    if (this.clusterCache && this.lastStoreMutationAt <= this.clusterCacheComputedAt) {
+      return this.clusterCache
+    }
+
+    const docs = Object.values(this.store.docs)
+    if (docs.length === 0) {
+      return { clusters: [], orphanCards: [], computedAt: Date.now() }
+    }
+
+    // Use a separate threshold for clustering (higher than search threshold)
+    // Short-text 256-dim embeddings tend to have concentrated similarity scores,
+    // so we need a higher threshold to actually separate topics.
+    const effectiveThreshold = clusterThreshold ?? Math.max(this.threshold, 0.65)
+
+    // Build adjacency list via threshold graph
+    const n = docs.length
+    const adj: number[][] = Array.from({ length: n }, () => [])
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (cosineSimilarity(docs[i].vector, docs[j].vector) >= effectiveThreshold) {
+          adj[i].push(j)
+          adj[j].push(i)
+        }
+      }
+    }
+
+    // BFS to find connected components
+    const visited = new Uint8Array(n)
+    const components: number[][] = []
+    for (let start = 0; start < n; start++) {
+      if (visited[start]) continue
+      visited[start] = 1
+      const component: number[] = [start]
+      const queue = [start]
+      while (queue.length > 0) {
+        const cur = queue.shift()!
+        for (const neighbor of adj[cur]) {
+          if (!visited[neighbor]) {
+            visited[neighbor] = 1
+            component.push(neighbor)
+            queue.push(neighbor)
+          }
+        }
+      }
+      components.push(component)
+    }
+
+    // Build clusters from components
+    const clusters: TerrainCluster[] = []
+    const orphanCards: string[] = []
+
+    for (const component of components) {
+      const memberDocs = component.map(i => docs[i])
+
+      if (component.length < minClusterSize) {
+        // Orphan: not enough cards to form a cluster
+        for (const doc of memberDocs) {
+          orphanCards.push(doc.id.replace(/^card_/, ''))
+        }
+        continue
+      }
+
+      // Compute centroid (element-wise mean)
+      const dim = memberDocs[0].vector.length
+      const centroid = new Array(dim).fill(0)
+      for (const doc of memberDocs) {
+        for (let d = 0; d < dim; d++) {
+          centroid[d] += doc.vector[d]
+        }
+      }
+      for (let d = 0; d < dim; d++) {
+        centroid[d] /= memberDocs.length
+      }
+
+      // Compute cohesion (mean pairwise similarity)
+      let totalSim = 0
+      let pairCount = 0
+      for (let i = 0; i < memberDocs.length; i++) {
+        for (let j = i + 1; j < memberDocs.length; j++) {
+          totalSim += cosineSimilarity(memberDocs[i].vector, memberDocs[j].vector)
+          pairCount++
+        }
+      }
+      const cohesion = pairCount > 0 ? totalSim / pairCount : 1
+
+      // Each card's similarity to centroid
+      const cardSimilarities: Record<string, number> = {}
+      let bestLabel = ''
+      let bestSim = -1
+      for (const doc of memberDocs) {
+        const cardId = doc.id.replace(/^card_/, '')
+        const sim = cosineSimilarity(centroid, doc.vector)
+        cardSimilarities[cardId] = sim
+        if (sim > bestSim) {
+          bestSim = sim
+          bestLabel = doc.fields.title || cardId
+        }
+      }
+
+      clusters.push({
+        id: `cluster-${clusters.length}`,
+        label: bestLabel,
+        centroid,
+        cardIds: memberDocs.map(d => d.id.replace(/^card_/, '')),
+        cohesion,
+        cardSimilarities,
+      })
+    }
+
+    const result: ClusterResult = {
+      clusters,
+      orphanCards,
+      computedAt: Date.now(),
+    }
+    this.clusterCache = result
+    this.clusterCacheComputedAt = result.computedAt
+    return result
   }
 
   isModelAvailable(): boolean {
@@ -290,9 +494,14 @@ export class EmbeddingService {
       this.session = null
     }
     this.tokenizer = null
-    this.store = { docs: {} }
+    // Keep store in memory — it will be re-loaded from disk on next init()
     this.isIndexing = false
     this.abortController = null
+  }
+
+  private async encodeText(text: string, isQuery: boolean = false): Promise<number[]> {
+    const vectors = await this.encodeBatch([text], isQuery)
+    return vectors[0]
   }
 
   private async encodeBatch(texts: string[], isQuery: boolean = false): Promise<number[][]> {
@@ -372,7 +581,7 @@ export class EmbeddingService {
     return results
   }
 
-  private writeMeta(cardCount: number): void {
+  private _writeMeta(cardCount: number): void {
     const meta: MetaInfo = {
       lastIndexedAt: new Date().toISOString(),
       cardCount,

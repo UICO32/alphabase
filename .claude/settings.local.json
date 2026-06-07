@@ -16,5 +16,8 @@
     "additionalDirectories": [
       "C:\\Users\\Administrator\\.claude\\projects\\d--USE-save-code--base"
     ]
-  }
+  },
+  "disabledMcpjsonServers": [
+    "gitnexus"
+  ]
 }

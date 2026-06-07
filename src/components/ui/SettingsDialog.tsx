@@ -16,26 +16,25 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
 
   return (
     <div
-      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
       style={{ backgroundColor: 'var(--surface-overlay)' }}
       onClick={onClose}
     >
       <div
-        className="modal-content w-[700px] h-[80vh] rounded-xl flex flex-col animate-scaleIn glass-panel"
+        className="w-[700px] h-[80vh] rounded-xl flex flex-col animate-scaleIn overflow-hidden"
         style={{
+          backgroundColor: 'var(--surface-card)',
           boxShadow: 'var(--shadow-xl)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex items-center justify-between px-6 py-4 border-b border-border-default transition-theme"
-        >
-          <span className="font-semibold text-text-primary">
+        <div className="flex items-center justify-between px-6 py-4">
+          <span className="text-base font-semibold text-text-primary">
             设置
           </span>
           <button
             onClick={onClose}
-            className="btn-base p-2 rounded-lg text-text-secondary"
+            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-panel-hover transition-colors"
           >
             <X size={18} />
           </button>
@@ -43,7 +42,8 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
 
         <div className="flex flex-1 overflow-hidden">
           <div
-            className="w-[140px] shrink-0 border-r border-border-default p-3 space-y-1"
+            className="w-[140px] shrink-0 p-3 space-y-1"
+            style={{ backgroundColor: 'var(--surface-panel)', borderRight: '1px solid var(--border-default)' }}
           >
             <NavButton
               active={activeTab === 'system'}
@@ -62,7 +62,7 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+          <div className="flex-1 overflow-y-auto p-6 scrollbar-hide" style={{ backgroundColor: 'var(--surface-card)' }}>
             {activeTab === 'system' && <SystemSettings />}
             {activeTab === 'sync' && <SyncSettings />}
             {activeTab === 'export' && <ExportSettings />}
@@ -81,10 +81,10 @@ function NavButton({ active, onClick, label }: {
   return (
     <button
       onClick={onClick}
-      className={`btn-base w-full px-3 py-2 rounded-lg text-sm text-left border ${
+      className={`w-full px-3 py-2 rounded-lg text-sm text-left transition-colors ${
         active
-          ? 'bg-surface-card text-text-primary border-border-default'
-          : 'bg-transparent text-text-secondary border-transparent'
+          ? 'bg-surface-card-active text-text-primary'
+          : 'text-text-secondary hover:text-text-primary hover:bg-surface-panel-hover'
       }`}
     >
       {label}

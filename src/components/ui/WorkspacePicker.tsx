@@ -29,53 +29,50 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
 
   return (
     <div
-      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
       style={{ backgroundColor: 'var(--surface-overlay)' }}
       onClick={onClose}
     >
       <div
-        className="modal-content w-[500px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn glass-panel"
+        className="w-[500px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn overflow-hidden"
         style={{
+          backgroundColor: 'var(--surface-card)',
           boxShadow: 'var(--shadow-xl)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex items-center justify-between px-6 py-4 border-b transition-theme border-border-default"
-        >
+        <div className="flex items-center justify-between px-6 py-4">
           <span className="font-semibold text-text-primary">
             选择工作区
           </span>
           <button
             onClick={onClose}
-            className="btn-base p-2 rounded-lg text-text-secondary"
+            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-panel-hover transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
           <button
             onClick={handleCreateWorkspace}
-            className="btn-base w-full flex items-center gap-3 p-4 rounded-xl mb-6 bg-surface-card border border-dashed border-border-default"
+            className="w-full flex items-center gap-3 p-4 rounded-lg mb-5 bg-surface-panel-hover hover:bg-surface-card-active transition-colors group"
           >
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center bg-surface-panel"
-            >
-              <Plus size={20} className="text-text-primary" />
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-surface-card group-hover:bg-surface-card-hover transition-colors">
+              <Plus size={20} className="text-text-secondary group-hover:text-accent-blue transition-colors" />
             </div>
-            <div>
+            <div className="text-left">
               <div className="text-sm font-medium text-text-primary">
                 创建工作区
               </div>
-              <div className="text-xs text-text-secondary">
+              <div className="text-xs text-text-tertiary">
                 选择一个文件夹作为新的工作区
               </div>
             </div>
           </button>
 
           <div>
-            <div className="flex items-center gap-2 mb-3 text-xs text-text-secondary">
+            <div className="flex items-center gap-2 mb-3 text-xs text-text-tertiary">
               <Clock size={12} />
               <span>最近使用</span>
             </div>
@@ -86,27 +83,25 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
                 text="暂无最近使用的工作区"
               />
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {recentWorkspaces.map((workspace) => (
                   <button
                     key={workspace.path}
                     onClick={() => handleSelectWorkspace(workspace)}
-                    className="hepta-list-item w-full flex items-center gap-3 p-3 rounded-lg text-left bg-surface-card"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-surface-panel-hover active:bg-surface-card-active transition-colors"
                   >
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-panel"
-                    >
-                      <Folder size={16} className="text-text-secondary" />
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-panel-hover">
+                      <Folder size={16} className="text-text-tertiary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate text-text-primary">
                         {workspace.name}
                       </div>
-                      <div className="text-xs truncate text-text-secondary">
+                      <div className="text-xs truncate text-text-tertiary">
                         {workspace.path}
                       </div>
                     </div>
-                    <div className="text-xs text-text-secondary">
+                    <div className="text-xs text-text-disabled shrink-0">
                       {new Date(workspace.lastOpened).toLocaleDateString('zh-CN')}
                     </div>
                   </button>

@@ -21,6 +21,12 @@ declare global {
       shell: {
         openExternal: (url: string) => Promise<void>
       }
+      window: {
+        minimize: () => Promise<void>
+        maximize: () => Promise<void>
+        close: () => Promise<void>
+        isMaximized: () => Promise<boolean>
+      }
       clipper: {
         clip: (url: string, workspacePath?: string) => Promise<{ title: string; html: string; markdown: string; sourceUrl: string; sourceName: string; favicon?: string; images: Array<{ originalUrl: string; localFilename: string; originalSize: number; compressedSize: number }> }>
       }
@@ -30,8 +36,36 @@ declare global {
         downloadImg: (url: string, destPath: string) => Promise<{ success: boolean; error?: string }>
       }
       embedding: {
-        init: (workspacePath: string) => Promise<{ initialized: boolean; error?: string }>
-        indexAll: () => Promise<{ started: boolean; error?: string }>
+        init: (workspacePath: string) => Promise<{
+          modelLoaded: boolean
+          storeLoaded: boolean
+          docCount: number
+          error?: string
+        }>
+        indexAll: () => Promise<{
+          totalCards: number
+          newIndexed: number
+          skipped: number
+          removed: number
+          error?: string
+        }>
+        indexCard: (cardId: string) => Promise<{
+          success: boolean
+          error?: string
+        }>
+        cluster: (minClusterSize?: number, clusterThreshold?: number) => Promise<{
+          clusters: Array<{
+            id: string
+            label: string
+            centroid: number[]
+            cardIds: string[]
+            cohesion: number
+            cardSimilarities: Record<string, number>
+          }>
+          orphanCards: string[]
+          computedAt: number
+          error?: string
+        }>
         search: (cardId: string, topK?: number) => Promise<{ results: Array<{ cardId: string; score: number; modality: string }> }>
         searchByText: (query: string, topK?: number) => Promise<{ results: Array<{ cardId: string; score: number; modality: string }>; error?: string }>
         cancel: () => Promise<{ cancelled: boolean }>
@@ -44,8 +78,8 @@ declare global {
         }>
         checkModel: () => Promise<{ available: boolean }>
         setThreshold: (value: number) => Promise<{ success: boolean }>
-        onProgress: (callback: (data: { current: number; total: number; indexed: number; skipped: number }) => void) => () => void
-        onComplete: (callback: (data: { indexed: number; skipped: number }) => void) => () => void
+        onProgress: (callback: (data: { current: number; total: number }) => void) => () => void
+        onComplete: (callback: (data: { totalCards: number; newIndexed: number; skipped: number; removed: number }) => void) => () => void
         onError: (callback: (data: { message: string }) => void) => () => void
       }
       startup: {

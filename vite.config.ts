@@ -51,6 +51,21 @@ function cleanElectronEnv(): Plugin {
     configResolved() {
       delete process.env.ELECTRON_RUN_AS_NODE
     },
+    // Inject `delete process.env.ELECTRON_RUN_AS_NODE` at the VERY TOP of the
+    // bundled output, before any require("electron"). Rollup hoists require()
+    // calls above user code, so a bare `delete` in the source gets placed after
+    // them. This renderChunk hook ensures it runs first at runtime.
+    renderChunk(code, chunk) {
+      if (code.includes('require("electron")') || code.includes("require('electron')")) {
+        const injected = 'delete process.env.ELECTRON_RUN_AS_NODE;\n'
+        // Insert after "use strict" if present
+        if (code.startsWith('"use strict"')) {
+          const nl = code.indexOf('\n')
+          return { code: code.slice(0, nl + 1) + injected + code.slice(nl + 1), map: null }
+        }
+        return { code: injected + code, map: null }
+      }
+    },
   }
 }
 
@@ -58,6 +73,7 @@ export default defineConfig(({ mode }) => {
   const isElectron = mode === 'electron'
 
   return {
+    base: isElectron ? './' : '/',
     plugins: [
       tailwindcss(),
       react(),
@@ -114,6 +130,18 @@ export default defineConfig(({ mode }) => {
         '@': '/src',
       },
       deduplicate: ['prosemirror-tables'],
+    },
+    server: {
+      watch: {
+        ignored: ['**/prototype/**'],
+      },
+    },
+    optimizeDeps: {
+      include: [
+        'use-sync-external-store/shim/with-selector.js',
+        'zustand/esm/traditional.mjs',
+        'zustand/esm/vanilla.mjs',
+      ],
     },
   }
 })

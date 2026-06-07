@@ -1,4 +1,12 @@
+// Must run before ANY electron import — if ELECTRON_RUN_AS_NODE is set,
+// require('electron') returns the npm package path string instead of the
+// built-in module, causing app/BrowserWindow to be undefined.
+// NOTE: Vite/Rollup hoists require() above user code, so the renderChunk
+// plugin in vite.config.ts injects this delete at the very top of the bundle.
+delete process.env.ELECTRON_RUN_AS_NODE
+
 import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
+import { startupLog } from './startupLog'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
@@ -10,11 +18,16 @@ import { Md5 } from 'ts-md5'
 
 // Disable crashpad to prevent Windows crash on handler disconnect
 app.commandLine.appendSwitch('disable-breakpad')
+// Enable subpixel font antialiasing for clearer text on Windows
+app.commandLine.appendSwitch('enable-font-antialiasing', '1')
+// Use GPU for rasterization to improve text rendering
+app.commandLine.appendSwitch('enable-gpu-rasterization', '1')
 
 const __t0 = Date.now()
 let __t1 = 0
 let __t2 = 0
 console.log(`[startup] main process loaded: ${__t0}`)
+startupLog(`main process loaded: ${__t0}, ELECTRON_RUN_AS_NODE=${process.env.ELECTRON_RUN_AS_NODE ?? 'unset'}, app.isPackaged=${app.isPackaged}`)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -35,11 +48,6 @@ function createWindow() {
       webviewTag: true,
     },
     titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#f4f4f5',
-      symbolColor: '#18181b',
-      height: 28,
-    },
   })
 
   createMenu(mainWindow)
@@ -64,9 +72,26 @@ function createWindow() {
     mainWindow.webContents.openDevTools()
   }
 
+  mainWindow.on('render-process-gone' as any, (_e: any, details: any) => {
+    console.error('[main] render-process-gone:', JSON.stringify(details))
+    startupLog(`render-process-gone: reason=${details.reason}, exitCode=${details.exitCode}`)
+  })
+
+  mainWindow.webContents.on('crashed' as any, (_e: any, killed: any) => {
+    console.error('[main] webContents crashed, killed:', killed)
+    startupLog(`webContents crashed: killed=${killed}`)
+  })
+
+  mainWindow.webContents.on('console-message', (_e, level, message) => {
+    if (level >= 2) { // warning=2, error=3
+      startupLog(`renderer console [${level}]: ${message}`)
+    }
+  })
+
   mainWindow.once('ready-to-show', () => {
     __t2 = Date.now()
     console.log(`[startup] ready-to-show: ${__t2 - __t0}ms (window shown)`)
+    startupLog(`ready-to-show: ${__t2 - __t0}ms`)
     mainWindow?.show()
   })
 
@@ -122,6 +147,7 @@ function createWindow() {
 app.whenReady().then(() => {
   __t1 = Date.now()
   console.log(`[startup] app.whenReady: ${__t1 - __t0}ms`)
+  startupLog(`app.whenReady: ${__t1 - __t0}ms, userData=${app.getPath('userData')}`)
   protocol.handle('hepta-media', async (request) => {
     try {
       const url = new URL(request.url)
@@ -270,6 +296,14 @@ ipcMain.handle('dialog:openDirectory', async () => {
 ipcMain.handle('shell:openExternal', async (_event, url: string) => {
   await shell.openExternal(url)
 })
+
+ipcMain.handle('window:minimize', () => { mainWindow?.minimize() })
+ipcMain.handle('window:maximize', () => {
+  if (mainWindow?.isMaximized()) mainWindow.unmaximize()
+  else mainWindow?.maximize()
+})
+ipcMain.handle('window:close', () => { mainWindow?.close() })
+ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false)
 
 // Flomo sync IPC handlers
 const FLOMO_SIGN_KEY = 'dbbc3dd73364b4084c3a69346e0ce2b2'

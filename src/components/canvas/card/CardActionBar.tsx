@@ -186,7 +186,7 @@ function ActionBarButton({
         width: 24,
         height: 24,
         color: 'var(--text-secondary)',
-        cursor: 'pointer',
+        cursor: 'inherit',
         border: 'none',
         background: 'transparent',
       }}

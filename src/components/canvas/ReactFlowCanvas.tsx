@@ -345,17 +345,20 @@ export function ReactFlowCanvas() {
     reactFlowInstance.current = instance
   }, [])
 
+  const setTransform = useLibraryStore((s) => s.setTransform)
+
   const onMove = useCallback(
     (() => {
       let lastCall = 0
-      return (_event: MouseEvent | TouchEvent | null, viewport: { zoom: number }) => {
+      return (_event: MouseEvent | TouchEvent | null, viewport: { x: number; y: number; zoom: number }) => {
         const now = performance.now()
         if (now - lastCall < 100) return
         lastCall = now
         setZoom(viewport.zoom)
+        setTransform([viewport.x, viewport.y, viewport.zoom])
       }
     })(),
-    [setZoom],
+    [setZoom, setTransform],
   )
 
   const onPaneClick = useCallback(() => {

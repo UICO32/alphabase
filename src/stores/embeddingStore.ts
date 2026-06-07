@@ -1,25 +1,57 @@
-import { create } from 'zustand'
-import { useWorkspaceStore } from './workspaceStore'
-import { flushActiveSyncEngine } from '../sync/syncEngineRef'
+import { createStore } from 'zustand/vanilla'
+import { useStore } from 'zustand'
 
-interface EmbeddingState {
+export interface SearchResult {
+  cardId: string
+  score: number
+  modality: string
+}
+
+export interface IndexAllResult {
+  totalCards: number
+  newIndexed: number
+  skipped: number
+  removed: number
+}
+
+export interface TerrainCluster {
+  id: string
+  label: string
+  centroid: number[]
+  cardIds: string[]
+  cohesion: number
+  cardSimilarities: Record<string, number>
+}
+
+export interface ClusterResult {
+  clusters: TerrainCluster[]
+  orphanCards: string[]
+  computedAt: number
+}
+
+export interface EmbeddingState {
+  initialized: boolean
+  modelLoaded: boolean
+  storeLoaded: boolean
   indexing: boolean
+  indexed: boolean
   progress: number
   total: number
-  currentCardId: string
-  indexed: boolean
   cardCount: number
   lastIndexedAt: string | null
   modelAvailable: boolean
   modelDir: string
-  searchResults: Array<{ cardId: string; score: number }>
+  searchResults: SearchResult[]
   searchScores: Record<string, number>
   searching: boolean
   threshold: number
+  clusterResult: ClusterResult | null
 
-  initEmbedding: (workspacePath: string) => Promise<void>
+  init: (workspacePath: string) => Promise<void>
   startIndexing: () => Promise<void>
   cancelIndexing: () => Promise<void>
+  indexCard: (cardId: string) => Promise<boolean>
+  cluster: (minClusterSize?: number, clusterThreshold?: number) => Promise<ClusterResult | null>
   searchRelated: (cardId: string, topK?: number) => Promise<void>
   searchByText: (query: string, topK?: number) => Promise<void>
   clearResults: () => void
@@ -27,12 +59,14 @@ interface EmbeddingState {
   checkStatus: () => Promise<void>
 }
 
-export const useEmbeddingStore = create<EmbeddingState>((set) => ({
+export const embeddingStore = createStore<EmbeddingState>()((set, _get) => ({
+  initialized: false,
+  modelLoaded: false,
+  storeLoaded: false,
   indexing: false,
+  indexed: false,
   progress: 0,
   total: 0,
-  currentCardId: '',
-  indexed: false,
   cardCount: 0,
   lastIndexedAt: null,
   modelAvailable: false,
@@ -40,24 +74,34 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
   searchResults: [],
   searchScores: {},
   searching: false,
-  threshold: 0.75,
+  threshold: 0.45,
+  clusterResult: null,
 
-  initEmbedding: async (workspacePath: string) => {
-    const result = await window.electronAPI.embedding.init(workspacePath)
-    // [需谨慎] 保留 error 检查，生产环境仍需感知初始化失败
-    if (result.error) console.error('[embeddingStore] init failed:', result.error)
+  init: async (workspacePath: string) => {
+    try {
+      const result = await window.electronAPI.embedding.init(workspacePath)
+      set({
+        initialized: result.modelLoaded,
+        modelLoaded: result.modelLoaded,
+        storeLoaded: result.storeLoaded,
+        modelAvailable: result.modelLoaded,
+        cardCount: result.docCount,
+        indexed: result.storeLoaded && result.docCount > 0,
+        modelDir: '',
+      })
+    } catch (err: any) {
+      console.error('[embeddingStore] init failed:', err.message)
+      set({ initialized: false })
+    }
   },
 
   startIndexing: async () => {
     set({ indexing: true, progress: 0, total: 0 })
 
-    await flushActiveSyncEngine()
-
     const offProgress = window.electronAPI.embedding.onProgress((data) => {
       set({ progress: data.current, total: data.total })
     })
 
-    // 提取统一的 cleanup 函数，避免正常/错误路径重复调用 offProgress+offComplete+offError
     let cleanedUp = false
     const cleanup = () => {
       if (cleanedUp) return
@@ -71,7 +115,7 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
       set({
         indexing: false,
         indexed: true,
-        cardCount: data.indexed,
+        cardCount: data.newIndexed,
         lastIndexedAt: new Date().toISOString(),
       })
       cleanup()
@@ -83,23 +127,10 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
       cleanup()
     })
 
-    let result = await window.electronAPI.embedding.indexAll()
-    if (result.error === 'NOT_INITIALIZED') {
-      const workspacePath = useWorkspaceStore.getState().currentWorkspace?.path
-        || localStorage.getItem('hepta-last-workspace-path')
-      if (workspacePath) {
-        const initResult = await window.electronAPI.embedding.init(workspacePath)
-        if (!initResult.error) {
-          result = await window.electronAPI.embedding.indexAll()
-        }
-      }
-    }
+    const result = await window.electronAPI.embedding.indexAll()
     if (result.error) {
       console.error('[embeddingStore] indexAll error:', result.error)
       set({ indexing: false })
-      if (result.error === 'MODEL_MISSING') {
-        set({ modelAvailable: false })
-      }
       cleanup()
     }
   },
@@ -107,6 +138,30 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
   cancelIndexing: async () => {
     await window.electronAPI.embedding.cancel()
     set({ indexing: false })
+  },
+
+  indexCard: async (cardId: string) => {
+    try {
+      const result = await window.electronAPI.embedding.indexCard(cardId)
+      return result.success
+    } catch {
+      return false
+    }
+  },
+
+  cluster: async (minClusterSize = 2, clusterThreshold?: number) => {
+    try {
+      const result = await window.electronAPI.embedding.cluster(minClusterSize, clusterThreshold)
+      if (result.error) {
+        console.error('[embeddingStore] cluster error:', result.error)
+        return null
+      }
+      set({ clusterResult: result })
+      return result
+    } catch (err: any) {
+      console.error('[embeddingStore] cluster failed:', err.message)
+      return null
+    }
   },
 
   searchRelated: async (cardId: string, topK = 20) => {
@@ -148,12 +203,19 @@ export const useEmbeddingStore = create<EmbeddingState>((set) => ({
     try {
       const status = await window.electronAPI.embedding.getStatus()
       set({
-        indexed: status.docCount > 0,
+        initialized: status.initialized,
+        modelLoaded: status.initialized,
         modelAvailable: status.modelAvailable ?? false,
         modelDir: status.modelDir ?? '',
+        indexed: status.docCount > 0,
+        cardCount: status.docCount,
       })
     } catch {
-      // checkStatus 失败不影响主流程，静默处理
+      // checkStatus 失败不影响主流程
     }
   },
 }))
+
+export function useEmbeddingStore(): EmbeddingState {
+  return useStore(embeddingStore)
+}

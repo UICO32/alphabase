@@ -193,31 +193,31 @@
 
 [data-theme="dark"] {
   /* App Background */
-  --surface-app: hsl(220, 25%, 7%);
+  --surface-app: hsl(0, 0%, 7%);
 
   /* Panel Surfaces */
-  --surface-panel: hsla(220, 20%, 10%, 0.82);
-  --surface-panel-alt: hsla(220, 22%, 13%, 0.72);
-  --surface-panel-hover: hsla(220, 24%, 16%, 0.88);
+  --surface-panel: hsla(0, 0%, 10%, 0.82);
+  --surface-panel-alt: hsla(0, 0%, 13%, 0.72);
+  --surface-panel-hover: hsla(0, 0%, 16%, 0.88);
 
   /* Card Surfaces */
-  --surface-card: hsla(220, 18%, 12%, 0.92);
-  --surface-card-hover: hsla(220, 20%, 15%, 0.96);
-  --surface-card-active: hsla(220, 22%, 18%, 1);
+  --surface-card: hsla(0, 0%, 12%, 0.92);
+  --surface-card-hover: hsla(0, 0%, 15%, 0.96);
+  --surface-card-active: hsla(0, 0%, 18%, 1);
 
   /* Input Surfaces */
-  --surface-input: hsla(220, 18%, 12%, 0.92);
-  --surface-input-hover: hsla(220, 20%, 15%, 0.96);
+  --surface-input: hsla(0, 0%, 12%, 0.92);
+  --surface-input-hover: hsla(0, 0%, 15%, 0.96);
 
   /* Overlay */
-  --surface-overlay: hsla(220, 30%, 5%, 0.65);
+  --surface-overlay: hsla(0, 0%, 5%, 0.65);
 
   /* Text Colors */
-  --text-primary: hsl(220, 15%, 92%);
-  --text-secondary: hsl(220, 12%, 68%);
-  --text-tertiary: hsl(220, 10%, 52%);
-  --text-disabled: hsl(220, 12%, 38%);
-  --text-inverse: hsl(220, 20%, 10%);
+  --text-primary: hsl(0, 0%, 92%);
+  --text-secondary: hsl(0, 0%, 68%);
+  --text-tertiary: hsl(0, 0%, 52%);
+  --text-disabled: hsl(0, 0%, 38%);
+  --text-inverse: hsl(0, 0%, 10%);
 
   /* Interactive Text */
   --text-link: var(--color-blue-400);
@@ -225,17 +225,17 @@
   --text-danger: var(--color-red-400);
 
   /* Border Colors */
-  --border-default: hsla(220, 18%, 22%, 0.6);
-  --border-hover: hsla(220, 20%, 28%, 0.8);
+  --border-default: hsla(0, 0%, 22%, 0.6);
+  --border-hover: hsla(0, 0%, 28%, 0.8);
   --border-active: var(--color-blue-400);
   --border-focus: rgba(96, 165, 250, 0.35);
   --border-danger: var(--color-red-400);
 
   /* Shadow */
-  --shadow-sm: 0 1px 2px hsla(220, 30%, 5%, 0.2);
-  --shadow-md: 0 4px 12px hsla(220, 30%, 5%, 0.25);
-  --shadow-lg: 0 10px 30px hsla(220, 35%, 5%, 0.35);
-  --shadow-xl: 0 18px 40px hsla(220, 35%, 5%, 0.45);
+  --shadow-sm: 0 1px 2px hsla(0, 0%, 5%, 0.2);
+  --shadow-md: 0 4px 12px hsla(0, 0%, 5%, 0.25);
+  --shadow-lg: 0 10px 30px hsla(0, 0%, 5%, 0.35);
+  --shadow-xl: 0 18px 40px hsla(0, 0%, 5%, 0.45);
   --shadow-glow-blue: 0 0 0 2px rgba(96, 165, 250, 0.28), 0 8px 24px rgba(96, 165, 250, 0.2);
   --shadow-glow-green: 0 0 0 2px rgba(34, 197, 94, 0.45), 0 4px 20px rgba(34, 197, 94, 0.2);
   --shadow-glow-red: 0 0 0 2px rgba(239, 68, 68, 0.4);
@@ -243,7 +243,7 @@
   --shadow-inner-active: inset 0 0 0 1px var(--border-active);
 
   /* Panel Border Glow */
-  --panel-border-glow: inset 0 0 0 1px hsla(220, 30%, 40%, 0.12);
+  --panel-border-glow: inset 0 0 0 1px hsla(0, 0%, 40%, 0.12);
 }
 
 /* ============================================
@@ -251,22 +251,22 @@
    ============================================ */
 
 .glass-panel {
-  backdrop-filter: var(--blur-panel);
   -webkit-backdrop-filter: var(--blur-panel);
+  backdrop-filter: var(--blur-panel);
   background-color: var(--surface-panel);
   box-shadow: var(--panel-border-glow), var(--shadow-lg);
 }
 
 .glass-card {
-  backdrop-filter: var(--blur-card);
   -webkit-backdrop-filter: var(--blur-card);
+  backdrop-filter: var(--blur-card);
   background-color: var(--surface-card);
   box-shadow: var(--shadow-md);
 }
 
 .glass-panel-large {
-  backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
   background-color: var(--surface-panel);
   box-shadow: var(--panel-border-glow), var(--shadow-lg);
 }
@@ -284,13 +284,13 @@
   }
 
   [data-theme="dark"] .glass-panel {
-    background-color: hsl(220, 20%, 10%);
+    background-color: hsl(0, 0%, 10%);
   }
   [data-theme="dark"] .glass-card {
-    background-color: hsl(220, 18%, 12%);
+    background-color: hsl(0, 0%, 12%);
   }
   [data-theme="dark"] .glass-panel-large {
-    background-color: hsl(220, 20%, 10%);
+    background-color: hsl(0, 0%, 10%);
   }
 }
 
@@ -331,7 +331,7 @@
 .card-skeleton-line:nth-child(4) { width: 50%; }
 
 [data-theme="dark"] .card-skeleton-line {
-  background: linear-gradient(90deg, hsl(220, 18%, 16%) 25%, hsl(220, 18%, 22%) 50%, hsl(220, 18%, 16%) 75%);
+  background: linear-gradient(90deg, hsl(0, 0%, 16%) 25%, hsl(0, 0%, 22%) 50%, hsl(0, 0%, 16%) 75%);
   background-size: 800px 100%;
 }
 
@@ -339,6 +339,11 @@
 @keyframes card-enter {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .react-flow__node-card {

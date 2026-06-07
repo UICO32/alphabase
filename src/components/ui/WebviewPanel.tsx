@@ -19,7 +19,7 @@ export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
   const handleOpenExternal = useCallback(async () => {
     const currentUrl = webviewRef.current?.src || url
     try {
-      await window.electronAPI.openExternal(currentUrl)
+      await window.electronAPI.shell.openExternal(currentUrl)
     } catch {
       window.open(currentUrl, '_blank')
     }

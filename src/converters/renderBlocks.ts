@@ -50,6 +50,18 @@ function preprocessBlocks(blocks: Record<string, unknown>[]): Record<string, unk
 
 const BULLET_CHARS = ['•', '◦', '▪']
 
+function renderMediaLink(url: string | undefined, name: string | undefined): string {
+  if (!url) return ''
+  return `<a href="${escapeHTML(url)}" style="color:inherit;text-decoration:underline">${escapeHTML(name || url)}</a>`
+}
+
+function renderMediaWrapper(cs: string, mediaHtml: string, caption: string | undefined, renderedChildren: string): string {
+  const cap = caption
+    ? `<p style="font-size:0.85em;opacity:0.6;${cs}">${escapeHTML(caption)}</p>`
+    : ''
+  return `<div style="${cs}">${mediaHtml}${cap}</div>${renderedChildren}`
+}
+
 function renderBlock(block: Record<string, unknown>, depth = 0): string {
   const type = block.type as string
   const props = (block.props as Record<string, unknown>) || {}
@@ -108,14 +120,20 @@ function renderBlock(block: Record<string, unknown>, depth = 0): string {
       const inner = renderedContent || '<br />'
       const nested = renderedChildren ? `<div style="margin-left:1.5em">${renderedChildren}</div>` : ''
       const textStyle = checked ? 'text-decoration:line-through' : ''
-      return `<div style="${cs};display:flex;align-items:flex-start;gap:0.5em"><input type="checkbox" ${checked ? 'checked' : ''} disabled style="margin:0;cursor:pointer;flex-shrink:0" /><div style="min-width:0;width:100%"><span style="${textStyle}">${inner}</span></div></div>${nested}`
+      const boxStyle = 'display:inline-block;width:20px;height:20px;min-width:20px;flex-shrink:0;border-radius:4px;margin-inline-end:8px;vertical-align:middle;line-height:20px;text-align:center;font-size:14px;font-weight:700'
+      const box = checked
+        ? `<span style="${boxStyle};background:#3b82f6;border:2px solid #3b82f6;color:#fff">✓</span>`
+        : `<span style="${boxStyle};background:#fff;border:2px solid #ced4da;color:transparent">✓</span>`
+      return `<div style="${cs};display:flex;align-items:center;width:100%">${box}<div style="min-width:0;flex:1"><span style="${textStyle}">${inner}</span></div></div>${nested}`
     }
 
     case 'image': {
       const url = props.url as string
       const caption = props.caption as string | undefined
+      const previewWidth = props.previewWidth as number | undefined
+      const widthStyle = previewWidth ? `width:${previewWidth}px;` : 'max-width:100%;'
       const img = url
-        ? `<img src="${escapeHTML(url)}" style="max-width:100%;height:auto;border-radius:6px;display:block;margin:4px 0" />`
+        ? `<img src="${escapeHTML(url)}" style="${widthStyle}height:auto;border-radius:6px;display:block;margin:4px 0" />`
         : ''
       const cap = caption
         ? `<p style="font-size:0.85em;opacity:0.6;${cs}">${escapeHTML(caption)}</p>`
@@ -123,47 +141,47 @@ function renderBlock(block: Record<string, unknown>, depth = 0): string {
       return `<div style="${cs}">${img}${cap}</div>${renderedChildren}`
     }
 
+    case 'imageRow': {
+      const urlsJson = props.urlsJson as string
+      const captionsJson = props.captionsJson as string
+      const urls: string[] = urlsJson ? JSON.parse(urlsJson) : []
+      const captions: string[] = captionsJson ? JSON.parse(captionsJson) : []
+      if (urls.length === 0) return renderedChildren
+      const images = urls.map((url, i) => {
+        const img = `<img src="${escapeHTML(url)}" style="flex:1;min-width:0;max-width:100%;height:auto;border-radius:6px;display:block" />`
+        const cap = captions[i]
+          ? `<p style="font-size:0.75em;opacity:0.6;margin:2px 0 0 0;text-align:center">${escapeHTML(captions[i]!)}</p>`
+          : ''
+        return `<div style="flex:1;min-width:0">${img}${cap}</div>`
+      }).join('')
+      return `<div style="${cs};display:flex;gap:8px;align-items:flex-start">${images}</div>${renderedChildren}`
+    }
+
     case 'video': {
       const url = props.url as string
-      const caption = props.caption as string | undefined
       const showPreview = props.showPreview !== false
-      const media = url && showPreview
+      const mediaHtml = url && showPreview
         ? `<video src="${escapeHTML(url)}" controls style="max-width:100%;border-radius:6px;display:block;margin:4px 0;height:auto" />`
-        : url && !showPreview
-          ? `<a href="${escapeHTML(url)}" style="color:inherit;text-decoration:underline">${escapeHTML((props.name as string) || url)}</a>`
-          : ''
-      const cap = caption
-        ? `<p style="font-size:0.85em;opacity:0.6;${cs}">${escapeHTML(caption)}</p>`
-        : ''
-      return `<div style="${cs}">${media}${cap}</div>${renderedChildren}`
+        : renderMediaLink(url, props.name as string)
+      return renderMediaWrapper(cs, mediaHtml, props.caption as string | undefined, renderedChildren)
     }
 
     case 'audio': {
       const url = props.url as string
-      const caption = props.caption as string | undefined
       const showPreview = props.showPreview !== false
-      const media = url && showPreview
+      const mediaHtml = url && showPreview
         ? `<audio src="${escapeHTML(url)}" controls style="display:block;margin:4px 0;width:100%" />`
-        : url && !showPreview
-          ? `<a href="${escapeHTML(url)}" style="color:inherit;text-decoration:underline">${escapeHTML((props.name as string) || url)}</a>`
-          : ''
-      const cap = caption
-        ? `<p style="font-size:0.85em;opacity:0.6;${cs}">${escapeHTML(caption)}</p>`
-        : ''
-      return `<div style="${cs}">${media}${cap}</div>${renderedChildren}`
+        : renderMediaLink(url, props.name as string)
+      return renderMediaWrapper(cs, mediaHtml, props.caption as string | undefined, renderedChildren)
     }
 
     case 'file': {
       const url = props.url as string
       const name = (props.name as string) || ''
-      const caption = props.caption as string | undefined
-      const link = url
+      const linkHtml = url
         ? `<a href="${escapeHTML(url)}" style="color:inherit;text-decoration:underline">${escapeHTML(name || url)}</a>`
         : escapeHTML(name) || '[File]'
-      const cap = caption
-        ? `<p style="font-size:0.85em;opacity:0.6;${cs}">${escapeHTML(caption)}</p>`
-        : ''
-      return `<div style="${cs}">${link}${cap}</div>${renderedChildren}`
+      return renderMediaWrapper(cs, linkHtml, props.caption as string | undefined, renderedChildren)
     }
 
     case 'table': {
@@ -250,6 +268,11 @@ function renderTable(tc: Record<string, unknown>): string {
 function renderInlineContent(node: Record<string, unknown>): string {
   if (node.type === 'text') {
     let text = escapeHTML((node.text as string) || '')
+    // Preserve spaces: convert multiple spaces to &nbsp; pattern
+    text = text.replace(/  +/g, (match) => {
+      const len = match.length
+      return ' '.repeat(len - 1) + ' '
+    })
     const styles = node.styles as Record<string, unknown> | undefined
     if (!styles) return text
     if (styles.code)
@@ -274,7 +297,8 @@ function renderInlineContent(node: Record<string, unknown>): string {
       (node.content as unknown[])
         ?.map((c) => renderInlineContent(c as Record<string, unknown>))
         .join('') || href
-    return `<a href="${href}" style="color:inherit;text-decoration:underline">${linkContent}</a>`
+    // Blue + bold, no underline (hover shows underline via CSS)
+    return `<a href="${href}" style="color:var(--text-link,#3b82f6);font-weight:600;text-decoration:none">${linkContent}</a>`
   }
   return ''
 }

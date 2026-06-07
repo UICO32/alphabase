@@ -8,8 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "electron:dev": "vite --mode electron",
-    "electron:build": "tsc && vite build --mode electron",
-    "electron:start": "electron .",
+    "electron:build": "node scripts/protect-index.mjs && tsc && vite build --mode electron",
+    "electron:start": "node scripts/electron-start.mjs",
     "electron:all": "vite --mode electron",
     "electron:pack": "pnpm electron:build && node scripts/electron-pack.mjs --dir",
     "electron:dist": "pnpm electron:build && node scripts/electron-pack.mjs",
@@ -25,6 +25,8 @@
     "@blocknote/react": "^0.31.0",
     "@floating-ui/react": "^0.27.19",
     "@mozilla/readability": "^0.6.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@tailwindcss/vite": "^4.3.0",
     "@tiptap/pm": "^2.11.0",
     "@xyflow/react": "^12.0.0",
@@ -40,6 +42,7 @@
     "react-icons": "^5.0.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.0",
+    "three": "^0.174.0",
     "ts-md5": "^2.0.1",
     "turndown": "^7.2.4",
     "zustand": "^5.0.0"
@@ -50,10 +53,13 @@
     "@types/dompurify": "^3.2.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.174.0",
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^4.3.0",
     "electron": "^42.1.0",
     "electron-builder": "^26.8.1",
+    "electron-builder-squirrel-windows": "^26.8.1",
+    "electron-packager": "^17.1.2",
     "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
     "vite": "^5.4.0",
@@ -72,8 +78,49 @@
     ],
     "asarUnpack": [
       "node_modules/onnxruntime-node/**/*",
-      "node_modules/sharp/**/*"
+      "node_modules/sharp/**/*",
+      "node_modules/linkedom/**/*",
+      "node_modules/htmlparser2/**/*",
+      "node_modules/domutils/**/*",
+      "node_modules/dom-serializer/**/*",
+      "node_modules/domelementtype/**/*",
+      "node_modules/domhandler/**/*",
+      "node_modules/entities/**/*",
+      "node_modules/css-select/**/*",
+      "node_modules/cssom/**/*",
+      "node_modules/html-escaper/**/*",
+      "node_modules/uhyphen/**/*",
+      "node_modules/boolbase/**/*",
+      "node_modules/css-what/**/*",
+      "node_modules/nth-check/**/*"
     ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "win": {
       "icon": "build/icon.ico",
       "target": [
@@ -88,9 +135,10 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     },
     "asar": true
   },

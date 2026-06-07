@@ -164,41 +164,24 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
             }
           }
 
-          const updatedData = cardSnapshots.get(n.id)
           const pos = result.positions[n.id]
-          if (pos && updatedData) {
-            return {
-              ...n,
-              position: {
-                x: frameNode.position.x + pos.x,
-                y: frameNode.position.y + pos.y,
-              },
-              data: {
-                ...updatedData,
-                localX: pos.x,
-                localY: pos.y,
-                ...(pos.width ? { width: pos.width } : {}),
-                ...(pos.height ? { height: pos.height } : {}),
-              },
-            }
+          if (!pos) return n
+
+          const baseData = (cardSnapshots.get(n.id) ?? n.data) as Record<string, unknown>
+          return {
+            ...n,
+            position: {
+              x: frameNode.position.x + pos.x,
+              y: frameNode.position.y + pos.y,
+            },
+            data: {
+              ...baseData,
+              localX: pos.x,
+              localY: pos.y,
+              ...(pos.width ? { width: pos.width } : {}),
+              ...(pos.height ? { height: pos.height } : {}),
+            },
           }
-          if (pos) {
-            return {
-              ...n,
-              position: {
-                x: frameNode.position.x + pos.x,
-                y: frameNode.position.y + pos.y,
-              },
-              data: {
-                ...n.data,
-                localX: pos.x,
-                localY: pos.y,
-                ...(pos.width ? { width: pos.width } : {}),
-                ...(pos.height ? { height: pos.height } : {}),
-              },
-            }
-          }
-          return n
         })
       })
     },

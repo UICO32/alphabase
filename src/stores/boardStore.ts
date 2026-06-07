@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { flushActiveSyncEngine } from '../sync/syncEngineRef'
 import type { BoardMeta } from '../utils/workspace/types'
 
 interface BoardNodesData {
@@ -30,8 +31,10 @@ export const useBoardStore = create<BoardStore>()(
 
       setBoards: (boards) => set({ boards, isLoaded: true }),
 
-      addBoard: (board) =>
-        set((state) => ({ boards: [...state.boards, board] })),
+      addBoard: (board) => {
+        set((state) => ({ boards: [...state.boards, board] }))
+        flushActiveSyncEngine()
+      },
 
       updateBoard: (id, props) =>
         set((state) => ({

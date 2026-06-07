@@ -6,8 +6,6 @@ export interface WorkspaceMeta {
 
 export interface WorkspaceSettings {
   theme: 'light' | 'dark'
-  autoCollapseCards: boolean
-  showCardLibrary: boolean
   confirmDelete: boolean
   embeddingThreshold: number
 }
@@ -97,8 +95,6 @@ export interface ConflictDiffItem {
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   theme: 'light',
-  autoCollapseCards: false,
-  showCardLibrary: true,
   confirmDelete: true,
   embeddingThreshold: 0.75,
 }

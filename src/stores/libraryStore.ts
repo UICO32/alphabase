@@ -43,6 +43,9 @@ interface LibraryStore {
   zoom: number
   setZoom: (zoom: number) => void
 
+  transform: [number, number, number]
+  setTransform: (transform: [number, number, number]) => void
+
   sortBy: SortBy
   setSortBy: (sortBy: SortBy) => void
 
@@ -78,6 +81,7 @@ export const useLibraryStore = create<LibraryStore>()(
       rightPanelActiveTab: 'library',
       userSwitchedTab: false,
       zoom: 1,
+      transform: [0, 0, 1],
       sortBy: 'updatedAt',
       searchMode: 'hybrid',
       webviewUrl: null,
@@ -85,6 +89,7 @@ export const useLibraryStore = create<LibraryStore>()(
 
       setViewMode: (mode) => set({ viewMode: mode }),
       setZoom: (zoom) => set({ zoom }),
+      setTransform: (transform) => set({ transform }),
       setSortBy: (sortBy) => set({ sortBy }),
       setSearchMode: (mode) => set({ searchMode: mode }),
       setWebviewUrl: (url, cardId) => set({

@@ -14,14 +14,11 @@
 
 **修复**: 在 `CardContent.tsx` 预览态的 `dangerouslySetInnerHTML` 容器上添加 `whiteSpace: 'break-spaces'`。同时在 `renderInlineContent` 中将连续空格（`  `）转为 `&nbsp; ` 模式，确保极端情况也保留。
 
-### 1.2 链接样式不一致
+### 1.2 链接缺少下划线
 
-**根因**: 编辑态 BlockNote 使用 Mantine Anchor 组件渲染链接，颜色为 `var(--mantine-color-anchor)`（蓝色），带 `data-underline` 属性控制下划线行为。预览态 `renderBlocks.ts` 生成 `color:inherit;text-decoration:underline`，颜色与编辑态不同。
+**根因**: 预览态 `renderBlocks.ts` 中链接样式为 `color:inherit;text-decoration:underline`，但实际浏览器渲染时下划线未生效（可能被 DOMPurify 或其他 CSS 覆盖）。用户反馈预览态链接没有下划线，编辑态有。
 
-**修复**: 修改 `renderInlineContent` 中链接的渲染样式：
-- 颜色: `color: #3b82f6`（与 `--color-blue-500` / `--text-link` 一致）
-- 下划线: `text-decoration: underline`
-- 去掉 `color:inherit`
+**修复**: 确保预览态链接渲染的 `<a>` 标签 `text-decoration: underline` 生效，检查 DOMPurify 配置是否过滤了 `style` 属性中的 `text-decoration`。颜色保持 `inherit`。
 
 ### 1.3 checkListItem 样式差异
 
@@ -100,7 +97,7 @@
 ## 验证标准
 
 1. 预览态空格、换行与编辑态一致
-2. 预览态链接颜色为蓝色、带下划线，与编辑态一致
+2. 预览态链接带下划线，与编辑态一致
 3. 预览态 checkListItem 布局与编辑态一致，无"分列"异常
 4. `/图片分列` 斜杠菜单项可用
 5. 图片分列支持 2-4 张图片并排

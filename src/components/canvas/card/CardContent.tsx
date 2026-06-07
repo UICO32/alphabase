@@ -8,6 +8,13 @@ const LazyCardBlockNoteEditor = lazy(() =>
   import('../../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
 )
 
+let preloaded = false
+export function preloadCardEditor() {
+  if (preloaded) return
+  preloaded = true
+  import('../../editor/BlockNoteEditor')
+}
+
 interface CardContentProps {
   isEditing: boolean
   isSelected: boolean
@@ -79,6 +86,7 @@ export const CardContent = memo(function CardContent({
             fontSize: '13px',
             lineHeight: '1.5',
             wordBreak: 'break-word',
+            whiteSpace: 'break-spaces',
           }}
           dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
           onClickCapture={(e) => {

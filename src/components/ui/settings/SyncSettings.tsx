@@ -72,7 +72,7 @@ export function SyncSettings() {
                 type="email"
                 value={inputEmail}
                 onChange={e => setInputEmail(e.target.value)}
-                className="w-full p-3 rounded-lg text-sm bg-surface-card text-text-primary border border-border-default outline-none"
+                className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary outline-none focus:ring-2 focus:ring-border-focus"
                 placeholder="输入 flomo 邮箱"
               />
             </div>
@@ -82,7 +82,7 @@ export function SyncSettings() {
                 type="password"
                 value={inputPassword}
                 onChange={e => setInputPassword(e.target.value)}
-                className="w-full p-3 rounded-lg text-sm bg-surface-card text-text-primary border border-border-default outline-none"
+                className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary outline-none focus:ring-2 focus:ring-border-focus"
                 placeholder="输入 flomo 密码"
               />
             </div>
@@ -92,8 +92,7 @@ export function SyncSettings() {
             <button
               onClick={handleLogin}
               disabled={!inputEmail || !inputPassword}
-              className="btn-base flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm bg-text-primary text-surface-app"
-              style={{ opacity: !inputEmail || !inputPassword ? 0.5 : 1 }}
+              className="flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm bg-text-primary text-text-inverse transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <Link size={16} />
               连接 Flomo
@@ -101,7 +100,7 @@ export function SyncSettings() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-surface-card">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-surface-panel-hover">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-text-primary">
                   已连接
@@ -112,14 +111,14 @@ export function SyncSettings() {
               </div>
               <button
                 onClick={logout}
-                className="btn-base flex items-center gap-1 p-1.5 rounded-md text-xs text-text-secondary"
+                className="flex items-center gap-1 p-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-surface-card-active transition-colors"
               >
                 <LogOut size={14} />
                 断开
               </button>
             </div>
 
-            <div className="p-3 rounded-lg bg-surface-card">
+            <div className="p-3 rounded-lg bg-surface-panel-hover">
               <div className="text-xs mb-2 text-text-secondary">
                 同步状态
               </div>
@@ -140,8 +139,7 @@ export function SyncSettings() {
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="btn-base flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm bg-text-primary text-surface-app"
-              style={{ opacity: syncing ? 0.5 : 1 }}
+              className="flex items-center justify-center gap-2 p-3 rounded-lg w-full text-sm bg-text-primary text-text-inverse transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
               {syncing ? '同步中...' : '同步 Flomo'}

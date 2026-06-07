@@ -57,11 +57,13 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 
   if (viewMode !== 'board') return null
 
+  const showEditorContent = !rightPanelCollapsed && rightPanelActiveTab === 'editor' && editingCardId
+
   return (
     <>
       <motion.div
         className="absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden glass-panel-large"
-        style={{ width: rightPanelWidth }}
+        style={{ width: rightPanelWidth, willChange: 'transform' }}
         animate={{ x: rightPanelCollapsed ? rightPanelWidth : 0 }}
         transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         onWheel={handleWheel}
@@ -94,10 +96,10 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 
       <div className="flex-1 overflow-y-auto">
         {rightPanelActiveTab === 'library' ? (
-          <CardLibraryView onOpenSettings={onOpenSettings} />
-        ) : editingCardId ? (
+          !rightPanelCollapsed && <CardLibraryView onOpenSettings={onOpenSettings} />
+        ) : showEditorContent ? (
           <ClipAwareEditorView
-            cardId={editingCardId}
+            cardId={editingCardId!}
             isClipCard={isClipCard}
             sourceUrl={editingCard?.sourceUrl}
             webviewUrl={webviewUrl}

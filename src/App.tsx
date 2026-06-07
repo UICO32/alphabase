@@ -1,4 +1,4 @@
-import { useEffect, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useCallback, lazy, Suspense, useState } from 'react'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ReactFlowCanvas } from './components/canvas/ReactFlowCanvas'
 import { LeftPanel } from './components/ui/LeftPanel'
@@ -17,6 +17,7 @@ import { flushActiveSyncEngine, stopActiveSyncEngine } from './sync/syncEngineRe
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
+import { preloadCardEditor } from './components/canvas/card/CardContent'
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
 const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
@@ -24,9 +25,11 @@ const TrashBinPanel = lazy(() => import('./components/ui/TrashBinPanel').then(m 
 const SettingsDialog = lazy(() => import('./components/ui/SettingsDialog').then(m => ({ default: m.SettingsDialog })))
 const WorkspacePicker = lazy(() => import('./components/ui/WorkspacePicker').then(m => ({ default: m.WorkspacePicker })))
 const WorkspaceConflictDialog = lazy(() => import('./components/ui/WorkspaceConflictDialog').then(m => ({ default: m.WorkspaceConflictDialog })))
+const TopographyView = lazy(() => import('./components/topography/TopographyView').then(m => ({ default: m.TopographyView })))
 
 function App() {
   const viewMode = useLibraryStore(s => s.viewMode)
+  const [showTopography, setShowTopography] = useState(false)
   const {
     showTrash, setShowTrash,
     showSettings, setShowSettings,
@@ -135,10 +138,39 @@ function App() {
         return <Suspense fallback={null}><CardLibraryView onOpenSettings={() => setShowSettings(true)} /></Suspense>
       case 'board':
       default:
+        if (showTopography) {
+          return (
+            <Suspense fallback={null}>
+              <TopographyView onCardClick={(id) => { setShowTopography(false); useLibraryStore.getState().openCardEditor(id) }} />
+              <button
+                onClick={() => setShowTopography(false)}
+                style={{
+                  position: 'absolute', top: 8, right: 48, zIndex: 30,
+                  background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 6, color: 'rgba(255,255,255,0.7)', fontSize: 12,
+                  padding: '4px 10px', cursor: 'pointer',
+                }}
+              >
+                返回画布
+              </button>
+            </Suspense>
+          )
+        }
         return (
           <>
             <ReactFlowCanvas />
             <Toolbar onAddCard={handleAddCard} onClipUrl={() => setShowClipUrlBar(true)} />
+            <button
+              onClick={() => setShowTopography(true)}
+              style={{
+                position: 'absolute', top: 8, right: 48, zIndex: 30,
+                background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 6, color: 'rgba(255,255,255,0.7)', fontSize: 12,
+                padding: '4px 10px', cursor: 'pointer',
+              }}
+            >
+              地形
+            </button>
           </>
         )
     }
@@ -154,6 +186,7 @@ function App() {
       splash.classList.add('fade-out')
       setTimeout(() => splash.remove(), 350)
     }
+    preloadCardEditor()
   }, [dataReady])
 
   if (!dataReady) return null

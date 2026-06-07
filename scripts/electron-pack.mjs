@@ -16,7 +16,7 @@ for (const m of markers) {
 
 try {
   const args = process.argv.slice(2).join(' ')
-  execSync(`electron-builder ${args}`, { stdio: 'inherit' })
+  execSync(`pnpm exec electron-builder ${args}`, { stdio: 'inherit' })
 } finally {
   for (const m of markers) {
     if (existsSync(m.backup)) {

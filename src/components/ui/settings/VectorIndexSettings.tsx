@@ -35,8 +35,7 @@ export function VectorIndexSettings() {
         向量索引
       </h3>
       <div className="space-y-3">
-        {/* Status line */}
-        <div className="p-3 rounded-lg bg-surface-card">
+        <div className="p-3 rounded-lg bg-surface-panel-hover">
           <span className="text-sm text-text-primary">
             {indexed ? `已索引（${cardCount} 张卡片）` : '未索引'}
           </span>
@@ -47,23 +46,20 @@ export function VectorIndexSettings() {
           )}
         </div>
 
-        {/* Model missing warning */}
         {!modelAvailable && (
           <div
             className="p-3 rounded-lg text-sm"
             style={{
-              backgroundColor: 'hsl(45, 100%, 95%)',
-              color: 'hsl(35, 90%, 30%)',
-              border: '1px solid hsl(45, 80%, 75%)',
+              backgroundColor: 'var(--color-blue-50)',
+              color: 'var(--color-blue-600)',
             }}
           >
             未检测到向量模型文件。请将 model_q4f16.onnx 和 tokenizer.json 放置到应用共享目录后重启应用：{modelDir || '（加载中...）'}
           </div>
         )}
 
-        {/* Progress bar */}
         {indexing && (
-          <div className="p-3 rounded-lg bg-surface-card">
+          <div className="p-3 rounded-lg bg-surface-panel-hover">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-text-primary">
                 正在索引...
@@ -72,39 +68,39 @@ export function VectorIndexSettings() {
                 {progress}/{total}（{percent}%）
               </span>
             </div>
-            <div
-              className="w-full h-2 rounded-full overflow-hidden bg-border-default"
-            >
+            <div className="w-full h-2 rounded-full overflow-hidden bg-border-default">
               <div
-                className="h-full rounded-full transition-all bg-text-primary"
+                className="h-full rounded-full transition-all bg-accent-blue"
                 style={{ width: `${percent}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* Action buttons */}
         <div className="flex gap-2">
           {!indexing ? (
             <button
               onClick={startIndexing}
               disabled={!modelAvailable}
-              className={`btn-base flex-1 p-3 rounded-lg text-sm ${modelAvailable ? 'bg-text-primary text-text-inverse' : 'bg-border-default text-text-secondary cursor-not-allowed'}`}
+              className={`flex-1 p-3 rounded-lg text-sm transition-opacity ${
+                modelAvailable
+                  ? 'bg-text-primary text-text-inverse hover:opacity-90'
+                  : 'bg-surface-panel-hover text-text-disabled cursor-not-allowed'
+              }`}
             >
               向量化全部卡片
             </button>
           ) : (
             <button
               onClick={cancelIndexing}
-              className="btn-base flex-1 p-3 rounded-lg text-sm bg-surface-card text-text-primary border border-border-default"
+              className="flex-1 p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary hover:bg-surface-card-active transition-colors"
             >
               取消
             </button>
           )}
         </div>
 
-        {/* Threshold slider */}
-        <div className="p-3 rounded-lg bg-surface-card">
+        <div className="p-3 rounded-lg bg-surface-panel-hover">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-text-primary">
               相似度阈值

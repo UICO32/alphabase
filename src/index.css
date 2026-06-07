@@ -6,6 +6,10 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* Improve text rendering on Windows */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* 允许 ReactFlow viewport 内的弹出层不被裁切 */

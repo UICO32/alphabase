@@ -3,20 +3,21 @@ import { dropCursor } from '@tiptap/pm/dropcursor'
 import { TextSelection, EditorState } from '@tiptap/pm/state'
 import { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { undoDepth, redoDepth } from 'prosemirror-history'
-import { useCreateBlockNote } from '@blocknote/react'
+import { useCreateBlockNote, createReactBlockSpec } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
+import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core'
 import type { PartialBlock } from '@blocknote/core'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { ImageToolbar } from './ImageToolbar'
 import { CardFormattingToolbar } from './CardFormattingToolbar'
 import { CardSlashMenu } from './CardSlashMenu'
+import { ImageRowBlock } from './ImageRowBlock'
 import { useImageColumnDrop } from './useImageColumnDrop'
 import { usePosAtCoordsScalePatch } from './usePosAtCoordsScalePatch'
 import { useLibraryStore } from '../../stores/libraryStore'
+import { fileToDataUrl, isImageFile } from '../../utils/fileUtils'
 import {
-  fileToDataUrl,
-  isImageFile,
   isReadableImageUrl,
   readClipboardImageFiles,
   parseContentToBlocks,
@@ -44,6 +45,85 @@ export interface BlockNoteEditorProps {
   enforceInitialHeading?: boolean
 }
 
+const ImageRowBlockSpec = createReactBlockSpec(
+  {
+    type: 'imageRow' as const,
+    propSchema: {
+      textAlignment: { default: 'left' as const, values: ['left', 'center', 'right', 'justify'] as const },
+      backgroundColor: { default: 'default' as const },
+      urlsJson: { default: '[]' },
+      captionsJson: { default: '[]' },
+    },
+    content: 'none' as const,
+  },
+  {
+    render: ({ block, editor }) => {
+      const urls: string[] = JSON.parse((block.props.urlsJson as string) || '[]')
+      const captions: string[] = JSON.parse((block.props.captionsJson as string) || '[]')
+      return (
+        <ImageRowBlock
+          urls={urls}
+          captions={captions}
+          editor={editor as any}
+          blockId={block.id}
+          editable={editor.isEditable}
+          onUpdate={(newUrls, newCaptions) => {
+            editor.updateBlock(block.id, {
+              type: 'imageRow' as any,
+              props: { urlsJson: JSON.stringify(newUrls), captionsJson: JSON.stringify(newCaptions) } as any,
+            })
+          }}
+        />
+      )
+    },
+    toExternalHTML: ({ block }) => {
+      const urls: string[] = JSON.parse((block.props.urlsJson as string) || '[]')
+      const captions: string[] = JSON.parse((block.props.captionsJson as string) || '[]')
+      if (urls.length === 0) return <div />
+      return (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+          {urls.map((url, i) => (
+            <div key={i} style={{ flex: 1, minWidth: 0 }}>
+              <img src={url} alt="" style={{ width: '100%', height: 'auto', borderRadius: '6px', display: 'block' }} />
+              {captions[i] && <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0 0 0', textAlign: 'center' }}>{captions[i]}</p>}
+            </div>
+          ))}
+        </div>
+      )
+    },
+    parse: (el: HTMLElement) => {
+      if (el.tagName === 'DIV' && el.style.display === 'flex') {
+        const imgs = el.querySelectorAll('img')
+        if (imgs.length > 1) {
+          return {
+            urlsJson: JSON.stringify(Array.from(imgs).map((img) => img.getAttribute('src') || '')),
+            captionsJson: JSON.stringify(Array.from(el.querySelectorAll('p')).map((p) => p.textContent || '')),
+          }
+        }
+      }
+      return undefined
+    },
+  },
+)
+
+const cardSchema = BlockNoteSchema.create({
+  blockSpecs: {
+    ...defaultBlockSpecs,
+    imageRow: ImageRowBlockSpec,
+  },
+})
+
+function getProseMirrorView(editor: unknown) {
+  return (editor as Record<string, unknown>).prosemirrorView as
+    | { posAtCoords: (p: { left: number; top: number }) => { pos: number } | null
+        posAtDOM: (node: Node, offset: number) => number
+        state: EditorState & { doc: ProseMirrorNode & { resolve: (pos: number) => any }; tr: { setSelection: (sel: unknown) => unknown } }
+        dispatch: (tr: unknown) => void
+        focus: () => void
+        dom: HTMLElement }
+    | undefined
+}
+
 const CardBlockNoteEditorInner = (
   { content, onChange, onFocus, onBlur, theme = 'light', editable = true, enforceInitialHeading = false }: BlockNoteEditorProps,
   ref: ForwardedRef<BlockNoteEditorHandle>
@@ -69,6 +149,7 @@ const CardBlockNoteEditorInner = (
     }, [])
 
     const editor = useCreateBlockNote({
+      schema: cardSchema,
       initialContent: initialContent.current as Parameters<typeof useCreateBlockNote>[0] extends { initialContent?: infer T } ? T : never,
       uploadFile,
       // 使用原生 prosemirror dropCursor，显示块级别的蓝色插入线
@@ -181,21 +262,11 @@ const CardBlockNoteEditorInner = (
         editor.isEditable = true
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as {
-              posAtCoords: (p: { left: number; top: number }) => { pos: number } | null
-              posAtDOM: (node: Node, offset: number) => number
-              state: { doc: { resolve: (pos: number) => any }; tr: { setSelection: (sel: unknown) => unknown } }
-              dispatch: (tr: unknown) => void
-              focus: () => void
-              dom: HTMLElement
-            } | undefined
+            const pm = getProseMirrorView(editor)
             if (!pm) return
 
             let pos: number | null = null
 
-            // Use browser caret APIs to get a precise cursor position from the
-            // click coordinates. This avoids the block-boundary issue where
-            // posAtCoords always resolves to the start of the content block.
             try {
               const range = (document as any).caretPositionFromPoint?.(x, y)
                 ?? (document as any).caretRangeFromPoint?.(x, y)
@@ -224,12 +295,12 @@ const CardBlockNoteEditorInner = (
         })
       },
       canUndo: () => {
-        const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as { state: EditorState } | undefined
+        const pm = getProseMirrorView(editor)
         if (!pm) return false
         return undoDepth(pm.state) > 0
       },
       canRedo: () => {
-        const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as { state: EditorState } | undefined
+        const pm = getProseMirrorView(editor)
         if (!pm) return false
         return redoDepth(pm.state) > 0
       },
@@ -351,7 +422,7 @@ const CardBlockNoteEditorInner = (
         const target = event.target
         if (!(target instanceof Node) || !el.contains(target)) return
 
-        const pmView = (editor as unknown as Record<string, unknown>).prosemirrorView as { state: { doc: ProseMirrorNode; selection: { $head: { pos: number }; from: number; to: number }; tr: { setSelection: (s: unknown) => unknown } }; dispatch: (tr: unknown) => void } | undefined
+        const pmView = getProseMirrorView(editor)
         if (!pmView) return
         const st = pmView.state
 
@@ -468,6 +539,30 @@ const CardBlockNoteEditorInner = (
             display: block !important;
             margin: 4px 0 !important;
           }
+          .card-blocknote-editor .m_849cf0da,
+          .card-blocknote-editor a[href] {
+            color: var(--text-link, #3b82f6) !important;
+            font-weight: 600 !important;
+            text-decoration: none !important;
+          }
+          .card-blocknote-editor .m_849cf0da:hover,
+          .card-blocknote-editor a[href]:hover {
+            text-decoration: underline !important;
+          }
+          .card-blocknote-editor [data-content-type="checkListItem"] > div {
+            align-items: center !important;
+          }
+          .card-blocknote-editor [data-content-type="checkListItem"] input[type="checkbox"] {
+            width: 20px !important;
+            height: 20px !important;
+            min-width: 20px !important;
+            border-radius: 4px !important;
+            margin: 0 !important;
+            margin-inline-end: 8px !important;
+            flex-shrink: 0 !important;
+            cursor: pointer !important;
+            accent-color: #3b82f6 !important;
+          }
         `}</style>
         <BlockNoteView
           editor={editor}
@@ -478,7 +573,7 @@ const CardBlockNoteEditorInner = (
           sideMenu={false}
         >
           {editable && <CardFormattingToolbar />}
-          {editable && <CardSlashMenu />}
+          {editable && <CardSlashMenu editor={editor as any} />}
         </BlockNoteView>
         {editable && <ImageToolbar containerRef={containerRef} editable={editable} theme={theme} />}
       </div>
