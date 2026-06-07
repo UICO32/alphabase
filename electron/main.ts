@@ -14,6 +14,7 @@ import { dirname as pathDirname } from 'path'
 import { createMenu } from './menu'
 import { registerClipperHandlers } from './clipper/handler'
 import { registerEmbeddingIPC, disposeEmbeddingService } from './embedding'
+import { createSplashWindow, updateSplashProgress, closeSplashWindow } from './splash'
 import { Md5 } from 'ts-md5'
 
 // Disable crashpad to prevent Windows crash on handler disconnect
@@ -22,6 +23,7 @@ app.commandLine.appendSwitch('disable-breakpad')
 app.commandLine.appendSwitch('enable-font-antialiasing', '1')
 // Use GPU for rasterization to improve text rendering
 app.commandLine.appendSwitch('enable-gpu-rasterization', '1')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows', '1')
 
 const __t0 = Date.now()
 let __t1 = 0
@@ -40,12 +42,14 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     show: false,
+    backgroundColor: '#f5f5f4',
     icon: join(__dirname, '..', 'build', 'icon.ico'),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
+      backgroundThrottling: false,
     },
     titleBarStyle: 'hidden',
   })
@@ -90,19 +94,8 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     __t2 = Date.now()
-    console.log(`[startup] ready-to-show: ${__t2 - __t0}ms (window shown)`)
+    console.log(`[startup] ready-to-show: ${__t2 - __t0}ms`)
     startupLog(`ready-to-show: ${__t2 - __t0}ms`)
-    mainWindow?.show()
-  })
-
-  // Show window early with splash screen if ready-to-show takes too long
-  mainWindow.webContents.on('did-start-loading', () => {
-    // Only show if not already visible (ready-to-show hasn't fired yet)
-    if (!mainWindow?.isVisible()) {
-      mainWindow?.show()
-      __t2 = Date.now()
-      console.log(`[startup] early-show (did-start-loading): ${__t2 - __t0}ms`)
-    }
   })
 
   mainWindow.webContents.setWindowOpenHandler(() => {
@@ -169,12 +162,23 @@ app.whenReady().then(() => {
     }
   })
 
+  createSplashWindow()
   createWindow()
 
   // Defer embedding IPC registration — onnxruntime-node is heavy (~500ms)
   setTimeout(() => {
     registerEmbeddingIPC()
   }, 0)
+
+  ipcMain.on('startup:progress', (_event, data: { step: string; progress: number; total: number }) => {
+    updateSplashProgress(data.step, data.progress, data.total)
+  })
+
+  ipcMain.on('startup:data-ready', () => {
+    closeSplashWindow()
+    mainWindow?.show()
+    console.log(`[startup] splash→main transition: ${Date.now() - __t0}ms`)
+  })
 })
 
 app.on('window-all-closed', () => {
