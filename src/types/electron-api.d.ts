@@ -84,6 +84,8 @@ declare global {
       }
       startup: {
         log: (data: any) => Promise<void>
+        notifyProgress: (data: { step: string; progress: number; total: number }) => void
+        notifyDataReady: () => void
       }
       onFlushBeforeClose: (callback: () => Promise<void>) => () => void
     }

@@ -67,6 +67,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   startup: {
     log: (data: any) => ipcRenderer.invoke('startup:log', data),
+    notifyProgress: (data: { step: string; progress: number; total: number }) => {
+      ipcRenderer.send('startup:progress', data)
+    },
+    notifyDataReady: () => {
+      ipcRenderer.send('startup:data-ready')
+    },
   },
   onFlushBeforeClose: (callback: () => Promise<void>) => {
     ipcRenderer.on('flush-before-close', async () => {
