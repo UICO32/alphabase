@@ -25,7 +25,7 @@ app.commandLine.appendSwitch('enable-font-antialiasing', '1')
 // Use GPU for rasterization to improve text rendering
 app.commandLine.appendSwitch('enable-gpu-rasterization', '1')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows', '1')
-// Prevent GPU shader disk cache errors (concurrent access in dev mode)
+// Prevent GPU shader disk cache permission errors in dev mode
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 
 const __t0 = Date.now()
