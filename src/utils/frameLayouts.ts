@@ -15,11 +15,11 @@ export interface LayoutResult {
   positions: Record<string, { x: number; y: number; width?: number; height?: number }>
 }
 
-const HEADER_HEIGHT = 44
+const HEADER_HEIGHT = 8
 const PADDING = 16
 const GAP = 12
 const KANBAN_COL_HEADER_H = 32
-const KANBAN_CARD_HEIGHT = 140
+export const KANBAN_CARD_HEIGHT = 140
 const KANBAN_CARD_GAP = 10
 const KANBAN_COL_GAP = 16
 
@@ -103,7 +103,7 @@ function computeBentoLayout(frame: Node, childNodes: Node[]): LayoutResult {
 }
 
 function computeKanbanLayout(frame: Node, childNodes: Node[]): LayoutResult {
-  const positions: Record<string, { x: number; y: number; width: number; height: number }> = {}
+  const positions: Record<string, { x: number; y: number; width: number; height?: number }> = {}
   if (childNodes.length === 0) return { positions }
 
   const frameW = (frame.data.width as number) ?? frame.width ?? 600
@@ -142,7 +142,7 @@ function computeKanbanLayout(frame: Node, childNodes: Node[]): LayoutResult {
     cards.forEach((node) => {
       const data = node.data as CardNodeData
       const h = data.height ?? KANBAN_CARD_HEIGHT
-      positions[node.id] = { x, y, width: colWidth, height: h }
+      positions[node.id] = { x, y, width: colWidth }
       y += h + KANBAN_CARD_GAP
     })
   })

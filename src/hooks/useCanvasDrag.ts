@@ -147,9 +147,8 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
             const localX = node.position.x - frameNode.position.x
             const colIdx = Math.min(Math.max(0, Math.floor(localX / (colWidth + 16))), numCols - 1)
             const colX = 16 + colIdx * (colWidth + 16)
-            const HEADER_H = 44
+            const HEADER_H = 8
             const COL_HEADER_H = 32
-            const CARD_H = 140
             const CARD_GAP = 10
             const startY = HEADER_H + 16 + COL_HEADER_H + 4
 
@@ -163,20 +162,31 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
             const colSiblings = siblings.filter(n => colCardIds.has(n.id))
             const sortedByY = [...colSiblings].sort((a, b) => a.position.y - b.position.y)
 
-            let rowIdx = sortedByY.length
+            const dragData = node.data as CardNodeData
+            const dragCardH = dragData.height ?? 140
+
+            let previewY = startY
+            let insertIdx = sortedByY.length
             for (let i = 0; i < sortedByY.length; i++) {
-              if (node.position.y < sortedByY[i].position.y + CARD_H / 2) {
-                rowIdx = i
+              const sibData = sortedByY[i].data as CardNodeData
+              const sibH = sibData.height ?? 140
+              const sibMid = sortedByY[i].position.y - frameNode.position.y + sibH / 2
+              if (node.position.y - frameNode.position.y < sibMid) {
+                insertIdx = i
                 break
               }
             }
 
-            const previewY = startY + rowIdx * (CARD_H + CARD_GAP)
+            for (let i = 0; i < insertIdx; i++) {
+              const sibData = sortedByY[i].data as CardNodeData
+              previewY += (sibData.height ?? 140) + CARD_GAP
+            }
+
             kanbanDragPreview.set({
               localX: colX,
               localY: previewY,
               width: colWidth,
-              height: CARD_H,
+              height: dragCardH,
               frameId,
             })
           }
@@ -231,6 +241,8 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
     setDragOverFrameId(null)
     setEdges((eds) => [...eds])
 
+    console.log('[DRAG-STOP] fired, node.type:', node.type, 'node.id:', node.id, 'pos:', node.position)
+
     if (node.type !== 'card') return
 
     const instance = reactFlowInstance.current
@@ -242,6 +254,20 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
     const selectedCardNodes = allNodes.filter(n => n.selected && n.type === 'card')
     const nodesToUpdate = selectedCardNodes.length > 1 ? selectedCardNodes : [node]
 
+    // 用拖拽结束时的实际位置构建映射，setNodes 回调中的 position 可能不是最新的
+    const latestPositions = new Map<string, { x: number; y: number }>()
+    for (const n of nodesToUpdate) {
+      latestPositions.set(n.id, { x: n.position.x, y: n.position.y })
+    }
+
+    // 收集进入看板的卡片 ID（用于删除连接线）
+    const kanbanFrameIds = new Set(
+      frameNodes
+        .filter(f => (f.data as Record<string, unknown>).layout === 'kanban')
+        .map(f => f.id),
+    )
+    const cardsEnteredKanbanIds = new Set<string>()
+
     setNodes(nds => {
       let next = nds
 
@@ -249,28 +275,63 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         if (!nodesToUpdate.some(u => u.id === n.id)) return n
         const nd = n.data as CardNodeData
 
-        const containingFrame = frameNodes.find(frame => cardOverlapsFrame(n, frame))
+        // 使用拖拽结束时的实际位置来判断是否在 frame 内
+        const latestPos = latestPositions.get(n.id)
+        const posForCheck = latestPos ?? n.position
+        const checkNode = { ...n, position: posForCheck }
+
+        const containingFrame = frameNodes.find(frame => cardOverlapsFrame(checkNode, frame))
+
+        // DEBUG
+        console.log('[DRAG-STOP]', n.id, {
+          latestPos,
+          callbackPos: { x: n.position.x, y: n.position.y },
+          cardWidth: nd.width,
+          cardHeight: nd.height,
+          oldFrameId: nd.frameId,
+          containingFrame: containingFrame?.id ?? null,
+          containingFrameLayout: containingFrame ? (containingFrame.data as Record<string, unknown>).layout : null,
+          freeSnap: nd.layoutSnapshots?.free,
+          kanbanSnap: nd.layoutSnapshots?.kanban,
+        })
 
         if (containingFrame && containingFrame.id !== nd.frameId) {
-          const local = globalToLocal(n.position, containingFrame)
+          const local = globalToLocal(posForCheck, containingFrame)
           const frameLayout = ((containingFrame.data as Record<string, unknown>).layout as FrameLayout) ?? 'free'
+          const newSnapshots = { ...nd.layoutSnapshots }
+          if (!nd.frameId) {
+            newSnapshots.free = { localX: n.position.x, localY: n.position.y, width: nd.width, height: nd.height }
+          }
+          newSnapshots[frameLayout] = { localX: local.x, localY: local.y, width: nd.width, height: nd.height }
+          if (kanbanFrameIds.has(containingFrame.id)) {
+            cardsEnteredKanbanIds.add(n.id)
+          }
+          console.log('[DRAG-STOP] → ENTERING frame', containingFrame.id, 'layout:', frameLayout, 'saved freeSnap:', newSnapshots.free)
           return {
             ...n,
+            position: posForCheck,
             data: {
               ...n.data,
               frameId: containingFrame.id,
               localX: local.x,
               localY: local.y,
-              layoutSnapshots: {
-                ...nd.layoutSnapshots,
-                [frameLayout]: { localX: local.x, localY: local.y, width: nd.width, height: nd.height },
-              },
+              layoutSnapshots: newSnapshots,
             },
           }
         } else if (!containingFrame && nd.frameId) {
+          const freeSnap = nd.layoutSnapshots?.free
+          console.log('[DRAG-STOP] → LEAVING frame', nd.frameId, 'restoring to:', { w: freeSnap?.width ?? nd.width ?? DEFAULT_CARD_WIDTH, h: freeSnap?.height ?? nd.height ?? DEFAULT_CARD_HEIGHT })
           return {
             ...n,
-            data: { ...n.data, frameId: undefined, localX: undefined, localY: undefined },
+            position: posForCheck,
+            data: {
+              ...n.data,
+              frameId: undefined,
+              localX: undefined,
+              localY: undefined,
+              width: freeSnap?.width ?? nd.width ?? DEFAULT_CARD_WIDTH,
+              height: freeSnap?.height ?? nd.height ?? DEFAULT_CARD_HEIGHT,
+            },
           }
         }
         if (nd.frameId) {
@@ -404,6 +465,17 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
 
       return next
     })
+
+    // 拖入看板 frame 的卡片，删除其连接线
+    console.log('[DRAG-STOP] cardsEnteredKanbanIds:', [...cardsEnteredKanbanIds])
+    if (cardsEnteredKanbanIds.size > 0) {
+      setEdges(eds => {
+        const before = eds.length
+        const filtered = eds.filter(e => !cardsEnteredKanbanIds.has(e.source) && !cardsEnteredKanbanIds.has(e.target))
+        console.log('[DRAG-STOP] edges:', before, '→', filtered.length)
+        return filtered
+      })
+    }
   }, [setEdges, setNodes, reactFlowInstance])
 
   return { onNodeDrag, onNodeDragStart, onNodeDragStop }
