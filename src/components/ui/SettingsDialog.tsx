@@ -3,8 +3,9 @@ import { X } from 'lucide-react'
 import { SystemSettings } from './settings/SystemSettings'
 import { SyncSettings } from './settings/SyncSettings'
 import { ExportSettings } from './settings/ExportSettings'
+import { AISettings } from './settings/AISettings'
 
-type SettingsTab = 'system' | 'sync' | 'export'
+type SettingsTab = 'system' | 'sync' | 'export' | 'ai'
 
 interface SettingsDialogProps {
   onClose: () => void
@@ -60,12 +61,18 @@ export function SettingsDialog({ onClose, initialTab = 'system' }: SettingsDialo
               onClick={() => setActiveTab('export')}
               label="导入导出"
             />
+            <NavButton
+              active={activeTab === 'ai'}
+              onClick={() => setActiveTab('ai')}
+              label="AI 设置"
+            />
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 scrollbar-hide" style={{ backgroundColor: 'var(--surface-card)' }}>
             {activeTab === 'system' && <SystemSettings />}
             {activeTab === 'sync' && <SyncSettings />}
             {activeTab === 'export' && <ExportSettings />}
+            {activeTab === 'ai' && <AISettings />}
           </div>
         </div>
       </div>

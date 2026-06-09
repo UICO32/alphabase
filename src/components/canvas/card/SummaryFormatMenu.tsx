@@ -1,0 +1,124 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { FileText, List, Table, MessageSquare } from 'lucide-react'
+import { CARD_COLORS, type CardColor } from '../../../types/card'
+import { type SummaryFormat } from '../../../stores/aiStore'
+
+interface SummaryFormatMenuProps {
+  color: CardColor
+  triggerRef: React.RefObject<HTMLDivElement | null>
+  currentFormat: SummaryFormat
+  onSelect: (format: SummaryFormat) => void
+  onClose: () => void
+}
+
+const FORMAT_OPTIONS: Array<{ format: SummaryFormat; icon: React.ReactNode; label: string; desc: string }> = [
+  { format: 'concise', icon: <FileText size={14} />, label: '简洁摘要', desc: '核心观点与关键要点' },
+  { format: 'list', icon: <List size={14} />, label: '要点列表', desc: '每条不超过30字' },
+  { format: 'table', icon: <Table size={14} />, label: '表格提取', desc: '关键数据表格化' },
+  { format: 'custom', icon: <MessageSquare size={14} />, label: '自由提问', desc: '自定义问题' },
+]
+
+export function SummaryFormatMenu({
+  color,
+  triggerRef,
+  currentFormat,
+  onSelect,
+  onClose,
+}: SummaryFormatMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const menuWidth = 180
+    const menuMarginLeft = 4
+    let left = rect.right + menuMarginLeft
+    if (left + menuWidth > window.innerWidth) {
+      left = rect.left - menuWidth - menuMarginLeft
+    }
+    setPosition({ top: rect.top, left })
+  }, [triggerRef])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (
+        menuRef.current && !menuRef.current.contains(target) &&
+        triggerRef.current && !triggerRef.current.contains(target)
+      ) {
+        onClose()
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose, triggerRef])
+
+  const strokeColor = CARD_COLORS[color].stroke
+
+  const handleSelect = useCallback((format: SummaryFormat) => {
+    onSelect(format)
+  }, [onSelect])
+
+  const menuContent = (
+    <div
+      ref={menuRef}
+      className="animate-fadeIn"
+      style={{
+        position: 'fixed',
+        top: position.top,
+        left: position.left,
+        zIndex: 9999,
+        minWidth: 180,
+        padding: '6px 0',
+        borderRadius: 8,
+        backgroundColor: 'var(--surface-card)',
+        boxShadow: 'var(--shadow-lg)',
+        border: '1px solid var(--border-default)',
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={{ padding: '4px 10px', fontSize: 11, color: 'var(--text-tertiary)' }}>
+        摘要格式
+      </div>
+      {FORMAT_OPTIONS.map((opt) => {
+        const isSelected = currentFormat === opt.format
+        return (
+          <button
+            key={opt.format}
+            onClick={() => handleSelect(opt.format)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px',
+              border: 'none',
+              background: isSelected ? 'var(--surface-hover)' : 'transparent',
+              cursor: 'pointer',
+              textAlign: 'left' as const,
+            }}
+            onMouseEnter={(e) => {
+              if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-hover)'
+            }}
+            onMouseLeave={(e) => {
+              if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent'
+            }}
+          >
+            <span style={{ color: strokeColor, display: 'flex' }}>{opt.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{opt.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{opt.desc}</div>
+            </div>
+            {isSelected && (
+              <span style={{ color: strokeColor, fontSize: 12 }}>✓</span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  return createPortal(menuContent, document.body)
+}
