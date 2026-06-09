@@ -51,6 +51,25 @@ coverage/
 *.tsbuildinfo
 .superpowers/
 
+# AI / tooling artifacts
+.claude/
+.codegraph/
+.cursor/
+AGENTS.md
+
+# ONNX model files (large binaries)
+*.onnx
+*.onnx_data
+electron/embedding/tokenizer.json
+
+# Prototypes and manual tests
+prototype/
+tests/manual/
+
+# AI test artifacts
+docs/test-ai/
+docs/superpowers/
+
 # Lock files (we use pnpm)
 package-lock.json
 

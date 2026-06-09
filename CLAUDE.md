@@ -16,6 +16,22 @@
 - 仅在用户明确要求"构建"、"打包"、"发布"时执行 `pnpm build`
 - 不要主动建议或执行构建操作
 
+### 1.1 Electron 打包流程
+
+当用户要求打包 exe 时，按以下步骤执行：
+
+1. **版本号**：确认 `package.json` 中的 `version` 是否需要更新，询问用户
+2. **更新日志**：从 `git log` 提取自上次打包以来的变更，写入 `CHANGELOG.md`，询问用户确认内容
+3. **打包命令**：
+   - 测试打包（unpacked）：`pnpm electron:pack` → 输出到 `release/win-unpacked/`
+   - 正式打包（安装包）：`pnpm electron:dist` → 输出到 `release/`
+4. **验证**：启动 unpacked exe 验证功能正常
+5. **已知陷阱**：
+   - `ELECTRON_RUN_AS_NODE=1` 环境变量由 Trae CN / VS Code 注入，会导致 exe 以 Node.js 模式启动后静默退出
+   - 从 Trae CN 终端测试打包 exe 时，必须先 `unset ELECTRON_RUN_AS_NODE` 或用 PowerShell `Start-Process`
+   - 用户从桌面双击 exe 不受此影响
+   - 打包前确保 `tsc` 无错误，未使用的 import/变量会导致打包失败
+
 ### 2. 功能开发流程
 
 引入新功能前，**必须使用头脑风暴技能**与用户确认细节：
