@@ -81,7 +81,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, _get) => ({
     try {
       const result = await window.electronAPI.embedding.init(workspacePath)
       set({
-        initialized: result.modelLoaded,
+        initialized: result.storeLoaded,
         modelLoaded: result.modelLoaded,
         storeLoaded: result.storeLoaded,
         modelAvailable: result.modelLoaded,

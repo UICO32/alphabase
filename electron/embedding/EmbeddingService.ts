@@ -71,6 +71,7 @@ export class EmbeddingService {
   private session: InferenceSession | null = null
   private tokenizer: JinaTokenizer | null = null
   private store: VectorStore = { docs: {} }
+  modelLoaded: boolean = false
   private storePath: string = ''
   private vectorsDir: string = ''
   private modelDir: string = ''
@@ -78,9 +79,6 @@ export class EmbeddingService {
   private isIndexing: boolean = false
   private abortController: AbortController | null = null
   private threshold: number = DEFAULT_THRESHOLD
-  private clusterCache: ClusterResult | null = null
-  private clusterCacheComputedAt: number = 0
-  private lastStoreMutationAt: number = 0
 
   async init(workspacePath: string, modelDir?: string): Promise<{ modelLoaded: boolean; storeLoaded: boolean; docCount: number }> {
     this.cardsDir = join(workspacePath, 'cards')
@@ -92,7 +90,6 @@ export class EmbeddingService {
       mkdirSync(this.vectorsDir, { recursive: true })
     }
 
-    // Restore store from disk first — even if model fails, vectors are still usable
     let storeLoaded = false
     let docCount = 0
     try {
@@ -103,15 +100,17 @@ export class EmbeddingService {
       // No saved store yet
     }
 
-    let modelLoaded = false
-    try {
-      await this.loadModel()
-      modelLoaded = true
-    } catch {
-      // Model unavailable — store is still usable for search if previously indexed
-    }
+    // Return immediately after store loads — model loads in background
+    // Clustering only needs vectors, not the model
+    this.loadModelInBackground()
 
-    return { modelLoaded, storeLoaded, docCount }
+    return { modelLoaded: false, storeLoaded, docCount }
+  }
+
+  private loadModelInBackground(): void {
+    this.loadModel()
+      .then(() => { this.modelLoaded = true })
+      .catch(() => { /* Model unavailable — store still usable */ })
   }
 
   private async loadModel(): Promise<void> {
@@ -210,7 +209,7 @@ export class EmbeddingService {
           this.store.docs[cardId] = {
             id: cardId,
             vector,
-            fields: { title: card.title || '' },
+            fields: { title: card.title ?? card.name ?? '' },
             updatedAt: Date.now(),
           }
           newIndexed++
@@ -226,7 +225,6 @@ export class EmbeddingService {
       const removed = this.cleanStaleVectors(currentCardIds)
 
       if (newIndexed > 0 || removed > 0) {
-        this.lastStoreMutationAt = Date.now()
         this.saveStore()
       }
 
@@ -244,7 +242,6 @@ export class EmbeddingService {
     if (!existsSync(filePath)) {
       if (this.store.docs[cardId]) {
         delete this.store.docs[cardId]
-        this.lastStoreMutationAt = Date.now()
         this.saveStore()
       }
       return false
@@ -262,7 +259,6 @@ export class EmbeddingService {
       fields: { title: card.title || '' },
       updatedAt: Date.now(),
     }
-    this.lastStoreMutationAt = Date.now()
     this.saveStore()
     return true
   }
@@ -328,85 +324,100 @@ export class EmbeddingService {
 
   // --- Clustering ---
 
-  async cluster(minClusterSize = 2, clusterThreshold?: number): Promise<ClusterResult> {
-    // Return cached result if store hasn't changed
-    if (this.clusterCache && this.lastStoreMutationAt <= this.clusterCacheComputedAt) {
-      return this.clusterCache
-    }
-
+  async cluster(minClusterSize = 2, _clusterThreshold?: number): Promise<ClusterResult> {
     const docs = Object.values(this.store.docs)
     if (docs.length === 0) {
       return { clusters: [], orphanCards: [], computedAt: Date.now() }
     }
 
-    // Use a separate threshold for clustering (higher than search threshold)
-    // Short-text 256-dim embeddings tend to have concentrated similarity scores,
-    // so we need a higher threshold to actually separate topics.
-    const effectiveThreshold = clusterThreshold ?? Math.max(this.threshold, 0.65)
-
-    // Build adjacency list via threshold graph
     const n = docs.length
-    const adj: number[][] = Array.from({ length: n }, () => [])
+    const targetCount = Math.max(4, Math.min(12, Math.floor(n / 8)))
+    const maxClusterSize = Math.ceil(n / targetCount)
+    console.log(`[embedding/cluster] START agglomerative: n=${n}, target=${targetCount}, maxSize=${maxClusterSize}`)
+
+    // Agglomerative clustering: start with each doc as its own cluster,
+    // merge the two closest clusters until target count is reached.
+    const clusters: Array<{ members: number[]; centroid: number[] }> = docs.map(d => ({
+      members: [docs.indexOf(d)],
+      centroid: [...d.vector],
+    }))
+    // Fix: use index from map
+    clusters.length = 0
+    for (let i = 0; i < n; i++) {
+      clusters.push({ members: [i], centroid: [...docs[i].vector] })
+    }
+
+    // Cosine distance
+    function dist(a: number[], b: number[]): number {
+      let dot = 0, na = 0, nb = 0
+      for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i] }
+      const d = Math.sqrt(na) * Math.sqrt(nb)
+      return 1 - (d === 0 ? 0 : dot / d)
+    }
+
+    // Distance cache
+    const distCache = new Map<string, number>()
+    const cacheKey = (a: number, b: number) => a < b ? `${a},${b}` : `${b},${a}`
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
-        if (cosineSimilarity(docs[i].vector, docs[j].vector) >= effectiveThreshold) {
-          adj[i].push(j)
-          adj[j].push(i)
-        }
+        distCache.set(cacheKey(i, j), dist(clusters[i].centroid, clusters[j].centroid))
       }
     }
 
-    // BFS to find connected components
-    const visited = new Uint8Array(n)
-    const components: number[][] = []
-    for (let start = 0; start < n; start++) {
-      if (visited[start]) continue
-      visited[start] = 1
-      const component: number[] = [start]
-      const queue = [start]
-      while (queue.length > 0) {
-        const cur = queue.shift()!
-        for (const neighbor of adj[cur]) {
-          if (!visited[neighbor]) {
-            visited[neighbor] = 1
-            component.push(neighbor)
-            queue.push(neighbor)
+    const alive = new Set(clusters.map((_, i) => i))
+
+    while (alive.size > targetCount) {
+      let bestDist = Infinity, bestA = -1, bestB = -1
+      const aliveArr = [...alive]
+      for (let ai = 0; ai < aliveArr.length; ai++) {
+        for (let bi = ai + 1; bi < aliveArr.length; bi++) {
+          const aIdx = aliveArr[ai], bIdx = aliveArr[bi]
+          // Skip if merged cluster would be too large
+          if (clusters[aIdx].members.length + clusters[bIdx].members.length > maxClusterSize) continue
+          const key = cacheKey(aIdx, bIdx)
+          let d = distCache.get(key)
+          if (d === undefined) {
+            d = dist(clusters[aIdx].centroid, clusters[bIdx].centroid)
+            distCache.set(key, d)
           }
+          if (d < bestDist) { bestDist = d; bestA = aIdx; bestB = bIdx }
         }
       }
-      components.push(component)
+      if (bestA === -1) break
+
+      const a = clusters[bestA], b = clusters[bestB]
+      const total = a.members.length + b.members.length
+      const wA = a.members.length / total, wB = b.members.length / total
+      for (let d = 0; d < a.centroid.length; d++) a.centroid[d] = a.centroid[d] * wA + b.centroid[d] * wB
+      a.members.push(...b.members)
+      alive.delete(bestB)
+
+      if (alive.size % 50 === 0 || alive.size <= targetCount + 1) {
+        const sizes = [...alive].map(i => clusters[i].members.length).sort((a, b) => b - a)
+        console.log(`[embedding/cluster] alive=${alive.size}, top sizes: ${sizes.slice(0, 5).join(',')}`)
+      }
+
+      for (const idx of alive) {
+        if (idx !== bestA) {
+          distCache.delete(cacheKey(bestA, idx))
+          distCache.set(cacheKey(bestA, idx), dist(clusters[bestA].centroid, clusters[idx].centroid))
+        }
+      }
     }
 
-    // Build clusters from components
-    const clusters: TerrainCluster[] = []
+    // Build result
+    const resultClusters: TerrainCluster[] = []
     const orphanCards: string[] = []
 
-    for (const component of components) {
-      const memberDocs = component.map(i => docs[i])
-
-      if (component.length < minClusterSize) {
-        // Orphan: not enough cards to form a cluster
-        for (const doc of memberDocs) {
-          orphanCards.push(doc.id.replace(/^card_/, ''))
-        }
+    for (const idx of alive) {
+      const c = clusters[idx]
+      if (c.members.length < minClusterSize) {
+        for (const mi of c.members) orphanCards.push(docs[mi].id.replace(/^card_/, ''))
         continue
       }
 
-      // Compute centroid (element-wise mean)
-      const dim = memberDocs[0].vector.length
-      const centroid = new Array(dim).fill(0)
-      for (const doc of memberDocs) {
-        for (let d = 0; d < dim; d++) {
-          centroid[d] += doc.vector[d]
-        }
-      }
-      for (let d = 0; d < dim; d++) {
-        centroid[d] /= memberDocs.length
-      }
-
-      // Compute cohesion (mean pairwise similarity)
-      let totalSim = 0
-      let pairCount = 0
+      const memberDocs = c.members.map(i => docs[i])
+      let totalSim = 0, pairCount = 0
       for (let i = 0; i < memberDocs.length; i++) {
         for (let j = i + 1; j < memberDocs.length; j++) {
           totalSim += cosineSimilarity(memberDocs[i].vector, memberDocs[j].vector)
@@ -415,38 +426,28 @@ export class EmbeddingService {
       }
       const cohesion = pairCount > 0 ? totalSim / pairCount : 1
 
-      // Each card's similarity to centroid
       const cardSimilarities: Record<string, number> = {}
-      let bestLabel = ''
-      let bestSim = -1
+      let bestLabel = '', bestSim = -1
       for (const doc of memberDocs) {
         const cardId = doc.id.replace(/^card_/, '')
-        const sim = cosineSimilarity(centroid, doc.vector)
+        const sim = cosineSimilarity(c.centroid, doc.vector)
         cardSimilarities[cardId] = sim
-        if (sim > bestSim) {
-          bestSim = sim
-          bestLabel = doc.fields.title || cardId
-        }
+        if (sim > bestSim) { bestSim = sim; bestLabel = doc.fields.title || cardId }
       }
 
-      clusters.push({
-        id: `cluster-${clusters.length}`,
+      resultClusters.push({
+        id: `cluster-${resultClusters.length}`,
         label: bestLabel,
-        centroid,
+        centroid: c.centroid,
         cardIds: memberDocs.map(d => d.id.replace(/^card_/, '')),
         cohesion,
         cardSimilarities,
       })
     }
 
-    const result: ClusterResult = {
-      clusters,
-      orphanCards,
-      computedAt: Date.now(),
-    }
-    this.clusterCache = result
-    this.clusterCacheComputedAt = result.computedAt
-    return result
+    console.log(`[embedding/cluster] DONE: ${resultClusters.length} clusters, ${orphanCards.length} orphans`,
+      resultClusters.map(c => ({ label: c.label, count: c.cardIds.length })))
+    return { clusters: resultClusters, orphanCards, computedAt: Date.now() }
   }
 
   isModelAvailable(): boolean {

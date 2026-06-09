@@ -30,6 +30,7 @@ const TopographyView = lazy(() => import('./components/topography/TopographyView
 function App() {
   const viewMode = useLibraryStore(s => s.viewMode)
   const [showTopography, setShowTopography] = useState(false)
+
   const {
     showTrash, setShowTrash,
     showSettings, setShowSettings,
@@ -139,40 +140,9 @@ function App() {
       case 'board':
       default:
         if (showTopography) {
-          return (
-            <Suspense fallback={null}>
-              <TopographyView onCardClick={(id) => { setShowTopography(false); useLibraryStore.getState().openCardEditor(id) }} />
-              <button
-                onClick={() => setShowTopography(false)}
-                style={{
-                  position: 'absolute', top: 8, right: 48, zIndex: 30,
-                  background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: 6, color: 'rgba(255,255,255,0.7)', fontSize: 12,
-                  padding: '4px 10px', cursor: 'pointer',
-                }}
-              >
-                返回画布
-              </button>
-            </Suspense>
-          )
+          return <Suspense fallback={null}><TopographyView /></Suspense>
         }
-        return (
-          <>
-            <ReactFlowCanvas />
-            <Toolbar onAddCard={handleAddCard} onClipUrl={() => setShowClipUrlBar(true)} />
-            <button
-              onClick={() => setShowTopography(true)}
-              style={{
-                position: 'absolute', top: 8, right: 48, zIndex: 30,
-                background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 6, color: 'rgba(255,255,255,0.7)', fontSize: 12,
-                padding: '4px 10px', cursor: 'pointer',
-              }}
-            >
-              地形
-            </button>
-          </>
-        )
+        return <ReactFlowCanvas />
     }
   }
 
@@ -181,6 +151,8 @@ function App() {
   useEffect(() => {
     if (!dataReady) return
     preloadCardEditor()
+    // Prefetch topography cache so 3D view opens instantly
+    import('./components/topography/useClusterData').then(m => m.prefetchTopography())
   }, [dataReady])
 
   if (!dataReady) return null
@@ -198,13 +170,22 @@ function App() {
 
         <main
           className={`${isBoardView ? 'absolute inset-0 rounded-lg mx-0.5 mb-0.5' : 'flex-1 rounded-lg m-0.5'} overflow-hidden`}
-          style={{ backgroundColor: 'var(--surface-app)' }}
+          style={{ backgroundColor: (isBoardView && showTopography) ? '#0a0f2e' : 'var(--surface-app)', transition: 'background-color 0.4s ease' }}
         >
           {renderMainContent()}
         </main>
 
         {isBoardView && <RightPanel onOpenSettings={() => setShowSettings(true)} />}
       </div>
+
+      {isBoardView && (
+        <Toolbar
+          onAddCard={handleAddCard}
+          onClipUrl={() => setShowClipUrlBar(true)}
+          showTopography={showTopography}
+          onToggleTopography={() => setShowTopography(v => !v)}
+        />
+      )}
 
       {showTrash && (
         <Suspense fallback={null}><TrashBinPanel onClose={() => setShowTrash(false)} /></Suspense>

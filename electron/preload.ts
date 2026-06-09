@@ -65,6 +65,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('embedding:error', handler as any)
     },
   },
+  ai: {
+    generateSummary: (content: string, format?: string, customQuestion?: string) => ipcRenderer.invoke('ai:generateSummary', content, format, customQuestion),
+    generateClusterName: (titles: string[]) => ipcRenderer.invoke('ai:generateClusterName', titles),
+    getConfig: () => ipcRenderer.invoke('ai:getConfig'),
+    setConfig: (config: any) => ipcRenderer.invoke('ai:setConfig', config),
+    testConnection: () => ipcRenderer.invoke('ai:testConnection'),
+    onSummaryChunk: (callback: (data: { chunk: string }) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('ai:summary-chunk', handler)
+      return () => ipcRenderer.removeListener('ai:summary-chunk', handler as any)
+    },
+    onSummaryComplete: (callback: (data: { summary: string }) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('ai:summary-complete', handler)
+      return () => ipcRenderer.removeListener('ai:summary-complete', handler as any)
+    },
+    onSummaryError: (callback: (data: { message: string }) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('ai:summary-error', handler)
+      return () => ipcRenderer.removeListener('ai:summary-error', handler as any)
+    },
+  },
   startup: {
     log: (data: any) => ipcRenderer.invoke('startup:log', data),
     notifyProgress: (data: { step: string; progress: number; total: number }) => {
