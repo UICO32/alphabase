@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { setTheme, getTheme, resolveTheme, type ThemeMode } from '../theme'
+import type { GridPattern } from '../components/canvas/AdaptiveBackground'
 export type ViewMode = 'board' | 'cards' | 'boardLibrary'
 export type SortBy = 'updatedAt' | 'createdAt' | 'title' | 'related'
 export type SearchMode = 'hybrid' | 'keyword' | 'semantic'
@@ -55,6 +56,9 @@ interface LibraryStore {
   webviewUrl: string | null
   webviewSourceCardId: string | null
   setWebviewUrl: (url: string | null, cardId?: string | null) => void
+
+  gridPattern: GridPattern
+  setGridPattern: (pattern: GridPattern) => void
 }
 
 const SIDEBAR_WIDTH_MIN = 260
@@ -86,6 +90,7 @@ export const useLibraryStore = create<LibraryStore>()(
       searchMode: 'hybrid',
       webviewUrl: null,
       webviewSourceCardId: null,
+      gridPattern: 'cross',
 
       setViewMode: (mode) => set({ viewMode: mode }),
       setZoom: (zoom) => set({ zoom }),
@@ -97,6 +102,7 @@ export const useLibraryStore = create<LibraryStore>()(
         webviewSourceCardId: cardId ?? null,
         ...(url ? { rightPanelActiveTab: 'editor', rightPanelCollapsed: false } : {}),
       }),
+      setGridPattern: (pattern) => set({ gridPattern: pattern }),
       openCardEditor: (cardId) => set({ editingCardId: cardId }),
       closeCardEditor: () => set({ editingCardId: null }),
 

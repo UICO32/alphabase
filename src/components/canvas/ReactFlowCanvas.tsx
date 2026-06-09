@@ -68,6 +68,7 @@ export function ReactFlowCanvas() {
   const kanbanEditDialogCardId = useLibraryStore((s) => s.kanbanEditDialogCardId)
   const kanbanEditDialogSourceRect = useLibraryStore((s) => s.kanbanEditDialogSourceRect)
   const closeKanbanEditDialog = useLibraryStore((s) => s.closeKanbanEditDialog)
+  const gridPattern = useLibraryStore((s) => s.gridPattern)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
@@ -546,6 +547,7 @@ export function ReactFlowCanvas() {
       >
         <AdaptiveBackground
           color={isDarkMode ? '#ffffff' : '#18181b'}
+          pattern={gridPattern}
         />
         <AlignmentToolbar
           selectedNodes={alignableNodes}

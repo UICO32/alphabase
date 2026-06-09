@@ -1,5 +1,4 @@
 import { useCallback, useRef } from 'react'
-import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { CollapseButton } from './SharedUI'
@@ -61,11 +60,9 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 
   return (
     <>
-      <motion.div
+      <div
         className="absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden glass-panel-large"
-        style={{ width: rightPanelWidth, willChange: 'transform' }}
-        animate={{ x: rightPanelCollapsed ? rightPanelWidth : 0 }}
-        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+        style={{ width: rightPanelWidth, transform: `translateX(${rightPanelCollapsed ? rightPanelWidth : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
         onWheel={handleWheel}
       >
         <div
@@ -112,19 +109,15 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
 
     {rightPanelCollapsed && (
-      <motion.button
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ duration: 0.2 }}
+      <button
         onClick={() => setRightPanelCollapsed(false)}
         className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-text-secondary border border-border-default"
       >
         <PanelRightOpen size={16} />
-      </motion.button>
+      </button>
     )}
   </>
   )

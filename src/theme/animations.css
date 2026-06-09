@@ -272,6 +272,73 @@
   background-color: rgba(239, 68, 68, 0.2);
 }
 
+/* 3D Topography Sliding Toggle */
+.toolbar-toggle {
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  background: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  padding: 0;
+}
+
+.toolbar-toggle-track {
+  position: relative;
+  display: block;
+  height: 26px;
+  padding: 0;
+  border-radius: 13px;
+  background: var(--surface-card-active);
+  transition: background-color var(--duration-normal) var(--ease-default);
+  width: 48px;
+  box-sizing: border-box;
+}
+
+.toolbar-toggle:hover .toolbar-toggle-track {
+  background: var(--surface-card-hover);
+}
+
+/* 滑动圆形 */
+.toolbar-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--text-inverse);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  z-index: 3;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color var(--duration-normal) var(--ease-default),
+              color var(--duration-normal) var(--ease-default);
+}
+
+.toolbar-toggle-thumb-end {
+  left: calc(100% - 24px);
+  background: var(--color-blue-500);
+  color: white;
+}
+
+.toolbar-toggle-icon {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toolbar-toggle-icon-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
 /* Input Specific */
 .input-base {
   transition: border-color var(--duration-normal) var(--ease-default),

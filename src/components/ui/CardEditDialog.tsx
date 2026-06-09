@@ -118,7 +118,7 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
           animate={animateStyle}
           exit={exitStyle}
           transition={MORPH_TRANSITION}
-          style={{ boxShadow: 'var(--shadow-xl)', background: '#fafafa' }}
+          style={{ boxShadow: 'var(--shadow-xl)', backgroundColor: 'var(--surface-card)' }}
         >
           <div
             className="flex items-center justify-between px-5 py-3 border-b shrink-0 border-border-default"

@@ -297,7 +297,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
   }, [])
 
   return (
-    <div className="w-full h-full overflow-y-auto bg-surface-panel">
+    <div className="w-full h-full overflow-y-auto">
       <style>{`
         .card-library-preview h1,
         .card-library-preview h2,

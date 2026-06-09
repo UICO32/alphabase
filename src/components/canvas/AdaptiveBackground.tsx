@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { useStore } from '@xyflow/react'
 
-const CROSS_SIZE = 6
-const CROSS_WIDTH = 0.2
+export type GridPattern = 'cross' | 'dot' | 'circle' | 'triangle'
+
 const BASE_GAP = 25
 const MAX_OPACITY = 1
 
@@ -25,7 +25,44 @@ function stepOpacity(z: number, min: number, mid: number) {
   return modulate(z, [min, mid], [0, 1])
 }
 
-export function AdaptiveBackground({ color }: { color: string }) {
+function PatternShape({ pattern, color, cx, cy, size: _size }: {
+  pattern: GridPattern
+  color: string
+  cx: number
+  cy: number
+  size: number
+}) {
+  switch (pattern) {
+    case 'cross': {
+      const arm = 6
+      const w = 0.25
+      return (
+        <g>
+          <rect x={cx - arm / 2} y={cy - w / 2} width={arm} height={w} fill={color} />
+          <rect x={cx - w / 2} y={cy - arm / 2} width={w} height={arm} fill={color} />
+        </g>
+      )
+    }
+    case 'dot':
+      return <rect x={cx - 0.5} y={cy - 0.5} width={1} height={1} fill={color} />
+    case 'circle':
+      return <circle cx={cx} cy={cy} r={1} fill={color} />
+    case 'triangle': {
+      const r = 1.5
+      const h = r * Math.sqrt(3)
+      const top = cy - h * 2 / 3
+      const bottom = cy + h / 3
+      return (
+        <polygon
+          points={`${cx},${top} ${cx - r},${bottom} ${cx + r},${bottom}`}
+          fill={color}
+        />
+      )
+    }
+  }
+}
+
+export function AdaptiveBackground({ color, pattern = 'cross' }: { color: string; pattern?: GridPattern }) {
   const transform = useStore((s) => s.transform)
   const patternId = 'hepta-grid-pattern'
 
@@ -36,12 +73,9 @@ export function AdaptiveBackground({ color }: { color: string }) {
       .map((gs, i) => {
         const opacity = stepOpacity(z, gs.min, gs.mid) * MAX_OPACITY
         if (opacity <= 0) return null
-        // 与原生 Background 一致：scaledGap = gap * zoom
         const scaledGap = gs.step * BASE_GAP * z
-        // 偏移：直接用 transform[0]/[1] 取模，不需要乘 z
         const x = tx % scaledGap
         const y = ty % scaledGap
-        // patternTransform 偏移：与原生 Background 一致
         const scaledOffset = scaledGap / 2
         return { id: `${patternId}-grid-${i}`, scaledGap, x, y, scaledOffset, opacity }
       })
@@ -72,21 +106,12 @@ export function AdaptiveBackground({ color }: { color: string }) {
           patternTransform={`translate(-${layer.scaledOffset},-${layer.scaledOffset})`}
         >
           <g opacity={layer.opacity}>
-            {/* 横线 */}
-            <rect
-              x={layer.scaledGap / 2 - CROSS_SIZE / 2}
-              y={layer.scaledGap / 2 - CROSS_WIDTH / 2}
-              width={CROSS_SIZE}
-              height={CROSS_WIDTH}
-              fill={color}
-            />
-            {/* 竖线 */}
-            <rect
-              x={layer.scaledGap / 2 - CROSS_WIDTH / 2}
-              y={layer.scaledGap / 2 - CROSS_SIZE / 2}
-              width={CROSS_WIDTH}
-              height={CROSS_SIZE}
-              fill={color}
+            <PatternShape
+              pattern={pattern}
+              color={color}
+              cx={layer.scaledGap / 2}
+              cy={layer.scaledGap / 2}
+              size={layer.scaledGap}
             />
           </g>
         </pattern>

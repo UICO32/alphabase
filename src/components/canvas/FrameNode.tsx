@@ -1,7 +1,7 @@
 import { memo, useState, useCallback, useMemo, useSyncExternalStore } from 'react'
 import { type NodeProps, type Node, useReactFlow, useStore } from '@xyflow/react'
 import { createPortal } from 'react-dom'
-import { computeLayout, saveCardSnapshots, saveFrameSnapshot, restoreOrComputePositions, restoreFrameDimensions, updateSingleCardSnapshot, type FrameLayout, type KanbanColumn } from '../../utils/frameLayouts'
+import { computeLayout, saveCardSnapshots, saveFrameSnapshot, restoreOrComputePositions, restoreFrameDimensions, updateSingleCardSnapshot, type FrameLayout, type KanbanColumn, KANBAN_CARD_HEIGHT } from '../../utils/frameLayouts'
 import type { CardNodeData } from '../../types/card'
 import { kanbanDragPreview } from '../../utils/kanbanDragPreview'
 import { useFrameInteraction } from '../../utils/frameInteraction'
@@ -43,7 +43,6 @@ const DEFAULT_FRAME_WIDTH = 600
 const DEFAULT_FRAME_HEIGHT = 400
 const EDGE_SIZE = 8
 const CORNER_SIZE = 16
-const HEADER_HEIGHT = 44
 
 type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
@@ -138,7 +137,12 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         // 4. 恢复或计算目标 layout 的子卡片位置
         const childrenWithUpdatedData = children.map((n) => {
           const updatedData = cardSnapshots.get(n.id)
-          return updatedData ? { ...n, data: updatedData } : n
+          const base = updatedData ? { ...n, data: updatedData } : n
+          if (layout === 'kanban') {
+            const nd = base.data as Record<string, unknown>
+            return { ...base, data: { ...nd, height: KANBAN_CARD_HEIGHT } }
+          }
+          return base
         })
 
         const result = restoreOrComputePositions(
@@ -415,7 +419,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
   const tagScale = 1 / zoom
   const ts = tagScale
   const tagFontSize = 11 * ts
-  const tagDotSize = 3 * ts
+  const tagDotSize = 8 * ts
   const tagPaddingH = 10 * ts
   const tagPaddingV = 4 * ts
   const tagGap = 2 * ts
@@ -423,7 +427,8 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
   const tagInputWidth = 24 * ts
   const tagBorderWidth = 1 * ts
   const tagBorderRadius = 6 * ts
-  const dragHandleHeight = Math.max(44, 28 * ts)
+  const frameBorderW = Math.max(0.5, 1.5 * ts)
+  const dragHandleHeight = 36 * ts
 
   const rs = tagScale
   const edgeSize = Math.max(2, EDGE_SIZE * rs)
@@ -452,20 +457,20 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
           ? `color-mix(in srgb, ${frameColor} 8%, rgba(30,30,30,0.03))`
           : `color-mix(in srgb, ${frameColor} 8%, rgba(255,255,255,0.3))`,
         borderRadius: 18,
-        border: `${Math.max(0.5, 1.5 * ts)}px solid ${borderColor}`,
+        border: `${frameBorderW}px solid ${borderColor}`,
         boxShadow,
         pointerEvents: 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
     >
-      {/* 标签区域 — 拖拽 + hover + 双击编辑 */}
+      {/* 标签区域 — 拖拽 + hover + 双击编辑，放在 Frame 上方避免被卡片遮挡 */}
       <div
         className="frame-drag-handle select-none absolute"
         style={{
-          top: 0,
+          top: -(dragHandleHeight + frameBorderW),
           left: 0,
           height: dragHandleHeight,
-          zIndex: 3,
+          zIndex: 1,
           pointerEvents: 'auto',
           cursor: 'grab',
         }}
@@ -475,8 +480,8 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         <div
           className="inline-flex items-center"
           style={{
-            marginTop: 4 * ts,
-            marginLeft: 6 * ts,
+            marginTop: 2 * ts,
+            marginLeft: 0,
             background: isDarkMode
               ? `color-mix(in srgb, ${frameColor} 18%, rgba(25,25,25,0.98))`
               : `color-mix(in srgb, ${frameColor} 18%, rgba(255,255,255,0.98))`,
@@ -581,7 +586,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         {currentLayout === 'kanban' && kanbanColumns.length > 0 && (
         <div
           className="absolute inset-0 flex pointer-events-none"
-          style={{ top: HEADER_HEIGHT + 1 }}
+          style={{ top: 8 }}
         >
           {kanbanColumns.map((col, i) => (
             <div

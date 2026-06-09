@@ -2,10 +2,20 @@ import { useLibraryStore } from '../../../stores/libraryStore'
 import { useWorkspaceStore } from '../../../stores/workspaceStore'
 import { Moon, Sun, Monitor, FolderOpen } from 'lucide-react'
 import { VectorIndexSettings } from './VectorIndexSettings'
+import type { GridPattern } from '../../canvas/AdaptiveBackground'
+
+const GRID_PATTERNS: { value: GridPattern; label: string }[] = [
+  { value: 'cross', label: '十字' },
+  { value: 'dot', label: '方块' },
+  { value: 'circle', label: '圆形' },
+  { value: 'triangle', label: '三角' },
+]
 
 export function SystemSettings() {
   const themeMode = useLibraryStore(s => s.themeMode)
   const setThemeMode = useLibraryStore(s => s.setThemeMode)
+  const gridPattern = useLibraryStore(s => s.gridPattern)
+  const setGridPattern = useLibraryStore(s => s.setGridPattern)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
   const settings = useWorkspaceStore(s => s.settings)
   const updateSettings = useWorkspaceStore(s => s.updateSettings)
@@ -17,6 +27,24 @@ export function SystemSettings() {
           画布设置
         </h3>
         <div className="space-y-3">
+          <div>
+            <span className="text-sm text-text-primary block mb-2">背景图案</span>
+            <div className="flex gap-2">
+              {GRID_PATTERNS.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setGridPattern(p.value)}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm transition-colors ${
+                    gridPattern === p.value
+                      ? 'bg-text-primary text-text-inverse'
+                      : 'bg-surface-panel-hover text-text-primary hover:bg-surface-card-active'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="flex items-center justify-between p-3 rounded-lg bg-surface-panel-hover cursor-pointer hover:bg-surface-card-active transition-colors">
             <span className="text-sm text-text-primary">
               删除前确认

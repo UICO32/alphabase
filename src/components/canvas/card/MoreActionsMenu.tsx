@@ -75,14 +75,13 @@ export function MoreActionsMenu({
         minWidth: 200,
         padding: '6px 0',
         borderRadius: 8,
-        backgroundColor: isDarkMode ? '#27272a' : '#ffffff',
-        border: `1px solid ${isDarkMode ? '#3f3f46' : '#e4e4e7'}`,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+        backgroundColor: 'var(--surface-card)',
+        boxShadow: 'var(--shadow-lg)',
       }}
       onClick={(e) => e.stopPropagation()}
     >
       <div style={{ padding: '6px 12px' }}>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>颜色</div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>颜色</div>
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(CARD_COLORS) as CardColor[]).map((c) => (
             <button
@@ -105,7 +104,7 @@ export function MoreActionsMenu({
         </div>
       </div>
 
-      <div style={{ height: 1, backgroundColor: isDarkMode ? '#3f3f46' : '#e4e4e7', margin: '4px 0' }} />
+      <div style={{ height: 1, backgroundColor: 'var(--border-default)', margin: '4px 0' }} />
 
       {otherBoards.length > 0 && (
         <BoardSubmenu

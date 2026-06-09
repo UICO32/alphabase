@@ -1,5 +1,5 @@
 import { memo, useState, useMemo } from 'react'
-import { useCard } from '../../../stores/cardStore'
+import { useCard, useCardStore } from '../../../stores/cardStore'
 import { useLibraryStore } from '../../../stores/libraryStore'
 import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
 
@@ -63,14 +63,18 @@ export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCa
   }, [card])
 
   const images = useMemo(() => {
-    if (!card?.previewHTML) return []
-    return extractImages(card.previewHTML)
-  }, [card?.previewHTML])
+    if (!card) return []
+    const html = card.previewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
+    if (!html) return []
+    return extractImages(html)
+  }, [card, cardId])
 
   const preview = useMemo(() => {
-    if (!card?.previewHTML) return ''
-    return extractFirstText(card.previewHTML)
-  }, [card?.previewHTML])
+    if (!card) return ''
+    const html = card.previewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
+    if (!html) return ''
+    return extractFirstText(html)
+  }, [card, cardId])
 
   if (!card) return null
 
@@ -86,19 +90,20 @@ export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCa
   const shadowHover = isDarkMode ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 12px rgba(0,0,0,0.06)'
 
   const imageGridStyle = (() => {
-    if (imageCount === 1) return { gridTemplateColumns: '1fr', height: 140 }
-    if (imageCount === 2) return { gridTemplateColumns: '1fr 1fr', height: 120 }
-    if (imageCount === 3) return { gridTemplateColumns: '1.2fr 0.8fr', gridTemplateRows: '1fr 1fr', height: 140 }
-    return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', height: 140 }
+    if (imageCount === 1) return { gridTemplateColumns: '1fr' }
+    if (imageCount === 2) return { gridTemplateColumns: '1fr 1fr' }
+    if (imageCount === 3) return { gridTemplateColumns: '1.2fr 0.8fr', gridTemplateRows: '1fr 1fr' }
+    return { gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr' }
   })()
 
   return (
     <div
       style={{
         width: width ?? '100%',
-        height: height ?? 'auto',
+        minHeight: height ?? 60,
+        height: 'auto',
         background: cardBg,
-        borderRadius: 14,
+        borderRadius: 10,
         padding: 2,
         boxShadow: isHovered ? shadowHover : shadowDefault,
         cursor: 'grab',
@@ -118,16 +123,18 @@ export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCa
     >
       <div style={{
         background: cardBg,
-        borderRadius: 12,
+        borderRadius: 8,
         overflow: 'hidden',
+        padding: '8px 10px 0',
       }}>
         {imageCount > 0 && (
           <div
             style={{
               display: 'grid',
               gap: 2,
-              borderRadius: 12,
+              borderRadius: 6,
               overflow: 'hidden',
+              position: 'relative',
               ...imageGridStyle,
             }}
           >
@@ -136,6 +143,7 @@ export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCa
                 key={i}
                 style={{
                   overflow: 'hidden',
+                  position: 'relative',
                   ...(imageCount === 3 && i === 0 ? { gridRow: '1 / -1' } : {}),
                   ...(imageCount === 1 ? { aspectRatio: '16/9' } : { aspectRatio: '4/3' }),
                 }}
@@ -153,39 +161,35 @@ export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCa
                   }}
                   loading="lazy"
                 />
+                {imageCount > 4 && i === 3 && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}>
+                    +{imageCount - 4}
+                  </div>
+                )}
               </div>
             ))}
-            {imageCount > 4 && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: '50%',
-                height: '50%',
-                background: 'rgba(0,0,0,0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontSize: 16,
-                fontWeight: 600,
-                borderRadius: 12,
-              }}>
-                +{imageCount - 4}
-              </div>
-            )}
           </div>
         )}
 
-        <div style={{ padding: '12px 14px 12px' }}>
+        <div style={{ padding: imageCount > 0 ? '8px 0 10px' : '10px 0' }}>
           {title && (
             <div
               style={{
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: 600,
                 lineHeight: 1.4,
                 color: titleColor,
-                marginBottom: 4,
+                marginBottom: preview ? 3 : 0,
                 overflow: 'hidden',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,

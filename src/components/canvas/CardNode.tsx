@@ -13,13 +13,15 @@ import { useFrameInteraction } from '../../utils/frameInteraction'
 import { useBoardStore } from '../../stores/boardStore'
 import { getActiveSyncEngine } from '../../sync/syncEngineRef'
 import { useEventBus } from '../../stores/eventBus'
+import { useAIStore } from '../../stores/aiStore'
 import { CardHandles } from './card/CardHandles'
 import { CardActionBar } from './card/CardActionBar'
 import { CardContent } from './card/CardContent'
 import { CollapsedContent } from './card/CollapsedContent'
 import { MiniCard } from './card/MiniCard'
+import { SummaryButton } from './card/SummaryButton'
 import type { FrameNodeData } from './FrameNode'
-import type { FrameLayout } from '../../utils/frameLayouts'
+import { computeLayout, type FrameLayout } from '../../utils/frameLayouts'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
@@ -49,6 +51,64 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   })()
   const showMiniCard = isInFrame && frameLayout === 'kanban' && !isEditing
 
+  const miniCardRef = useRef<HTMLDivElement>(null)
+  const measuredHeightRef = useRef<number>(0)
+
+  useEffect(() => {
+    if (!showMiniCard || !miniCardRef.current || !data.frameId) return
+    const el = miniCardRef.current
+    measuredHeightRef.current = data.height ?? 0
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const measuredH = Math.round(entry.contentRect.height)
+        if (measuredH < 10) return
+        const currentH = measuredHeightRef.current
+        if (Math.abs(measuredH - currentH) > 5) {
+          measuredHeightRef.current = measuredH
+          setNodes(nds => {
+            const frameNode = nds.find(n => n.id === data.frameId)
+            if (!frameNode) return nds
+            const fd = frameNode.data as FrameNodeData
+            if (fd.layout !== 'kanban') return nds
+
+            let updated = nds.map(n =>
+              n.id === data.cardId
+                ? { ...n, data: { ...n.data, height: measuredH } }
+                : n
+            )
+
+            const uf = updated.find(n => n.id === data.frameId)!
+            const children = updated.filter(n => {
+              const nd = n.data as Record<string, unknown>
+              return nd.frameId === data.frameId && n.id !== data.frameId
+            })
+            const result = computeLayout(uf, children, 'kanban')
+
+            return updated.map(n => {
+              if (n.id === data.frameId) return n
+              const pos = result.positions[n.id]
+              if (pos) {
+                return {
+                  ...n,
+                  position: { x: uf.position.x + pos.x, y: uf.position.y + pos.y },
+                  data: {
+                    ...n.data,
+                    localX: pos.x,
+                    localY: pos.y,
+                    ...(pos.width ? { width: pos.width } : {}),
+                  },
+                }
+              }
+              return n
+            })
+          })
+        }
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [showMiniCard, data.frameId, data.cardId, setNodes])
+
   useEffect(() => {
     setNodes((nds) =>
       nds.map((n) => {
@@ -64,6 +124,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const card = useCard(data.cardId)
   const updateCard = useCardStore((s) => s.updateCard)
+  const hasSummaryBubble = useAIStore(s => s.streamingCardId === data.cardId && (s.isStreaming || !!s.streamingText))
 
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
@@ -260,6 +321,20 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     })
   }, [data.cardId, getNode, setNodes, setEdges])
 
+  // Cache card data for SummaryButton to read when clicked
+  useEffect(() => {
+    const win = window as any
+    if (!win.__cardDataCache) win.__cardDataCache = {}
+    const cardData = useCardStore.getState().cards[data.cardId]
+    if (cardData) {
+      win.__cardDataCache[data.cardId] = {
+        content: cardData.content,
+        previewHTML: cardData.previewHTML || useCardStore.getState().getPreviewHTML(data.cardId) || '',
+        color: cardData.color,
+      }
+    }
+  }, [data.cardId, card?.content, card?.previewHTML])
+
   if (!card) {
     return (
       <div
@@ -276,11 +351,13 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   if (showMiniCard) {
     return (
-      <MiniCard
-        cardId={data.cardId}
-        width={data.width}
-        height={data.height}
-      />
+      <div ref={miniCardRef} style={{ width: '100%', height: 'auto' }}>
+        <MiniCard
+          cardId={data.cardId}
+          width={data.width}
+          height={undefined}
+        />
+      </div>
     )
   }
 
@@ -305,7 +382,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     'card-node-default',
     'relative',
     'rounded-2xl',
-    (isEditing || selected) ? 'overflow-visible' : 'overflow-hidden',
+    (isEditing || selected || isHovered || hasSummaryBubble) ? 'overflow-visible' : 'overflow-hidden',
     isConnectingSource ? 'card-node-connecting-source' : '',
     isNearbyTarget ? 'card-node-nearby-target' : '',
     isLassoSelected ? 'card-node-lasso-selected' : '',
@@ -365,6 +442,12 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       )}
 
       <CardHandles />
+
+      <SummaryButton
+        color={data.color}
+        visible={isHovered || !!selected}
+        cardId={data.cardId}
+      />
 
       <CardActionBar
         cardId={data.cardId}

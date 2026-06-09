@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { motion } from 'framer-motion'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useBoardActions } from '../../hooks/useBoardActions'
@@ -48,11 +47,9 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
 
   return (
     <>
-      <motion.div
+      <div
         className={`${isBoardView ? 'absolute left-0 top-0 bottom-0 z-10' : 'shrink-0'} flex flex-col h-full overflow-hidden glass-panel-large`}
-        style={{ width: SIDEBAR_WIDTH }}
-        animate={{ x: leftPanelCollapsed ? -SIDEBAR_WIDTH : 0 }}
-        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+        style={{ width: SIDEBAR_WIDTH, transform: `translateX(${leftPanelCollapsed ? -SIDEBAR_WIDTH : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
         onWheel={handleWheel}
       >
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-default transition-theme">
@@ -114,19 +111,15 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
                 <span className="text-sm">回收站</span>
               </button>
             </div>
-          </motion.div>
+          </div>
 
       {leftPanelCollapsed && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          transition={{ duration: 0.2 }}
+        <button
           onClick={() => setLeftPanelCollapsed(false)}
           className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-text-secondary border border-border-default"
         >
           <PanelLeftOpen size={16} />
-        </motion.button>
+        </button>
       )}
     </>
   )
