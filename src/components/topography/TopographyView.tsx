@@ -16,7 +16,7 @@ const DARK_COLORS = {
   starColor: 0x3355aa,
   contourLine: 0xffffff, contourFill: 0x00060e,
   compassColor: 0xffcc00,
-  labelBg: 'rgba(255,185,0,.72)', labelColor: 'rgba(255,190,0,.95)',
+  labelBg: 'rgba(0,0,0,.72)', labelColor: 'rgba(255,255,255,.9)',
   textColor: 'rgba(255,180,0,0.6)', errorColor: 'rgba(255,80,80,0.8)',
 }
 
@@ -26,7 +26,7 @@ const LIGHT_COLORS = {
   starColor: 0x9999aa,
   contourLine: 0x222222, contourFill: 0xe0e0d8,
   compassColor: 0xb8860b,
-  labelBg: 'rgba(184,134,11,.72)', labelColor: 'rgba(255,255,255,.95)',
+  labelBg: 'rgba(0,0,0,.72)', labelColor: 'rgba(255,255,255,.9)',
   textColor: 'rgba(120,80,0,0.7)', errorColor: 'rgba(200,60,60,0.8)',
 }
 
@@ -42,6 +42,7 @@ function hashStr(s: string): number {
 interface HouseData {
   fillMesh: THREE.Mesh
   outlineMesh: THREE.LineSegments
+  hitMesh: THREE.Mesh
   // Precomputed face normals (unit) in local space
   faceNormals: THREE.Vector3[]
   // Edge-face adjacency: each edge knows which two faces share it
@@ -246,6 +247,15 @@ function buildHouses(
       fillMesh.position.set(x, y, z)
       fillMesh.scale.setScalar(scale)
 
+      // Invisible hit box — 2x larger for easier hover/click
+      const hitMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.30, 0.30, 0.26),
+        new THREE.MeshBasicMaterial({ visible: false }),
+      )
+      hitMesh.position.set(x, y + 0.07 * scale, z)
+      hitMesh.scale.setScalar(scale)
+      hitMesh.userData.fillIndex = -1 // set later
+
       // Outline LineSegments — buffer sized for all edges, updated each frame
       const maxSegs = template.edgeFaces.length
       const oGeo = new THREE.BufferGeometry()
@@ -262,6 +272,7 @@ function buildHouses(
       houses.push({
         fillMesh,
         outlineMesh,
+        hitMesh,
         faceNormals: polyNormals,
         edgeFaces: template.edgeFaces,
         edgeVerts: template.edgeVerts,
@@ -398,6 +409,10 @@ export function TopographyView() {
             if (mb.color.getHex() === 0xffffff) mb.color.set(C.contourLine)
             if (mb.color.getHex() === 0x00060e) mb.color.set(C.contourFill)
           }
+          if (mat.type === 'LineBasicMaterial') {
+            const lb = mat as THREE.LineBasicMaterial
+            if (lb.color.getHex() === 0xffffff) lb.color.set(C.contourLine)
+          }
         }
       })
     }
@@ -411,6 +426,7 @@ export function TopographyView() {
     for (const house of houses) {
       houseGroup.add(house.fillMesh)
       houseGroup.add(house.outlineMesh)
+      houseGroup.add(house.hitMesh)
     }
     scene.add(houseGroup)
 
@@ -571,6 +587,7 @@ export function TopographyView() {
     const raycaster = new THREE.Raycaster()
     const mouse = new THREE.Vector2()
     let hoveredIdx = -1
+    let selectedHouseIdx = -1
     let hoverPauseTimer: ReturnType<typeof setTimeout> | null = null
     let isHoverPaused = false
 
@@ -589,10 +606,10 @@ export function TopographyView() {
         -((e.clientY - rect.top) / rect.height) * 2 + 1,
       )
       raycaster.setFromCamera(clickMouse, camera)
-      const fillMeshes = houses.map(h => h.fillMesh)
-      const intersects = raycaster.intersectObjects(fillMeshes, false)
+      const clickHitMeshes = houses.map(h => h.hitMesh)
+      const intersects = raycaster.intersectObjects(clickHitMeshes, false)
       if (intersects.length > 0) {
-        const hitIdx = fillMeshes.indexOf(intersects[0].object as THREE.Mesh)
+        const hitIdx = clickHitMeshes.indexOf(intersects[0].object as THREE.Mesh)
         const hd = houseWorldPositions[hitIdx]
         if (!hd) return
 
@@ -624,12 +641,12 @@ export function TopographyView() {
         }
         animateZoom()
 
-        // Bold black outline for selected house
+        // Bold outline for selected house
+        selectedHouseIdx = hitIdx
         for (let i = 0; i < houses.length; i++) {
           const mat = houses[i].outlineMesh.material as THREE.LineBasicMaterial
-          mat.color.set(0x000000)
+          mat.color.set(i === hitIdx ? 0x2266dd : 0x000000)
           mat.opacity = i === hitIdx ? 1.0 : 0.3
-          mat.linewidth = i === hitIdx ? 3 : 1
         }
 
         // Dim nearby mountain fills to reduce occlusion
@@ -721,13 +738,13 @@ export function TopographyView() {
         updateSilhouette(house, camDir)
       }
 
-      // House hover raycast
+      // House hover raycast (use larger hit boxes for easier targeting)
       raycaster.setFromCamera(mouse, camera)
-      const fillMeshes = houses.map(h => h.fillMesh)
-      const intersects = raycaster.intersectObjects(fillMeshes, false)
+      const hitMeshes = houses.map(h => h.hitMesh)
+      const intersects = raycaster.intersectObjects(hitMeshes, false)
 
       if (intersects.length > 0) {
-        const hitIdx = fillMeshes.indexOf(intersects[0].object as THREE.Mesh)
+        const hitIdx = hitMeshes.indexOf(intersects[0].object as THREE.Mesh)
         if (hitIdx !== hoveredIdx) {
           hoveredIdx = hitIdx
         }
@@ -756,6 +773,18 @@ export function TopographyView() {
         }
         hoveredIdx = -1
         tooltipEl!.style.opacity = '0'
+      }
+
+      // Update house fill colors: hover = light blue, selected = blue, default = white
+      for (let i = 0; i < houses.length; i++) {
+        const mat = houses[i].fillMesh.material as THREE.MeshBasicMaterial
+        if (i === selectedHouseIdx) {
+          mat.color.setHex(0x4488ff)
+        } else if (i === hoveredIdx) {
+          mat.color.setHex(0x88bbff)
+        } else {
+          mat.color.setHex(0xffffff)
+        }
       }
 
       // Animate clouds (slow drift)
@@ -814,7 +843,7 @@ export function TopographyView() {
   const C = isDark ? DARK_COLORS : LIGHT_COLORS
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', background: `#${C.bg.toString(16).padStart(6, '0')}` }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: `#${C.bg.toString(16).padStart(6, '0')}` }}>
       {loading && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
