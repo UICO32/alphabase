@@ -68,8 +68,7 @@ describe('CommandManager', () => {
 
   it('clear 应清空历史', () => {
     const cm = new CommandManager()
-    let value = 0
-    cm.execute(() => { value = 0 }, () => { value = 1 })
+    cm.execute(() => {}, () => {})
     cm.clear()
     expect(cm.canUndo).toBe(false)
     expect(cm.canRedo).toBe(false)
