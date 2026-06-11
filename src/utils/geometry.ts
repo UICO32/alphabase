@@ -39,6 +39,51 @@ export class Bound {
   }
 }
 
+export type IVec = [number, number]
+
+export const Vec = {
+  add(a: IVec, b: IVec): IVec { return [a[0] + b[0], a[1] + b[1]] },
+  sub(a: IVec, b: IVec): IVec { return [a[0] - b[0], a[1] - b[1]] },
+  mul(v: IVec, s: number): IVec { return [v[0] * s, v[1] * s] },
+  dot(a: IVec, b: IVec): number { return a[0] * b[0] + a[1] * b[1] },
+  len(v: IVec): number { return Math.sqrt(v[0] * v[0] + v[1] * v[1]) },
+  normalize(v: IVec): IVec {
+    const l = Vec.len(v)
+    return l === 0 ? [0, 0] : [v[0] / l, v[1] / l]
+  },
+  dist(a: IVec, b: IVec): number { return Vec.len(Vec.sub(a, b)) },
+  nearestPointOnLineSegment(p: IVec, a: IVec, b: IVec): IVec {
+    const ab = Vec.sub(b, a)
+    const ap = Vec.sub(p, a)
+    const abLenSq = Vec.dot(ab, ab)
+    if (abLenSq === 0) return a
+    const t = Math.max(0, Math.min(1, Vec.dot(ap, ab) / abLenSq))
+    return Vec.add(a, Vec.mul(ab, t))
+  },
+}
+
+export function lineIntersects(a1: IVec, a2: IVec, b1: IVec, b2: IVec): IVec | null {
+  const d = (a1[0] - a2[0]) * (b1[1] - b2[1]) - (a1[1] - a2[1]) * (b1[0] - b2[0])
+  if (d === 0) return null
+  const x =
+    ((a1[0] * a2[1] - a1[1] * a2[0]) * (b1[0] - b2[0]) -
+      (a1[0] - a2[0]) * (b1[0] * b2[1] - b1[1] * b2[0])) /
+    d
+  const y =
+    ((a1[0] * a2[1] - a1[1] * a2[0]) * (b1[1] - b2[1]) -
+      (a1[1] - a2[1]) * (b1[0] * b2[1] - b1[1] * b2[0])) /
+    d
+
+  const within = (v: number, a: number, b: number) =>
+    (v >= a && v <= b) || (v >= b && v <= a)
+
+  if (within(x, a1[0], a2[0]) && within(x, b1[0], b2[0]) &&
+      within(y, a1[1], a2[1]) && within(y, b1[1], b2[1])) {
+    return [x, y]
+  }
+  return null
+}
+
 export function edgePointOnRect(
   rx: number, ry: number, rw: number, rh: number,
   cx: number, cy: number,

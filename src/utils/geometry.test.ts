@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Bound, edgePointOnRect, getBestHandles, positionToHandleId } from './geometry'
+import { Bound, Vec, lineIntersects, edgePointOnRect, getBestHandles, positionToHandleId } from './geometry'
 import { Position } from '@xyflow/react'
 
 describe('Bound', () => {
@@ -49,6 +49,71 @@ describe('Bound', () => {
     const rect = { left: 5, top: 10, width: 80, height: 40, right: 85, bottom: 50, x: 5, y: 10 }
     const b = Bound.fromDOMRect(rect as DOMRect)
     expect(b).toEqual(new Bound(5, 10, 80, 40))
+  })
+})
+
+describe('Vec', () => {
+  it('add', () => {
+    expect(Vec.add([1, 2], [3, 4])).toEqual([4, 6])
+  })
+
+  it('sub', () => {
+    expect(Vec.sub([5, 7], [2, 3])).toEqual([3, 4])
+  })
+
+  it('mul', () => {
+    expect(Vec.mul([2, 3], 4)).toEqual([8, 12])
+  })
+
+  it('dot', () => {
+    expect(Vec.dot([1, 2], [3, 4])).toBe(11)
+  })
+
+  it('len', () => {
+    expect(Vec.len([3, 4])).toBe(5)
+  })
+
+  it('normalize', () => {
+    expect(Vec.normalize([3, 4])).toEqual([0.6, 0.8])
+  })
+
+  it('normalize — 零向量返回 [0,0]', () => {
+    expect(Vec.normalize([0, 0])).toEqual([0, 0])
+  })
+
+  it('dist', () => {
+    expect(Vec.dist([1, 2], [4, 6])).toBe(5)
+  })
+
+  it('nearestPointOnLineSegment — 点在线段上', () => {
+    const result = Vec.nearestPointOnLineSegment([2, 1], [0, 0], [4, 0])
+    expect(result[0]).toBeCloseTo(2)
+    expect(result[1]).toBeCloseTo(0)
+  })
+
+  it('nearestPointOnLineSegment — 点在线段外（clamp 到端点）', () => {
+    const result = Vec.nearestPointOnLineSegment([5, 1], [0, 0], [4, 0])
+    expect(result[0]).toBeCloseTo(4)
+    expect(result[1]).toBeCloseTo(0)
+  })
+})
+
+describe('lineIntersects', () => {
+  it('两条相交线段应返回交点', () => {
+    const result = lineIntersects([0, 0], [4, 4], [0, 4], [4, 0])
+    expect(result).not.toBeNull()
+    expect(result![0]).toBeCloseTo(2)
+    expect(result![1]).toBeCloseTo(2)
+  })
+
+  it('两条不相交线段应返回 null', () => {
+    const result = lineIntersects([0, 0], [1, 1], [3, 3], [4, 4])
+    expect(result).toBeNull()
+  })
+
+  it('平行线段应返回 null', () => {
+    const result = lineIntersects([0, 0], [4, 0], [0, 1], [4, 1])
+    expect(result).toBeNull()
   })
 })
 
