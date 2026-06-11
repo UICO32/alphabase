@@ -1,0 +1,84 @@
+import { memo, useMemo } from 'react'
+import { useCardStore } from '../../../stores/cardStore'
+import { extractTitleFromJSON, extractFirstTextFromHTML } from '../../../utils/cardPreview'
+import './zoomPreview.css'
+
+interface ZoomPreviewProps {
+  cardId: string
+  content: string
+  previewHTML?: string
+  visible: boolean
+}
+
+export const ZoomPreview = memo(function ZoomPreview({
+  cardId,
+  content,
+  previewHTML,
+  visible,
+}: ZoomPreviewProps) {
+  const title = useMemo(() => extractTitleFromJSON(content), [content])
+
+  const preview = useMemo(() => {
+    const html = previewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
+    return extractFirstTextFromHTML(html)
+  }, [previewHTML, cardId])
+
+  if (!title && !preview) return null
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        overflow: 'hidden',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.25s ease',
+        pointerEvents: 'none',
+        zIndex: 5,
+        contain: 'layout style paint',
+      }}
+    >
+      <div
+        style={{
+          padding: 'calc(6px * var(--rf-inv-zoom, 1)) calc(8px * var(--rf-inv-zoom, 1))',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          height: '100%',
+        }}
+      >
+        {title && (
+          <div
+            style={{
+              fontSize: 'calc(14px * var(--rf-inv-zoom, 1))',
+              fontWeight: 600,
+              lineHeight: 1.3,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              marginBottom: preview ? 'calc(3px * var(--rf-inv-zoom, 1))' : 0,
+            }}
+          >
+            {title}
+          </div>
+        )}
+        {preview && (
+          <div
+            style={{
+              fontSize: 'calc(11px * var(--rf-inv-zoom, 1))',
+              lineHeight: 1.4,
+              opacity: 0.55,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+            }}
+          >
+            {preview}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+})
