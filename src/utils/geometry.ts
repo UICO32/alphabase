@@ -1,5 +1,44 @@
 import { Position } from '@xyflow/react'
 
+export class Bound {
+  x: number
+  y: number
+  w: number
+  h: number
+
+  constructor(x: number, y: number, w: number, h: number) {
+    this.x = x
+    this.y = y
+    this.w = w
+    this.h = h
+  }
+
+  get maxX() { return this.x + this.w }
+  get maxY() { return this.y + this.h }
+  get center() { return { x: this.x + this.w / 2, y: this.y + this.h / 2 } }
+
+  contains(other: Bound): boolean {
+    return this.x <= other.x && this.y <= other.y && this.maxX >= other.maxX && this.maxY >= other.maxY
+  }
+
+  intersects(other: Bound): boolean {
+    return this.x < other.maxX && this.maxX > other.x && this.y < other.maxY && this.maxY > other.y
+  }
+
+  serialize(): string {
+    return `${this.x},${this.y},${this.w},${this.h}`
+  }
+
+  static deserialize(xywh: string): Bound {
+    const [x, y, w, h] = xywh.split(',').map(Number)
+    return new Bound(x, y, w, h)
+  }
+
+  static fromDOMRect(rect: DOMRect): Bound {
+    return new Bound(rect.left, rect.top, rect.width, rect.height)
+  }
+}
+
 export function edgePointOnRect(
   rx: number, ry: number, rw: number, rh: number,
   cx: number, cy: number,

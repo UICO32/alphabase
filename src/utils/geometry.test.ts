@@ -1,6 +1,56 @@
 import { describe, it, expect } from 'vitest'
-import { edgePointOnRect, getBestHandles, positionToHandleId } from './geometry'
+import { Bound, edgePointOnRect, getBestHandles, positionToHandleId } from './geometry'
 import { Position } from '@xyflow/react'
+
+describe('Bound', () => {
+  it('构造和基本属性', () => {
+    const b = new Bound(10, 20, 100, 50)
+    expect(b.x).toBe(10)
+    expect(b.y).toBe(20)
+    expect(b.w).toBe(100)
+    expect(b.h).toBe(50)
+  })
+
+  it('center 应返回中心点', () => {
+    const b = new Bound(0, 0, 100, 200)
+    expect(b.center).toEqual({ x: 50, y: 100 })
+  })
+
+  it('contains — 包含', () => {
+    const outer = new Bound(0, 0, 200, 200)
+    const inner = new Bound(50, 50, 50, 50)
+    expect(outer.contains(inner)).toBe(true)
+  })
+
+  it('contains — 不包含', () => {
+    const a = new Bound(0, 0, 100, 100)
+    const b = new Bound(50, 50, 100, 100)
+    expect(a.contains(b)).toBe(false)
+  })
+
+  it('intersects — 有重叠', () => {
+    const a = new Bound(0, 0, 100, 100)
+    const b = new Bound(50, 50, 100, 100)
+    expect(a.intersects(b)).toBe(true)
+  })
+
+  it('intersects — 无重叠', () => {
+    const a = new Bound(0, 0, 100, 100)
+    const b = new Bound(200, 200, 100, 100)
+    expect(a.intersects(b)).toBe(false)
+  })
+
+  it('serialize / deserialize', () => {
+    const b = new Bound(10, 20, 100, 50)
+    expect(Bound.deserialize(b.serialize())).toEqual(b)
+  })
+
+  it('fromDOMRect', () => {
+    const rect = { left: 5, top: 10, width: 80, height: 40, right: 85, bottom: 50, x: 5, y: 10 }
+    const b = Bound.fromDOMRect(rect as DOMRect)
+    expect(b).toEqual(new Bound(5, 10, 80, 40))
+  })
+})
 
 describe('edgePointOnRect', () => {
   it('目标在右侧应返回右边缘中点', () => {
