@@ -88,16 +88,29 @@ export function edgePointOnRect(
   rx: number, ry: number, rw: number, rh: number,
   cx: number, cy: number,
 ): { x: number; y: number } {
-  const centerX = rx + rw / 2
-  const centerY = ry + rh / 2
-  const dx = cx - centerX
-  const dy = cy - centerY
-  const absDx = Math.abs(dx)
-  const absDy = Math.abs(dy)
-  if (absDx * rh > absDy * rw) {
-    return { x: dx > 0 ? rx + rw : rx, y: centerY }
+  const rect = new Bound(rx, ry, rw, rh)
+  const target: IVec = [cx, cy]
+
+  const corners: IVec[] = [
+    [rect.x, rect.y],
+    [rect.maxX, rect.y],
+    [rect.maxX, rect.maxY],
+    [rect.x, rect.maxY],
+  ]
+
+  let bestDist = Infinity
+  let bestPoint: IVec = [rect.x, rect.y]
+
+  for (let i = 0; i < 4; i++) {
+    const pt = Vec.nearestPointOnLineSegment(target, corners[i], corners[(i + 1) % 4])
+    const d = Vec.dist(pt, target)
+    if (d < bestDist) {
+      bestDist = d
+      bestPoint = pt
+    }
   }
-  return { x: centerX, y: dy > 0 ? ry + rh : ry }
+
+  return { x: bestPoint[0], y: bestPoint[1] }
 }
 
 export function getBestHandles(
