@@ -545,7 +545,7 @@ export function TopographyView() {
     for (const a of sceneData.anchorPositions) {
       const peak = peaksRef.current.find(p => p.id === a.id)
       const el = document.createElement('div')
-      el.style.cssText = 'position:absolute;pointer-events:auto;cursor:default;z-index:20;' +
+      el.style.cssText = 'position:absolute;pointer-events:auto;cursor:default;z-index:5;' +
         'display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);' +
         'font-family:Courier New,monospace;opacity:0;transition:opacity .5s;'
 
@@ -575,7 +575,7 @@ export function TopographyView() {
     let tooltipEl = tooltipElRef.current
     if (!tooltipEl) {
       tooltipEl = document.createElement('div')
-      tooltipEl.style.cssText = 'position:absolute;z-index:30;pointer-events:none;' +
+      tooltipEl.style.cssText = 'position:absolute;z-index:5;pointer-events:none;' +
         'background:rgba(0,0,0,.72);color:rgba(255,255,255,.9);font-size:10px;' +
         'padding:3px 8px;border-radius:4px;white-space:nowrap;font-family:Courier New,monospace;' +
         'opacity:0;transition:opacity .15s;transform:translate(-50%,-100%);'
@@ -728,8 +728,6 @@ export function TopographyView() {
         if (entryDone || elapsed > 600) el.style.opacity = '1'
         const lx = (_v.x * 0.5 + 0.5) * cw()
         const rawLy = (-_v.y * 0.5 + 0.5) * ch()
-        // Clamp: label uses translate(-50%,-100%) so it renders ABOVE rawLy;
-        // ensure the bottom of the label (at rawLy) is within the container
         const ly = Math.max(20, Math.min(rawLy, ch() - 4))
         el.style.left = lx + 'px'
         el.style.top = ly + 'px'
@@ -854,7 +852,7 @@ export function TopographyView() {
       {loading && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          color: C.textColor, fontSize: 11, letterSpacing: 7, zIndex: 30,
+          color: C.textColor, fontSize: 11, letterSpacing: 7, zIndex: 5,
           fontFamily: 'Courier New, monospace',
         }}>
           LOADING TOPOGRAPHY...
@@ -863,7 +861,7 @@ export function TopographyView() {
       {error && (
         <div style={{
           position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)',
-          color: C.errorColor, fontSize: 10, zIndex: 30,
+          color: C.errorColor, fontSize: 10, zIndex: 5,
           fontFamily: 'Courier New, monospace',
         }}>
           {error}
