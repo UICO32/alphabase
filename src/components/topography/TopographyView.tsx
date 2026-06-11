@@ -726,8 +726,13 @@ export function TopographyView() {
         _v.copy(a.worldPos).project(camera)
         if (_v.z > 1) { el.style.opacity = '0'; continue }
         if (entryDone || elapsed > 600) el.style.opacity = '1'
-        el.style.left = ((_v.x * 0.5 + 0.5) * cw()) + 'px'
-        el.style.top = ((-_v.y * 0.5 + 0.5) * ch()) + 'px'
+        const lx = (_v.x * 0.5 + 0.5) * cw()
+        const rawLy = (-_v.y * 0.5 + 0.5) * ch()
+        // Clamp: label uses translate(-50%,-100%) so it renders ABOVE rawLy;
+        // ensure the bottom of the label (at rawLy) is within the container
+        const ly = Math.max(20, Math.min(rawLy, ch() - 4))
+        el.style.left = lx + 'px'
+        el.style.top = ly + 'px'
       }
 
       // Update silhouette edges based on camera direction
@@ -758,8 +763,10 @@ export function TopographyView() {
           const hd = houseWorldPositions[hoveredIdx]
           _v.set(hd.x, hd.y, hd.z).project(camera)
           tooltipEl!.style.opacity = '1'
-          tooltipEl!.style.left = ((_v.x * 0.5 + 0.5) * cw()) + 'px'
-          tooltipEl!.style.top = ((-_v.y * 0.5 + 0.5) * ch()) + 'px'
+          const tx = (_v.x * 0.5 + 0.5) * cw()
+          const ty = Math.max(16, (-_v.y * 0.5 + 0.5) * ch())
+          tooltipEl!.style.left = tx + 'px'
+          tooltipEl!.style.top = ty + 'px'
           tooltipEl!.textContent = hd.title
         }
       } else {
