@@ -20,6 +20,8 @@ import { CardContent } from './card/CardContent'
 import { CollapsedContent } from './card/CollapsedContent'
 import { MiniCard } from './card/MiniCard'
 import { SummaryButton } from './card/SummaryButton'
+import { ZoomPreview } from './card/ZoomPreview'
+import { useIsZoomedOut } from '../../hooks/useIsZoomedOut'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from '../../utils/frameLayouts'
 
@@ -28,6 +30,7 @@ type CardNodeType = Node<CardNodeData, 'card'>
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const isCollapsed = data.collapsed ?? false
   const isInFrame = !!data.frameId
+  const isZoomedOut = useIsZoomedOut()
   const isLassoSelected = useFrameInteraction(s => s.lassoSelectedCardIds.has(data.cardId))
 
   const [isEditing, setIsEditing] = useState(false)
@@ -472,19 +475,27 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           textColor={textColor}
         />
       ) : (
-        <CardContent
-          isEditing={isEditing}
-          isSelected={!!selected}
-          cardId={data.cardId}
-          content={card.content}
-          previewHTML={card.previewHTML}
-          enforceInitialHeading={card.enforceInitialHeading}
-          onChange={handleContentChange}
-          onFocus={handleEditorFocus}
-          onBlur={handleEditorBlur}
-          editorRef={editorRef}
-          textColor={textColor}
-        />
+        <>
+          <CardContent
+            isEditing={isEditing}
+            isSelected={!!selected}
+            cardId={data.cardId}
+            content={card.content}
+            previewHTML={card.previewHTML}
+            enforceInitialHeading={card.enforceInitialHeading}
+            onChange={handleContentChange}
+            onFocus={handleEditorFocus}
+            onBlur={handleEditorBlur}
+            editorRef={editorRef}
+            textColor={textColor}
+          />
+          <ZoomPreview
+            cardId={data.cardId}
+            content={card.content}
+            previewHTML={card.previewHTML}
+            visible={isZoomedOut}
+          />
+        </>
       )}
     </div>
   )
