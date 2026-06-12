@@ -43,7 +43,7 @@ import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
 import { type GlobalCard } from '../../stores/cardStore'
 import { connectionMediator } from '../../utils/connectionMediator'
 import { kanbanDragPreview } from '../../utils/kanbanDragPreview'
-import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from '../../utils/frameInteraction'
+import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from '../../stores/frameInteraction'
 import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 const nodeTypes = {
@@ -61,7 +61,6 @@ export function ReactFlowCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
-  const setZoom = useLibraryStore((s) => s.setZoom)
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
   const lassoRect = useFrameInteraction((s) => s.lassoRect)
   const editingCardId = useLibraryStore((s) => s.editingCardId)
@@ -346,20 +345,21 @@ export function ReactFlowCanvas() {
     reactFlowInstance.current = instance
   }, [])
 
-  const setTransform = useLibraryStore((s) => s.setTransform)
-
   const onMove = useCallback(
     (() => {
       let lastCall = 0
       return (_event: MouseEvent | TouchEvent | null, viewport: { x: number; y: number; zoom: number }) => {
+        if (canvasRef.current) {
+          canvasRef.current.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
+          canvasRef.current.style.setProperty('--rf-zoom', String(viewport.zoom))
+        }
         const now = performance.now()
         if (now - lastCall < 100) return
         lastCall = now
-        setZoom(viewport.zoom)
-        setTransform([viewport.x, viewport.y, viewport.zoom])
+        useLibraryStore.setState({ zoom: viewport.zoom, transform: [viewport.x, viewport.y, viewport.zoom] })
       }
     })(),
-    [setZoom, setTransform],
+    [],
   )
 
   const onPaneClick = useCallback(() => {

@@ -7,14 +7,12 @@ interface ZoomPreviewProps {
   cardId: string
   content: string
   previewHTML?: string
-  visible: boolean
 }
 
 export const ZoomPreview = memo(function ZoomPreview({
   cardId,
   content,
   previewHTML,
-  visible,
 }: ZoomPreviewProps) {
   const title = useMemo(() => extractTitleFromJSON(content), [content])
 
@@ -31,13 +29,12 @@ export const ZoomPreview = memo(function ZoomPreview({
         position: 'absolute',
         inset: 0,
         overflow: 'hidden',
-        opacity: visible ? 1 : 0,
-        transition: 'opacity 0.25s ease',
+        opacity: 'clamp(0, calc((0.5 - var(--rf-zoom, 1)) * 10), 1)',
         pointerEvents: 'none',
         zIndex: 5,
         contain: 'layout style paint',
         backgroundColor: 'inherit',
-      }}
+}}
     >
       <div
         style={{
