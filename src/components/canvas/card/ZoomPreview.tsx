@@ -48,10 +48,10 @@ export const ZoomPreview = memo(function ZoomPreview({
         {title && (
           <div
             style={{
-              fontSize: 'calc(18px * var(--rf-inv-zoom, 1))',
+              fontSize: 'min(calc(18px * var(--rf-inv-zoom, 1)), 36px)',
               fontWeight: 600,
               lineHeight: 1.3,
-              minHeight: 'calc(23.4px * var(--rf-inv-zoom, 1))',
+              minHeight: 'min(calc(23.4px * var(--rf-inv-zoom, 1)), 46.8px)',
               textAlign: 'center',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -65,11 +65,11 @@ export const ZoomPreview = memo(function ZoomPreview({
         {preview && (
           <div
             style={{
-              fontSize: 'calc(13px * var(--rf-inv-zoom, 1))',
+              fontSize: 'min(calc(13px * var(--rf-inv-zoom, 1)), 26px)',
               lineHeight: 1.4,
-              minHeight: 'calc(18.2px * var(--rf-inv-zoom, 1))',
+              minHeight: 'min(calc(18.2px * var(--rf-inv-zoom, 1)), 36.4px)',
               textAlign: 'center',
-              opacity: 0.55,
+              opacity: 'clamp(0, calc((0.25 - var(--rf-zoom, 1)) * 20), 0.55)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
