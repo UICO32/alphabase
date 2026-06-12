@@ -36,6 +36,7 @@ export const ZoomPreview = memo(function ZoomPreview({
         pointerEvents: 'none',
         zIndex: 5,
         contain: 'layout style paint',
+        backgroundColor: 'inherit',
       }}
     >
       <div
@@ -45,6 +46,7 @@ export const ZoomPreview = memo(function ZoomPreview({
           flexDirection: 'column',
           justifyContent: 'center',
           height: '100%',
+          overflow: 'hidden',
         }}
       >
         {title && (
@@ -54,9 +56,8 @@ export const ZoomPreview = memo(function ZoomPreview({
               fontWeight: 600,
               lineHeight: 1.3,
               overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
               marginBottom: preview ? 'calc(3px * var(--rf-inv-zoom, 1))' : 0,
             }}
           >
@@ -70,9 +71,8 @@ export const ZoomPreview = memo(function ZoomPreview({
               lineHeight: 1.4,
               opacity: 0.55,
               overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
             {preview}
