@@ -25,24 +25,24 @@ export const ZoomPreview = memo(function ZoomPreview({
 
   return (
     <>
-      {/* Background cover: fully opaque when visible, blocks CardContent underneath */}
+      {/* Background cover: near-instant switch at zoom=0.5 */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: 'clamp(0, calc((0.5 - var(--rf-zoom, 1)) * 10), 1)',
+          opacity: 'clamp(0, calc((0.5 - var(--rf-zoom, 1)) * 1000), 1)',
           backgroundColor: 'inherit',
           pointerEvents: 'none',
           zIndex: 5,
         }}
       />
-      {/* Text layer: opacity matches cover so text fades in/out together */}
+      {/* Text layer: same opacity as cover */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           overflow: 'hidden',
-          opacity: 'clamp(0, calc((0.5 - var(--rf-zoom, 1)) * 10), 1)',
+          opacity: 'clamp(0, calc((0.5 - var(--rf-zoom, 1)) * 1000), 1)',
           pointerEvents: 'none',
           zIndex: 6,
           contain: 'layout style paint',
@@ -50,7 +50,7 @@ export const ZoomPreview = memo(function ZoomPreview({
       >
         <div
           style={{
-            padding: 'calc(6px * var(--rf-inv-zoom, 1)) calc(8px * var(--rf-inv-zoom, 1))',
+            padding: 'calc(8px * var(--rf-inv-zoom, 1)) calc(10px * var(--rf-inv-zoom, 1))',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
@@ -60,10 +60,10 @@ export const ZoomPreview = memo(function ZoomPreview({
           {title && (
             <div
               style={{
-                fontSize: 'min(calc(18px * var(--rf-inv-zoom, 1)), 48px)',
+                fontSize: 'min(calc(20px * var(--rf-inv-zoom, 1)), 72px)',
                 fontWeight: 600,
                 lineHeight: 1.3,
-                minHeight: 'min(calc(23.4px * var(--rf-inv-zoom, 1)), 62.4px)',
+                minHeight: 'min(calc(26px * var(--rf-inv-zoom, 1)), 93.6px)',
                 textAlign: 'center',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -77,11 +77,11 @@ export const ZoomPreview = memo(function ZoomPreview({
           {preview && (
             <div
               style={{
-                fontSize: 'min(calc(13px * var(--rf-inv-zoom, 1)), 26px)',
+                fontSize: 'min(calc(14px * var(--rf-inv-zoom, 1)), 30px)',
                 lineHeight: 1.4,
-                minHeight: 'min(calc(18.2px * var(--rf-inv-zoom, 1)), 36.4px)',
+                minHeight: 'min(calc(19.6px * var(--rf-inv-zoom, 1)), 42px)',
                 textAlign: 'center',
-                opacity: 'clamp(0, calc((var(--rf-zoom, 1) - 0.25) * 2), 0.55)',
+                opacity: 'clamp(0, calc((var(--rf-zoom, 1) - 0.25) * 2.2), 0.55)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
