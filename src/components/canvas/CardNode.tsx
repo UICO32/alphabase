@@ -471,21 +471,19 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         />
       ) : (
         <>
-          <div style={{ opacity: 'clamp(0, calc((var(--rf-zoom, 1) - 0.4) / 0.1), 1)' }}>
-            <CardContent
-              isEditing={isEditing}
-              isSelected={!!selected}
-              cardId={data.cardId}
-              content={card.content}
-              previewHTML={card.previewHTML}
-              enforceInitialHeading={card.enforceInitialHeading}
-              onChange={handleContentChange}
-              onFocus={handleEditorFocus}
-              onBlur={handleEditorBlur}
-              editorRef={editorRef}
-              textColor={textColor}
-            />
-          </div>
+          <CardContent
+            isEditing={isEditing}
+            isSelected={!!selected}
+            cardId={data.cardId}
+            content={card.content}
+            previewHTML={card.previewHTML}
+            enforceInitialHeading={card.enforceInitialHeading}
+            onChange={handleContentChange}
+            onFocus={handleEditorFocus}
+            onBlur={handleEditorBlur}
+            editorRef={editorRef}
+            textColor={textColor}
+          />
           <ZoomPreview
             cardId={data.cardId}
             content={card.content}
