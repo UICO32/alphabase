@@ -9,9 +9,8 @@ import { registerEditorHandle, clearProseMirrorSuppression } from '../../utils/e
 import type { CardColor, CardNodeData } from '../../types/card'
 import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
-import { useFrameInteraction } from '../../utils/frameInteraction'
+import { useFrameInteraction } from '../../stores/frameInteraction'
 import { useBoardStore } from '../../stores/boardStore'
-import { getActiveSyncEngine } from '../../sync/syncEngineRef'
 import { useEventBus } from '../../stores/eventBus'
 import { useAIStore } from '../../stores/aiStore'
 import { CardHandles } from './card/CardHandles'
@@ -21,7 +20,6 @@ import { CollapsedContent } from './card/CollapsedContent'
 import { MiniCard } from './card/MiniCard'
 import { SummaryButton } from './card/SummaryButton'
 import { ZoomPreview } from './card/ZoomPreview'
-import { useIsZoomedOut } from '../../hooks/useIsZoomedOut'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from '../../utils/frameLayouts'
 
@@ -30,7 +28,6 @@ type CardNodeType = Node<CardNodeData, 'card'>
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const isCollapsed = data.collapsed ?? false
   const isInFrame = !!data.frameId
-  const isZoomedOut = useIsZoomedOut()
   const isLassoSelected = useFrameInteraction(s => s.lassoSelectedCardIds.has(data.cardId))
 
   const [isEditing, setIsEditing] = useState(false)
@@ -178,9 +175,13 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       }
       if (isCollapsed) return
       if (isHovered && !selected && card) {
+        const lib = useLibraryStore.getState()
+        if (lib.editingCardId === data.cardId && lib.rightPanelActiveTab === 'editor' && !lib.rightPanelCollapsed) return
         clickCoordsRef.current = { x: e.clientX, y: e.clientY }
         setIsEditing(true)
       } else if (!isEditing && selected && card) {
+        const lib = useLibraryStore.getState()
+        if (lib.editingCardId === data.cardId && lib.rightPanelActiveTab === 'editor' && !lib.rightPanelCollapsed) return
         clickCoordsRef.current = { x: e.clientX, y: e.clientY }
         setIsEditing(true)
       }
@@ -207,13 +208,31 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   }, [data.cardId])
 
   useEffect(() => {
-    if (!isEditing || !editorRef.current) return
+    if (!isEditing) return
+
     const coords = clickCoordsRef.current
-    clickCoordsRef.current = null
-    if (coords) {
-      editorRef.current.focusAtCoords(coords)
-    } else {
-      editorRef.current.focus()
+    let cancelled = false
+    let rafId = 0
+
+    const tryFocus = () => {
+      if (cancelled) return
+      if (!editorRef.current) {
+        rafId = requestAnimationFrame(tryFocus)
+        return
+      }
+      clickCoordsRef.current = null
+      if (coords) {
+        editorRef.current.focusAtCoords(coords)
+      } else {
+        editorRef.current.focus()
+      }
+    }
+
+    tryFocus()
+
+    return () => {
+      cancelled = true
+      if (rafId) cancelAnimationFrame(rafId)
     }
   }, [isEditing])
 
@@ -295,30 +314,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         type: e.type,
       })))
       boardStore.saveBoardData(boardId, targetData)
-
-      const syncEngine = getActiveSyncEngine()
-      if (syncEngine) {
-        syncEngine.scheduleWriteBoard(boardId, {
-          version: 2,
-          nodes: targetData.nodes.map(n => ({
-            id: n.id,
-            type: (n.type === 'card' || n.type === 'frame' || n.type === 'media') ? n.type as 'card' | 'frame' | 'media' : 'card',
-            position: { x: n.position.x, y: n.position.y },
-            data: n.data as Record<string, unknown>,
-            width: n.width,
-            height: n.height,
-          })),
-          edges: targetData.edges.map(e => ({
-            id: e.id,
-            source: e.source,
-            target: e.target,
-            type: 'connection' as const,
-            sourceHandle: e.sourceHandle ?? undefined,
-            targetHandle: e.targetHandle ?? undefined,
-          })),
-          viewport: { x: 0, y: 0, zoom: 1 },
-        })
-      }
 
       return remainingEdges
     })
@@ -493,7 +488,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
             cardId={data.cardId}
             content={card.content}
             previewHTML={card.previewHTML}
-            visible={isZoomedOut}
           />
         </>
       )}
