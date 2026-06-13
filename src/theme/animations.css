@@ -259,12 +259,12 @@
 }
 
 .btn-primary {
-  background-color: var(--color-blue-500);
-  color: var(--text-inverse);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
 .btn-primary:hover {
-  background-color: var(--color-blue-600);
+  background-color: var(--color-gray-800);
   box-shadow: var(--shadow-md);
 }
 
@@ -328,7 +328,7 @@
 
 .toolbar-toggle-thumb-end {
   left: calc(100% - 24px);
-  background: var(--color-blue-500);
+  background: var(--primary);
   color: white;
 }
 
