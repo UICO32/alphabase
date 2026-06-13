@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, memo } from 'react'
+import { useMemo, memo } from 'react'
 import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal, Globe } from 'lucide-react'
 import { useLibraryStore } from '../../../stores/libraryStore'
 import { useCardStore, useCard } from '../../../stores/cardStore'
@@ -46,9 +46,6 @@ export const CardActionBar = memo(function CardActionBar({
   cardTitle,
   cardPreviewHTML,
 }: CardActionBarProps) {
-  const [moreOpen, setMoreOpen] = useState(false)
-  const moreRef = useRef<HTMLDivElement>(null)
-
   const card = useCard(cardId)
   const isClipCard = !!(card?.sourceUrl)
   const webviewUrl = useLibraryStore(s => s.webviewUrl)
@@ -56,15 +53,6 @@ export const CardActionBar = memo(function CardActionBar({
 
   const html = cardPreviewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
   const displayTitle = cardTitle || useMemo(() => extractTitle(html), [html, cardTitle])
-
-  useEffect(() => {
-    if (!moreOpen) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMoreOpen(false)
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [moreOpen])
 
   const showIcons = isHovered || selected || isConnecting
 
@@ -146,25 +134,17 @@ export const CardActionBar = memo(function CardActionBar({
             }
           }}
         />
-        <div ref={moreRef} style={{ position: 'relative' }}>
+        <MoreActionsMenu
+          color={color}
+          onRemoveFromBoard={onRemoveFromBoard}
+          onMoveToBoard={onMoveToBoard}
+          onColorChange={onColorChange}
+        >
           <ActionBarButton
             icon={<MoreHorizontal size={14} />}
-            onClick={(e) => {
-              e.stopPropagation()
-              setMoreOpen(!moreOpen)
-            }}
+            onClick={(e) => e.stopPropagation()}
           />
-          {moreOpen && (
-            <MoreActionsMenu
-              color={color}
-              onClose={() => setMoreOpen(false)}
-              onRemoveFromBoard={onRemoveFromBoard}
-              onMoveToBoard={onMoveToBoard}
-              onColorChange={onColorChange}
-              triggerRef={moreRef}
-            />
-          )}
-        </div>
+        </MoreActionsMenu>
       </div>
     </div>
   )
