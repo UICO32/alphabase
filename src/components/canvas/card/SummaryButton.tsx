@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { CARD_COLORS, type CardColor } from '../../../types/card'
 import { useAIStore, type SummaryFormat } from '../../../stores/aiStore'
+import { useCardStore } from '../../../stores/cardStore'
 import { SummaryFormatMenu } from './SummaryFormatMenu'
 import { SummaryBubble } from './SummaryBubble'
 
@@ -28,10 +29,10 @@ export function SummaryButton({ color, visible, cardId }: SummaryButtonProps) {
     const aiState = useAIStore.getState()
     if (aiState.isStreaming) return
 
-    const cardData = (window as any).__cardDataCache?.[cardId]
+    const cardData = useCardStore.getState().cards[cardId]
     if (!cardData?.content) return
 
-    const html = cardData.previewHTML || ''
+    const html = cardData.previewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
     const textContent = html
       ? new DOMParser().parseFromString(html, 'text/html').body.textContent?.trim() || ''
       : ''

@@ -18,6 +18,7 @@ import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
 import { preloadCardEditor } from './components/canvas/card/CardContent'
+import { setupAIListeners } from './stores/aiStore'
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
 const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
@@ -31,13 +32,15 @@ function App() {
   const viewMode = useLibraryStore(s => s.viewMode)
   const [showTopography, setShowTopography] = useState(false)
 
+  useEffect(() => { setupAIListeners() }, [])
+
   const {
     showTrash, setShowTrash,
     showSettings, setShowSettings,
     showWorkspacePicker, setShowWorkspacePicker,
     showClipUrlBar, setShowClipUrlBar,
   } = useAppDialogs()
-  const { dataReady, conflict, handleConflictChoice } = useWorkspaceDataLoader()
+  const { dataReady, conflict, hasBackup, handleConflictChoice } = useWorkspaceDataLoader()
 
   useAppEvents({ dataReady, setShowWorkspacePicker })
 
@@ -202,7 +205,7 @@ function App() {
         <Suspense fallback={null}>
           <WorkspaceConflictDialog
             conflict={conflict}
-            hasBackup={false}
+            hasBackup={hasBackup}
             onChoice={handleConflictChoice}
           />
         </Suspense>

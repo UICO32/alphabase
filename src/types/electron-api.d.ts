@@ -1,6 +1,8 @@
 export {}
 
 declare global {
+  const __APP_VERSION__: string
+  const __DEV__: boolean
   interface Window {
     electronAPI: {
       fs: {
@@ -88,6 +90,13 @@ declare global {
         notifyDataReady: () => void
       }
       onFlushBeforeClose: (callback: () => Promise<void>) => () => void
+      app: {
+        readChangelog: () => Promise<string>
+      }
+      workspace: {
+        registerPath: (path: string) => Promise<void>
+        unregisterPath: (path: string) => Promise<void>
+      }
     }
   }
 }

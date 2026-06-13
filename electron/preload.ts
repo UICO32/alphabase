@@ -96,6 +96,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.send('startup:data-ready')
     },
   },
+  app: {
+    readChangelog: () => ipcRenderer.invoke('app:readChangelog'),
+  },
+  workspace: {
+    registerPath: (path: string) => ipcRenderer.invoke('workspace:registerPath', path),
+    unregisterPath: (path: string) => ipcRenderer.invoke('workspace:unregisterPath', path),
+  },
   onFlushBeforeClose: (callback: () => Promise<void>) => {
     ipcRenderer.on('flush-before-close', async () => {
       await callback()

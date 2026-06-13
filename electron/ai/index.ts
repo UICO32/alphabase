@@ -1,8 +1,27 @@
 import { ipcMain, app, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'fs'
+import { homedir } from 'os'
 
 const CONFIG_FILENAME = 'ai-config.json'
+
+let _aiLogPath: string | null = null
+function aiLogPath(): string {
+  if (!_aiLogPath) {
+    const dir = app.isReady()
+      ? join(app.getPath('userData'), 'logs')
+      : join(homedir(), 'AppData', 'Roaming', 'heptabase-canvas-v2', 'logs')
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    _aiLogPath = join(dir, 'ai.log')
+  }
+  return _aiLogPath
+}
+
+function aiLog(msg: string) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`
+  console.log(line.trimEnd())
+  try { appendFileSync(aiLogPath(), line) } catch {}
+}
 
 interface AIConfig {
   provider: 'openai' | 'claude' | 'ollama'
@@ -37,65 +56,61 @@ function getMainWindow(): BrowserWindow | null {
   return BrowserWindow.getAllWindows()[0] ?? null
 }
 
-const SYSTEM_PROMPT = `你是一个卡片摘要助手。你的任务是读取卡片内容，提取核心信息，生成简洁的摘要。
+const SYSTEM_PROMPT = `你是摘要助手。读取卡片内容，用 Markdown 格式输出简洁摘要。
 
-严格要求：
-1. 摘要必须基于原文内容，不添加原文没有的信息或评价
-2. 数值必须精确，不能四舍五入或估算
-3. 不遗漏关键信息，但可以省略次要细节
-4. 表达流畅、逻辑清晰、无冗余
-5. 必须体现因果关系和核心观点
-6. 使用简体中文
-7. 在关键句前用 {{ref:0}} 标记引用位置，0 表示原文第1个重要段落，依次递增。仅标记最关键的 2-3 个句子`
+规则：
+1. 只基于原文，不添加评价
+2. 数值精确，不估算
+3. 简体中文
+4. 不输出思考过程，直接给结果`
 
 type SummaryFormat = 'concise' | 'list' | 'table' | 'custom'
 
 const FORMAT_PROMPTS: Record<Exclude<SummaryFormat, 'custom'>, string> = {
-  concise: `请为以下卡片内容生成摘要。提取核心观点、关键决策、量化成果和待解决问题。
+  concise: `摘要以下卡片内容，严格按此结构输出：
+
+### 摘要
+
+> ⏱ 预计阅读：约X分钟（按300字/分钟估算）
+
+（150字内概要段落，关键词用==包围==标记高亮，涵盖核心事件+关键决策+结论）
+
+### 要点
+
+（3-5条bullet，每条不超过30字，按重要性排列）
 
 卡片内容：
----
-{content}
----
+{content}`,
 
-摘要格式：
-- 核心事件（1句话）
-- 关键要点（2-4条，每条不超过30字）
-- 重要数据（如果有）
-- 待解决问题（如果有，最多2条）
+  list: `摘要以下卡片内容，严格按此结构输出：
 
-/no_think`,
+### 摘要
 
-  list: `请为以下卡片内容生成要点列表摘要。每条要点简洁明了。
+> ⏱ 预计阅读：约X分钟
 
-卡片内容：
----
-{content}
----
+（150字内概要段落，关键词用==包围==标记高亮）
 
-格式要求：
-- 每条以 "• " 开头
-- 核心事件放第一条
-- 后续按重要性排列关键要点
-- 量化数据用括号附在要点后
-- 总共 5-8 条要点
+### 要点
 
-/no_think`,
-
-  table: `请为以下卡片内容提取关键数据，用表格格式呈现。
+（5-8条bullet）
 
 卡片内容：
----
-{content}
----
+{content}`,
 
-格式要求：
-- 用 Markdown 表格
-- 列名：类别 | 关键信息 | 数值/细节
-- 按类别分：概要、决策、数据、风险
-- 如果原文没有明确数据，类别列标注"定性"
+  table: `摘要以下卡片内容，严格按此结构输出：
 
-/no_think`,
+### 摘要
+
+> ⏱ 预计阅读：约X分钟
+
+（150字内概要段落，关键词用==包围==标记高亮）
+
+### 要点
+
+（用表格呈现，列：类别 | 关键信息 | 数值/细节）
+
+卡片内容：
+{content}`,
 }
 
 function buildMessages(content: string, format: SummaryFormat, customQuestion?: string): Array<{role: string; content: string}> {
@@ -112,77 +127,160 @@ function buildMessages(content: string, format: SummaryFormat, customQuestion?: 
   ]
 }
 
-async function callOpenAICompatibleStreaming(
+async function callOpenAICompatible(
   config: AIConfig,
   content: string,
   onChunk: (chunk: string) => void,
   format: SummaryFormat,
   customQuestion?: string,
+  stream: boolean = true,
 ): Promise<string> {
   const messages = buildMessages(content, format, customQuestion)
-  const resp = await fetch(`${config.baseUrl}/chat/completions`, {
+  const url = `${config.baseUrl}/chat/completions`
+  const bodyObj: Record<string, unknown> = {
+    model: config.model,
+    messages,
+    max_tokens: 16384,
+    ...(stream ? { stream: true } : {}),
+  }
+
+  aiLog(`request: ${stream ? 'stream' : 'non-stream'} POST ${url} model=${config.model} msgs=${messages.length} contentLen=${content.length}`)
+
+  const resp = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
+      ...(config.apiKey ? { 'Authorization': `Bearer ${config.apiKey}` } : {}),
     },
-    body: JSON.stringify({
-      model: config.model,
-      messages,
-      max_tokens: 4096,
-      chat_template_kwargs: { enable_thinking: false },
-      stream: true,
-    }),
+    body: JSON.stringify(bodyObj),
   })
+
+  aiLog(`response: ${resp.status} ${resp.headers.get('content-type')}`)
 
   if (!resp.ok) {
     const text = await resp.text()
+    aiLog(`error response: ${text.slice(0, 500)}`)
     throw new Error(`API error: ${resp.status} ${text.slice(0, 200)}`)
   }
 
+  // Non-streaming: parse complete response
+  if (!stream) {
+    const data = await resp.json()
+    aiLog(`non-stream keys: ${Object.keys(data).join(',')}`)
+    const msg = data.choices?.[0]?.message
+    const text = msg?.content
+    const reasoning = msg?.reasoning_content
+    if (!text && !reasoning) {
+      aiLog(`non-stream: no content or reasoning, full: ${JSON.stringify(data).slice(0, 500)}`)
+      throw new Error('模型返回空内容')
+    }
+    const result = text || reasoning!
+    aiLog(`non-stream result: ${result.length} chars (from ${text ? 'content' : 'reasoning'})`)
+    onChunk(result)
+    return result.trim()
+  }
+
+  // Streaming: parse SSE with line buffer (TCP may split SSE events across chunks)
   const reader = resp.body?.getReader()
   if (!reader) throw new Error('No response body')
 
   const decoder = new TextDecoder()
   let fullContent = ''
+  let reasoningContent = ''
   let hasAnswer = false
+  let gotFirstContent = false
+  let chunkCount = 0
+  let lineBuf = ''
+
+  const FIRST_CHUNK_TIMEOUT = 10_000
+  const STREAM_TIMEOUT = 90_000
+  const startTime = Date.now()
 
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const elapsed = Date.now() - startTime
+    const timeout = gotFirstContent ? STREAM_TIMEOUT : FIRST_CHUNK_TIMEOUT
+    if (elapsed > timeout) {
+      aiLog(`stream timeout after ${elapsed}ms, gotFirstContent: ${gotFirstContent}, chunks: ${chunkCount}`)
+      reader.cancel()
+      if (!gotFirstContent) throw new Error('STREAM_NO_CONTENT')
+      break
+    }
 
-    const chunk = decoder.decode(value, { stream: true })
-    const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+    const readResult = await Promise.race([
+      reader.read(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('READ_TIMEOUT')), timeout - elapsed),
+      ),
+    ]).catch(err => {
+      if (err.message === 'READ_TIMEOUT') return { done: true, value: undefined } as const
+      throw err
+    })
+
+    if (readResult.done) break
+    if (!readResult.value) continue
+
+    chunkCount++
+    lineBuf += decoder.decode(readResult.value, { stream: true })
+
+    // Split on newlines, keep the last incomplete line in lineBuf
+    const lines = lineBuf.split('\n')
+    lineBuf = lines.pop()!
+
+    if (chunkCount === 1) {
+      aiLog(`first chunk: lineBuf=${lineBuf.length} bytes, ${lines.length} lines, preview: ${lineBuf.slice(0, 200)}`)
+    }
 
     for (const line of lines) {
-      const data = line.slice(6).trim()
-      if (data === '[DONE]') continue
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data: ')) continue
+
+      const data = trimmed.slice(6).trim()
+      if (data === '[DONE]') {
+        aiLog(`[DONE] after ${chunkCount} chunks, content: ${fullContent.length} chars`)
+        continue
+      }
       try {
         const parsed = JSON.parse(data)
         const choice = parsed.choices?.[0]
         if (choice) {
           const delta = choice.delta
           if (delta) {
-            const thinking = delta.reasoning_content
+            const reasoning = delta.reasoning_content
             const text = delta.content
-            if (thinking) {
-              fullContent += thinking
-              onChunk(thinking)
+            if (reasoning) {
+              reasoningContent += reasoning
+              gotFirstContent = true
             }
             if (text) {
               fullContent += text
+              gotFirstContent = true
               hasAnswer = true
               onChunk(text)
             }
           }
-          if (choice.finish_reason === 'length' && !hasAnswer) {
+          if (choice.finish_reason === 'length' && !fullContent && !reasoningContent) {
             throw new Error('模型 token 用尽，未生成摘要。请增大 max_tokens 或关闭推理模式。')
           }
         }
       } catch (e) {
         if (e instanceof Error && e.message.startsWith('模型 token')) throw e
+        aiLog(`SSE parse error: ${(e as Error).message}, data: ${data.slice(0, 100)}`)
       }
     }
+  }
+
+  aiLog(`stream ended: ${chunkCount} chunks, content: ${fullContent.length} chars, reasoning: ${reasoningContent.length} chars, hasAnswer: ${hasAnswer}`)
+
+  // If model only produced reasoning (thinking) but no formal content, strip <think> tags and use as result
+  if (!fullContent && reasoningContent) {
+    aiLog(`no content but has reasoning (${reasoningContent.length} chars), using reasoning as summary`)
+    onChunk(reasoningContent)
+    return reasoningContent.trim()
+  }
+
+  // Stream ended but no content parsed at all
+  if (!fullContent) {
+    throw new Error('STREAM_NO_CONTENT')
   }
 
   return fullContent.trim()
@@ -208,7 +306,7 @@ async function callClaudeStreaming(
     },
     body: JSON.stringify({
       model: config.model,
-      max_tokens: 4096,
+      max_tokens: 16384,
       system: systemMsg.content,
       messages: userMessages,
       stream: true,
@@ -258,7 +356,9 @@ export function registerAISummaryIPC(): void {
 
   ipcMain.handle('ai:generateSummary', async (_event, content: string, format?: string, customQuestion?: string) => {
     const config = loadConfig()
-    if (!config.apiKey) {
+    aiLog(`generateSummary: provider=${config.provider} model=${config.model} baseUrl=${config.baseUrl} hasKey=${!!config.apiKey} contentLen=${content.length} format=${format}`)
+
+    if (!config.apiKey && config.provider !== 'ollama') {
       const win = getMainWindow()
       win?.webContents.send('ai:summary-error', { message: '请先在设置中配置 AI API Key' })
       return { error: 'API key not configured' }
@@ -276,13 +376,23 @@ export function registerAISummaryIPC(): void {
       if (config.provider === 'claude') {
         summary = await callClaudeStreaming(config, content, onChunk, fmt, customQuestion)
       } else {
-        summary = await callOpenAICompatibleStreaming(config, content, onChunk, fmt, customQuestion)
+        try {
+          summary = await callOpenAICompatible(config, content, onChunk, fmt, customQuestion, true)
+        } catch (err: any) {
+          if (err.message === 'STREAM_NO_CONTENT') {
+            aiLog('stream failed → fallback to non-stream')
+            summary = await callOpenAICompatible(config, content, onChunk, fmt, customQuestion, false)
+          } else {
+            throw err
+          }
+        }
       }
 
+      aiLog(`summary complete: ${summary.length} chars`)
       win?.webContents.send('ai:summary-complete', { summary })
       return { summary }
     } catch (err: any) {
-      console.error('[ai] generateSummary failed:', err.message)
+      aiLog(`generateSummary FAILED: ${err.message}`)
       win?.webContents.send('ai:summary-error', { message: err.message })
       return { error: err.message }
     }
@@ -397,7 +507,7 @@ ${titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`,
+            ...(config.apiKey ? { 'Authorization': `Bearer ${config.apiKey}` } : {}),
           },
           body: JSON.stringify({
             model: config.model,
@@ -415,7 +525,7 @@ ${titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}
       if (name.length > 20) name = name.slice(0, 20)
       return { name: name || null }
     } catch (err: any) {
-      console.error('[ai] generateClusterName failed:', err.message)
+      aiLog(`generateClusterName FAILED: ${err.message}`)
       return { name: null, error: err.message }
     }
   })
