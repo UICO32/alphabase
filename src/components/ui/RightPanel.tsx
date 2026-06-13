@@ -1,11 +1,14 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, lazy, Suspense } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
-import { CardBlockNoteEditor } from '../editor/BlockNoteEditor'
 import { Layers, FileText, PanelRightOpen, Globe } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
+
+const LazyCardBlockNoteEditor = lazy(() =>
+  import('../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
+)
 
 interface RightPanelProps {
   onOpenSettings?: () => void
@@ -171,11 +174,15 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
         {webviewUrl ? (
           <WebviewPanel url={webviewUrl} embedded />
         ) : (
-          <CardBlockNoteEditor
-            content={card.content}
-            onChange={handleChange}
-            editable={true}
-          />
+          <Suspense fallback={null}>
+            <LazyCardBlockNoteEditor
+              key={cardId}
+              content={card.content}
+              onChange={handleChange}
+              editable={true}
+              cardId={cardId}
+            />
+          </Suspense>
         )}
       </div>
     </div>

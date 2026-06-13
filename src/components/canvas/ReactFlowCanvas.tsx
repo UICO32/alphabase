@@ -348,8 +348,10 @@ export function ReactFlowCanvas() {
   const onMove = useCallback(
     (() => {
       let lastCall = 0
+      let lastZoom = 0
       return (_event: MouseEvent | TouchEvent | null, viewport: { x: number; y: number; zoom: number }) => {
-        if (canvasRef.current) {
+        if (viewport.zoom !== lastZoom && canvasRef.current) {
+          lastZoom = viewport.zoom
           canvasRef.current.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
           canvasRef.current.style.setProperty('--rf-zoom', String(viewport.zoom))
         }
@@ -374,6 +376,22 @@ export function ReactFlowCanvas() {
     editingNodeIdRef.current = null
     useLibraryStore.getState().setEditingCardId(null)
   }, [setNodes])
+
+  const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
+    const card = selectedNodes.find(n => n.type === 'card')
+    if (card) {
+      const cardId = (card.data as Record<string, unknown>)?.cardId as string | undefined
+      if (cardId) {
+        const lib = useLibraryStore.getState()
+        if (lib.editingCardId !== cardId) {
+          lib.setEditingCardId(cardId)
+          if (lib.sortBy !== 'related') {
+            lib.setRightPanelActiveTab('editor')
+          }
+        }
+      }
+    }
+  }, [])
 
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -516,6 +534,7 @@ export function ReactFlowCanvas() {
         onInit={onInit}
         onPaneClick={onPaneClick}
         onNodeClick={onNodeClick}
+        onSelectionChange={onSelectionChange}
         onMouseMove={onMouseMove}
         onNodeDrag={onNodeDrag}
         onNodeDragStart={onNodeDragStart}

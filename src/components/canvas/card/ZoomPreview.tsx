@@ -35,6 +35,7 @@ export const ZoomPreview = memo(function ZoomPreview({
           backgroundColor: 'inherit',
           pointerEvents: 'none',
           zIndex: 5,
+          borderRadius: 'inherit',
         }}
       />
       {/* Text layer: same opacity as cover */}
@@ -48,6 +49,7 @@ export const ZoomPreview = memo(function ZoomPreview({
           pointerEvents: 'none',
           zIndex: 6,
           contain: 'layout style paint',
+          borderRadius: 'inherit',
         }}
       >
         <div

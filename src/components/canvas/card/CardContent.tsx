@@ -94,7 +94,11 @@ export const CardContent = memo(function CardContent({
             if (anchor && anchor.href && (anchor.href.startsWith('http://') || anchor.href.startsWith('https://'))) {
               e.preventDefault()
               e.stopPropagation()
-              useLibraryStore.getState().setWebviewUrl(anchor.href)
+              const lib = useLibraryStore.getState()
+              if (!lib.editingCardId) {
+                lib.setEditingCardId(cardId)
+              }
+              lib.setWebviewUrl(anchor.href, cardId)
             }
           }}
         />
