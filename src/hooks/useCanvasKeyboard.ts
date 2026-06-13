@@ -135,7 +135,10 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNo
       if (!isCtrl) return
 
       const activeEl = document.activeElement
-      const inEditor = activeEl && activeEl.closest('.card-blocknote-editor, .ProseMirror, .bn-editor, input, textarea, [contenteditable]')
+      const selection = window.getSelection()
+      const hasTextSelection = selection != null && selection.type === 'Range' && selection.rangeCount > 0
+      const inEditor = (activeEl && activeEl.closest('.card-blocknote-editor, .ProseMirror, .bn-editor, input, textarea, [contenteditable]')) != null
+        || hasTextSelection
 
       if (e.key === 'c' && !inEditor) {
         const selectedNodes = getNodes().filter(n => n.selected && n.type === 'card')

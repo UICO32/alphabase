@@ -174,6 +174,13 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         return
       }
       if (isCollapsed) return
+      if (isEditing) {
+        clickCoordsRef.current = { x: e.clientX, y: e.clientY }
+        requestAnimationFrame(() => {
+          editorRef.current?.focusAtCoords({ x: e.clientX, y: e.clientY })
+        })
+        return
+      }
       if (isHovered && !selected && card) {
         const lib = useLibraryStore.getState()
         if (lib.editingCardId === data.cardId && lib.rightPanelActiveTab === 'editor' && !lib.rightPanelCollapsed) return
@@ -359,8 +366,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
-  const outlineWidth = selected ? 2 : 1
-  const outlineColor = selected
+  const borderWidth = selected ? 2 : 1
+  const borderColor = selected
     ? 'var(--border-active)'
     : getCardStroke(data.color)
 
@@ -395,8 +402,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
         height: nodeHeight,
         backgroundColor: cardBg,
-        outline: `${outlineWidth}px solid ${outlineColor}`,
-        outlineOffset: 0,
+        border: `${borderWidth}px solid ${borderColor}`,
         boxShadow: isConnectingSource
           ? 'var(--shadow-glow-blue)'
           : isNearbyTarget
@@ -420,8 +426,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           minWidth={200}
           minHeight={120}
           isVisible={selected}
-          handleClassName="!w-4 !h-4 !bg-transparent !border-0 !rounded-sm"
-          lineClassName="!bg-transparent !border-0 !w-3 !cursor-col-resize"
+          handleClassName="!w-8 !h-8 !bg-transparent !border-0"
+          lineClassName="!bg-transparent !border-0 !w-8"
           onResize={(_, params) => {
             setNodes((nds) =>
               nds.map((n) =>
