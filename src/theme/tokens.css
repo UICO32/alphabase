@@ -109,6 +109,7 @@
 
   /* Panel Surfaces */
   --surface-panel: hsla(0, 0%, 96%, 0.85);
+  --surface-panel-solid: hsl(0, 0%, 93%);
   --surface-panel-alt: hsla(0, 0%, 92%, 0.75);
   --surface-panel-hover: hsla(0, 0%, 88%, 0.9);
 
@@ -241,6 +242,7 @@
 
   /* Panel Surfaces */
   --surface-panel: hsla(0, 0%, 10%, 0.82);
+  --surface-panel-solid: hsl(0, 0%, 10%);
   --surface-panel-alt: hsla(0, 0%, 13%, 0.72);
   --surface-panel-hover: hsla(0, 0%, 16%, 0.88);
 
@@ -321,10 +323,12 @@
 }
 
 .glass-panel-large {
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
-  background-color: var(--surface-panel);
+  background-color: var(--surface-panel-solid);
   box-shadow: var(--panel-border-glow), var(--shadow-lg);
+}
+
+.glass-panel-large.panel-animating {
+  background-color: var(--surface-panel-solid);
 }
 
 /* 降级：不支持 backdrop-filter 的浏览器 */
