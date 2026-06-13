@@ -10,7 +10,7 @@ import { WorkspaceSyncEngine } from '../sync/syncEngine'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
 import type { ConflictDiffItem } from '../utils/workspace/types'
-import { createFileSystemBackup, startAutoBackup, stopAutoBackup } from '../stores/backupStore'
+import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import { embeddingStore } from '../stores/embeddingStore'
 import type { CardColor } from '../types/card'
@@ -20,9 +20,12 @@ import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
 function emitStartupProgress(step: string, progress: number, total: number) {
+  console.log(`[renderer] emitStartupProgress: step="${step}" progress=${progress} total=${total}`)
   const electronAPI = (window as any).electronAPI
   if (electronAPI?.startup?.notifyProgress) {
     electronAPI.startup.notifyProgress({ step, progress, total })
+  } else {
+    console.warn('[renderer] electronAPI.startup.notifyProgress not available')
   }
 }
 
@@ -98,6 +101,7 @@ export function useWorkspaceDataLoader() {
   const [dataReady, setDataReady] = useState(false)
   const [conflict, setConflict] = useState<ConflictData | null>(null)
   const [pendingWorkspacePath, setPendingWorkspacePath] = useState<string | null>(null)
+  const [hasBackup, setHasBackup] = useState(false)
 
   const loadWorkspaceData = useCallback(async (workspacePath: string, skipValidation: boolean = false) => {
     __t.start = 0; __t.steps = []
@@ -231,6 +235,9 @@ export function useWorkspaceDataLoader() {
           diffItems,
         })
         setPendingWorkspacePath(workspacePath)
+        listFileSystemBackups(workspacePath).then(b => setHasBackup(b.length > 0)).catch(() => setHasBackup(false))
+        setDataReady(true)
+        notifyDataReady()
         return
       }
     }
@@ -288,7 +295,7 @@ export function useWorkspaceDataLoader() {
 
     emitStartupProgress('启动完成', 4, 4)
 
-    // Non-critical: clean expired trash + save metadata + backup — run in parallel, don't block UI
+    // Non-critical: clean expired trash + save metadata — run in parallel, don't block UI
     Promise.all([
       service.cleanExpiredTrash().catch(() => {}),
       service.saveMetadata({
@@ -297,10 +304,13 @@ export function useWorkspaceDataLoader() {
         boardCount: manifest.boards.length,
         lastModified: Date.now(),
       }).catch(() => {}),
-      createFileSystemBackup(workspacePath).catch(() => {}),
     ])
 
-    startAutoBackup(workspacePath)
+    // Delay backup + autoBackup 5s to avoid competing with startup
+    setTimeout(() => {
+      createFileSystemBackup(workspacePath).catch(() => {})
+      startAutoBackup(workspacePath)
+    }, 5000)
 
     const name = workspacePath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
     useWorkspaceStore.getState().setCurrentWorkspace({
@@ -334,7 +344,7 @@ export function useWorkspaceDataLoader() {
     }
   }, [])
 
-  const handleConflictChoice = useCallback((choice: 'backup' | 'continue' | 'merge' | 'cancel') => {
+  const handleConflictChoice = useCallback(async (choice: 'backup' | 'continue' | 'merge' | 'cancel') => {
     setConflict(null)
 
     if (choice === 'cancel') {
@@ -342,12 +352,25 @@ export function useWorkspaceDataLoader() {
       ensureGlobalDemoCards()
       ensureDefaultBoard()
       setDataReady(true)
-    notifyDataReady()
+      notifyDataReady()
       return
     }
 
     if (choice === 'backup' && pendingWorkspacePath) {
-      // TODO: Implement backup restoration
+      const backups = await listFileSystemBackups(pendingWorkspacePath)
+      if (backups.length > 0) {
+        const result = await restoreFromBackup(backups[0].timestamp, pendingWorkspacePath)
+        if (result.success) {
+          loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
+            console.error('[workspace] loadWorkspaceData after backup restore failed:', err)
+            ensureGlobalDemoCards()
+            ensureDefaultBoard()
+            setDataReady(true)
+            notifyDataReady()
+          })
+          return
+        }
+      }
     }
 
     if (choice === 'merge' && pendingWorkspacePath) {
@@ -359,7 +382,7 @@ export function useWorkspaceDataLoader() {
           ensureGlobalDemoCards()
           ensureDefaultBoard()
           setDataReady(true)
-    notifyDataReady()
+          notifyDataReady()
         })
       })
       return
@@ -372,7 +395,7 @@ export function useWorkspaceDataLoader() {
         ensureGlobalDemoCards()
         ensureDefaultBoard()
         setDataReady(true)
-    notifyDataReady()
+        notifyDataReady()
       })
     }
   }, [pendingWorkspacePath, loadWorkspaceData])
@@ -386,15 +409,20 @@ export function useWorkspaceDataLoader() {
 
   useEffect(() => {
     let cancelled = false
+    let preloadTimer: ReturnType<typeof setTimeout> | null = null
 
     ;(async () => {
       try {
         const workspacePath = localStorage.getItem(LAST_WORKSPACE_KEY)
 
         if (!workspacePath) {
-          initElectronFSAdapter()
+          emitStartupProgress('初始化工作区...', 0, 4)
+          await initElectronFSAdapter()
+          emitStartupProgress('加载卡片数据...', 1, 4)
           ensureGlobalDemoCards()
+          emitStartupProgress('加载画板...', 2, 4)
           ensureDefaultBoard()
+          emitStartupProgress('准备就绪', 4, 4)
           const ms = Math.round(performance.now())
           console.log(`[startup-renderer] demo mode ready: ${ms}ms`)
           try {
@@ -404,12 +432,18 @@ export function useWorkspaceDataLoader() {
           return
         }
 
-        initElectronFSAdapter()
+        await initElectronFSAdapter(workspacePath)
+
+        // 预加载编辑器 chunk，不等 dataReady
+        preloadTimer = setTimeout(() => {
+          import('../components/canvas/card/CardContent').then(m => m.preloadCardEditor()).catch(() => {})
+        }, 2000)
 
         if (!cancelled) {
           await loadWorkspaceData(workspacePath)
         }
-      } catch {
+      } catch (err) {
+        console.error('[workspace] loadWorkspaceData failed:', err)
         ensureGlobalDemoCards()
         ensureDefaultBoard()
         if (!cancelled) { setDataReady(true); notifyDataReady() }
@@ -419,8 +453,9 @@ export function useWorkspaceDataLoader() {
     return () => {
       cancelled = true
       stopAutoBackup()
+      if (preloadTimer) clearTimeout(preloadTimer)
     }
   }, [initKey, loadWorkspaceData])
 
-  return { dataReady, conflict, handleConflictChoice }
+  return { dataReady, conflict, hasBackup, handleConflictChoice }
 }

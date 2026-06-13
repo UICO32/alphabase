@@ -7,7 +7,8 @@ delete process.env.ELECTRON_RUN_AS_NODE
 
 import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
 import { startupLog } from './startupLog'
-import { join, dirname } from 'path'
+import { join, dirname, resolve } from 'path'
+import { isPathWithinWorkspace, registerWorkspacePath, unregisterWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
 import { fileURLToPath } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
 import { dirname as pathDirname } from 'path'
@@ -15,7 +16,7 @@ import { createMenu } from './menu'
 import { registerClipperHandlers } from './clipper/handler'
 import { registerEmbeddingIPC, disposeEmbeddingService } from './embedding'
 import { registerAISummaryIPC } from './ai'
-import { createSplashWindow, updateSplashProgress, closeSplashWindow } from './splash'
+import { createTray, setIsQuitting, getIsQuitting, destroyTray } from './tray'
 import { Md5 } from 'ts-md5'
 
 // Disable crashpad to prevent Windows crash on handler disconnect
@@ -27,11 +28,19 @@ app.commandLine.appendSwitch('enable-gpu-rasterization', '1')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows', '1')
 // Prevent GPU shader disk cache permission errors in dev mode
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+// Fix Network Service crash on Electron 42+ Windows
+app.commandLine.appendSwitch('disable-features', 'NetworkServiceSandbox')
 
 const __t0 = Date.now()
 let __t1 = 0
 let __t2 = 0
-console.log(`[startup] main process loaded: ${__t0}`)
+
+function logInfo(message: string) {
+  if (!app.isPackaged) console.log(message)
+  startupLog(message)
+}
+
+logInfo(`[startup] main process loaded: ${__t0}`)
 startupLog(`main process loaded: ${__t0}, ELECTRON_RUN_AS_NODE=${process.env.ELECTRON_RUN_AS_NODE ?? 'unset'}, app.isPackaged=${app.isPackaged}`)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -45,7 +54,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    backgroundColor: '#f5f5f4',
+    backgroundColor: '#18181b',
     icon: join(__dirname, '..', 'build', 'icon.ico'),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
@@ -71,7 +80,7 @@ function createWindow() {
 
   // Write startup timing to file for CI/testing
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log(`[startup] did-finish-load: ${Date.now() - __t0}ms`)
+    logInfo(`[startup] did-finish-load: ${Date.now() - __t0}ms`)
   })
 
   // Open DevTools only in development and when explicitly requested
@@ -95,16 +104,16 @@ function createWindow() {
     }
   })
 
+  let dataReadyArrived = false
+
   mainWindow.once('ready-to-show', () => {
     __t2 = Date.now()
-    console.log(`[startup] ready-to-show: ${__t2 - __t0}ms`)
+    logInfo(`[startup] ready-to-show: ${__t2 - __t0}ms`)
     startupLog(`ready-to-show: ${__t2 - __t0}ms`)
-    // Fallback: if data-ready IPC hasn't fired yet, show window anyway
-    // to prevent the app from being stuck on splash forever
-    if (!mainWindow?.isVisible()) {
-      closeSplashWindow()
-      mainWindow?.show()
-      console.log(`[startup] ready-to-show fallback show: ${Date.now() - __t0}ms`)
+    mainWindow?.show()
+    // If data-ready already arrived before window was visible, dismiss splash now
+    if (dataReadyArrived) {
+      mainWindow?.webContents.executeJavaScript('window.__dismissSplash && window.__dismissSplash()').catch(() => {})
     }
   })
 
@@ -124,6 +133,12 @@ function createWindow() {
   // On window close: flush pending writes, then allow close
   let pendingFlush = false
   mainWindow.on('close', (e) => {
+    // 托盘模式：隐藏而非关闭（仅生产构建）
+    if (app.isPackaged && !getIsQuitting() && !pendingFlush) {
+      e.preventDefault()
+      mainWindow?.hide()
+      return
+    }
     if (pendingFlush) return
     e.preventDefault()
     pendingFlush = true
@@ -149,15 +164,28 @@ function createWindow() {
 
 app.whenReady().then(() => {
   __t1 = Date.now()
-  console.log(`[startup] app.whenReady: ${__t1 - __t0}ms`)
+  logInfo(`[startup] app.whenReady: ${__t1 - __t0}ms`)
   startupLog(`app.whenReady: ${__t1 - __t0}ms, userData=${app.getPath('userData')}`)
   protocol.handle('hepta-media', async (request) => {
     try {
       const url = new URL(request.url)
-      // hepta-media://filename?workspace=... — filename is parsed as hostname, not pathname
       const filename = url.pathname.replace(/^\/+/, '') || url.hostname
       const workspacePath = (url.searchParams.get('workspace') || '').split('/').join('\\')
+
+      if (!isMediaFilenameSafe(filename)) {
+        return new Response('Forbidden', { status: 403 })
+      }
+      if (!workspacePath) {
+        return new Response('Forbidden', { status: 403 })
+      }
+
       const filePath = join(workspacePath, 'media', filename)
+      const resolvedMediaDir = resolve(join(workspacePath, 'media'))
+      const resolvedFilePath = resolve(filePath)
+      if (resolvedFilePath !== resolvedMediaDir && !resolvedFilePath.startsWith(resolvedMediaDir + '/') && !resolvedFilePath.startsWith(resolvedMediaDir + '\\')) {
+        return new Response('Forbidden', { status: 403 })
+      }
+
       const data = await readFile(filePath)
       const ext = filename.split('.').pop()?.toLowerCase() || 'jpg'
       const mimeMap: Record<string, string> = {
@@ -172,35 +200,45 @@ app.whenReady().then(() => {
     }
   })
 
-  createSplashWindow()
   createWindow()
+
+  if (app.isPackaged) {
+    createTray(mainWindow!)
+  }
+
+  ipcMain.on('startup:data-ready', () => {
+    logInfo(`[startup] data-ready: ${Date.now() - __t0}ms`)
+    dataReadyArrived = true
+    if (mainWindow?.isVisible()) {
+      mainWindow.webContents.executeJavaScript('window.__dismissSplash && window.__dismissSplash()').catch(() => {})
+    }
+  })
+
+  ipcMain.on('startup:progress', (_event, data: { step: string; progress: number; total: number }) => {
+    logInfo(`[startup] progress: step="${data.step}" ${data.progress}/${data.total}`)
+    const stepIndex = Math.min(data.progress, data.total)
+    mainWindow?.webContents.executeJavaScript(`window.__updateSplashProgress && window.__updateSplashProgress(${stepIndex})`).catch(() => {})
+  })
 
   // Defer embedding IPC registration — onnxruntime-node is heavy (~500ms)
   setTimeout(() => {
     registerEmbeddingIPC()
     registerAISummaryIPC()
   }, 0)
-
-  ipcMain.on('startup:progress', (_event, data: { step: string; progress: number; total: number }) => {
-    updateSplashProgress(data.step, data.progress, data.total)
-  })
-
-  ipcMain.on('startup:data-ready', () => {
-    closeSplashWindow()
-    mainWindow?.show()
-    console.log(`[startup] splash→main transition: ${Date.now() - __t0}ms`)
-  })
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    // Small delay to allow renderer's beforeunload flush to complete
-    setTimeout(() => app.quit(), 100)
+  if (getIsQuitting()) {
+    if (process.platform !== 'darwin') {
+      setTimeout(() => app.quit(), 100)
+    }
   }
 })
 
 app.on('before-quit', async () => {
+  setIsQuitting(true)
   await disposeEmbeddingService()
+  destroyTray()
 })
 
 // Give renderer time to flush pending writes before the window closes
@@ -209,21 +247,26 @@ ipcMain.handle('sync:flushAndQuit', async () => {
 })
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow()
+  } else {
+    mainWindow?.show()
+    mainWindow?.focus()
+  }
 })
 
 // IPC handlers
 // Startup timing IPC
 ipcMain.handle('startup:log', async (_event, data: { totalMs: number; steps: { name: string; ms: number }[] }) => {
   const wallClock = Date.now() - __t0
-  console.log(`[startup-renderer] total data load: ${data.totalMs}ms`)
-  console.log(`[startup-renderer] breakdown: ${data.steps.map(s => `${s.name}=${s.ms}`).join(', ')}`)
-  console.log(`[startup] === FULL TIMELINE ===`)
-  console.log(`[startup] main-process-loaded: 0ms`)
-  console.log(`[startup] app.whenReady: ${__t1 - __t0}ms`)
-  console.log(`[startup] ready-to-show: ${__t2 - __t0}ms`)
-  console.log(`[startup] renderer-data-ready: ${wallClock}ms (wall clock from main start)`)
-  console.log(`[startup] ==========================`)
+  logInfo(`[startup-renderer] total data load: ${data.totalMs}ms`)
+  logInfo(`[startup-renderer] breakdown: ${data.steps.map(s => `${s.name}=${s.ms}`).join(', ')}`)
+  logInfo(`[startup] === FULL TIMELINE ===`)
+  logInfo(`[startup] main-process-loaded: 0ms`)
+  logInfo(`[startup] app.whenReady: ${__t1 - __t0}ms`)
+  logInfo(`[startup] ready-to-show: ${__t2 - __t0}ms`)
+  logInfo(`[startup] renderer-data-ready: ${wallClock}ms (wall clock from main start)`)
+  logInfo(`[startup] ==========================`)
   // Write to file for automated testing
   const report = {
     mainProcessLoaded: 0,
@@ -240,31 +283,43 @@ ipcMain.handle('startup:log', async (_event, data: { totalMs: number; steps: { n
   return true
 })
 
+ipcMain.handle('workspace:registerPath', (_event, path: string) => {
+  registerWorkspacePath(path)
+})
+
+ipcMain.handle('workspace:unregisterPath', (_event, path: string) => {
+  unregisterWorkspacePath(path)
+})
+
 ipcMain.handle('fs:readFile', async (_event, path: string) => {
+  if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   return await readFile(path)
 })
 
 ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: string) => {
+  if (!isPathWithinWorkspace(filePath)) throw new Error(`Path outside workspace: ${filePath}`)
   await fsWriteFile(filePath, data)
 })
 
 ipcMain.handle('fs:deleteFile', async (_event, path: string) => {
+  if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   await unlink(path)
 })
 
 ipcMain.handle('fs:readdir', async (_event, path: string) => {
+  if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   return await fsReaddir(path)
 })
 
 ipcMain.handle('fs:readDirFiles', async (_event, dirPath: string) => {
-  // Batch read: returns all .json files in a directory as { filename: content }
+  if (!isPathWithinWorkspace(dirPath)) throw new Error(`Path outside workspace: ${dirPath}`)
   try {
     const files = await fsReaddir(dirPath)
     const jsonFiles = files.filter(f => f.endsWith('.json'))
     const results: Record<string, string> = {}
     await Promise.all(jsonFiles.map(async file => {
       try {
-        const data = await readFile(`${dirPath}/${file}`)
+        const data = await readFile(join(dirPath, file))
         results[file] = new TextDecoder().decode(data)
       } catch { /* skip unreadable files */ }
     }))
@@ -275,15 +330,21 @@ ipcMain.handle('fs:readDirFiles', async (_event, dirPath: string) => {
 })
 
 ipcMain.handle('fs:mkdir', async (_event, path: string) => {
+  if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   await fsMkdirDir(path, { recursive: true })
 })
 
 ipcMain.handle('fs:stat', async (_event, path: string) => {
+  if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   const st = await fsStat(path)
   return { isDirectory: st.isDirectory(), size: st.size, mtimeMs: st.mtimeMs }
 })
 
 ipcMain.handle('fs:exists', async (_event, filePath: string) => {
+  if (!isPathWithinWorkspace(filePath)) {
+    logInfo(`[security] fs:exists rejected path: ${filePath}`)
+    throw new Error(`Path outside workspace: ${filePath}`)
+  }
   try {
     await access(filePath)
     return true
@@ -293,10 +354,12 @@ ipcMain.handle('fs:exists', async (_event, filePath: string) => {
 })
 
 ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
+  if (!isPathWithinWorkspace(oldPath) || !isPathWithinWorkspace(newPath)) throw new Error(`Path outside workspace: old=${oldPath} new=${newPath}`)
   await fsRename(oldPath, newPath)
 })
 
 ipcMain.handle('fs:rmdir', async (_event, path: string) => {
+  if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   await rm(path, { recursive: true, force: true })
 })
 
@@ -309,6 +372,14 @@ ipcMain.handle('dialog:openDirectory', async () => {
 })
 
 ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error(`Disallowed protocol: ${parsed.protocol}`)
+    }
+  } catch (err) {
+    throw new Error(`Invalid or disallowed URL: ${url}`)
+  }
   await shell.openExternal(url)
 })
 
@@ -319,6 +390,23 @@ ipcMain.handle('window:maximize', () => {
 })
 ipcMain.handle('window:close', () => { mainWindow?.close() })
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false)
+
+ipcMain.handle('app:readChangelog', async () => {
+  try {
+    const asarPath = join(process.resourcesPath, 'app.asar', 'CHANGELOG.md')
+    const devPath = join(__dirname, '..', 'CHANGELOG.md')
+    let useAsar = false
+    try { await access(asarPath); useAsar = true } catch { useAsar = false }
+    const changelogPath = useAsar ? asarPath : devPath
+    startupLog(`[readChangelog] path=${changelogPath}`)
+    const content = await readFile(changelogPath, 'utf-8')
+    startupLog(`[readChangelog] read ${content.length} chars`)
+    return content
+  } catch (e: any) {
+    startupLog(`[readChangelog] error: ${e.message}`)
+    return ''
+  }
+})
 
 // Flomo sync IPC handlers
 const FLOMO_SIGN_KEY = 'dbbc3dd73364b4084c3a69346e0ce2b2'
@@ -371,12 +459,12 @@ ipcMain.handle('flomo:fetchMemos', async (_event, { accessToken, lastSyncTime }:
   let pageCount = 0
   const MAX_PAGES = 100
 
-  console.log(`[flomo] fetchMemos start, lastSyncTime: ${lastSyncTime || 'none'}`)
+  logInfo(`[flomo] fetchMemos start, lastSyncTime: ${lastSyncTime || 'none'}`)
 
   while (true) {
     pageCount++
     if (pageCount > MAX_PAGES) {
-      console.log(`[flomo] fetchMemos reached max pages (${MAX_PAGES}), stopping`)
+      logInfo(`[flomo] fetchMemos reached max pages (${MAX_PAGES}), stopping`)
       break
     }
 
@@ -416,7 +504,7 @@ ipcMain.handle('flomo:fetchMemos', async (_event, { accessToken, lastSyncTime }:
 
     const records = data.data || []
     allMemos.push(...records)
-    console.log(`[flomo] page ${pageCount}: ${records.length} memos, total: ${allMemos.length}`)
+    logInfo(`[flomo] page ${pageCount}: ${records.length} memos, total: ${allMemos.length}`)
     if (records.length < 200) break
 
     const last = records[records.length - 1]
@@ -424,11 +512,12 @@ ipcMain.handle('flomo:fetchMemos', async (_event, { accessToken, lastSyncTime }:
     latestUpdatedAt = String(Math.floor(new Date(last.updated_at).getTime() / 1000))
   }
 
-  console.log(`[flomo] fetchMemos done, total: ${allMemos.length} memos`)
+  logInfo(`[flomo] fetchMemos done, total: ${allMemos.length} memos`)
   return { memos: allMemos }
 })
 
 ipcMain.handle('flomo:downloadImg', async (_event, { url, destPath }: { url: string; destPath: string }) => {
+  if (!isPathWithinWorkspace(destPath)) return { success: false, error: 'Destination path outside workspace' }
   try {
     const resp = await fetch(url)
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
