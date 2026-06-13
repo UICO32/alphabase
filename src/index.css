@@ -82,32 +82,32 @@ html, body, #root {
 }
 
 
-/* 增大卡片 NodeResizer 热区 */
-.react-flow__resize-handle.line {
+/* 卡片 NodeResizer 热区 — 扩大 line handle 可点击区域 */
+.react-flow__resize-control.line {
   pointer-events: auto;
   z-index: 100;
 }
 /* 垂直边线（左/右）：以边缘为中心 */
-.react-flow__resize-handle.line.left {
+.react-flow__resize-control.line.left {
   width: 32px !important;
   left: -16px !important;
 }
-.react-flow__resize-handle.line.right {
+.react-flow__resize-control.line.right {
   width: 32px !important;
   right: -16px !important;
 }
 /* 水平边线（上/下）：以边缘为中心 */
-.react-flow__resize-handle.line.top {
+.react-flow__resize-control.line.top {
   height: 32px !important;
   top: -16px !important;
 }
-.react-flow__resize-handle.line.bottom {
+.react-flow__resize-control.line.bottom {
   height: 32px !important;
   bottom: -16px !important;
   z-index: 101;
 }
-/* 角抓手：使用 React Flow 默认定位（中心在角点） */
-.react-flow__resize-handle.handle {
+/* 角抓手 */
+.react-flow__resize-control.handle {
   z-index: 102;
 }
   
