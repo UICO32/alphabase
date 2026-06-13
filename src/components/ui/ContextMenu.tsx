@@ -1,45 +1,47 @@
+import type { ReactNode } from 'react'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem as ShadcnContextMenuItem,
+  ContextMenuSeparator,
+} from '@/components/ui/shadcn/context-menu'
+
 export interface ContextMenuItem {
-  icon?: React.ReactNode
+  icon?: ReactNode
   label?: string
   onClick?: () => void
   type?: 'separator'
+  danger?: boolean
 }
 
-interface ContextMenuProps {
-  x: number
-  y: number
+interface ContextMenuWrapperProps {
+  children: ReactNode
   items: ContextMenuItem[]
-  onClose: () => void
 }
 
-export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
+export function ContextMenuWrapper({ children, items }: ContextMenuWrapperProps) {
   return (
-    <div
-      className="fixed z-50 py-1 rounded-lg min-w-[160px] animate-scaleIn glass-panel"
-      style={{
-        left: x,
-        top: y,
-        boxShadow: 'var(--shadow-lg)',
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {items.map((item, i) =>
-        item.type === 'separator' ? (
-          <div key={i} className="h-px my-1 bg-border-default" />
-        ) : (
-          <button
-            key={i}
-            className="btn-base flex items-center gap-2 px-3 py-1.5 w-full text-left text-sm text-text-primary"
-            onClick={() => {
-              item.onClick?.()
-              onClose()
-            }}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        )
-      )}
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        {children}
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        {items.map((item, i) =>
+          item.type === 'separator' ? (
+            <ContextMenuSeparator key={i} />
+          ) : (
+            <ShadcnContextMenuItem
+              key={i}
+              onClick={item.onClick}
+              className={item.danger ? 'text-destructive focus:text-destructive' : ''}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </ShadcnContextMenuItem>
+          )
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
