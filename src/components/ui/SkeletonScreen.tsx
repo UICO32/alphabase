@@ -18,10 +18,6 @@ const CARD_SKELETONS = [
 export function SkeletonScreen({ stepText = '', progress = 0 }: SkeletonScreenProps) {
   const styleTag = useMemo(() => (
     <style>{`
-      @keyframes logoShimmer {
-        0% { background-position: 250% 0; }
-        100% { background-position: -250% 0; }
-      }
       @keyframes skeletonPulse {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
@@ -50,9 +46,9 @@ export function SkeletonScreen({ stepText = '', progress = 0 }: SkeletonScreenPr
         --card-skeleton-from: #e7e5e4;
         --card-skeleton-mid: #f0efee;
         --card-skeleton-to: #e7e5e4;
-        --logo-base: #18181b;
         --text-muted: #a8a29e;
-        --progress-bg: #d6d3d1;
+        --progress-bg: #e7e5e4;
+        --progress-fill: #18181b;
       }
       [data-theme="dark"] .sk-root {
         --surface-panel: #27272a;
@@ -64,9 +60,9 @@ export function SkeletonScreen({ stepText = '', progress = 0 }: SkeletonScreenPr
         --card-skeleton-from: #3f3f46;
         --card-skeleton-mid: #52525b;
         --card-skeleton-to: #3f3f46;
-        --logo-base: #e4e4e7;
         --text-muted: #71717a;
         --progress-bg: #3f3f46;
+        --progress-fill: #e4e4e7;
       }
 
       /* --- panels --- */
@@ -90,10 +86,6 @@ export function SkeletonScreen({ stepText = '', progress = 0 }: SkeletonScreenPr
         flex: 1;
         background: var(--surface-app);
         position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
       }
 
       /* --- separators --- */
@@ -121,51 +113,20 @@ export function SkeletonScreen({ stepText = '', progress = 0 }: SkeletonScreenPr
         position: absolute;
       }
 
-      /* --- logo --- */
-      .sk-logo {
-        font-size: 28px;
-        font-weight: 700;
-        letter-spacing: 3px;
-        color: transparent;
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        background: linear-gradient(
-          110deg,
-          var(--logo-base) 0%, var(--logo-base) 35%,
-          #f97316 42%, #eab308 48%,
-          #3b82f6 54%, #0ea5e9 60%,
-          var(--logo-base) 66%, var(--logo-base) 100%
-        );
-        background-size: 250% 100%;
-        background-clip: text;
-        -webkit-background-clip: text;
-        animation: logoShimmer 4.0s ease-in-out infinite;
-        animation-delay: 0.35s;
-        user-select: none;
-      }
-
-      .sk-subtitle {
-        font-size: 10px;
-        color: var(--text-muted);
-        opacity: 0.7;
-        margin-top: 8px;
-        letter-spacing: 0.5px;
-      }
-
+      /* --- progress bar (in canvas center) --- */
       .sk-progress-track {
-        width: 120px;
+        width: 140px;
         height: 3px;
         background: var(--progress-bg);
         border-radius: 2px;
-        margin-top: 16px;
         overflow: hidden;
       }
       .sk-progress-fill {
         height: 100%;
-        background: var(--logo-base);
+        background: var(--progress-fill);
         border-radius: 2px;
         transition: width 0.4s ease;
       }
-
       .sk-step-text {
         font-size: 11px;
         color: var(--text-muted);
@@ -322,19 +283,6 @@ export function SkeletonScreen({ stepText = '', progress = 0 }: SkeletonScreenPr
             }}
           />
         ))}
-
-        {/* Center logo area */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1 }}>
-          <div className="sk-logo">AlphaBase</div>
-          <div className="sk-subtitle">Designed by UICO Lab</div>
-          <div className="sk-progress-track">
-            <div
-              className="sk-progress-fill"
-              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-            />
-          </div>
-          {stepText && <div className="sk-step-text">{stepText}</div>}
-        </div>
       </div>
 
       <div className="sk-sep" />
