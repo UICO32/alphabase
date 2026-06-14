@@ -428,8 +428,6 @@ export function useWorkspaceDataLoader() {
           try {
             await (window as any).electronAPI?.startup?.log?.({ totalMs: ms, steps: [{ name: 'demo-ready', ms }] })
           } catch { /* noop */ }
-          // Show skeleton screen briefly in demo mode
-          await new Promise(r => setTimeout(r, 2000))
           if (!cancelled) { setDataReady(true); notifyDataReady() }
           return
         }

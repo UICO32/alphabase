@@ -11,17 +11,11 @@ export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEvents
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
   const emit = useEventBus(s => s.emit)
 
-  // Dismiss HTML splash immediately when React mounts — skeleton screen takes over
-  useEffect(() => {
-    const splash = document.getElementById('splash')
-    if (splash) {
-      splash.classList.add('fade-out')
-      setTimeout(() => splash.remove(), 300)
-    }
-  }, [])
-
+  // Dismiss splash when dataReady (splash handles its own 2s min display time)
   useEffect(() => {
     if (!dataReady) return
+    const dismiss = (window as any).__dismissSplash
+    if (dismiss) dismiss()
     const appStart = (window as any).__appStartTs
     if (appStart) {
       const totalMs = Math.round(performance.now() - appStart)

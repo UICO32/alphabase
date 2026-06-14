@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AlphaBase</title>
     <script>
-      // Apply theme immediately to avoid flash of wrong theme
       (function() {
         var stored = localStorage.getItem('hepta-theme');
         var mode = stored === 'dark' || stored === 'light' ? stored : 'light';
@@ -15,37 +14,92 @@
         }
         document.documentElement.setAttribute('data-theme', resolved);
         var isDark = resolved === 'dark';
-        document.documentElement.style.setProperty('--splash-bg', isDark ? '#18181b' : '#fafaf9');
-        document.documentElement.style.setProperty('--splash-text', isDark ? '#e4e4e7' : '#18181b');
-        document.documentElement.style.setProperty('--splash-muted', isDark ? '#71717a' : '#a8a29e');
-        document.documentElement.style.setProperty('--splash-track', isDark ? '#3f3f46' : '#e7e5e4');
-        document.documentElement.style.setProperty('--splash-credit', isDark ? '#3f3f46' : '#d4d4d8');
+        var r = document.documentElement.style;
+        r.setProperty('--sp-bg', isDark ? '#18181b' : '#fafaf9');
+        r.setProperty('--sp-panel', isDark ? '#27272a' : '#f5f5f4');
+        r.setProperty('--sp-text', isDark ? '#e4e4e7' : '#18181b');
+        r.setProperty('--sp-muted', isDark ? '#71717a' : '#a8a29e');
+        r.setProperty('--sp-bar-from', isDark ? '#3f3f46' : '#e7e5e4');
+        r.setProperty('--sp-bar-mid', isDark ? '#52525b' : '#f0efee');
+        r.setProperty('--sp-border', isDark ? '#3f3f46' : '#e7e5e4');
+        r.setProperty('--sp-fill', isDark ? '#e4e4e7' : '#18181b');
       })();
     </script>
     <style>
+      #splash, #splash * { margin: 0; padding: 0; box-sizing: border-box; }
+
       #splash {
         position: fixed; inset: 0; z-index: 99999;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: var(--splash-bg); color: var(--splash-text);
+        display: flex; flex-direction: column;
         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background: var(--sp-bg); overflow: hidden;
         transition: opacity 0.3s ease;
       }
       #splash.fade-out { opacity: 0; pointer-events: none; }
 
+      /* --- Title bar --- */
+      .sp-titlebar {
+        height: 32px; background: var(--sp-panel);
+        display: flex; align-items: center; padding: 0 12px; gap: 8px;
+        border-bottom: 1px solid var(--sp-border);
+      }
+      .sp-dot { width: 12px; height: 12px; border-radius: 50%; }
+      .sp-titlebar-bar {
+        width: 120px; height: 10px; border-radius: 4px; margin-left: 8px;
+        background: linear-gradient(90deg, var(--sp-bar-from) 25%, var(--sp-bar-mid) 50%, var(--sp-bar-from) 75%);
+        background-size: 200% 100%; animation: shimmer 1.8s ease-in-out infinite;
+      }
+
+      /* --- Main layout --- */
+      .sp-main { display: flex; flex: 1; min-height: 0; }
+
+      /* --- Panels --- */
+      .sp-left {
+        width: 260px; min-width: 260px; background: var(--sp-panel);
+        display: flex; flex-direction: column;
+      }
+      .sp-right {
+        width: 360px; min-width: 360px; background: var(--sp-panel);
+        display: flex; flex-direction: column;
+      }
+      .sp-canvas { flex: 1; background: var(--sp-bg); position: relative; }
+      .sp-sep { width: 1px; background: var(--sp-border); flex-shrink: 0; }
+
+      /* --- Shimmer bar --- */
+      .sp-bar {
+        background: linear-gradient(90deg, var(--sp-bar-from) 25%, var(--sp-bar-mid) 50%, var(--sp-bar-from) 75%);
+        background-size: 200% 100%; animation: shimmer 1.8s ease-in-out infinite;
+        border-radius: 3px;
+      }
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+
+      /* --- Card skeleton --- */
+      .sp-card {
+        background: linear-gradient(135deg, var(--sp-bar-from) 0%, var(--sp-bar-mid) 40%, var(--sp-bar-from) 80%);
+        background-size: 200% 200%; animation: cardShimmer 2s ease-in-out infinite;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04); border-radius: 8px; position: absolute;
+      }
+      @keyframes cardShimmer {
+        0% { background-position: 200% 200%; }
+        100% { background-position: -200% -200%; }
+      }
+
       /* --- Logo with shimmer sweep --- */
-      #splash-title {
+      .sp-logo {
         font-weight: 700; font-size: 28px; letter-spacing: 3px;
         color: transparent; user-select: none;
         background: linear-gradient(
           110deg,
-          var(--splash-text) 0%, var(--splash-text) 35%,
+          var(--sp-text) 0%, var(--sp-text) 35%,
           #f97316 42%, #eab308 48%,
           #3b82f6 54%, #0ea5e9 60%,
-          var(--splash-text) 66%, var(--splash-text) 100%
+          var(--sp-text) 66%, var(--sp-text) 100%
         );
         background-size: 250% 100%;
-        background-clip: text;
-        -webkit-background-clip: text;
+        background-clip: text; -webkit-background-clip: text;
         animation: logoShimmer 4.0s ease-in-out infinite;
         animation-delay: 0.35s;
       }
@@ -54,56 +108,156 @@
         100% { background-position: -250% 0; }
       }
 
-      /* --- Credit --- */
-      #splash-credit {
-        margin-top: 8px; font-size: 10px; color: var(--splash-muted);
+      .sp-credit {
+        margin-top: 8px; font-size: 10px; color: var(--sp-muted);
         letter-spacing: 0.5px; opacity: 0.7;
       }
-
-      /* --- Progress bar --- */
-      #splash-bar {
-        width: 140px; height: 3px; background: var(--splash-track);
+      .sp-progress-track {
+        width: 140px; height: 3px; background: var(--sp-border);
         border-radius: 2px; overflow: hidden; margin-top: 16px;
       }
-      #splash-fill {
-        height: 100%; width: 0%; background: var(--splash-text);
+      .sp-progress-fill {
+        height: 100%; width: 0%; background: var(--sp-fill);
         border-radius: 2px; transition: width 0.3s ease;
       }
-
-      /* --- Step text --- */
-      #splash-step {
-        font-size: 11px; color: var(--splash-muted);
+      .sp-step {
+        font-size: 11px; color: var(--sp-muted);
         text-align: center; min-height: 16px; margin-top: 8px;
         animation: stepBreathe 2s ease-in-out infinite alternate;
       }
-      @keyframes stepBreathe {
-        0% { opacity: 0.5; }
-        100% { opacity: 1; }
+      @keyframes stepBreathe { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+
+      /* --- Left panel internals --- */
+      .sp-lp-header {
+        display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+        border-bottom: 1px solid var(--sp-border);
+      }
+      .sp-lp-icon { width: 16px; height: 16px; border-radius: 3px; }
+      .sp-lp-header-text { flex: 1; height: 12px; }
+      .sp-lp-tabs { display: flex; gap: 0; padding: 6px 14px 0; }
+      .sp-lp-tab { height: 10px; border-radius: 3px; }
+      .sp-lp-sep { height: 1px; background: var(--sp-border); margin: 10px 14px; }
+      .sp-lp-list { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 0 14px; }
+      .sp-lp-item { height: 32px; border-radius: 6px; }
+      .sp-lp-trash { border-top: 1px solid var(--sp-border); padding: 10px 14px; }
+      .sp-lp-trash-bar { height: 32px; width: 100%; border-radius: 6px; }
+
+      /* --- Right panel internals --- */
+      .sp-rp-tabs {
+        display: flex; align-items: center; gap: 0; padding: 10px 14px;
+        border-bottom: 1px solid var(--sp-border);
+      }
+      .sp-rp-tab { height: 10px; border-radius: 3px; }
+      .sp-rp-collapse { width: 16px; height: 16px; border-radius: 3px; margin-left: auto; }
+      .sp-rp-content { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+      .sp-rp-title { height: 14px; width: 80%; }
+      .sp-rp-meta { height: 10px; width: 60%; }
+      .sp-rp-editor { height: 200px; width: 100%; border-radius: 8px; }
+      .sp-rp-ai-label { height: 10px; width: 50px; }
+      .sp-rp-ai-line { height: 10px; width: 100%; }
+
+      /* --- Center overlay in canvas --- */
+      .sp-center {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 1;
       }
     </style>
   </head>
   <body spellcheck="false">
     <div id="splash">
-      <div id="splash-title">AlphaBase</div>
-      <div id="splash-credit">Designed by UICO Lab</div>
-      <div id="splash-bar"><div id="splash-fill"></div></div>
-      <div id="splash-step"></div>
+      <!-- Title bar -->
+      <div class="sp-titlebar">
+        <div class="sp-dot" style="background:#ff5f57"></div>
+        <div class="sp-dot" style="background:#ffbd2e"></div>
+        <div class="sp-dot" style="background:#28c840"></div>
+        <div class="sp-titlebar-bar"></div>
+      </div>
+
+      <div class="sp-main">
+        <!-- Left panel -->
+        <div class="sp-left">
+          <div class="sp-lp-header">
+            <div class="sp-lp-icon sp-bar"></div>
+            <div class="sp-lp-header-text sp-bar"></div>
+            <div class="sp-lp-icon sp-bar"></div>
+          </div>
+          <div class="sp-lp-tabs">
+            <div class="sp-lp-tab sp-bar" style="width:48px;margin-right:12px"></div>
+            <div class="sp-lp-tab sp-bar" style="width:36px"></div>
+          </div>
+          <div class="sp-lp-sep"></div>
+          <div class="sp-lp-list">
+            <div class="sp-lp-item sp-bar"></div>
+            <div class="sp-lp-item sp-bar"></div>
+            <div class="sp-lp-item sp-bar"></div>
+            <div class="sp-lp-item sp-bar"></div>
+          </div>
+          <div class="sp-lp-trash">
+            <div class="sp-lp-trash-bar sp-bar"></div>
+          </div>
+        </div>
+
+        <div class="sp-sep"></div>
+
+        <!-- Canvas -->
+        <div class="sp-canvas">
+          <div class="sp-card" style="left:5%;top:8%;width:140px;height:90px;opacity:0.7"></div>
+          <div class="sp-card" style="left:25%;top:20%;width:140px;height:90px;opacity:0.7"></div>
+          <div class="sp-card" style="right:15%;top:12%;width:140px;height:90px;opacity:0.7"></div>
+          <div class="sp-card" style="left:15%;bottom:18%;width:140px;height:90px;opacity:0.7"></div>
+          <div class="sp-card" style="right:8%;bottom:25%;width:100px;height:65px;opacity:0.4"></div>
+          <div class="sp-card" style="left:40%;top:50%;width:100px;height:65px;opacity:0.4"></div>
+          <div class="sp-card" style="left:8%;top:45%;width:100px;height:65px;opacity:0.4"></div>
+
+          <div class="sp-center">
+            <div class="sp-logo">AlphaBase</div>
+            <div class="sp-credit">Designed by UICO Lab</div>
+            <div class="sp-progress-track"><div class="sp-progress-fill" id="splash-fill"></div></div>
+            <div class="sp-step" id="splash-step"></div>
+          </div>
+        </div>
+
+        <div class="sp-sep"></div>
+
+        <!-- Right panel -->
+        <div class="sp-right">
+          <div class="sp-rp-tabs">
+            <div class="sp-rp-tab sp-bar" style="width:42px;margin-right:16px"></div>
+            <div class="sp-rp-tab sp-bar" style="width:52px;margin-right:16px"></div>
+            <div class="sp-rp-collapse sp-bar"></div>
+          </div>
+          <div class="sp-rp-content">
+            <div class="sp-rp-title sp-bar"></div>
+            <div class="sp-rp-meta sp-bar"></div>
+            <div class="sp-rp-editor sp-bar"></div>
+            <div class="sp-rp-ai-label sp-bar"></div>
+            <div class="sp-rp-ai-line sp-bar" style="width:90%"></div>
+            <div class="sp-rp-ai-line sp-bar" style="width:70%"></div>
+            <div class="sp-rp-ai-line sp-bar" style="width:50%"></div>
+          </div>
+        </div>
+      </div>
     </div>
+
     <div id="root"></div>
     <script>
-      // Global function for main process to call via executeJavaScript
       var __splashSteps = ['初始化工作区', '加载卡片数据', '加载画板快照', '恢复回收站', '准备就绪'];
+      var __splashMountTs = Date.now();
       window.__updateSplashProgress = function(stepIndex) {
         var fill = document.getElementById('splash-fill');
         var label = document.getElementById('splash-step');
         var pct = Math.round((stepIndex / (__splashSteps.length - 1)) * 100);
-        fill.style.width = pct + '%';
-        label.textContent = stepIndex >= 0 && stepIndex < __splashSteps.length ? __splashSteps[stepIndex] : '';
+        if (fill) fill.style.width = pct + '%';
+        if (label) label.textContent = stepIndex >= 0 && stepIndex < __splashSteps.length ? __splashSteps[stepIndex] : '';
       };
       window.__dismissSplash = function() {
-        var splash = document.getElementById('splash');
-        splash.classList.add('fade-out');
-        setTimeout(function() { splash.remove(); }, 300);
+        var elapsed = Date.now() - __splashMountTs;
+        var delay = Math.max(0, 2000 - elapsed);
+        setTimeout(function() {
+          var splash = document.getElementById('splash');
+          if (splash) { splash.classList.add('fade-out'); setTimeout(function() { splash.remove(); }, 300); }
+        }, delay);
       };
     </script>
     <script type="module" src="/src/main.tsx"></script>

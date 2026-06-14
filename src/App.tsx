@@ -19,7 +19,6 @@ import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
 import { preloadCardEditor } from './components/canvas/card/CardContent'
 import { setupAIListeners } from './stores/aiStore'
-import { SkeletonScreen } from './components/ui/SkeletonScreen'
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
 const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
@@ -159,7 +158,7 @@ function App() {
     import('./components/topography/useClusterData').then(m => m.prefetchTopography())
   }, [dataReady])
 
-  if (!dataReady) return <SkeletonScreen />
+  if (!dataReady) return null
 
   return (
     <ErrorBoundary>
