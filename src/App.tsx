@@ -19,6 +19,7 @@ import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
 import { preloadCardEditor } from './components/canvas/card/CardContent'
 import { setupAIListeners } from './stores/aiStore'
+import { SkeletonScreen } from './components/ui/SkeletonScreen'
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
 const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
@@ -158,7 +159,7 @@ function App() {
     import('./components/topography/useClusterData').then(m => m.prefetchTopography())
   }, [dataReady])
 
-  if (!dataReady) return null
+  if (!dataReady) return <SkeletonScreen />
 
   return (
     <ErrorBoundary>
@@ -173,7 +174,7 @@ function App() {
 
         <main
           className={`${isBoardView ? 'absolute inset-0 rounded-lg mx-0.5 mb-0.5' : 'flex-1 rounded-lg m-0.5'} overflow-hidden`}
-          style={{ backgroundColor: (isBoardView && showTopography) ? '#0a0f2e' : 'var(--surface-app)', transition: 'background-color 0.4s ease' }}
+          style={{ backgroundColor: (isBoardView && showTopography) ? '#0a0f2e' : 'var(--surface-app)', transition: 'background-color 0.4s ease', borderRadius: 0 }}
         >
           {renderMainContent()}
         </main>
