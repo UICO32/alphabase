@@ -174,26 +174,19 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         return
       }
       if (isCollapsed) return
+      // 点击编辑器内部时（ProseMirror contenteditable），不拦截
+      const target = e.target as HTMLElement
+      if (target.closest('[contenteditable="true"]')) return
       if (isEditing) {
-        clickCoordsRef.current = { x: e.clientX, y: e.clientY }
-        requestAnimationFrame(() => {
-          editorRef.current?.focusAtCoords({ x: e.clientX, y: e.clientY })
-        })
+        editorRef.current?.focusAtCoords({ x: e.clientX, y: e.clientY })
         return
       }
-      if (isHovered && !selected && card) {
-        const lib = useLibraryStore.getState()
-        if (lib.editingCardId === data.cardId && lib.rightPanelActiveTab === 'editor' && !lib.rightPanelCollapsed) return
-        clickCoordsRef.current = { x: e.clientX, y: e.clientY }
-        setIsEditing(true)
-      } else if (!isEditing && selected && card) {
-        const lib = useLibraryStore.getState()
-        if (lib.editingCardId === data.cardId && lib.rightPanelActiveTab === 'editor' && !lib.rightPanelCollapsed) return
+      if (card) {
         clickCoordsRef.current = { x: e.clientX, y: e.clientY }
         setIsEditing(true)
       }
     },
-    [isConnectionTarget, isNearbyTarget, data.cardId, selected, card, isEditing, isCollapsed, isHovered, getNode, getNodeSize],
+    [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, getNode, getNodeSize],
   )
 
   const handleContentChange = useCallback(
@@ -343,7 +336,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   if (!card) {
     return (
       <div
-        className="rounded-2xl border-2 border-dashed border-border-default flex items-center justify-center"
+        className="rounded-xl border-2 border-dashed border-border-default flex items-center justify-center"
         style={{
           width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
           height: (data.height ?? DEFAULT_CARD_HEIGHT) as number,
@@ -368,7 +361,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const borderWidth = selected ? 2 : 1
   const borderColor = selected
-    ? 'var(--border-active)'
+    ? 'var(--card-selected-border)'
     : getCardStroke(data.color)
 
   const cardBg = getCardFill(data.color, isDarkMode)
@@ -386,7 +379,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const cardClasses = [
     'card-node-default',
     'relative',
-    'rounded-2xl',
+    'rounded-xl',
     (isEditing || selected || isHovered || hasSummaryBubble) ? 'overflow-visible' : 'overflow-hidden',
     isConnectingSource ? 'card-node-connecting-source' : '',
     isNearbyTarget ? 'card-node-nearby-target' : '',
@@ -404,7 +397,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         backgroundColor: cardBg,
         border: `${borderWidth}px solid ${borderColor}`,
         boxShadow: isConnectingSource
-          ? 'var(--shadow-glow-blue)'
+          ? 'var(--shadow-glow-accent)'
           : isNearbyTarget
             ? 'var(--shadow-glow-green)'
           : isConnectionTarget && isHovered
@@ -412,7 +405,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           : isHovered
             ? `${hoverOutline}, var(--shadow-lg)`
           : selected
-            ? 'var(--shadow-glow-blue)'
+            ? 'var(--card-selected-shadow)'
             : 'var(--shadow-sm)',
         cursor,
       }}
