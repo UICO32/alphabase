@@ -24,6 +24,31 @@ export interface ClipResult {
 export interface ClipErrorBody {
   error: string
   code: 'TIMEOUT' | 'FETCH_ERROR' | 'PARSE_ERROR' | 'UNSUPPORTED_PLATFORM' | 'NO_CONTENT' | 'WECHAT_CAPTCHA'
+    | 'CLI_NOT_FOUND' | 'CLI_TIMEOUT' | 'CLI_ERROR'
 }
 
 export type Platform = 'xiaohongshu' | 'wechat' | 'generic'
+  | 'twitter' | 'bilibili' | 'youtube' | 'xiaoyuzhou'
+
+export interface AgentReachBrowseRequest {
+  platform: 'twitter' | 'bilibili' | 'youtube' | 'xiaohongshu'
+  action: 'search' | 'hot' | 'rank' | 'trending'
+  query?: string
+  limit?: number
+}
+
+export interface AgentReachBrowseItem {
+  id: string
+  title: string
+  author?: string
+  url: string
+  thumbnail?: string
+  description?: string
+  stats?: Record<string, string | number>
+  duration?: string
+}
+
+export interface AgentReachBrowseResult {
+  items: AgentReachBrowseItem[]
+  hasMore: boolean
+}

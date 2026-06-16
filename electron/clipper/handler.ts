@@ -3,16 +3,88 @@ import { log } from './logger'
 import { detectPlatform, extractContent } from './extractor'
 import { extractXHS } from './platforms/xhs'
 import { extractWeChat } from './platforms/wechat'
+import { extractBilibili } from './platforms/bilibili'
+import { extractYouTube } from './platforms/youtube'
+import { extractTwitter } from './platforms/twitter'
+import { extractXiaoyuzhou } from './platforms/xiaoyuzhou'
 import { downloadImages, replaceImageUrls } from './imageDownloader'
 import { turndown } from './turndown'
-import type { ClipRequest, ClipResult, ClipErrorBody } from './types'
+import { loadConfig } from './cliConfig'
+import type { ClipRequest, ClipResult, ClipErrorBody, AgentReachBrowseRequest, AgentReachBrowseResult } from './types'
+
+const CLI_PLATFORMS = ['twitter', 'bilibili', 'youtube', 'xiaoyuzhou']
 
 async function handleClip(_event: any, body: ClipRequest): Promise<ClipResult> {
   const { url, workspacePath } = body
 
   log.info(`clipping: ${url}`)
 
-  // 1. fetch HTML
+  const platform = detectPlatform(url)
+  let result: ClipResult | null = null
+
+  // 1. CLI-first platforms: skip HTML fetch, try CLI extractor directly
+  if (CLI_PLATFORMS.includes(platform)) {
+    try {
+      result = await extractWithCli(platform, url)
+      if (result) {
+        log.info(`CLI extraction succeeded for ${platform}: title="${result.title}"`)
+      }
+    } catch (err: any) {
+      if (err.code === 'CLI_NOT_FOUND') {
+        log.info(`CLI tool not found for ${platform}, falling back to HTML`)
+      } else if (err.code === 'CLI_TIMEOUT' || err.code === 'CLI_ERROR') {
+        log.warn(`CLI extraction failed for ${platform}: ${err.message}`)
+      } else {
+        throw err
+      }
+    }
+  }
+
+  // 2. HTML-based extraction (existing path or CLI fallback)
+  if (!result) {
+    result = await extractViaHtml(platform, url)
+  }
+
+  // 3. turndown fallback
+  if (!result.markdown && result.html) {
+    result.markdown = turndown(result.html)
+  }
+
+  // 4. download images
+  const imageUrls = result.imageUrls || []
+  delete result.imageUrls
+
+  log.info(`imageUrls count: ${imageUrls.length}, workspacePath: ${workspacePath || '(empty)'}`)
+
+  if (imageUrls.length > 0 && workspacePath) {
+    const imageInfos = await downloadImages(imageUrls, workspacePath, url)
+    log.info(`images downloaded: ${imageInfos.length}/${imageUrls.length}`)
+    const replaced = replaceImageUrls(result.html, result.markdown, imageInfos, workspacePath || '')
+    result.html = replaced.html
+    result.markdown = replaced.markdown
+    result.images = imageInfos
+  }
+
+  log.info(`clip complete: title="${result.title}", images=${result.images.length}`)
+  return result
+}
+
+async function extractWithCli(platform: string, url: string): Promise<ClipResult | null> {
+  switch (platform) {
+    case 'bilibili':
+      return extractBilibili(url)
+    case 'youtube':
+      return extractYouTube(url)
+    case 'twitter':
+      return extractTwitter(url)
+    case 'xiaoyuzhou':
+      return extractXiaoyuzhou(url)
+    default:
+      return null
+  }
+}
+
+async function extractViaHtml(platform: string, url: string): Promise<ClipResult> {
   let rawHtml: string
   try {
     rawHtml = await fetchHtml(url)
@@ -24,8 +96,6 @@ async function handleClip(_event: any, body: ClipRequest): Promise<ClipResult> {
     throw Object.assign(new Error(`无法访问该页面 (${err.message})`), { code: 'FETCH_ERROR' })
   }
 
-  // 2. platform detection + extraction
-  const platform = detectPlatform(url)
   let result: ClipResult | null = null
   let extractionFailed = false
 
@@ -42,8 +112,22 @@ async function handleClip(_event: any, body: ClipRequest): Promise<ClipResult> {
     }
   }
 
-  // 3. 如果提取失败（反爬/空内容），用静默浏览器重新加载
   if (extractionFailed || !result) {
+    // 小红书：尝试 opencli fallback
+    if (platform === 'xiaohongshu') {
+      try {
+        const { cliExists } = await import('./cliExecutor')
+        const cfg = loadConfig()
+        if (await cliExists(cfg.opencli)) {
+          log.info('xhs extraction failed, trying opencli xiaohongshu')
+          const opencliResult = await extractXHSViaOpenCLI(url, cfg.opencli)
+          if (opencliResult) return opencliResult
+        }
+      } catch (err: any) {
+        log.warn(`opencli xhs fallback failed: ${err.message}`)
+      }
+    }
+
     log.info('extraction failed, loading page with headless browser')
     try {
       rawHtml = await loadWithBrowser(url)
@@ -54,27 +138,6 @@ async function handleClip(_event: any, body: ClipRequest): Promise<ClipResult> {
     }
   }
 
-  // 4. turndown fallback
-  if (!result.markdown && result.html) {
-    result.markdown = turndown(result.html)
-  }
-
-  // 5. download images
-  const imageUrls = result.imageUrls || []
-  delete result.imageUrls
-
-  log.info(`imageUrls count: ${imageUrls.length}, workspacePath: ${workspacePath || '(empty)'}`)
-
-  if (imageUrls.length > 0 && workspacePath) {
-    const imageInfos = await downloadImages(imageUrls, workspacePath, url)
-    log.info(`images downloaded: ${imageInfos.length}/${imageUrls.length}`)
-    const replaced = replaceImageUrls(result.html, result.markdown, imageInfos, workspacePath || '')
-    result.html = replaced.html
-    result.markdown = replaced.markdown
-    result.images = imageInfos
-  }
-
-  log.info(`clip complete: title="${result.title}", images=${result.images.length}`)
   return result
 }
 
@@ -127,7 +190,6 @@ async function loadWithBrowser(url: string): Promise<string> {
     )
     await win.loadURL(url)
 
-    // 等待页面完全加载（包括 JS 渲染）
     await new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
         log.info('browser load timeout, proceeding with current content')
@@ -135,7 +197,6 @@ async function loadWithBrowser(url: string): Promise<string> {
       }, 10000)
       win.webContents.on('did-finish-load', () => {
         clearTimeout(timeout)
-        // 等待额外 2 秒让 JS 渲染完成
         setTimeout(() => resolve(), 2000)
       })
     })
@@ -148,6 +209,119 @@ async function loadWithBrowser(url: string): Promise<string> {
   }
 }
 
+async function extractXHSViaOpenCLI(url: string, opencliPath: string): Promise<ClipResult | null> {
+  const { execCli } = await import('./cliExecutor')
+  const result = await execCli({
+    command: opencliPath,
+    args: ['xiaohongshu', 'note', url, '-f', 'json'],
+    timeout: 30000,
+  })
+  if (result.exitCode !== 0 || !result.stdout) return null
+
+  let data: any
+  try { data = JSON.parse(result.stdout) } catch { return null }
+
+  const title = data.title || '小红书笔记'
+  const desc = data.desc || data.description || data.content || ''
+  const imageUrls: string[] = []
+  if (data.images) {
+    for (const img of data.images) {
+      if (img.urlDefault || img.url) imageUrls.push(img.urlDefault || img.url)
+    }
+  }
+
+  const htmlParts = [`<h1>${title}</h1>`]
+  if (desc) htmlParts.push(`<p>${desc.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`)
+  for (const imgUrl of imageUrls) {
+    htmlParts.push(`<p><img src="${imgUrl}" /></p>`)
+  }
+
+  const html = htmlParts.join('\n')
+  return {
+    title,
+    html,
+    markdown: turndown(html),
+    sourceUrl: url,
+    sourceName: '小红书',
+    images: [],
+    imageUrls,
+  } as any
+}
+
+// --- Agent Reach Browse ---
+
+async function handleAgentReachBrowse(_event: any, req: AgentReachBrowseRequest): Promise<AgentReachBrowseResult> {
+  const config = loadConfig()
+
+  switch (req.platform) {
+    case 'bilibili':
+      return browseBilibili(config, req)
+    default:
+      throw Object.assign(new Error(`Unsupported platform: ${req.platform}`), { code: 'CLI_ERROR' })
+  }
+}
+
+async function browseBilibili(config: ReturnType<typeof loadConfig>, req: AgentReachBrowseRequest): Promise<AgentReachBrowseResult> {
+  const limit = req.limit || 20
+  let args: string[]
+
+  switch (req.action) {
+    case 'search':
+      if (!req.query) throw Object.assign(new Error('Search requires a query'), { code: 'CLI_ERROR' })
+      args = ['search', req.query, '--type', 'video', '--json', '-n', String(limit)]
+      break
+    case 'hot':
+      args = ['hot', '--json', '-n', String(limit)]
+      break
+    case 'rank':
+      args = ['rank', '--json', '-n', String(limit)]
+      break
+    default:
+      throw Object.assign(new Error(`Unsupported action for bilibili: ${req.action}`), { code: 'CLI_ERROR' })
+  }
+
+  const result = await execCliSafe(config.bili, args, 30000)
+  if (!result) return { items: [], hasMore: false }
+
+  const data = JSON.parse(result.stdout)
+
+  if (req.action === 'search') {
+    const items = (data.data || []).map((v: any) => mapBiliItem(v))
+    return { items, hasMore: items.length >= limit }
+  }
+
+  const items = (data.data?.items || []).map((v: any) => mapBiliItem(v))
+  return { items, hasMore: items.length >= limit }
+}
+
+function mapBiliItem(v: any): AgentReachBrowseResult['items'][0] {
+  return {
+    id: v.bvid || v.id,
+    title: v.title,
+    author: v.owner?.name,
+    url: v.url || `https://www.bilibili.com/video/${v.bvid}`,
+    thumbnail: v.pic,
+    description: v.description,
+    stats: v.stats ? { 播放: v.stats.view, 点赞: v.stats.like } : undefined,
+    duration: v.duration,
+  }
+}
+
+async function execCliSafe(command: string, args: string[], timeout: number): Promise<{ stdout: string } | null> {
+  const { execCli, cliExists } = await import('./cliExecutor')
+  if (!(await cliExists(command))) {
+    log.warn(`CLI not found: ${command}`)
+    return null
+  }
+  const result = await execCli({ command, args, timeout, env: { PYTHONIOENCODING: 'utf-8' } })
+  if (result.exitCode !== 0 || result.timedOut) {
+    log.warn(`CLI failed (exit ${result.exitCode}): ${result.stderr.slice(0, 200)}`)
+    return null
+  }
+  return result
+}
+
 export function registerClipperHandlers() {
   ipcMain.handle('clipper:clip', handleClip)
+  ipcMain.handle('clipper:agentReachBrowse', handleAgentReachBrowse)
 }

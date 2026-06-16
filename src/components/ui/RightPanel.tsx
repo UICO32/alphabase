@@ -3,8 +3,9 @@ import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
-import { Layers, FileText, PanelRightOpen, Globe } from 'lucide-react'
+import { Layers, FileText, PanelRightOpen, Globe, Compass } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
+import { AgentReachPanel } from './AgentReachPanel'
 
 const LazyCardBlockNoteEditor = lazy(() =>
   import('../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
@@ -90,12 +91,21 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
             <FileText size={14} />
             卡片编辑器
           </button>
+          <button
+            onClick={() => setRightPanelActiveTab('channels')}
+            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'channels' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+          >
+            <Compass size={14} />
+            频道
+          </button>
         </div>
         <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {rightPanelActiveTab === 'library' ? (
+        {rightPanelActiveTab === 'channels' ? (
+          <AgentReachPanel />
+        ) : rightPanelActiveTab === 'library' ? (
           !rightPanelCollapsed && <CardLibraryView onOpenSettings={onOpenSettings} />
         ) : showEditorContent ? (
           <ClipAwareEditorView

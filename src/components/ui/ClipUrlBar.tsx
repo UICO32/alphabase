@@ -94,6 +94,9 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         : code === 'NO_CONTENT' ? '该页面无法提取有效内容'
         : code === 'WECHAT_CAPTCHA' ? '微信反爬验证拦截，请在浏览器中打开文章后重试'
         : code === 'FETCH_ERROR' ? `无法访问该页面 (${msg})`
+        : code === 'CLI_NOT_FOUND' ? '所需工具未安装，请先配置 Agent Reach'
+        : code === 'CLI_TIMEOUT' ? '提取超时，内容可能较大'
+        : code === 'CLI_ERROR' ? `工具执行失败: ${msg}`
         : `剪藏失败: ${msg}`
 
       useCardStore.getState().updateCard(cardId, {

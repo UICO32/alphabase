@@ -8,6 +8,10 @@ export function detectPlatform(url: string): Platform {
   const hostname = new URL(url).hostname
   if (hostname.includes('xiaohongshu.com') || hostname.includes('xhslink.com')) return 'xiaohongshu'
   if (hostname.includes('mp.weixin.qq.com')) return 'wechat'
+  if (hostname.includes('x.com') || hostname.includes('twitter.com')) return 'twitter'
+  if (hostname.includes('bilibili.com') || hostname.includes('b23.tv')) return 'bilibili'
+  if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube'
+  if (hostname.includes('xiaoyuzhoufm.com')) return 'xiaoyuzhou'
   return 'generic'
 }
 

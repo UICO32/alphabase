@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   clipper: {
     clip: (url: string, workspacePath?: string) => ipcRenderer.invoke('clipper:clip', { url, workspacePath }),
+    agentReachBrowse: (req: any) => ipcRenderer.invoke('clipper:agentReachBrowse', req),
   },
   flomo: {
     login: (email: string, password: string) => ipcRenderer.invoke('flomo:login', { email, password }),

@@ -1,7 +1,7 @@
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useFrameInteraction, enterLassoMode } from '../../utils/frameInteraction'
 import { appEvents } from '../../utils/appEvents'
-import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Goal, GalleryVerticalEnd } from 'lucide-react'
+import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Goal, GalleryVerticalEnd, Compass } from 'lucide-react'
 
 interface ToolbarProps {
   onAddCard?: () => void
@@ -34,6 +34,14 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             title="剪藏网页"
           >
             <Scissors size={16} />
+          </button>
+
+          <button
+            onClick={() => useLibraryStore.getState().setRightPanelActiveTab('channels')}
+            className="btn-base p-2 rounded-xl text-text-primary"
+            title="频道浏览"
+          >
+            <Compass size={16} />
           </button>
 
           <button

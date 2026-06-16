@@ -31,6 +31,24 @@ declare global {
       }
       clipper: {
         clip: (url: string, workspacePath?: string) => Promise<{ title: string; html: string; markdown: string; sourceUrl: string; sourceName: string; favicon?: string; images: Array<{ originalUrl: string; localFilename: string; originalSize: number; compressedSize: number }> }>
+        agentReachBrowse: (req: {
+          platform: 'twitter' | 'bilibili' | 'youtube' | 'xiaohongshu'
+          action: 'search' | 'hot' | 'rank' | 'trending'
+          query?: string
+          limit?: number
+        }) => Promise<{
+          items: Array<{
+            id: string
+            title: string
+            author?: string
+            url: string
+            thumbnail?: string
+            description?: string
+            stats?: Record<string, string | number>
+            duration?: string
+          }>
+          hasMore: boolean
+        }>
       }
       flomo: {
         login: (email: string, password: string) => Promise<{ accessToken: string }>
