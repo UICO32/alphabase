@@ -21,11 +21,11 @@ interface BrowseItem {
   duration?: string
 }
 
-const PLATFORM_CONFIG: Record<Platform, { label: string; actions: Action[] }> = {
-  bilibili: { label: 'B站', actions: ['hot', 'rank', 'search'] },
-  twitter: { label: 'Twitter', actions: ['trending', 'search'] },
-  youtube: { label: 'YouTube', actions: ['search'] },
-  xiaohongshu: { label: '小红书', actions: ['search'] },
+const PLATFORM_CONFIG: Record<Platform, { label: string; actions: Action[]; available: boolean }> = {
+  bilibili: { label: 'B站', actions: ['hot', 'rank', 'search'], available: true },
+  twitter: { label: 'Twitter', actions: ['trending', 'search'], available: false },
+  youtube: { label: 'YouTube', actions: ['search'], available: false },
+  xiaohongshu: { label: '小红书', actions: ['search'], available: false },
 }
 
 const ACTION_CONFIG: Record<Action, { label: string; icon: typeof Flame }> = {
@@ -55,14 +55,14 @@ export function AgentReachPanel() {
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path)
   const emit = useEventBus(s => s.emit)
 
-  const browse = useCallback(async (browseAction: Action, browseQuery?: string) => {
+  const browse = useCallback(async (browsePlatform: Platform, browseAction: Action, browseQuery?: string) => {
     setLoading(true)
     setError('')
     setItems([])
 
     try {
       const result = await (window as any).electronAPI.clipper.agentReachBrowse({
-        platform,
+        platform: browsePlatform,
         action: browseAction,
         query: browseQuery,
         limit: 20,
@@ -74,7 +74,7 @@ export function AgentReachPanel() {
     } finally {
       setLoading(false)
     }
-  }, [platform])
+  }, [])
 
   const handleClip = useCallback(async (item: BrowseItem) => {
     setClippingId(item.id)
@@ -136,7 +136,7 @@ export function AgentReachPanel() {
     const firstAction = PLATFORM_CONFIG[p].actions[0]
     setAction(firstAction)
     if (firstAction !== 'search') {
-      browse(firstAction)
+      browse(p, firstAction)
     }
   }
 
@@ -149,8 +149,9 @@ export function AgentReachPanel() {
         {(Object.entries(PLATFORM_CONFIG) as [Platform, typeof config][]).map(([p, c]) => (
           <button
             key={p}
-            onClick={() => handlePlatformChange(p)}
-            className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${platform === p ? 'bg-surface-card text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
+            onClick={() => c.available ? handlePlatformChange(p) : undefined}
+            className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${!c.available ? 'text-text-secondary opacity-40 cursor-not-allowed' : platform === p ? 'bg-surface-card text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
+            title={!c.available ? '即将支持' : undefined}
           >
             {c.label}
           </button>
@@ -165,7 +166,7 @@ export function AgentReachPanel() {
           return (
             <button
               key={a}
-              onClick={() => a === 'search' ? undefined : browse(a)}
+              onClick={() => a === 'search' ? undefined : browse(platform, a)}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition-colors ${action === a && a !== 'search' ? 'bg-surface-card text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
             >
               <Icon size={12} />
@@ -179,12 +180,12 @@ export function AgentReachPanel() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && query.trim()) browse('search', query.trim()) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && query.trim()) browse(platform, 'search', query.trim()) }}
               placeholder="搜索..."
               className="flex-1 px-2 py-1 rounded-md text-xs bg-surface-card border border-border-default outline-none text-text-primary"
             />
             <button
-              onClick={() => { if (query.trim()) browse('search', query.trim()) }}
+              onClick={() => { if (query.trim()) browse(platform, 'search', query.trim()) }}
               className="p-1 rounded-md text-text-secondary hover:text-text-primary"
             >
               <Search size={14} />

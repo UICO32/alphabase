@@ -56,13 +56,3 @@ export async function execCli(options: CliExecOptions): Promise<CliExecResult> {
     })
   })
 }
-
-export function throwIfCliFailed(result: CliExecResult, platform: string): void {
-  if (result.timedOut) {
-    throw Object.assign(new Error(`${platform} extraction timed out`), { code: 'CLI_TIMEOUT' })
-  }
-  if (result.exitCode !== 0) {
-    log.warn(`${platform} CLI failed (exit ${result.exitCode}): ${result.stderr.slice(0, 200)}`)
-    throw Object.assign(new Error(`${platform} CLI failed: ${result.stderr.slice(0, 100) || 'unknown error'}`), { code: 'CLI_ERROR' })
-  }
-}

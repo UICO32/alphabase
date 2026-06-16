@@ -86,23 +86,6 @@ export async function extractBilibili(url: string): Promise<ClipResult | null> {
   } as any
 }
 
-export async function extractBilibiliSubtitle(bvid: string): Promise<string | null> {
-  const config = loadConfig()
-  if (!(await import('../cliExecutor')).cliExists(config.opencli)) return null
-
-  try {
-    const result = await execCli({
-      command: config.opencli,
-      args: ['bilibili', 'subtitle', bvid, '-f', 'json'],
-      timeout: 30000,
-    })
-    if (result.exitCode === 0 && result.stdout) {
-      return result.stdout
-    }
-  } catch { /* opencli not available */ }
-  return null
-}
-
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }

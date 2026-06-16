@@ -37,7 +37,11 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
           </button>
 
           <button
-            onClick={() => useLibraryStore.getState().setRightPanelActiveTab('channels')}
+            onClick={() => {
+              const s = useLibraryStore.getState()
+              s.setRightPanelActiveTab('channels')
+              s.setRightPanelCollapsed(false)
+            }}
             className="btn-base p-2 rounded-xl text-text-primary"
             title="频道浏览"
           >

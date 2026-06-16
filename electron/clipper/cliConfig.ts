@@ -10,11 +10,14 @@ export interface AgentReachConfig {
   groqApiKey?: string
 }
 
+const home = process.env.USERPROFILE || process.env.HOME || ''
+const appData = process.env.APPDATA || join(home, 'AppData', 'Roaming')
+
 const DEFAULTS: AgentReachConfig = {
-  bili: 'C:\\Users\\Administrator\\.local\\bin\\bili',
-  opencli: 'C:\\Users\\Administrator\\AppData\\Roaming\\npm\\opencli',
-  ytDlp: 'C:\\Users\\Administrator\\.agent-reach-venv\\Scripts\\yt-dlp.exe',
-  agentReach: 'C:\\Users\\Administrator\\.agent-reach-venv\\Scripts\\agent-reach.exe',
+  bili: join(home, '.local', 'bin', 'bili'),
+  opencli: join(appData, 'npm', 'opencli'),
+  ytDlp: join(home, '.agent-reach-venv', 'Scripts', 'yt-dlp.exe'),
+  agentReach: join(home, '.agent-reach-venv', 'Scripts', 'agent-reach.exe'),
 }
 
 let cached: AgentReachConfig | null = null
