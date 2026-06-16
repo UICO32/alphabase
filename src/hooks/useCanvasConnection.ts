@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { type Edge, type Connection } from '@xyflow/react'
 import { addEdge } from '@xyflow/react'
-import { connectionMediator } from '../utils/connectionMediator'
+import { connectionMediator } from '../components/canvas/utils/connectionMediator'
 
 interface UseCanvasConnectionOptions {
   setEdges: (updater: Edge[] | ((edges: Edge[]) => Edge[])) => void

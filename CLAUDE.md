@@ -1,235 +1,128 @@
-# Heptabase Canvas v2 项目规范
+# Heptabase Canvas v2
 
-基于 React Flow 的画布知识管理桌面应用，从 tldraw 迁移到 React Flow 以解决编辑器冲突问题。
-
-技术栈：React 18 + TypeScript 5.6 + Vite 5 + React Flow + BlockNote + Zustand 5 + Electron 35 + Tailwind CSS 4
-
----
+React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.6 + Vite 5 + React Flow + BlockNote + Zustand 5 + Electron 35 + Tailwind CSS 4
 
 ## 开发规范
 
-### 1. 构建与运行
+### 构建与运行
 
-**无用户明确要求，不执行 build 命令。**
+- 开发调试：`pnpm dev:skip`（跳过开屏），普通启动：`pnpm dev`
+- **无用户明确要求，不执行 build 命令**
+- 打包流程：确认版本号 → 更新 CHANGELOG → `pnpm electron:pack`/`electron:dist` → 验证
+- 打包陷阱：`ELECTRON_RUN_AS_NODE=1` 会导致 exe 静默退出，需 `unset` 或用 PowerShell `Start-Process`
 
-- 开发时使用 `pnpm dev`
-- 仅在用户明确要求"构建"、"打包"、"发布"时执行 `pnpm build`
-- 不要主动建议或执行构建操作
+### 功能开发
 
-### 1.1 Electron 打包流程
+引入新功能前必须用 `superpowers:brainstorming` 确认细节。简单 bug 修复/配置微调不触发。
 
-当用户要求打包 exe 时，按以下步骤执行：
+### 调试与验证
 
-1. **版本号**：确认 `package.json` 中的 `version` 是否需要更新，询问用户
-2. **更新日志**：从 `git log` 提取自上次打包以来的变更，写入 `CHANGELOG.md`，询问用户确认内容
-3. **打包命令**：
-   - 测试打包（unpacked）：`pnpm electron:pack` → 输出到 `release/win-unpacked/`
-   - 正式打包（安装包）：`pnpm electron:dist` → 输出到 `release/`
-4. **验证**：启动 unpacked exe 验证功能正常
-5. **已知陷阱**：
-   - `ELECTRON_RUN_AS_NODE=1` 环境变量由 Trae CN / VS Code 注入，会导致 exe 以 Node.js 模式启动后静默退出
-   - 从 Trae CN 终端测试打包 exe 时，必须先 `unset ELECTRON_RUN_AS_NODE` 或用 PowerShell `Start-Process`
-   - 用户从桌面双击 exe 不受此影响
-   - 打包前确保 `tsc` 无错误，未使用的 import/变量会导致打包失败
+自主验证优先，使用 Playwright、Chrome DevTools MCP 进行交互测试。
 
-### 2. 功能开发流程
+### Git 分支
 
-引入新功能前，**必须使用头脑风暴技能**与用户确认细节：
+`feature/<名>` | `fix/<名>` | `refactor/<名>` | `experiment/<描述>`
+提交规范：`<type>(<scope>): <subject>`，scope: canvas|editor|workspace|ui|sync|electron
 
-```
-用户请求新功能 → 调用 superpowers:brainstorming 技能 → 探索需求 → 确认方案 → 实现
-```
+### Review 提醒
 
-**触发条件**：添加新功能或组件、修改现有行为、架构调整、技术选型变更  
-**不触发**：简单 bug 修复、文档更新、配置微调
+3+ 个功能或 1 周开发后提醒 review：React.memo、重复样式/逻辑、状态管理、未用依赖、类型完整性。
 
-### 3. 调试与验证
+## 数据格式兼容
 
-自主验证优先，使用 Playwright、Chrome DevTools MCP、React DevTools、Electron DevTools 进行交互测试，验证核心路径和边界情况，确认无回归后再提交。
-
-### 4. Git 分支管理
-
-```
-main
-  ├── feature/<功能名>
-  ├── fix/<问题名>
-  ├── refactor/<模块名>
-  └── experiment/<描述>
-```
-
-提交规范：`<type>(<scope>): <subject>`  
-type: feat|fix|refactor|docs|style|test|chore  
-scope: canvas|editor|workspace|ui|sync|electron
-
-新功能开发流程：确认方案 → `git checkout -b feature/<功能名>` → 开发验证 → `git commit` → `git push -u origin feature/<功能名>` → 通知用户创建 PR 或合并
-
-### 5. Review 提醒
-
-在持续引入多个新功能后（3+ 个功能或 1 周开发周期），提醒用户进行性能 review、代码冗余 review、架构 review。
-
-**Review 检查点**：
-- [ ] 组件是否使用 React.memo 优化
-- [ ] 是否有重复的样式/逻辑可抽取
-- [ ] 状态管理是否合理（避免过度提升或下沉）
-- [ ] 是否有未使用的依赖或代码
-- [ ] 类型定义是否完整
-
-### 6. 测试规范
-
-**测试框架**：Playwright
-
-- E2E 测试：`tests/e2e/<功能>.spec.ts`
-- 单元测试：`tests/unit/<模块>.test.ts`
-- 核心用户流程必须有 E2E 测试覆盖
-- 新功能提交时附带测试用例，Bug 修复提交时附带回归测试
-
----
-
-## 远程仓库
-
-GitHub: https://github.com/UICO32/-base.git
-
-- 功能分支推送到远程，主分支保持稳定可发布状态
-- 合并前确保测试通过
-
----
-
-## 技术约束
-
-### 数据格式兼容
-
-必须兼容老项目数据格式：
-- 卡片文件：`cards/<uuid>.json`
+- 卡片：`cards/<uuid>.json`
 - 画板清单：`boards/_manifest.json`
-- 画板快照：`boards/<uuid>.json`（新格式 version: 2）
+- 画板快照：`boards/<uuid>.json`（version: 2）
 - 回收站：`trash/<uuid>.trash.json`
-
-### 可复用模块
-
-从老项目复用（见 `PROMPT.md` 和 `PROJECT_REFERENCE.md`）：
-- 文件系统层：`src/utils/workspace/`
-- 状态管理：`cardStore.ts`, `boardStore.ts`, `libraryStore.ts`
-- 编辑器：`BlockNoteEditor.tsx`
-- Electron：`electron/`
-
-### 需重写模块
-
-使用 React Flow 重写：
-- `ReactFlowCanvas.tsx` - 画布主组件
-- `CardNode.tsx` - 卡片节点（BlockNote 直接内嵌）
-- `SectionNode.tsx` - 分区节点
-- `ConnectionEdge.tsx` - 连接线边
-
----
 
 ## 性能要求
 
-- 100 个卡片以内：60fps
-- 预览态使用 previewHTML，不挂载 BlockNote
-- ResizeObserver 节流：高度变化 < 5px 不更新
-- 使用 React.memo 包裹 CardNode
+100 卡片内 60fps | 预览态用 previewHTML | ResizeObserver 节流 <5px | React.memo 包裹 CardNode
+
+## 代码原则
+
+- 优先编辑现有文件，不主动创建文档或添加注释
+- 搜索默认在 `src/`、`electron/`、`tests/` 目录，避免全项目搜索
+- 简体中文助手，优先使用 Playwright 调试，不支持截图
 
 ---
 
-## AI 行为约束
+## 索引工具分工
 
-### 文件访问限制
+**CodeGraph**（毫秒级）→ 日常结构查询 | **GitNexus**（秒级）→ 深度分析
 
-**禁止读取**：`node_modules/`、`dist/`、`build/`、`.vite/`、`.git/`、锁文件、`.cache/`、`*.log`
+| 场景 | 用 CodeGraph | 用 GitNexus |
+|------|-------------|-------------|
+| 查找符号定义 | `codegraph_search` | - |
+| 快速上下文 | `codegraph_context` | - |
+| 调用链追踪 | `codegraph_trace` | - |
+| 几个符号源码 | `codegraph_explore` | - |
+| 影响分析/blast radius | - | `impact` |
+| 执行流/业务流程 | - | `query` |
+| 跨模块重命名 | - | `rename` |
+| 提交前变更检查 | - | `detect_changes` |
+| API 契约/路由分析 | - | `api_impact` / `route_map` |
 
-**例外**（需用户明确要求）：排查依赖时可查看 `package.json`；构建配置问题可查看 `vite.config.ts`、`tsconfig.json`
+### CodeGraph 速查
 
-### 搜索范围限制
+`codegraph_search` 查符号 | `codegraph_context` 任务上下文 | `codegraph_trace` 追踪流 | `codegraph_explore` 多符号源码 | `codegraph_impact` 改动影响
 
-使用 `SearchCodebase`、`Grep`、`Glob` 时，默认在 `src/`、`electron/`、`tests/` 目录搜索，避免全项目搜索命中 `node_modules`。
+索引刷新：Claude Code 内编辑自动 sync，外部修改需 `codegraph sync`
 
-### 代码修改原则
+### GitNexus 速查
 
-- **优先编辑现有文件**，而非创建新文件
-- **不主动创建文档**（*.md、README），除非用户明确要求
-- **不添加注释**，除非用户明确要求或代码逻辑复杂需要解释
+MUST：编辑前 `impact` 分析 | 提交前 `detect_changes` | HIGH/CRITICAL 风险必须警告 | 重命名用 `rename` 不用 find-replace
+
+资源：`gitnexus://repo/base/context` 概览 | `gitnexus://repo/base/processes` 执行流 | `gitnexus://repo/base/process/{name}` 执行追踪
+
+索引刷新：`node .gitnexus/run.cjs analyze`
 
 ---
 
-## GitNexus — 核心速查
+## 归档分支
 
-> 完整文档见 [AGENTS.md](file:///d:/USE/save/code/abase/AGENTS.md)
+已归档的文档保存在 `archive/untracked-docs` 分支，包括 `docs/refer/`、`docs/superpowers/` 等。需要时 `git checkout archive/untracked-docs -- docs/<path>` 恢复。
 
 <!-- gitnexus:start -->
+# GitNexus — Code Intelligence
 
-### Always Do
+This project is indexed by GitNexus as **base** (2381 symbols, 5531 relationships, 197 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-- **MUST run impact analysis before editing any symbol.** Run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report blast radius.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify affected scope.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk.
-- Use `gitnexus_query({query: "concept"})` instead of grepping when exploring unfamiliar code.
-- Use `gitnexus_context({name: "symbolName"})` for full symbol details.
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
-### Never Do
+## Always Do
 
-- NEVER edit a function/class/method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename`.
-- NEVER commit without running `gitnexus_detect_changes()`.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
 
-### 高频 CLI
+## Never Do
 
-```bash
-npx gitnexus analyze   # 构建/刷新索引（首次使用、大改后、过期时）
-npx gitnexus status    # 检查索引新鲜度
-```
+- NEVER edit a function, class, or method without first running `impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
 
-### 高频 MCP 工具
+## Resources
 
-| Tool | 用途 |
-|------|------|
-| `gitnexus_query` | 按概念找执行流 |
-| `gitnexus_context` | 符号 360° 视图 |
-| `gitnexus_impact` | 影响分析（编辑前必做） |
-| `gitnexus_detect_changes` | 提交前检测影响范围 |
+| Resource | Use for |
+|----------|---------|
+| `gitnexus://repo/base/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/base/clusters` | All functional areas |
+| `gitnexus://repo/base/processes` | All execution flows |
+| `gitnexus://repo/base/process/{name}` | Step-by-step execution trace |
 
-### 索引刷新策略
+## CLI
 
-**GitNexus 不会自动监听文件变化。** 首次使用、大改代码后必须运行 `npx gitnexus analyze`；工具返回 "index stale" 时必须立即刷新。
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
-
----
-
-## CodeGraph — 核心速查
-
-> 完整文档见 [AGENTS.md](file:///d:/USE/save/code/abase/AGENTS.md)
-
-### 启动配置
-
-```json
-{
-  "mcpServers": {
-    "codegraph": {
-      "type": "stdio",
-      "command": "codegraph",
-      "args": ["serve", "--mcp"]
-    }
-  }
-}
-```
-
-### 高频 CLI
-
-```bash
-codegraph init -i       # 初始化索引
-codegraph sync [path]   # 增量同步（外部编辑器修改后手动执行）
-codegraph status        # 检查统计信息
-```
-
-### 索引刷新策略
-
-**CodeGraph 在 Claude Code 内编辑时自动 sync；外部编辑器修改后需手动 `codegraph sync`。**
-
----
-
-## 参考文档
-
-- `PROMPT.md` - 项目背景、技术栈、开发顺序
-- `PROJECT_REFERENCE.md` - 老项目完整技术参考
-- `AGENTS.md` - GitNexus & CodeGraph 完整工具文档

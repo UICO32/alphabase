@@ -41,9 +41,9 @@ import { useCanvasKeyboard } from '../../hooks/useCanvasKeyboard'
 import { useEvent } from '../../hooks/useEvent'
 import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
 import { type GlobalCard } from '../../stores/cardStore'
-import { connectionMediator } from '../../utils/connectionMediator'
-import { kanbanDragPreview } from '../../utils/kanbanDragPreview'
-import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from '../../stores/frameInteraction'
+import { connectionMediator } from './utils/connectionMediator'
+import { kanbanDragPreview } from './utils/kanbanDragPreview'
+import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from './utils/frameInteraction'
 import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 
 const nodeTypes = {

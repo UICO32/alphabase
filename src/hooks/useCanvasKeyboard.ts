@@ -3,7 +3,7 @@ import type { Node, Edge } from '@xyflow/react'
 import type { HistoryEntry } from './useHistory'
 import { useCardStore } from '../stores/cardStore'
 import { useLibraryStore } from '../stores/libraryStore'
-import { getEditorHandleForCard, suppressProseMirrorUndo, isProseMirrorSuppressed } from '../utils/editorHandleRegistry'
+import { getEditorHandleForCard, suppressProseMirrorUndo, isProseMirrorSuppressed } from '../components/editor/utils/editorHandleRegistry'
 import { useEvent } from './useEvent'
 import type { CardColor } from '../types/card'
 

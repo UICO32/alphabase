@@ -1,5 +1,5 @@
 import { useLibraryStore } from '../../stores/libraryStore'
-import { useFrameInteraction, enterLassoMode } from '../../utils/frameInteraction'
+import { useFrameInteraction, enterLassoMode } from '../canvas/utils/frameInteraction'
 import { appEvents } from '../../utils/appEvents'
 import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Goal, GalleryVerticalEnd, Compass } from 'lucide-react'
 

@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import { useCardStore } from '../../../stores/cardStore'
-import { extractTitleFromJSON, extractFirstTextFromHTML } from '../../../utils/cardPreview'
+import { extractTitleFromJSON, extractFirstTextFromHTML } from '../utils/cardPreview'
 import './zoomPreview.css'
 
 interface ZoomPreviewProps {

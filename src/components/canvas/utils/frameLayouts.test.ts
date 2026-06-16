@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
-import type { CardNodeData } from '../types/card'
-import type { FrameNodeData, FrameLayoutSnapshot } from '../components/canvas/FrameNode'
+import type { CardNodeData } from '../../../types/card'
+import type { FrameNodeData, FrameLayoutSnapshot } from '../FrameNode'
 import {
   computeLayout,
   saveCardSnapshots,

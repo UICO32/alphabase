@@ -21,7 +21,7 @@ export const DEFAULT_CARD_CONTENT = '[{"type":"heading","props":{"level":2},"con
 export const COLLAPSED_CARD_HEIGHT = 80
 export const PROXIMITY_THRESHOLD = 60
 
-import type { FrameLayout } from '../utils/frameLayouts'
+import type { FrameLayout } from '../components/canvas/utils/frameLayouts'
 
 export interface LayoutSnapshot {
   localX: number

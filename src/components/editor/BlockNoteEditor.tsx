@@ -18,7 +18,7 @@ import { useImageColumnDrop } from './useImageColumnDrop'
 import { usePosAtCoordsScalePatch } from './usePosAtCoordsScalePatch'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { fileToDataUrl, isImageFile } from '../../utils/fileUtils'
-import { isMarkdown } from '../../utils/markdownDetect'
+import { isMarkdown } from './utils/markdownDetect'
 import { showToast } from '../../utils/toast'
 import {
   isReadableImageUrl,
@@ -215,6 +215,8 @@ const CardBlockNoteEditorInner = (
 
           let pos: number | null = null
 
+          // Method 1: Browser caretFromPoint APIs — precise when they work,
+          // but unreliable under CSS transform: scale() (React Flow zoom).
           try {
             const range = (document as any).caretPositionFromPoint?.(x, y)
               ?? (document as any).caretRangeFromPoint?.(x, y)
@@ -225,8 +227,70 @@ const CardBlockNoteEditorInner = (
                 pos = pm.posAtDOM(node, offset)
               }
             }
-          } catch { /* fall through to posAtCoords */ }
+          } catch { /* fall through */ }
 
+          // Method 2: When caretFromPoint fails (common under scale()),
+          // walk the DOM to find the text node closest to the click y,
+          // then use posAtDOM for an exact position — this avoids the
+          // posAtCoords fallback which, when monkey-patched by
+          // usePosAtCoordsScalePatch, only returns block-boundary positions
+          // (start/end of paragraph) instead of in-line positions.
+          if (pos == null) {
+            try {
+              const clickY = y
+              const clickX = x
+              let bestNode: Text | null = null
+              let bestOffset = 0
+              let bestDist = Infinity
+
+              const walker = document.createTreeWalker(pm.dom, NodeFilter.SHOW_TEXT)
+              let textNode: Text | null
+              while ((textNode = walker.nextNode() as Text | null)) {
+                const parent = textNode.parentElement
+                if (!parent) continue
+                const rect = parent.getBoundingClientRect()
+                // Use a generous y tolerance (half a line) so clicks between
+                // lines still land on the nearest text node rather than falling
+                // through to the coarse block-boundary fallback (Method 3).
+                if (clickY < rect.top - rect.height / 2 || clickY > rect.bottom + rect.height / 2) continue
+                const midY = (rect.top + rect.bottom) / 2
+                const dist = Math.abs(clickY - midY)
+                if (dist < bestDist) {
+                  bestDist = dist
+                  bestNode = textNode
+                  // Approximate offset: use Range to measure the actual text
+                  // bounds for better x-position accuracy than simple rect ratio.
+                  const len = textNode.textContent?.length ?? 0
+                  if (len === 0) {
+                    bestOffset = 0
+                  } else {
+                    // Binary-search: find the character offset whose Range end
+                    // is closest to clickX.
+                    let lo = 0
+                    let hi = len
+                    const range = document.createRange()
+                    while (lo < hi) {
+                      const mid = (lo + hi) >>> 1
+                      range.setStart(textNode, mid)
+                      range.setEnd(textNode, mid)
+                      const cx = range.getBoundingClientRect().left + 1 // +1 for >0 width
+                      if (cx <= clickX) lo = mid + 1
+                      else hi = mid
+                    }
+                    bestOffset = Math.max(0, Math.min(lo, len))
+                  }
+                }
+              }
+
+              if (bestNode) {
+                pos = pm.posAtDOM(bestNode, bestOffset)
+              }
+            } catch { /* fall through */ }
+          }
+
+          // Method 3: Final fallback — posAtCoords. Under scale() this
+          // returns block-boundary positions (block start or end), which is
+          // better than nothing but causes the "cursor at paragraph head" bug.
           if (pos == null) {
             const result = pm.posAtCoords({ left: x, top: y })
             if (result?.pos != null) pos = result.pos

@@ -1,10 +1,10 @@
 import { memo, useState, useCallback, useMemo, useSyncExternalStore } from 'react'
 import { type NodeProps, type Node, useReactFlow, useStore } from '@xyflow/react'
 import { createPortal } from 'react-dom'
-import { computeLayout, saveCardSnapshots, saveFrameSnapshot, restoreOrComputePositions, restoreFrameDimensions, updateSingleCardSnapshot, type FrameLayout, type KanbanColumn, KANBAN_CARD_HEIGHT } from '../../utils/frameLayouts'
+import { computeLayout, saveCardSnapshots, saveFrameSnapshot, restoreOrComputePositions, restoreFrameDimensions, updateSingleCardSnapshot, type FrameLayout, type KanbanColumn, KANBAN_CARD_HEIGHT } from './utils/frameLayouts'
 import type { CardNodeData } from '../../types/card'
-import { kanbanDragPreview } from '../../utils/kanbanDragPreview'
-import { useFrameInteraction } from '../../utils/frameInteraction'
+import { kanbanDragPreview } from './utils/kanbanDragPreview'
+import { useFrameInteraction } from './utils/frameInteraction'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 
 const FRAME_COLORS: { value: string; label: string }[] = [

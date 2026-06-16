@@ -1,6 +1,6 @@
 import { useSyncExternalStore, useState, useEffect } from 'react'
-import { connectionMediator } from '../../utils/connectionMediator'
-import { edgePointOnRect } from '../../utils/geometry'
+import { connectionMediator } from './utils/connectionMediator'
+import { edgePointOnRect } from './utils/geometry'
 import { getBezierPath, Position } from '@xyflow/react'
 import type { Node, ReactFlowInstance } from '@xyflow/react'
 import type { CardNodeData } from '../../types/card'

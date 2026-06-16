@@ -1,4 +1,4 @@
-import type { BlockNoteEditorHandle } from '../components/editor/BlockNoteEditor'
+import type { BlockNoteEditorHandle } from '../BlockNoteEditor'
 
 const handles = new Map<string, BlockNoteEditorHandle>()
 

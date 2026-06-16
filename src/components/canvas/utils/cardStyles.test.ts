@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getCardFill, getCardStroke, getCardTextColor, getCardMutedTextColor } from './cardStyles'
-import { CARD_COLORS, type CardColor } from '../types/card'
+import { CARD_COLORS, type CardColor } from '../../../types/card'
 
 describe('getCardFill', () => {
   const colors: CardColor[] = ['white', 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink', 'gray']

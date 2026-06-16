@@ -1,6 +1,6 @@
-import { useCardStore } from '../stores/cardStore'
-import { useBoardStore } from '../stores/boardStore'
-import { cardFileToGlobalCard } from '../converters/cardConverter'
+import { useCardStore } from '../../stores/cardStore'
+import { useBoardStore } from '../../stores/boardStore'
+import { cardFileToGlobalCard } from '../../converters/cardConverter'
 
 /**
  * Migrate existing localStorage data to the store

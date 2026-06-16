@@ -1,6 +1,6 @@
 import type { Node } from '@xyflow/react'
-import type { CardNodeData } from '../types/card'
-import type { FrameNodeData, FrameLayoutSnapshot } from '../components/canvas/FrameNode'
+import type { CardNodeData } from '../../../types/card'
+import type { FrameNodeData, FrameLayoutSnapshot } from '../FrameNode'
 
 export type FrameLayout = 'free' | 'bento' | 'kanban'
 

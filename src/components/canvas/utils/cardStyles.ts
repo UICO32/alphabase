@@ -1,4 +1,4 @@
-import { CARD_COLORS, type CardColor } from '../types/card'
+import { CARD_COLORS, type CardColor } from '../../../types/card'
 
 export function getCardFill(color: CardColor | undefined, isDarkMode: boolean): string {
   const c = CARD_COLORS[color ?? 'white'] ?? CARD_COLORS.white

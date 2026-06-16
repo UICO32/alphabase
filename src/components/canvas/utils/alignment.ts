@@ -1,6 +1,6 @@
 import type { Node } from '@xyflow/react'
-import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../types/card'
-import type { CardNodeData } from '../types/card'
+import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../../../types/card'
+import type { CardNodeData } from '../../../types/card'
 
 export type AlignmentMode =
   | 'left' | 'centerH' | 'right'

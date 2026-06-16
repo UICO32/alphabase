@@ -1,10 +1,10 @@
 import { useCallback, lazy, Suspense, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'motion/react'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../stores/cardStore'
 import { useTrashStore } from '../../stores/trashStore'
 import { X, Trash2 } from 'lucide-react'
-import { clearProseMirrorSuppression } from '../../utils/editorHandleRegistry'
+import { clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
 import { CARD_COLORS, type CardColor } from '../../types/card'
 
 const LazyCardBlockNoteEditor = lazy(() =>
