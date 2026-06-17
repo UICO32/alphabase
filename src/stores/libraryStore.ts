@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { GridPattern } from '../components/canvas/AdaptiveBackground'
 
 export type SortBy = 'updatedAt' | 'createdAt' | 'title' | 'related'
 export type SearchMode = 'hybrid' | 'keyword' | 'semantic'

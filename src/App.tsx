@@ -6,7 +6,8 @@ import { RightPanel } from './components/ui/RightPanel'
 import { Toolbar } from './components/ui/Toolbar'
 import { ClipUrlBar } from './components/ui/ClipUrlBar'
 import { TitleBar } from './components/ui/TitleBar'
-import { useLibraryStore } from './stores/libraryStore'
+import { useViewStore } from './stores/viewStore'
+import { usePanelStore } from './stores/panelStore'
 import { useCardStore } from './stores/cardStore'
 import { useBoardStore } from './stores/boardStore'
 import { useTrashStore } from './stores/trashStore'
@@ -29,7 +30,7 @@ const WorkspaceConflictDialog = lazy(() => import('./components/ui/WorkspaceConf
 const TopographyView = lazy(() => import('./components/topography/TopographyView').then(m => ({ default: m.TopographyView })))
 
 function App() {
-  const viewMode = useLibraryStore(s => s.viewMode)
+  const viewMode = useViewStore(s => s.viewMode)
   const [showTopography, setShowTopography] = useState(false)
 
   useEffect(() => { setupAIListeners() }, [])
@@ -107,11 +108,11 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab' && !e.repeat) {
-        if (useLibraryStore.getState().editingCardId) return
+        if (useViewStore.getState().editingCardId) return
         const el = document.activeElement
         if (el && el.closest('.card-blocknote-editor')) return
         e.preventDefault()
-        useLibraryStore.getState().toggleAllSidebars()
+        usePanelStore.getState().toggleAllSidebars()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -130,8 +131,8 @@ function App() {
 
     emit('add-card-node', { cardId, color: 'white' })
 
-    useLibraryStore.getState().setEditingCardId(cardId)
-    useLibraryStore.getState().setRightPanelActiveTab('editor')
+    useViewStore.getState().setEditingCardId(cardId)
+    usePanelStore.getState().setRightPanelActiveTab('editor')
   }, [emit])
 
   const renderMainContent = () => {

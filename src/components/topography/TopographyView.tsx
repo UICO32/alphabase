@@ -4,7 +4,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useContourScene } from './useContourScene'
 import { useClusterData } from './useClusterData'
 import { useCardStore } from '../../stores/cardStore'
-import { useLibraryStore } from '../../stores/libraryStore'
+import { useViewStore } from '../../stores/viewStore'
+import { usePanelStore } from '../../stores/panelStore'
 import type { TopicPeak } from './types'
 
 const DARK_BG = 0x00000f
@@ -614,9 +615,9 @@ export function TopographyView() {
         if (!hd) return
 
         // Open card in right panel
-        useLibraryStore.getState().setEditingCardId(hd.cardId)
-        useLibraryStore.getState().setRightPanelActiveTab('editor')
-        useLibraryStore.getState().setRightPanelCollapsed(false)
+        useViewStore.getState().setEditingCardId(hd.cardId)
+        usePanelStore.getState().setRightPanelActiveTab('editor')
+        usePanelStore.getState().setRightPanelCollapsed(false)
 
         // Zoom camera to house — from outside looking inward
         const dir = new THREE.Vector3(hd.x, 0, hd.z).normalize()

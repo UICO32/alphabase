@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } 
 import { useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore, useCard } from '../../stores/cardStore'
-import { useLibraryStore } from '../../stores/libraryStore'
+import { useViewStore } from '../../stores/viewStore'
 import { getCardFill, getCardStroke, getCardTextColor } from './utils/cardStyles'
 import { connectionMediator } from './utils/connectionMediator'
 import { registerEditorHandle, clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
@@ -199,7 +199,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const handleEditorFocus = useCallback(() => {
     useCardStore.getState().recordCardContentSnapshot(data.cardId)
-    useLibraryStore.getState().setEditingCardId(data.cardId)
+    useViewStore.getState().setEditingCardId(data.cardId)
   }, [data.cardId])
 
   const handleEditorBlur = useCallback(() => {

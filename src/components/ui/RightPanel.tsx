@@ -1,4 +1,6 @@
 import { useCallback, useRef, lazy, Suspense } from 'react'
+import { useViewStore } from '../../stores/viewStore'
+import { usePanelStore } from '../../stores/panelStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { CollapseButton } from './SharedUI'
@@ -16,14 +18,14 @@ interface RightPanelProps {
 }
 
 export function RightPanel({ onOpenSettings }: RightPanelProps) {
-  const rightPanelCollapsed = useLibraryStore(s => s.rightPanelCollapsed)
-  const setRightPanelCollapsed = useLibraryStore(s => s.setRightPanelCollapsed)
-  const rightPanelActiveTab = useLibraryStore(s => s.rightPanelActiveTab)
-  const setRightPanelActiveTab = useLibraryStore(s => s.setRightPanelActiveTab)
-  const rightPanelWidth = useLibraryStore(s => s.rightPanelWidth)
-  const setRightPanelWidth = useLibraryStore(s => s.setRightPanelWidth)
-  const viewMode = useLibraryStore(s => s.viewMode)
-  const editingCardId = useLibraryStore(s => s.editingCardId)
+  const rightPanelCollapsed = usePanelStore(s => s.rightPanelCollapsed)
+  const setRightPanelCollapsed = usePanelStore(s => s.setRightPanelCollapsed)
+  const rightPanelActiveTab = usePanelStore(s => s.rightPanelActiveTab)
+  const setRightPanelActiveTab = usePanelStore(s => s.setRightPanelActiveTab)
+  const rightPanelWidth = usePanelStore(s => s.rightPanelWidth)
+  const setRightPanelWidth = usePanelStore(s => s.setRightPanelWidth)
+  const viewMode = useViewStore(s => s.viewMode)
+  const editingCardId = useViewStore(s => s.editingCardId)
   const webviewUrl = useLibraryStore(s => s.webviewUrl)
   const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
   const editingCard = useCard(editingCardId ?? '')

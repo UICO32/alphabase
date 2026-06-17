@@ -1,8 +1,8 @@
-import { useLibraryStore } from '../../stores/libraryStore'
+import { usePanelStore } from '../../stores/panelStore'
 import { ChevronRight } from 'lucide-react'
 
 export function LeftPanelCollapsed() {
-  const setLeftPanelCollapsed = useLibraryStore(s => s.setLeftPanelCollapsed)
+  const setLeftPanelCollapsed = usePanelStore(s => s.setLeftPanelCollapsed)
 
   return (
     <button

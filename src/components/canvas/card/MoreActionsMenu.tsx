@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useBoardStore } from '../../../stores/boardStore'
-import { useLibraryStore } from '../../../stores/libraryStore'
+import { useThemeStore } from '../../../stores/themeStore'
 import { CARD_COLORS, type CardColor } from '../../../types/card'
 import { MenuItem } from './MenuItem'
 import { BoardSubmenu } from './BoardSubmenu'
@@ -24,7 +24,7 @@ export function MoreActionsMenu({
   onColorChange,
   triggerRef,
 }: MoreActionsMenuProps) {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
+  const isDarkMode = useThemeStore(s => s.isDarkMode)
   const boards = useBoardStore(s => s.boards)
   const activeBoardId = useBoardStore(s => s.activeBoardId)
   const menuRef = useRef<HTMLDivElement>(null)

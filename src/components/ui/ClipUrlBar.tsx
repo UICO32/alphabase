@@ -5,7 +5,8 @@ import { Button } from './Button'
 import { clipUrl, isValidHttpUrl } from '../../utils/clipper'
 import { htmlToBlocks } from '../../converters/htmlToBlocks'
 import { useCardStore } from '../../stores/cardStore'
-import { useLibraryStore } from '../../stores/libraryStore'
+import { useViewStore } from '../../stores/viewStore'
+import { usePanelStore } from '../../stores/panelStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useEventBus } from '../../stores/eventBus'
 
@@ -82,8 +83,8 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         title: result.title,
       })
 
-      useLibraryStore.getState().setEditingCardId(cardId)
-      useLibraryStore.getState().setRightPanelActiveTab('editor')
+      useViewStore.getState().setEditingCardId(cardId)
+      usePanelStore.getState().setRightPanelActiveTab('editor')
 
       onClose()
     } catch (err: unknown) {

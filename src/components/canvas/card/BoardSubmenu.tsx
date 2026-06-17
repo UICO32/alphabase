@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Move } from 'lucide-react'
-import { useLibraryStore } from '../../../stores/libraryStore'
+import { useThemeStore } from '../../../stores/themeStore'
 import { MenuItem } from './MenuItem'
 
 interface BoardSubmenuProps {
@@ -11,7 +11,7 @@ interface BoardSubmenuProps {
 
 export function BoardSubmenu({ boards, onSelect }: BoardSubmenuProps) {
   const [hovered, setHovered] = useState(false)
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
+  const isDarkMode = useThemeStore(s => s.isDarkMode)
   const triggerRef = useRef<HTMLDivElement>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [position, setPosition] = useState({ top: 0, left: 0 })

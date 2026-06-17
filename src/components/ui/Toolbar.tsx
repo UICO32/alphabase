@@ -1,4 +1,5 @@
 import { useLibraryStore } from '../../stores/libraryStore'
+import { usePanelStore } from '../../stores/panelStore'
 import { useFrameInteraction, enterLassoMode } from '../canvas/utils/frameInteraction'
 import { useEventBus } from '../../stores/eventBus'
 import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Goal, GalleryVerticalEnd, Compass } from 'lucide-react'
@@ -39,9 +40,8 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 
           <button
             onClick={() => {
-              const s = useLibraryStore.getState()
-              s.setRightPanelActiveTab('channels')
-              s.setRightPanelCollapsed(false)
+              usePanelStore.getState().setRightPanelActiveTab('channels')
+              usePanelStore.getState().setRightPanelCollapsed(false)
             }}
             className="btn-base p-2 rounded-xl text-text-primary"
             title="频道浏览"

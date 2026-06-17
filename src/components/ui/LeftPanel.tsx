@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
-import { useLibraryStore } from '../../stores/libraryStore'
+import { usePanelStore } from '../../stores/panelStore'
+import { useViewStore } from '../../stores/viewStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useBoardActions } from '../../hooks/useBoardActions'
 import { CollapseButton, PanelSeparator } from './SharedUI'
@@ -22,11 +23,11 @@ interface LeftPanelProps {
 }
 
 export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }: LeftPanelProps) {
-  const leftPanelCollapsed = useLibraryStore(s => s.leftPanelCollapsed)
-  const viewMode = useLibraryStore(s => s.viewMode)
+  const leftPanelCollapsed = usePanelStore(s => s.leftPanelCollapsed)
+  const viewMode = useViewStore(s => s.viewMode)
   const isBoardView = viewMode === 'board'
-  const setLeftPanelCollapsed = useLibraryStore(s => s.setLeftPanelCollapsed)
-  const setViewMode = useLibraryStore(s => s.setViewMode)
+  const setLeftPanelCollapsed = usePanelStore(s => s.setLeftPanelCollapsed)
+  const setViewMode = useViewStore(s => s.setViewMode)
 
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
 

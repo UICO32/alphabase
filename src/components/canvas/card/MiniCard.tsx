@@ -1,6 +1,6 @@
 import { memo, useState, useMemo } from 'react'
 import { useCard, useCardStore } from '../../../stores/cardStore'
-import { useLibraryStore } from '../../../stores/libraryStore'
+import { useViewStore } from '../../../stores/viewStore'
 import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
 
 interface MiniCardProps {
@@ -55,7 +55,7 @@ export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCa
   const card = useCard(cardId)
   const isDarkMode = useIsDarkMode()
   const [isHovered, setIsHovered] = useState(false)
-  const openKanbanEditDialog = useLibraryStore((s) => s.openKanbanEditDialog)
+  const openKanbanEditDialog = useViewStore((s) => s.openKanbanEditDialog)
 
   const title = useMemo(() => {
     if (!card) return ''

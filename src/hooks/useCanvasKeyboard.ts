@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import type { HistoryEntry } from './useHistory'
 import { useCardStore } from '../stores/cardStore'
-import { useLibraryStore } from '../stores/libraryStore'
+import { useViewStore } from '../stores/viewStore'
 import { getEditorHandleForCard, suppressProseMirrorUndo, isProseMirrorSuppressed } from '../components/editor/utils/editorHandleRegistry'
 import { useEvent } from './useEvent'
 import type { CardColor } from '../types/card'
@@ -71,7 +71,7 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNo
       const activeEl = document.activeElement
       const inEditor = activeEl && activeEl.closest('.card-blocknote-editor')
       if (inEditor) {
-        const editingCardId = useLibraryStore.getState().editingCardId
+        const editingCardId = useViewStore.getState().editingCardId
         const editorHandle = editingCardId ? getEditorHandleForCard(editingCardId) : null
         const pmSuppressed = editingCardId ? isProseMirrorSuppressed(editingCardId) : false
 

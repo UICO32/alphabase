@@ -1,5 +1,5 @@
-import { useLibraryStore } from '../stores/libraryStore'
+import { useThemeStore } from '../stores/themeStore'
 
 export function useIsDarkMode() {
-  return useLibraryStore(s => s.isDarkMode)
+  return useThemeStore(s => s.isDarkMode)
 }
