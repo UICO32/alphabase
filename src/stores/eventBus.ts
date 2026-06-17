@@ -13,6 +13,9 @@ export type EventMap = {
   'open-in-explorer': { path: string }
   'write-error': { path: string; error: string }
   'startup-progress': { step: string; progress: number; total: number }
+  'zoom-in': undefined
+  'zoom-out': undefined
+  'fit-view': undefined
 }
 
 export type EventKey = keyof EventMap

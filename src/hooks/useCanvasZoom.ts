@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { ReactFlowInstance } from '@xyflow/react'
-import { appEvents } from '../utils/appEvents'
+import { useEventBus } from '../stores/eventBus'
 
 interface UseCanvasZoomOptions {
   canvasRef: React.RefObject<HTMLDivElement | null>
@@ -8,12 +8,14 @@ interface UseCanvasZoomOptions {
 }
 
 export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOptions) {
+  const on = useEventBus(s => s.on)
+
   useEffect(() => {
-    const off1 = appEvents.on('hepta-zoom-in', () => reactFlowInstance.current?.zoomIn({ duration: 200 }))
-    const off2 = appEvents.on('hepta-zoom-out', () => reactFlowInstance.current?.zoomOut({ duration: 200 }))
-    const off3 = appEvents.on('hepta-fit-view', () => reactFlowInstance.current?.fitView({ duration: 200 }))
+    const off1 = on('zoom-in', () => reactFlowInstance.current?.zoomIn({ duration: 200 }))
+    const off2 = on('zoom-out', () => reactFlowInstance.current?.zoomOut({ duration: 200 }))
+    const off3 = on('fit-view', () => reactFlowInstance.current?.fitView({ duration: 200 }))
     return () => { off1(); off2(); off3() }
-  }, [reactFlowInstance])
+  }, [on, reactFlowInstance])
 
   useEffect(() => {
     const el = canvasRef.current

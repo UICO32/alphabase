@@ -1,6 +1,6 @@
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useFrameInteraction, enterLassoMode } from '../canvas/utils/frameInteraction'
-import { appEvents } from '../../utils/appEvents'
+import { useEventBus } from '../../stores/eventBus'
 import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Goal, GalleryVerticalEnd, Compass } from 'lucide-react'
 
 interface ToolbarProps {
@@ -13,6 +13,7 @@ interface ToolbarProps {
 export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopography }: ToolbarProps) {
   const zoom = useLibraryStore(s => s.zoom)
   const isLassoMode = useFrameInteraction(s => s.lassoMode)
+  const emit = useEventBus(s => s.emit)
 
   return (
     <>
@@ -79,7 +80,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
       {!showTopography && (
         <div className="fixed bottom-6 right-6 flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg z-40 bg-surface-card shadow-md border border-border-default">
           <button
-            onClick={() => appEvents.emit('hepta-zoom-out')}
+            onClick={() => emit('zoom-out', undefined)}
             className="btn-base p-1.5 rounded-md text-text-primary"
             title="缩小"
           >
@@ -89,7 +90,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             {Math.round(zoom * 100)}%
           </span>
           <button
-            onClick={() => appEvents.emit('hepta-zoom-in')}
+            onClick={() => emit('zoom-in', undefined)}
             className="btn-base p-1.5 rounded-md text-text-primary"
             title="放大"
           >
@@ -97,7 +98,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
           </button>
           <div className="w-px h-4 mx-0.5 bg-border-default" />
           <button
-            onClick={() => appEvents.emit('hepta-fit-view')}
+            onClick={() => emit('fit-view', undefined)}
             className="btn-base p-1.5 rounded-md text-text-primary"
             title="适应视图"
           >
