@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { FileText, Plus, MoreHorizontal, Pencil, Trash, Copy, FolderOpen } from 'lucide-react'
 import { PanelSeparator } from './SharedUI'
-import { ContextMenu, type ContextMenuItem } from './ContextMenu'
+import { ContextMenuWrapper, type ContextMenuItem } from './ContextMenu'
 
 interface Board {
   id: string
@@ -38,8 +38,6 @@ export function BoardList({
   const [isCreatingBoard, setIsCreatingBoard] = useState(false)
   const [editingBoardId, setEditingBoardId] = useState<string | null>(null)
   const [editingBoardName, setEditingBoardName] = useState('')
-  const [contextMenuBoardId, setContextMenuBoardId] = useState<string | null>(null)
-  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
 
   const newBoardInputRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
@@ -57,22 +55,31 @@ export function BoardList({
     }
   }, [editingBoardId])
 
-  useEffect(() => {
-    const handleClickOutside = () => setContextMenuBoardId(null)
-    window.addEventListener('click', handleClickOutside)
-    return () => window.removeEventListener('click', handleClickOutside)
-  }, [])
-
   const handleBoardDoubleClick = useCallback((boardId: string, boardName: string) => {
     setEditingBoardId(boardId)
     setEditingBoardName(boardName)
   }, [])
 
-  const handleBoardContextMenu = useCallback((e: React.MouseEvent, boardId: string) => {
-    e.preventDefault()
-    setContextMenuBoardId(boardId)
-    setContextMenuPos({ x: e.clientX, y: e.clientY })
-  }, [])
+  const boardContextMenuItems = useCallback((boardId: string): ContextMenuItem[] => [
+    { icon: <Pencil size={12} />, label: '重命名', onClick: () => {
+      const board = boards.find(b => b.id === boardId)
+      if (board) {
+        setEditingBoardId(boardId)
+        setEditingBoardName(board.name)
+      }
+    }},
+    { icon: <Trash size={12} />, label: '删除', onClick: () => {
+      onDeleteBoard(boardId)
+    }},
+    { type: 'separator' },
+    { icon: <Copy size={12} />, label: '复制画板', onClick: () => {
+      onDuplicateBoard(boardId)
+    }},
+    { type: 'separator' },
+    { icon: <FolderOpen size={12} />, label: '在资源管理器中打开', onClick: () => {
+      onOpenInExplorer()
+    }},
+  ], [boards, onDeleteBoard, onDuplicateBoard, onOpenInExplorer])
 
   const handleRenameSubmit = useCallback((boardId: string) => {
     if (editingBoardName.trim()) {
@@ -93,31 +100,6 @@ export function BoardList({
     setNewBoardName('')
     setIsCreatingBoard(false)
   }, [newBoardName, onCreateBoard])
-
-  const contextMenuItems: ContextMenuItem[] = contextMenuBoardId ? [
-    { icon: <Pencil size={12} />, label: '重命名', onClick: () => {
-      const board = boards.find(b => b.id === contextMenuBoardId)
-      if (board) {
-        setEditingBoardId(contextMenuBoardId)
-        setEditingBoardName(board.name)
-      }
-      setContextMenuBoardId(null)
-    }},
-    { icon: <Trash size={12} />, label: '删除', onClick: () => {
-      onDeleteBoard(contextMenuBoardId)
-      setContextMenuBoardId(null)
-    }},
-    { type: 'separator' },
-    { icon: <Copy size={12} />, label: '复制画板', onClick: () => {
-      onDuplicateBoard(contextMenuBoardId)
-      setContextMenuBoardId(null)
-    }},
-    { type: 'separator' },
-    { icon: <FolderOpen size={12} />, label: '在资源管理器中打开', onClick: () => {
-      onOpenInExplorer()
-      setContextMenuBoardId(null)
-    }},
-  ] : []
 
   return (
     <>
@@ -140,26 +122,28 @@ export function BoardList({
                 className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-text-primary border border-border-default"
               />
             ) : (
-              <div
-                className={`hepta-list-item flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
-                onClick={() => onSwitchBoard(board.id)}
-                onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
-                onContextMenu={(e) => handleBoardContextMenu(e, board.id)}
+              <ContextMenuWrapper
+                items={boardContextMenuItems(board.id)}
               >
-                <div className="flex items-center gap-2">
-                  <FileText size={14} />
-                  <span className="text-sm truncate">{board.name}</span>
-                </div>
-                <button
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded transition-theme hover:bg-black/5"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleBoardContextMenu(e, board.id)
-                  }}
+                <div
+                  className={`hepta-list-item flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+                  onClick={() => onSwitchBoard(board.id)}
+                  onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 >
-                  <MoreHorizontal size={12} className="text-text-secondary" />
-                </button>
-              </div>
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} />
+                    <span className="text-sm truncate">{board.name}</span>
+                  </div>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-theme hover:bg-black/5"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                    }}
+                  >
+                    <MoreHorizontal size={12} className="text-text-secondary" />
+                  </button>
+                </div>
+              </ContextMenuWrapper>
             )}
           </div>
         ))}
@@ -194,15 +178,6 @@ export function BoardList({
       </div>
 
       <PanelSeparator />
-
-      {contextMenuBoardId && (
-        <ContextMenu
-          x={contextMenuPos.x}
-          y={contextMenuPos.y}
-          items={contextMenuItems}
-          onClose={() => setContextMenuBoardId(null)}
-        />
-      )}
     </>
   )
 }

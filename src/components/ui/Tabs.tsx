@@ -1,3 +1,10 @@
+import {
+  Tabs as TabsRoot,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/components/ui/shadcn/tabs'
+
 interface Tab {
   id: string
   label: string
@@ -6,28 +13,25 @@ interface Tab {
 
 interface TabsProps {
   tabs: Tab[]
-  activeTab: string
-  onChange: (id: string) => void
+  value: string
+  onValueChange: (id: string) => void
   className?: string
 }
 
-export function Tabs({ tabs, activeTab, onChange, className = '' }: TabsProps) {
+export function Tabs({ tabs, value, onValueChange, className = '' }: TabsProps) {
   return (
-    <div className={`flex gap-1 ${className}`}>
+    <TabsRoot value={value} onValueChange={onValueChange} className={className}>
+      <TabsList>
+        {tabs.map((tab) => (
+          <TabsTrigger key={tab.id} value={tab.id}>
+            {tab.icon}
+            <span>{tab.label}</span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
       {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onChange(tab.id)}
-          className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${
-            activeTab === tab.id
-              ? 'bg-surface-card text-text-primary'
-              : 'text-text-secondary'
-          }`}
-        >
-          {tab.icon}
-          <span>{tab.label}</span>
-        </button>
+        <TabsContent key={tab.id} value={tab.id} />
       ))}
-    </div>
+    </TabsRoot>
   )
 }

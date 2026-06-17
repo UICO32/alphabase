@@ -19,6 +19,7 @@ import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
 import { preloadCardEditor } from './components/canvas/card/CardContent'
 import { setupAIListeners } from './stores/aiStore'
+import { Toaster } from '@/components/ui/shadcn/sonner'
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
 const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
@@ -163,6 +164,7 @@ function App() {
   return (
     <ErrorBoundary>
     <div className="w-full h-full flex flex-col" style={{ backgroundColor: 'var(--surface-panel)' }}>
+      <Toaster position="bottom-center" richColors />
       <TitleBar />
       <div className={`flex-1 min-h-0 ${isBoardView ? 'relative' : 'flex'}`}>
         <LeftPanel
@@ -193,9 +195,7 @@ function App() {
       {showTrash && (
         <Suspense fallback={null}><TrashBinPanel onClose={() => setShowTrash(false)} /></Suspense>
       )}
-      {showSettings && (
-        <Suspense fallback={null}><SettingsDialog onClose={() => setShowSettings(false)} /></Suspense>
-      )}
+      <Suspense fallback={null}><SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} /></Suspense>
       {showWorkspacePicker && (
         <Suspense fallback={null}><WorkspacePicker onClose={() => setShowWorkspacePicker(false)} /></Suspense>
       )}
