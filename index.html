@@ -26,7 +26,8 @@
       })();
     </script>
     <style>
-      #splash, #splash * { margin: 0; padding: 0; box-sizing: border-box; }
+      #splash { margin: 0; padding: 0; box-sizing: border-box; }
+      #splash *, #splash *::before, #splash *::after { box-sizing: border-box; }
 
       #splash {
         position: fixed; inset: 0; z-index: 99999;
@@ -56,14 +57,31 @@
       /* --- Panels --- */
       .sp-left {
         width: 260px; min-width: 260px; background: var(--sp-panel);
-        display: flex; flex-direction: column;
+        display: flex; flex-direction: column; overflow: hidden;
+        border-right: 1px solid var(--sp-border);
+        transform: translateX(-101%); opacity: 0;
       }
+      .sp-left.entered { animation: slideInLeft 0.6s cubic-bezier(0.22,1,0.36,1) forwards; }
       .sp-right {
         width: 360px; min-width: 360px; background: var(--sp-panel);
-        display: flex; flex-direction: column;
+        display: flex; flex-direction: column; overflow: hidden;
+        border-left: 1px solid var(--sp-border);
+        transform: translateX(101%); opacity: 0;
       }
-      .sp-canvas { flex: 1; background: var(--sp-bg); position: relative; }
-      .sp-sep { width: 1px; background: var(--sp-border); flex-shrink: 0; }
+      .sp-right.entered { animation: slideInRight 0.6s cubic-bezier(0.22,1,0.36,1) forwards; }
+      @keyframes slideInLeft {
+        from { transform: translateX(-101%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes slideInRight {
+        from { transform: translateX(101%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      .sp-canvas {
+        flex: 1; background: var(--sp-bg); position: relative;
+        background-image: radial-gradient(circle, var(--sp-border) 1px, transparent 1px);
+        background-size: 24px 24px;
+      }
 
       /* --- Shimmer bar --- */
       .sp-bar {
@@ -78,13 +96,17 @@
 
       /* --- Card skeleton --- */
       .sp-card {
-        background: linear-gradient(135deg, var(--sp-bar-from) 0%, var(--sp-bar-mid) 40%, var(--sp-bar-from) 80%);
-        background-size: 200% 200%; animation: cardShimmer 2s ease-in-out infinite;
+        background: linear-gradient(90deg, var(--sp-bar-from) 25%, var(--sp-bar-mid) 50%, var(--sp-bar-from) 75%);
+        background-size: 200% 100%;
         box-shadow: 0 1px 3px rgba(0,0,0,0.04); border-radius: 8px; position: absolute;
+        opacity: 0;
       }
-      @keyframes cardShimmer {
-        0% { background-position: 200% 200%; }
-        100% { background-position: -200% -200%; }
+      .sp-card.visible {
+        animation: cardAppear 0.4s ease forwards, shimmer 2.4s ease-in-out 0.4s infinite;
+      }
+      @keyframes cardAppear {
+        from { opacity: 0; transform: scale(0.92); }
+        to { opacity: var(--card-opacity, 0.7); transform: scale(1); }
       }
 
       /* --- Logo with shimmer sweep --- */
@@ -131,30 +153,49 @@
       .sp-lp-header {
         display: flex; align-items: center; gap: 8px; padding: 12px 16px;
         border-bottom: 1px solid var(--sp-border);
+        animation: fadeIn 0.3s ease both; animation-delay: 0.35s;
       }
       .sp-lp-icon { width: 16px; height: 16px; border-radius: 3px; }
       .sp-lp-header-text { flex: 1; height: 12px; }
-      .sp-lp-tabs { display: flex; gap: 8px; padding: 8px; }
+      .sp-lp-tabs {
+        display: flex; gap: 8px; padding: 8px;
+        animation: fadeIn 0.3s ease both; animation-delay: 0.4s;
+      }
       .sp-lp-tab { height: 32px; border-radius: 6px; flex: 1; }
       .sp-lp-sep { height: 1px; background: var(--sp-border); margin: 4px 8px; }
-      .sp-lp-list { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+      .sp-lp-list {
+        flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 8px;
+        animation: fadeIn 0.3s ease both; animation-delay: 0.45s;
+      }
       .sp-lp-item { height: 36px; border-radius: 6px; margin: 0 4px; }
-      .sp-lp-trash { border-top: 1px solid var(--sp-border); padding: 12px 8px; }
+      .sp-lp-trash {
+        border-top: 1px solid var(--sp-border); padding: 12px 8px;
+        animation: fadeIn 0.3s ease both; animation-delay: 0.5s;
+      }
       .sp-lp-trash-bar { height: 36px; width: 100%; border-radius: 6px; }
 
       /* --- Right panel internals --- */
       .sp-rp-tabs {
         display: flex; align-items: center; gap: 8px; padding: 12px 16px;
         border-bottom: 1px solid var(--sp-border);
+        animation: fadeIn 0.3s ease both; animation-delay: 0.35s;
       }
       .sp-rp-tab { height: 40px; border-radius: 6px; flex: 1; }
       .sp-rp-collapse { width: 16px; height: 16px; border-radius: 3px; margin-left: 8px; }
-      .sp-rp-content { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+      .sp-rp-content {
+        padding: 24px; display: flex; flex-direction: column; gap: 16px;
+        animation: fadeIn 0.3s ease both; animation-delay: 0.45s;
+      }
       .sp-rp-title { height: 14px; width: 80%; }
       .sp-rp-meta { height: 10px; width: 60%; }
       .sp-rp-editor { height: 200px; width: 100%; border-radius: 8px; }
       .sp-rp-ai-label { height: 10px; width: 50px; }
       .sp-rp-ai-line { height: 10px; width: 100%; }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
 
       /* --- Center overlay in canvas --- */
       .sp-center {
@@ -198,17 +239,15 @@
           </div>
         </div>
 
-        <div class="sp-sep"></div>
-
         <!-- Canvas -->
         <div class="sp-canvas">
-          <div class="sp-card" style="left:5%;top:8%;width:140px;height:90px;opacity:0.7"></div>
-          <div class="sp-card" style="left:25%;top:20%;width:140px;height:90px;opacity:0.7"></div>
-          <div class="sp-card" style="right:15%;top:12%;width:140px;height:90px;opacity:0.7"></div>
-          <div class="sp-card" style="left:15%;bottom:18%;width:140px;height:90px;opacity:0.7"></div>
-          <div class="sp-card" style="right:8%;bottom:25%;width:100px;height:65px;opacity:0.4"></div>
-          <div class="sp-card" style="left:40%;top:50%;width:100px;height:65px;opacity:0.4"></div>
-          <div class="sp-card" style="left:8%;top:45%;width:100px;height:65px;opacity:0.4"></div>
+          <div class="sp-card" style="left:5%;top:8%;width:140px;height:90px;--card-opacity:0.7"></div>
+          <div class="sp-card" style="left:25%;top:20%;width:140px;height:90px;--card-opacity:0.7"></div>
+          <div class="sp-card" style="right:15%;top:12%;width:140px;height:90px;--card-opacity:0.7"></div>
+          <div class="sp-card" style="left:15%;bottom:18%;width:140px;height:90px;--card-opacity:0.7"></div>
+          <div class="sp-card" style="right:8%;bottom:25%;width:100px;height:65px;--card-opacity:0.4"></div>
+          <div class="sp-card" style="left:40%;top:50%;width:100px;height:65px;--card-opacity:0.4"></div>
+          <div class="sp-card" style="left:8%;top:45%;width:100px;height:65px;--card-opacity:0.4"></div>
 
           <div class="sp-center">
             <div class="sp-logo">AlphaBase</div>
@@ -217,8 +256,6 @@
             <div class="sp-step" id="splash-step"></div>
           </div>
         </div>
-
-        <div class="sp-sep"></div>
 
         <!-- Right panel -->
         <div class="sp-right">
@@ -244,6 +281,17 @@
     <script>
       var __splashSteps = ['初始化工作区', '加载卡片数据', '加载画板快照', '恢复回收站', '准备就绪'];
       var __splashMountTs = Date.now();
+      // Stagger animations: panels slide in first, then cards appear
+      setTimeout(function() {
+        document.querySelector('.sp-left')?.classList.add('entered');
+        document.querySelector('.sp-right')?.classList.add('entered');
+      }, 150);
+      (function() {
+        var cards = document.querySelectorAll('.sp-card');
+        cards.forEach(function(c, i) {
+          setTimeout(function() { c.classList.add('visible'); }, 600 + i * 80);
+        });
+      })();
       window.__updateSplashProgress = function(stepIndex) {
         var fill = document.getElementById('splash-fill');
         var label = document.getElementById('splash-step');

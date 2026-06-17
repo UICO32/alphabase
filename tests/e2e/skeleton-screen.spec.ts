@@ -20,13 +20,13 @@ test.describe('Splash skeleton screen', () => {
     const progressTrack = page.locator('.sp-progress-track')
     await expect(progressTrack).toBeVisible()
 
-    // Left panel
+    // Left panel (wait for slide-in to start making it visible)
     const leftPanel = page.locator('.sp-left')
-    await expect(leftPanel).toBeVisible()
+    await expect(leftPanel).toHaveClass(/entered/, { timeout: 5000 })
 
     // Right panel
     const rightPanel = page.locator('.sp-right')
-    await expect(rightPanel).toBeVisible()
+    await expect(rightPanel).toHaveClass(/entered/, { timeout: 5000 })
 
     // Card skeletons in canvas
     const cardSkeletons = page.locator('.sp-card')
@@ -38,6 +38,10 @@ test.describe('Splash skeleton screen', () => {
 
     const splash = page.locator('#splash')
     await expect(splash).toBeVisible({ timeout: 5000 })
+
+    // Wait for panel slide-in animations to finish
+    await page.locator('.sp-left').evaluate(el => el.getAnimations()[0]?.finished)
+    await page.locator('.sp-right').evaluate(el => el.getAnimations()[0]?.finished)
 
     const leftBox = await page.locator('.sp-left').boundingBox()
     expect(leftBox?.width).toBe(260)
