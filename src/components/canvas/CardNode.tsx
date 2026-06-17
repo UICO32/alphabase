@@ -143,6 +143,14 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
+  const handleNavigateToCard = useCallback((targetCardId: string) => {
+    useViewStore.getState().openCardEditor(targetCardId)
+  }, [])
+
+  const handleTagClick = useCallback((_tagName: string) => {
+    // Future: navigate to tag filter view
+  }, [])
+
   const getNodeSize = useCallback((node: Node) => {
     const d = node.data as CardNodeData
     const w = d.width ?? DEFAULT_CARD_WIDTH
@@ -482,6 +490,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
             onBlur={handleEditorBlur}
             editorRef={editorRef}
             textColor={textColor}
+            onNavigateToCard={handleNavigateToCard}
+            onTagClick={handleTagClick}
           />
           <ZoomPreview
             cardId={data.cardId}

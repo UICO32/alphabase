@@ -4,7 +4,7 @@ import type { TrashFile } from '../utils/workspace/types'
 const MAX_FILE_BACKUPS = 10
 const AUTO_BACKUP_INTERVAL_MS = 30 * 60 * 1000 // 30 minutes
 
-function getBackupBasePath(workspacePath: string): string {
+export function getBackupBasePath(workspacePath: string): string {
   // 备份到工作区同级目录 .heptabase-backups/<workspaceName>
   const parts = workspacePath.replace(/\\/g, '/').split('/')
   const workspaceName = parts.filter(Boolean).pop() || 'default'
@@ -12,7 +12,7 @@ function getBackupBasePath(workspacePath: string): string {
   return `${parentDir}/.heptabase-backups/${workspaceName}`
 }
 
-async function copyDir(srcDir: string, destDir: string): Promise<void> {
+export async function copyDir(srcDir: string, destDir: string): Promise<void> {
   if (!(await exists(srcDir))) return
   await mkdir(destDir)
   const files = await readdir(srcDir)
@@ -70,6 +70,53 @@ export async function listFileSystemBackups(workspacePath: string): Promise<{ ti
     .filter(name => /^\d+$/.test(name))
     .map(timestamp => ({ timestamp, createdAt: Number(timestamp) }))
     .sort((a, b) => b.createdAt - a.createdAt)
+}
+
+export async function restoreFromBackup(
+  timestamp: string,
+  workspacePath: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const backupBase = getBackupBasePath(workspacePath)
+    const backupDir = `${backupBase}/${timestamp}`
+
+    // Verify backup exists
+    if (!(await exists(backupDir))) {
+      return { success: false, error: `Backup not found: ${timestamp}` }
+    }
+
+    // Safety: create a backup of current state before overwriting
+    await createFileSystemBackup(workspacePath)
+
+    // Restore each subdirectory: cards, boards, trash
+    const subdirs = ['cards', 'boards', 'trash']
+    for (const subdir of subdirs) {
+      const srcDir = `${backupDir}/${subdir}`
+      const destDir = `${workspacePath}/${subdir}`
+
+      if (!(await exists(srcDir))) continue
+
+      // Clear destination directory (remove all .json files)
+      if (await exists(destDir)) {
+        const existingFiles = await readdir(destDir)
+        for (const file of existingFiles) {
+          if (file.endsWith('.json')) {
+            await deleteFile(`${destDir}/${file}`)
+          }
+        }
+      } else {
+        await mkdir(destDir)
+      }
+
+      // Copy backup files to destination
+      await copyDir(srcDir, destDir)
+    }
+
+    return { success: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { success: false, error: message }
+  }
 }
 
 // --- Auto backup scheduler ---
