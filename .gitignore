@@ -76,3 +76,4 @@ package-lock.json
 # Media (user data)
 .heptabase/
 abase*/
+.claude/settings.local.json
