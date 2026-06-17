@@ -1,6 +1,8 @@
 import { useMemo, memo } from 'react'
 import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal, Globe } from 'lucide-react'
 import { useLibraryStore } from '../../../stores/libraryStore'
+import { useViewStore } from '../../../stores/viewStore'
+import { usePanelStore } from '../../../stores/panelStore'
 import { useCardStore, useCard } from '../../../stores/cardStore'
 import { connectionMediator } from '../utils/connectionMediator'
 import { type CardColor } from '../../../types/card'
@@ -124,13 +126,14 @@ export const CardActionBar = memo(function CardActionBar({
           icon={<PanelRight size={14} />}
           onClick={(e) => {
             e.stopPropagation()
-            const store = useLibraryStore.getState()
-            if (store.editingCardId === cardId && !store.rightPanelCollapsed) {
-              store.setRightPanelCollapsed(true)
+            const viewState = useViewStore.getState()
+            const panelState = usePanelStore.getState()
+            if (viewState.editingCardId === cardId && !panelState.rightPanelCollapsed) {
+              panelState.setRightPanelCollapsed(true)
             } else {
-              store.setEditingCardId(cardId)
-              store.setRightPanelActiveTab('editor')
-              store.setRightPanelCollapsed(false)
+              viewState.setEditingCardId(cardId)
+              panelState.setRightPanelActiveTab('editor')
+              panelState.setRightPanelCollapsed(false)
             }
           }}
         />

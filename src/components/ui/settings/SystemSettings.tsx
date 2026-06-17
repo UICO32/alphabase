@@ -1,4 +1,4 @@
-import { useLibraryStore } from '../../../stores/libraryStore'
+import { useThemeStore } from '../../../stores/themeStore'
 import { useWorkspaceStore } from '../../../stores/workspaceStore'
 import { Moon, Sun, Monitor, FolderOpen } from 'lucide-react'
 import { VectorIndexSettings } from './VectorIndexSettings'
@@ -12,10 +12,10 @@ const GRID_PATTERNS: { value: GridPattern; label: string }[] = [
 ]
 
 export function SystemSettings() {
-  const themeMode = useLibraryStore(s => s.themeMode)
-  const setThemeMode = useLibraryStore(s => s.setThemeMode)
-  const gridPattern = useLibraryStore(s => s.gridPattern)
-  const setGridPattern = useLibraryStore(s => s.setGridPattern)
+  const themeMode = useThemeStore(s => s.themeMode)
+  const setThemeMode = useThemeStore(s => s.setThemeMode)
+  const gridPattern = useThemeStore(s => s.gridPattern)
+  const setGridPattern = useThemeStore(s => s.setGridPattern)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
   const settings = useWorkspaceStore(s => s.settings)
   const updateSettings = useWorkspaceStore(s => s.updateSettings)

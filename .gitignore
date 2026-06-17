@@ -26,6 +26,7 @@ debug/
 # IDE
 .vscode/
 .idea/
+.serena/
 
 # OS
 .DS_Store

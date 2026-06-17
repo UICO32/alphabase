@@ -1,14 +1,14 @@
 import { useCallback } from 'react'
 import { useBoardStore } from '../stores/boardStore'
-import { useLibraryStore } from '../stores/libraryStore'
+import { useViewStore } from '../stores/viewStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { useEventBus } from '../stores/eventBus'
 
 export function useBoardActions() {
   const boards = useBoardStore(s => s.boards)
   const activeBoardId = useBoardStore(s => s.activeBoardId)
-  const viewMode = useLibraryStore(s => s.viewMode)
-  const setViewMode = useLibraryStore(s => s.setViewMode)
+  const viewMode = useViewStore(s => s.viewMode)
+  const setViewMode = useViewStore(s => s.setViewMode)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
   const emit = useEventBus(s => s.emit)
 

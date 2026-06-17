@@ -10,7 +10,7 @@ import { WorkspaceSyncEngine } from '../sync/syncEngine'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
 import type { ConflictDiffItem } from '../utils/workspace/types'
-import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups } from '../stores/backupStore'
+import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import { embeddingStore } from '../stores/embeddingStore'
 import type { CardColor } from '../types/card'
@@ -359,15 +359,26 @@ export function useWorkspaceDataLoader() {
     if (choice === 'backup' && pendingWorkspacePath) {
       const backups = await listFileSystemBackups(pendingWorkspacePath)
       if (backups.length > 0) {
-        // TODO: implement restoreFromBackup in backupStore
-        console.warn('[workspace] restoreFromBackup not yet implemented')
-        loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
-          console.error('[workspace] loadWorkspaceData after backup restore failed:', err)
-          ensureGlobalDemoCards()
-          ensureDefaultBoard()
-          setDataReady(true)
-          notifyDataReady()
-        })
+        const latestBackup = backups[0] // sorted newest-first by listFileSystemBackups
+        const result = await restoreFromBackup(latestBackup.timestamp, pendingWorkspacePath)
+        if (result.success) {
+          loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
+            console.error('[workspace] loadWorkspaceData after backup restore failed:', err)
+            ensureGlobalDemoCards()
+            ensureDefaultBoard()
+            setDataReady(true)
+            notifyDataReady()
+          })
+        } else {
+          console.error('[workspace] restoreFromBackup failed:', result.error)
+          loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
+            console.error('[workspace] loadWorkspaceData after failed restore:', err)
+            ensureGlobalDemoCards()
+            ensureDefaultBoard()
+            setDataReady(true)
+            notifyDataReady()
+          })
+        }
         return
       }
     }

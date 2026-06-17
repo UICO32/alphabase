@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { X, Move } from 'lucide-react'
 import { useBoardStore } from '../../../stores/boardStore'
-import { useLibraryStore } from '../../../stores/libraryStore'
+import { useThemeStore } from '../../../stores/themeStore'
 import { CARD_COLORS, type CardColor } from '../../../types/card'
 import {
   DropdownMenu,
@@ -29,7 +29,7 @@ export const MoreActionsMenu = memo(function MoreActionsMenu({
   onColorChange,
   children,
 }: MoreActionsMenuProps) {
-  const isDarkMode = useLibraryStore(s => s.isDarkMode)
+  const isDarkMode = useThemeStore(s => s.isDarkMode)
   const boards = useBoardStore(s => s.boards)
   const activeBoardId = useBoardStore(s => s.activeBoardId)
   const otherBoards = boards.filter(b => b.id !== activeBoardId)

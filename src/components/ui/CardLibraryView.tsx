@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useFloating, useClick, useDismiss, useInteractions, offset, flip } from '@floating-ui/react'
 import { useCardStore } from '../../stores/cardStore'
 import { useLibraryStore, type SortBy, type SearchMode } from '../../stores/libraryStore'
+import { useViewStore } from '../../stores/viewStore'
 import { useEmbeddingStore } from '../../stores/embeddingStore'
 import { useFlomoSyncStore } from '../../sync/flomoSync'
 import { EmptyState } from './SharedUI'
@@ -151,7 +152,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
 
   const sortBy = useLibraryStore(s => s.sortBy)
   const setSortBy = useLibraryStore(s => s.setSortBy)
-  const editingCardId = useLibraryStore(s => s.editingCardId)
+  const editingCardId = useViewStore(s => s.editingCardId)
   const searchMode = useLibraryStore(s => s.searchMode)
   const setSearchMode = useLibraryStore(s => s.setSearchMode)
 

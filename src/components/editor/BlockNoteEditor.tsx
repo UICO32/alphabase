@@ -16,6 +16,7 @@ import { CardMentionMenu } from './CardMentionMenu'
 import { TagSuggestionMenu } from './TagSuggestionMenu'
 import { useImageColumnDrop } from './useImageColumnDrop'
 import { usePosAtCoordsScalePatch } from './usePosAtCoordsScalePatch'
+import { useViewStore } from '../../stores/viewStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { fileToDataUrl, isImageFile } from '../../utils/fileUtils'
 import { isMarkdown } from './utils/markdownDetect'
@@ -555,11 +556,11 @@ const CardBlockNoteEditorInner = (
         if (anchor && anchor.href && (anchor.href.startsWith('http://') || anchor.href.startsWith('https://'))) {
           e.preventDefault()
           e.stopPropagation()
-          const lib = useLibraryStore.getState()
-          if (!lib.editingCardId && cardId) {
-            lib.setEditingCardId(cardId)
+          const viewState = useViewStore.getState()
+          if (!viewState.editingCardId && cardId) {
+            viewState.setEditingCardId(cardId)
           }
-          lib.setWebviewUrl(anchor.href, cardId ?? undefined)
+          useLibraryStore.getState().setWebviewUrl(anchor.href, cardId ?? undefined)
         }
       }}>
         <BlockNoteView

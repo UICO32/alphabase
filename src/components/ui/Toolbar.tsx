@@ -1,6 +1,7 @@
 import { useLibraryStore } from '../../stores/libraryStore'
+import { usePanelStore } from '../../stores/panelStore'
 import { useFrameInteraction, enterLassoMode } from '../canvas/utils/frameInteraction'
-import { appEvents } from '../../utils/appEvents'
+import { useEventBus } from '../../stores/eventBus'
 import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Goal, GalleryVerticalEnd, Compass } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/shadcn/tooltip'
 
@@ -14,6 +15,7 @@ interface ToolbarProps {
 export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopography }: ToolbarProps) {
   const zoom = useLibraryStore(s => s.zoom)
   const isLassoMode = useFrameInteraction(s => s.lassoMode)
+  const emit = useEventBus(s => s.emit)
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -45,21 +47,20 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipContent side="top">剪藏网页</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => {
-                  const s = useLibraryStore.getState()
-                  s.setRightPanelActiveTab('channels')
-                  s.setRightPanelCollapsed(false)
-                }}
-                className="btn-base p-2 rounded-xl text-text-primary"
-              >
-                <Compass size={16} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">频道浏览</TooltipContent>
-          </Tooltip>
+	          <Tooltip>
+	            <TooltipTrigger asChild>
+	              <button
+	                onClick={() => {
+	                  usePanelStore.getState().setRightPanelActiveTab('channels')
+	                  usePanelStore.getState().setRightPanelCollapsed(false)
+	                }}
+	                className="btn-base p-2 rounded-xl text-text-primary"
+	              >
+	                <Compass size={16} />
+	              </button>
+	            </TooltipTrigger>
+	            <TooltipContent side="top">频道浏览</TooltipContent>
+	          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
@@ -99,43 +100,43 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
       {/* 缩放控件 - 右下角，3D模式下隐藏 */}
       {!showTopography && (
         <div className="fixed bottom-6 right-6 flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg z-40 bg-surface-card shadow-md border border-border-default">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => appEvents.emit('hepta-zoom-out')}
-                className="btn-base p-1.5 rounded-md text-text-primary"
-              >
-                <ZoomOut size={14} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">缩小</TooltipContent>
-          </Tooltip>
-          <span className="text-xs px-1.5 cursor-default tabular-nums text-text-secondary">
-            {Math.round(zoom * 100)}%
-          </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => appEvents.emit('hepta-zoom-in')}
-                className="btn-base p-1.5 rounded-md text-text-primary"
-              >
-                <ZoomIn size={14} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">放大</TooltipContent>
-          </Tooltip>
-          <div className="w-px h-4 mx-0.5 bg-border-default" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => appEvents.emit('hepta-fit-view')}
-                className="btn-base p-1.5 rounded-md text-text-primary"
-              >
-                <Maximize size={14} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">适应视图</TooltipContent>
-          </Tooltip>
+	          <Tooltip>
+	            <TooltipTrigger asChild>
+	              <button
+	                onClick={() => emit('zoom-out', undefined)}
+	                className="btn-base p-1.5 rounded-md text-text-primary"
+	              >
+	                <ZoomOut size={14} />
+	              </button>
+	            </TooltipTrigger>
+	            <TooltipContent side="top">缩小</TooltipContent>
+	          </Tooltip>
+	          <span className="text-xs px-1.5 cursor-default tabular-nums text-text-secondary">
+	            {Math.round(zoom * 100)}%
+	          </span>
+	          <Tooltip>
+	            <TooltipTrigger asChild>
+	              <button
+	                onClick={() => emit('zoom-in', undefined)}
+	                className="btn-base p-1.5 rounded-md text-text-primary"
+	              >
+	                <ZoomIn size={14} />
+	              </button>
+	            </TooltipTrigger>
+	            <TooltipContent side="top">放大</TooltipContent>
+	          </Tooltip>
+	          <div className="w-px h-4 mx-0.5 bg-border-default" />
+	          <Tooltip>
+	            <TooltipTrigger asChild>
+	              <button
+	                onClick={() => emit('fit-view', undefined)}
+	                className="btn-base p-1.5 rounded-md text-text-primary"
+	              >
+	                <Maximize size={14} />
+	              </button>
+	            </TooltipTrigger>
+	            <TooltipContent side="top">适应视图</TooltipContent>
+	          </Tooltip>
         </div>
       )}
     </TooltipProvider>

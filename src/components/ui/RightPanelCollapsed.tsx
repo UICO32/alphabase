@@ -1,9 +1,10 @@
-import { useLibraryStore } from '../../stores/libraryStore'
+import { usePanelStore } from '../../stores/panelStore'
+import { useViewStore } from '../../stores/viewStore'
 import { ChevronLeft } from 'lucide-react'
 
 export function RightPanelCollapsed() {
-  const setRightPanelCollapsed = useLibraryStore(s => s.setRightPanelCollapsed)
-  const viewMode = useLibraryStore(s => s.viewMode)
+  const setRightPanelCollapsed = usePanelStore(s => s.setRightPanelCollapsed)
+  const viewMode = useViewStore(s => s.viewMode)
 
   if (viewMode !== 'board') {
     return null

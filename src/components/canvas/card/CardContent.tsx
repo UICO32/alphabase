@@ -2,6 +2,7 @@ import DOMPurify from 'dompurify'
 import { memo, lazy, Suspense, useMemo } from 'react'
 import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { useCardStore } from '../../../stores/cardStore'
+import { useViewStore } from '../../../stores/viewStore'
 import { useLibraryStore } from '../../../stores/libraryStore'
 
 const LazyCardBlockNoteEditor = lazy(() =>
@@ -27,6 +28,8 @@ interface CardContentProps {
   onBlur: () => void
   editorRef: React.Ref<BlockNoteEditorHandle>
   textColor: string
+  onNavigateToCard?: (cardId: string) => void
+  onTagClick?: (tagName: string) => void
 }
 
 export const CardContent = memo(function CardContent({
@@ -41,6 +44,8 @@ export const CardContent = memo(function CardContent({
   onBlur,
   editorRef,
   textColor,
+  onNavigateToCard,
+  onTagClick,
 }: CardContentProps) {
   const canScroll = isSelected || isEditing
 
@@ -76,6 +81,9 @@ export const CardContent = memo(function CardContent({
               theme="light"
               editable={isEditing}
               enforceInitialHeading={enforceInitialHeading}
+              onNavigateToCard={onNavigateToCard}
+              onTagClick={onTagClick}
+              cardId={cardId}
             />
           </Suspense>
         </div>
@@ -94,11 +102,11 @@ export const CardContent = memo(function CardContent({
             if (anchor && anchor.href && (anchor.href.startsWith('http://') || anchor.href.startsWith('https://'))) {
               e.preventDefault()
               e.stopPropagation()
-              const lib = useLibraryStore.getState()
-              if (!lib.editingCardId) {
-                lib.setEditingCardId(cardId)
+              const viewState = useViewStore.getState()
+              if (!viewState.editingCardId) {
+                viewState.setEditingCardId(cardId)
               }
-              lib.setWebviewUrl(anchor.href, cardId)
+              useLibraryStore.getState().setWebviewUrl(anchor.href, cardId)
             }
           }}
         />

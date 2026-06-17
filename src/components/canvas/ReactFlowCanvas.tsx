@@ -20,6 +20,9 @@ import { CardNode } from './CardNode'
 import { MediaNode } from './MediaNode'
 import { FrameNode, type FrameNodeData } from './FrameNode'
 import { CardEditDialog } from '../ui/CardEditDialog'
+import { useViewStore } from '../../stores/viewStore'
+import { usePanelStore } from '../../stores/panelStore'
+import { useThemeStore } from '../../stores/themeStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { MemoizedConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
@@ -63,11 +66,11 @@ export function ReactFlowCanvas() {
   const isDarkMode = useIsDarkMode()
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
   const lassoRect = useFrameInteraction((s) => s.lassoRect)
-  const editingCardId = useLibraryStore((s) => s.editingCardId)
-  const kanbanEditDialogCardId = useLibraryStore((s) => s.kanbanEditDialogCardId)
-  const kanbanEditDialogSourceRect = useLibraryStore((s) => s.kanbanEditDialogSourceRect)
-  const closeKanbanEditDialog = useLibraryStore((s) => s.closeKanbanEditDialog)
-  const gridPattern = useLibraryStore((s) => s.gridPattern)
+  const editingCardId = useViewStore((s) => s.editingCardId)
+  const kanbanEditDialogCardId = useViewStore((s) => s.kanbanEditDialogCardId)
+  const kanbanEditDialogSourceRect = useViewStore((s) => s.kanbanEditDialogSourceRect)
+  const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
+  const gridPattern = useThemeStore((s) => s.gridPattern)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
@@ -374,7 +377,7 @@ export function ReactFlowCanvas() {
       })),
     )
     editingNodeIdRef.current = null
-    useLibraryStore.getState().setEditingCardId(null)
+    useViewStore.getState().setEditingCardId(null)
   }, [setNodes])
 
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
@@ -382,11 +385,12 @@ export function ReactFlowCanvas() {
     if (card) {
       const cardId = (card.data as Record<string, unknown>)?.cardId as string | undefined
       if (cardId) {
-        const lib = useLibraryStore.getState()
-        if (lib.editingCardId !== cardId) {
-          lib.setEditingCardId(cardId)
-          if (lib.sortBy !== 'related') {
-            lib.setRightPanelActiveTab('editor')
+        const viewState = useViewStore.getState()
+        if (viewState.editingCardId !== cardId) {
+          viewState.setEditingCardId(cardId)
+          const libraryState = useLibraryStore.getState()
+          if (libraryState.sortBy !== 'related') {
+            usePanelStore.getState().setRightPanelActiveTab('editor')
           }
         }
       }
@@ -399,10 +403,10 @@ export function ReactFlowCanvas() {
       if (node.type === 'card') {
         const cardId = (node.data as Record<string, unknown>)?.cardId as string | undefined
         if (cardId) {
-          const libStore = useLibraryStore.getState()
-          libStore.setEditingCardId(cardId)
-          if (libStore.sortBy !== 'related') {
-            libStore.setRightPanelActiveTab('editor')
+          useViewStore.getState().setEditingCardId(cardId)
+          const libraryState = useLibraryStore.getState()
+          if (libraryState.sortBy !== 'related') {
+            usePanelStore.getState().setRightPanelActiveTab('editor')
           }
         }
       }

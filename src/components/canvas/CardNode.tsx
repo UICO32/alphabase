@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } 
 import { useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore, useCard } from '../../stores/cardStore'
-import { useLibraryStore } from '../../stores/libraryStore'
+import { useViewStore } from '../../stores/viewStore'
 import { getCardFill, getCardStroke, getCardTextColor } from './utils/cardStyles'
 import { connectionMediator } from './utils/connectionMediator'
 import { registerEditorHandle, clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
@@ -143,6 +143,14 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
+  const handleNavigateToCard = useCallback((targetCardId: string) => {
+    useViewStore.getState().openCardEditor(targetCardId)
+  }, [])
+
+  const handleTagClick = useCallback((_tagName: string) => {
+    // Future: navigate to tag filter view
+  }, [])
+
   const getNodeSize = useCallback((node: Node) => {
     const d = node.data as CardNodeData
     const w = d.width ?? DEFAULT_CARD_WIDTH
@@ -199,7 +207,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const handleEditorFocus = useCallback(() => {
     useCardStore.getState().recordCardContentSnapshot(data.cardId)
-    useLibraryStore.getState().setEditingCardId(data.cardId)
+    useViewStore.getState().setEditingCardId(data.cardId)
   }, [data.cardId])
 
   const handleEditorBlur = useCallback(() => {
@@ -482,6 +490,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
             onBlur={handleEditorBlur}
             editorRef={editorRef}
             textColor={textColor}
+            onNavigateToCard={handleNavigateToCard}
+            onTagClick={handleTagClick}
           />
           <ZoomPreview
             cardId={data.cardId}

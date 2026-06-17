@@ -3,7 +3,8 @@ import { Search, Loader2, Scissors, Flame, Trophy, TrendingUp } from 'lucide-rea
 import { clipUrl } from '../../utils/clipper'
 import { htmlToBlocks } from '../../converters/htmlToBlocks'
 import { useCardStore } from '../../stores/cardStore'
-import { useLibraryStore } from '../../stores/libraryStore'
+import { useViewStore } from '../../stores/viewStore'
+import { usePanelStore } from '../../stores/panelStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useEventBus } from '../../stores/eventBus'
 
@@ -113,8 +114,8 @@ export function AgentReachPanel() {
         color: 'white',
         title: result.title,
       })
-      useLibraryStore.getState().setEditingCardId(cardId)
-      useLibraryStore.getState().setRightPanelActiveTab('editor')
+      useViewStore.getState().setEditingCardId(cardId)
+      usePanelStore.getState().setRightPanelActiveTab('editor')
     } catch {
       useCardStore.getState().updateCard(cardId, {
         content: JSON.stringify([
