@@ -62,7 +62,6 @@ const edgeTypes = {
 export function ReactFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-  const [canvasZoom, setCanvasZoom] = useState(1)
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
@@ -362,7 +361,6 @@ export function ReactFlowCanvas() {
         const now = performance.now()
         if (now - lastCall < 100) return
         lastCall = now
-        setCanvasZoom(viewport.zoom)
         useLibraryStore.setState({ zoom: viewport.zoom, transform: [viewport.x, viewport.y, viewport.zoom] })
       }
     })(),
