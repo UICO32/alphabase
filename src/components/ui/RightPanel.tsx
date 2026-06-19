@@ -78,24 +78,24 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         />
 
       <div className="flex items-center justify-between px-3 py-2 border-b border-line-default transition-theme">
-        <div className="flex gap-1">
+        <div className="segmented">
           <button
             onClick={() => setRightPanelActiveTab('library')}
-            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'library' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
+            className={`segmented-item cursor-pointer ${rightPanelActiveTab === 'library' ? 'segmented-item-active' : ''}`}
           >
             <Layers size={14} />
             卡片库
           </button>
           <button
             onClick={() => setRightPanelActiveTab('editor')}
-            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'editor' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
+            className={`segmented-item cursor-pointer ${rightPanelActiveTab === 'editor' ? 'segmented-item-active' : ''}`}
           >
             <FileText size={14} />
             卡片编辑器
           </button>
           <button
             onClick={() => setRightPanelActiveTab('channels')}
-            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'channels' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
+            className={`segmented-item cursor-pointer ${rightPanelActiveTab === 'channels' ? 'segmented-item-active' : ''}`}
           >
             <Compass size={14} />
             频道
@@ -164,17 +164,17 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
     <div className="flex flex-col h-full">
       {isClipCard && (
         <div className="flex justify-center px-6 pt-3">
-          <div className="flex items-center rounded-full bg-surface-card border border-line-default p-0.5">
+          <div className="segmented">
             <button
               onClick={() => setWebviewUrl(null)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${!webviewUrl ? 'bg-surface-panel text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
+              className={`segmented-item text-[11px] cursor-pointer ${!webviewUrl ? 'segmented-item-active' : ''}`}
             >
               <FileText size={11} />
               剪藏
             </button>
             <button
               onClick={() => setWebviewUrl(sourceUrl!, cardId)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${webviewUrl ? 'bg-surface-panel text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
+              className={`segmented-item text-[11px] cursor-pointer ${webviewUrl ? 'segmented-item-active' : ''}`}
             >
               <Globe size={11} />
               网页

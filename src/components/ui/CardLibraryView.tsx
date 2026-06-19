@@ -116,17 +116,17 @@ const CardItem = memo(function CardItem({
               className="rounded"
               onLoad={() => {}}
               onError={() => setFailedImages(prev => new Set(prev).add(i))}
-              style={{
-                width: 0,
-                flex: '1 1 0%',
-                aspectRatio: '1/1',
-                objectFit: 'cover',
-                transform: `rotate(${IMAGE_ROTATIONS[i % 3]}deg)`,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                marginLeft: i === 0 ? 0 : -5,
-                zIndex: 3 - i,
-                backfaceVisibility: 'hidden',
-              }}
+	              style={{
+	                width: 0,
+	                flex: '1 1 0%',
+	                aspectRatio: '1/1',
+	                objectFit: 'cover',
+	                transform: `rotate(${IMAGE_ROTATIONS[i % 3]}deg)`,
+	                boxShadow: 'var(--shadow-sm)',
+	                marginLeft: i === 0 ? 0 : -5,
+	                zIndex: 3 - i,
+	                backfaceVisibility: 'hidden',
+	              }}
             />
           ))}
         </div>
@@ -333,32 +333,25 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
               <div
                 ref={modeFloating.refs.setFloating}
                 {...modeInteractions.getFloatingProps()}
-                className="py-1.5 rounded-lg min-w-[80px] glass-panel border border-line-default z-50"
-                style={{
-                  ...modeFloating.floatingStyles,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
-                }}
-              >
-                {(Object.keys(searchModeLabels) as SearchMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => {
-                      setSearchMode(mode)
-                      setModeMenuOpen(false)
-                    }}
-                    className={`flex items-center w-full px-3 py-2 text-left text-xs rounded ${
-                      searchMode === mode
-                        ? 'text-fg-primary bg-surface-panel font-medium'
-                        : 'text-fg-secondary hover:bg-surface-panel'
-                    }`}
-                  >
+	              className="floating-menu z-50"
+	                style={modeFloating.floatingStyles}
+	              >
+	                {(Object.keys(searchModeLabels) as SearchMode[]).map((mode) => (
+	                  <button
+	                    key={mode}
+	                    onClick={() => {
+	                      setSearchMode(mode)
+	                      setModeMenuOpen(false)
+	                    }}
+	                    className={`floating-menu-item ${searchMode === mode ? 'floating-menu-item-active' : ''}`}
+	                  >
                     {searchModeLabels[mode]}
                   </button>
                 ))}
               </div>
             )}
           </div>
-          <div className="w-px h-4 mx-2 bg-border-default shrink-0" />
+	          <div className="w-px h-4 mx-2 bg-line-default shrink-0" />
           <input
    type="text"
             value={searchQuery}
@@ -384,25 +377,18 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
               <div
                 ref={sortFloating.refs.setFloating}
                 {...sortInteractions.getFloatingProps()}
-                className="py-1.5 rounded-lg min-w-[120px] glass-panel border border-line-default z-50"
-                style={{
-                  ...sortFloating.floatingStyles,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
-                }}
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => {
-                      setSortBy(opt.value)
-                      setSortMenuOpen(false)
-                    }}
-                    className={`flex items-center w-full px-3 py-2 text-left text-xs rounded ${
-                      sortBy === opt.value
-                        ? 'text-fg-primary bg-surface-panel font-medium'
-                        : 'text-fg-secondary hover:bg-surface-panel'
-                    }`}
-                  >
+	              className="floating-menu z-50"
+	                style={sortFloating.floatingStyles}
+	              >
+	                {SORT_OPTIONS.map((opt) => (
+	                  <button
+	                    key={opt.value}
+	                    onClick={() => {
+	                      setSortBy(opt.value)
+	                      setSortMenuOpen(false)
+	                    }}
+	                    className={`floating-menu-item ${sortBy === opt.value ? 'floating-menu-item-active' : ''}`}
+	                  >
                     {opt.label}
                   </button>
                 ))}

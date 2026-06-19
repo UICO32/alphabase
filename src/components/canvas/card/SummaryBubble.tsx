@@ -369,11 +369,12 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
                 borderRadius: 6,
                 border: 'none',
                 cursor: 'pointer',
-                background: 'var(--fg-primary)',
-                color: 'var(--fg-inverse)',
+                background: 'var(--brand)',
+                color: 'var(--color-white)',
+                transition: 'background-color 0.15s',
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--brand-hover)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--brand)' }}
             >
               创建卡片
             </button>

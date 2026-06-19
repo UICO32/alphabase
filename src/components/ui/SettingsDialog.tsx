@@ -41,11 +41,7 @@ export function SettingsDialog({ open, onClose, initialTab = 'system' }: Setting
               <TabsTrigger
                 key={val}
                 value={val}
-                style={activeTab === val
-                  ? { backgroundColor: 'var(--surface-card-active)', color: 'var(--fg-primary)' }
-                  : { color: 'var(--fg-tertiary)' }
-                }
-                className="w-full justify-start rounded-lg text-sm transition-colors hover:text-fg-secondary data-[state=active]:shadow-sm"
+                className={`segmented-item w-full justify-start cursor-pointer ${activeTab === val ? 'segmented-item-active' : ''}`}
               >
                 {label}
               </TabsTrigger>

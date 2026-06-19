@@ -52,7 +52,7 @@ export function BoardLibraryView() {
               <div
                 key={board.id}
                 onClick={() => handleBoardClick(board.id)}
-                className={`hepta-list-item group relative p-4 rounded-xl cursor-pointer bg-surface-card border ${board.id === activeBoardId ? 'border-text-primary' : 'border-line-default'}`}
+	                className={`hepta-list-item group relative p-4 rounded-xl cursor-pointer bg-surface-card border ${board.id === activeBoardId ? 'border-brand' : 'border-line-default'}`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div

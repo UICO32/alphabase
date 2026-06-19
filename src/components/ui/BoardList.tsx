@@ -126,7 +126,7 @@ export function BoardList({
                 items={boardContextMenuItems(board.id)}
               >
                 <div
-                  className={`hepta-list-item flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
+	                  className={`hepta-list-item hepta-list-item-indicator flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'is-selected' : 'text-fg-secondary'}`}
                   onClick={() => onSwitchBoard(board.id)}
                   onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 >
@@ -135,7 +135,7 @@ export function BoardList({
                     <span className="text-sm truncate">{board.name}</span>
                   </div>
                   <button
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-theme hover:bg-black/5"
+	                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-theme hover:bg-surface-card-hover"
                     onClick={(e) => {
                       e.stopPropagation()
                     }}

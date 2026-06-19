@@ -74,7 +74,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
         <CollapseButton direction="left" onClick={() => setLeftPanelCollapsed(true)} />
       </div>
 
-            <div className="flex gap-1 p-2">
+            <div className="segmented m-2">
               <ViewModeButton
                 active={viewMode === 'boardLibrary'}
                 onClick={() => setViewMode('boardLibrary')}
@@ -135,7 +135,7 @@ function ViewModeButton({ active, onClick, icon, label }: {
   return (
     <button
       onClick={onClick}
-      className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs flex-1 justify-center cursor-pointer ${active ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
+      className={`segmented-item flex-1 cursor-pointer ${active ? 'segmented-item-active' : ''}`}
     >
       {icon}
       <span>{label}</span>

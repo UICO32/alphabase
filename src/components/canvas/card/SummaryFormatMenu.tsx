@@ -64,22 +64,17 @@ export function SummaryFormatMenu({
   const menuContent = (
     <div
       ref={menuRef}
-      className="animate-fadeIn"
+      className="animate-fadeIn floating-menu"
       style={{
         position: 'fixed',
         top: position.top,
         left: position.left,
         zIndex: 9999,
         minWidth: 180,
-        padding: '6px 0',
-        borderRadius: 8,
-        backgroundColor: 'var(--surface-card)',
-        boxShadow: 'var(--shadow-lg)',
-        border: '1px solid var(--line-default)',
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div style={{ padding: '4px 10px', fontSize: 11, color: 'var(--fg-tertiary)' }}>
+      <div className="px-[10px] py-1 text-[11px] text-fg-tertiary">
         摘要格式
       </div>
       {FORMAT_OPTIONS.map((opt) => {
@@ -88,28 +83,12 @@ export function SummaryFormatMenu({
           <button
             key={opt.format}
             onClick={() => handleSelect(opt.format)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 10px',
-              border: 'none',
-              background: isSelected ? 'var(--surface-hover)' : 'transparent',
-              cursor: 'pointer',
-              textAlign: 'left' as const,
-            }}
-            onMouseEnter={(e) => {
-              if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-hover)'
-            }}
-            onMouseLeave={(e) => {
-              if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent'
-            }}
+            className={`floating-menu-item ${isSelected ? 'floating-menu-item-active' : ''}`}
           >
             <span style={{ color: strokeColor, display: 'flex' }}>{opt.icon}</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--fg-primary)' }}>{opt.label}</div>
-              <div style={{ fontSize: 10, color: 'var(--fg-tertiary)' }}>{opt.desc}</div>
+            <div className="flex-1">
+              <div className="text-[13px] text-fg-primary">{opt.label}</div>
+              <div className="text-[10px] text-fg-tertiary">{opt.desc}</div>
             </div>
             {isSelected && (
               <span style={{ color: strokeColor, fontSize: 12 }}>✓</span>
