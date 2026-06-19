@@ -77,24 +77,24 @@ const CardItem = memo(function CardItem({
       draggable
       onDragStart={(e) => onDragStart(e, card.id)}
       onClick={onClick}
-      className="hepta-list-item group relative p-2.5 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-border-default"
+      className="hepta-list-item group relative p-2.5 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default"
       style={{ aspectRatio: '1/1' }}
     >
       {/* Title row — truncate with ellipsis, time right */}
       <div className="flex items-baseline justify-between gap-2 mb-0.5">
         {card.title && card.title !== '新卡片' ? (
-          <span className="text-sm font-medium text-text-primary leading-snug truncate">{card.title}</span>
+          <span className="text-sm font-medium text-fg-primary leading-snug truncate">{card.title}</span>
         ) : (
-          <span className="text-sm font-medium text-text-tertiary leading-snug truncate">无标题</span>
+          <span className="text-sm font-medium text-fg-tertiary leading-snug truncate">无标题</span>
         )}
         {relativeTime && (
-          <span className="text-[10px] shrink-0 text-text-tertiary">{relativeTime}</span>
+          <span className="text-[10px] shrink-0 text-fg-tertiary">{relativeTime}</span>
         )}
       </div>
 
       {/* Text body — fade via mask, self-adaptive */}
       <div
-        className="min-h-0 flex-1 overflow-hidden card-library-preview text-xs leading-relaxed text-text-secondary"
+        className="min-h-0 flex-1 overflow-hidden card-library-preview text-xs leading-relaxed text-fg-secondary"
         style={{
           WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
           maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
@@ -312,7 +312,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
       <div className="p-4">
         {/* Search bar with mode switch */}
         <div
-          className="mb-3 flex items-center gap-0 rounded-lg bg-surface-card border border-border-default px-2"
+          className="mb-3 flex items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && searchMode !== 'keyword') {
               handleSearchSubmit()
@@ -323,17 +323,17 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
             <button
               ref={modeFloating.refs.setReference}
               {...modeInteractions.getReferenceProps()}
-              className="flex items-center gap-0.5 px-1.5 py-1 rounded text-[11px] font-medium text-text-secondary hover:bg-surface-panel"
+              className="flex items-center gap-0.5 px-1.5 py-1 rounded text-[11px] font-medium text-fg-secondary hover:bg-surface-panel"
               title="切换搜索模式"
             >
               {searchModeLabels[searchMode]}
-              <ChevronDown size={10} className="text-text-secondary" />
+              <ChevronDown size={10} className="text-fg-secondary" />
             </button>
             {modeMenuOpen && (
               <div
                 ref={modeFloating.refs.setFloating}
                 {...modeInteractions.getFloatingProps()}
-                className="py-1.5 rounded-lg min-w-[80px] glass-panel border border-border-default z-50"
+                className="py-1.5 rounded-lg min-w-[80px] glass-panel border border-line-default z-50"
                 style={{
                   ...modeFloating.floatingStyles,
                   boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
@@ -348,8 +348,8 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
                     }}
                     className={`flex items-center w-full px-3 py-2 text-left text-xs rounded ${
                       searchMode === mode
-                        ? 'text-text-primary bg-surface-panel font-medium'
-                        : 'text-text-secondary hover:bg-surface-panel'
+                        ? 'text-fg-primary bg-surface-panel font-medium'
+                        : 'text-fg-secondary hover:bg-surface-panel'
                     }`}
                   >
                     {searchModeLabels[mode]}
@@ -364,7 +364,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={searchMode === 'semantic' ? '输入语义搜索内容，按回车触发...' : '搜索卡片...'}
-            className="flex-1 py-2 text-sm outline-none bg-transparent text-text-primary"
+            className="flex-1 py-2 text-sm outline-none bg-transparent text-fg-primary"
           />
         </div>
 
@@ -374,7 +374,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
             <button
               ref={sortFloating.refs.setReference}
               {...sortInteractions.getReferenceProps()}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-text-secondary bg-surface-card border border-border-default hover:bg-surface-panel"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-panel"
             >
               {sortLabels[sortBy]}
               {sortBy === 'related' && !indexed ? ' (向量化中...)' : ''}
@@ -384,7 +384,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
               <div
                 ref={sortFloating.refs.setFloating}
                 {...sortInteractions.getFloatingProps()}
-                className="py-1.5 rounded-lg min-w-[120px] glass-panel border border-border-default z-50"
+                className="py-1.5 rounded-lg min-w-[120px] glass-panel border border-line-default z-50"
                 style={{
                   ...sortFloating.floatingStyles,
                   boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
@@ -399,8 +399,8 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
                     }}
                     className={`flex items-center w-full px-3 py-2 text-left text-xs rounded ${
                       sortBy === opt.value
-                        ? 'text-text-primary bg-surface-panel font-medium'
-                        : 'text-text-secondary hover:bg-surface-panel'
+                        ? 'text-fg-primary bg-surface-panel font-medium'
+                        : 'text-fg-secondary hover:bg-surface-panel'
                     }`}
                   >
                     {opt.label}
@@ -413,7 +413,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
           <button
             onClick={handleSyncClick}
             disabled={syncing}
-            className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-text-secondary bg-surface-card border border-border-default hover:bg-surface-card-hover"
+            className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-card-hover"
             title={accessToken ? '同步 Flomo' : '连接 Flomo'}
           >
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
@@ -423,7 +423,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
 
         {/* Info bars */}
         {sortBy === 'related' && editingCardId && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2 bg-surface-card text-text-secondary">
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2 bg-surface-card text-fg-secondary">
             {searching ? (
               <><Loader2 size={14} className="animate-spin" /> 搜索相关卡片中...</>
             ) : (
@@ -433,7 +433,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
         )}
 
         {(searchMode === 'semantic' || searchMode === 'hybrid') && searchQuery.trim() && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2 bg-surface-card text-text-secondary">
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2 bg-surface-card text-fg-secondary">
             {searching ? (
               <><Loader2 size={14} className="animate-spin" /> 语义搜索中...</>
             ) : (
@@ -465,7 +465,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
           </div>
         )}
 
-        <div className="px-3 py-2 text-[10px] text-center text-text-secondary">
+        <div className="px-3 py-2 text-[10px] text-center text-fg-secondary">
           拖拽到画布创建引用 · 按住 Alt 拖拽创建新实例
         </div>
       </div>

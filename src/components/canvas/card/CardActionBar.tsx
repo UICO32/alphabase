@@ -88,7 +88,7 @@ export const CardActionBar = memo(function CardActionBar({
             whiteSpace: 'nowrap',
             fontSize: 13,
             fontWeight: 600,
-            color: 'var(--text-secondary)',
+            color: 'var(--fg-secondary)',
             textAlign: 'center',
             minWidth: 0,
             margin: '0 4px',
@@ -168,7 +168,7 @@ function ActionBarButton({
       style={{
         width: 24,
         height: 24,
-        color: 'var(--text-secondary)',
+        color: 'var(--fg-secondary)',
         cursor: 'inherit',
         border: 'none',
         background: 'transparent',

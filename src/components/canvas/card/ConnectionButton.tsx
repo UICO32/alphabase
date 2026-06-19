@@ -13,7 +13,7 @@ export function ConnectionButton({ visible, onClick }: ConnectionButtonProps) {
         width: 28,
         height: 28,
         backgroundColor: 'var(--color-blue-500)',
-        color: 'var(--text-inverse)',
+        color: 'var(--fg-inverse)',
         fontSize: 18,
         fontWeight: 700,
         lineHeight: 1,

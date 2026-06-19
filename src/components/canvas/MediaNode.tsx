@@ -77,11 +77,11 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
       style={{
         width: '100%',
         height: '100%',
-        outline: selected ? '2px solid var(--border-active)' : '1px solid transparent',
+        outline: selected ? '2px solid var(--line-active)' : '1px solid transparent',
         outlineOffset: 0,
         borderRadius: 8,
         lineHeight: 0,
-        boxShadow: selected ? 'var(--shadow-glow-blue)' : 'var(--shadow-sm)',
+        boxShadow: selected ? 'var(--shadow-glow-accent)' : 'var(--shadow-sm)',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -116,7 +116,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
             border: 'none',
             background: 'rgba(255,255,255,0.9)',
             boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-            color: 'var(--text-secondary)',
+            color: 'var(--fg-secondary)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -145,7 +145,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
           className="flex items-center justify-center loading-pulse"
           style={{ width: '100%', height: '100%', minWidth: 60, minHeight: 60 }}
         >
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Loading...</span>
+          <span className="text-xs" style={{ color: 'var(--fg-tertiary)' }}>Loading...</span>
         </div>
       )}
       <CardHandles />

@@ -57,15 +57,15 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between px-6 py-4 border-b border-border-default transition-theme"
+          className="flex items-center justify-between px-6 py-4 border-b border-line-default transition-theme"
         >
           <div className="flex items-center gap-3">
-            <Trash2 size={20} className="text-text-primary" />
-            <span className="font-semibold text-text-primary">
+            <Trash2 size={20} className="text-fg-primary" />
+            <span className="font-semibold text-fg-primary">
               回收站
             </span>
             <span
-              className="text-sm px-2 py-0.5 rounded-full bg-surface-card text-text-secondary"
+              className="text-sm px-2 py-0.5 rounded-full bg-surface-card text-fg-secondary"
             >
               {deletedCards.length} 项
             </span>
@@ -81,7 +81,7 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
             )}
             <button
               onClick={onClose}
-              className="btn-base p-2 rounded-lg text-text-secondary"
+              className="btn-base p-2 rounded-lg text-fg-secondary"
             >
               <X size={18} />
             </button>
@@ -99,19 +99,19 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
               {deletedCards.map((card) => (
                 <div
                   key={card.id}
-                  className="hepta-list-item flex items-center justify-between p-3 rounded-lg bg-surface-card border border-border-default"
+                  className="hepta-list-item flex items-center justify-between p-3 rounded-lg bg-surface-card border border-line-default"
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-panel"
                     >
-                      <Trash2 size={14} className="text-text-secondary" />
+                      <Trash2 size={14} className="text-fg-secondary" />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-text-primary">
+                      <div className="text-sm font-medium text-fg-primary">
                         {card.title || '无标题'}
                       </div>
-                      <div className="text-xs text-text-secondary">
+                      <div className="text-xs text-fg-secondary">
                         删除于 {card.deletedAt ? new Date(card.deletedAt).toLocaleString('zh-CN') : ''}
                       </div>
                     </div>
@@ -119,7 +119,7 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleRestore(card.id)}
-                      className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-surface-panel text-text-primary"
+                      className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-surface-panel text-fg-primary"
                     >
                       <RotateCcw size={14} />
                       恢复

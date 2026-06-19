@@ -1,16 +1,26 @@
 export type CardColor = 'white' | 'red' | 'orange' | 'yellow' | 'green' | 'cyan' | 'blue' | 'purple' | 'pink' | 'gray'
 
-export const CARD_COLORS: Record<CardColor, { stroke: string; fillLight: string; fillDark: string; textLight: string; textDark: string }> = {
-  white:  { stroke: '#D4D4D4', fillLight: '#FFFFFF', fillDark: '#333333', textLight: '#18181B', textDark: '#E4E4E7' },
-  red:    { stroke: '#EF4444', fillLight: '#FDE8E8', fillDark: '#3D2424', textLight: '#18181B', textDark: '#E4E4E7' },
-  orange: { stroke: '#F97316', fillLight: '#FEF0E0', fillDark: '#3D3024', textLight: '#18181B', textDark: '#E4E4E7' },
-  yellow: { stroke: '#EAB308', fillLight: '#FDF8E1', fillDark: '#3D3824', textLight: '#18181B', textDark: '#E4E4E7' },
-  green:  { stroke: '#22C55E', fillLight: '#E4F9EC', fillDark: '#243D2C', textLight: '#18181B', textDark: '#E4E4E7' },
-  cyan:   { stroke: '#06B6D4', fillLight: '#E0F5FA', fillDark: '#24353D', textLight: '#18181B', textDark: '#E4E4E7' },
-  blue:   { stroke: '#3B82F6', fillLight: '#E8F0FE', fillDark: '#242A3D', textLight: '#18181B', textDark: '#E4E4E7' },
-  purple: { stroke: '#A855F7', fillLight: '#F3E8FE', fillDark: '#30243D', textLight: '#18181B', textDark: '#E4E4E7' },
-  pink:   { stroke: '#EC4899', fillLight: '#FDE8F2', fillDark: '#3D2430', textLight: '#18181B', textDark: '#E4E4E7' },
-  gray:   { stroke: '#9CA3AF', fillLight: '#F3F4F6', fillDark: '#2B2B2D', textLight: '#18181B', textDark: '#E4E4E7' },
+export interface CardColorDef {
+  stroke: string
+  fillLight: string
+  fillDark: string
+  textLight: string
+  textDark: string
+  mutedLight: string
+  mutedDark: string
+}
+
+export const CARD_COLORS: Record<CardColor, CardColorDef> = {
+  white:  { stroke: '#D4D4D4', fillLight: '#FFFFFF', fillDark: '#333333', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#9CA3AF', mutedDark: '#6B7280' },
+  red:    { stroke: '#EF4444', fillLight: '#FDE8E8', fillDark: '#3D2424', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  orange: { stroke: '#F97316', fillLight: '#FEF0E0', fillDark: '#3D3024', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  yellow: { stroke: '#EAB308', fillLight: '#FDF8E1', fillDark: '#3D3824', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  green:  { stroke: '#22C55E', fillLight: '#E4F9EC', fillDark: '#243D2C', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  cyan:   { stroke: '#06B6D4', fillLight: '#E0F5FA', fillDark: '#24353D', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  blue:   { stroke: '#3B82F6', fillLight: '#E8F0FE', fillDark: '#242A3D', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  purple: { stroke: '#A855F7', fillLight: '#F3E8FE', fillDark: '#30243D', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  pink:   { stroke: '#EC4899', fillLight: '#FDE8F2', fillDark: '#3D2430', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
+  gray:   { stroke: '#9CA3AF', fillLight: '#F3F4F6', fillDark: '#2B2B2D', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
 }
 
 export const DEFAULT_CARD_WIDTH = 280

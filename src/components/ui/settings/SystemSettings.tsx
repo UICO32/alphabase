@@ -23,12 +23,12 @@ export function SystemSettings() {
   return (
     <>
       <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-text-primary">
+        <h3 className="text-sm font-medium mb-4 text-fg-primary">
           画布设置
         </h3>
         <div className="space-y-3">
           <div>
-            <span className="text-sm text-text-primary block mb-2">背景图案</span>
+            <span className="text-sm text-fg-primary block mb-2">背景图案</span>
             <div className="flex gap-2">
               {GRID_PATTERNS.map((p) => (
                 <button
@@ -36,8 +36,8 @@ export function SystemSettings() {
                   onClick={() => setGridPattern(p.value)}
                   className={`flex-1 py-2 px-3 rounded-lg text-sm transition-colors ${
                     gridPattern === p.value
-                      ? 'bg-text-primary text-text-inverse'
-                      : 'bg-surface-panel-hover text-text-primary hover:bg-surface-card-active'
+                      ? 'bg-emphasis text-fg-inverse'
+                      : 'bg-surface-panel-hover text-fg-primary hover:bg-surface-card-active'
                   }`}
                 >
                   {p.label}
@@ -46,7 +46,7 @@ export function SystemSettings() {
             </div>
           </div>
           <label className="flex items-center justify-between p-3 rounded-lg bg-surface-panel-hover cursor-pointer hover:bg-surface-card-active transition-colors">
-            <span className="text-sm text-text-primary">
+            <span className="text-sm text-fg-primary">
               删除前确认
             </span>
             <input
@@ -60,7 +60,7 @@ export function SystemSettings() {
       </div>
 
       <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-text-primary">
+        <h3 className="text-sm font-medium mb-4 text-fg-primary">
           主题设置
         </h3>
         <div className="flex gap-3">
@@ -86,18 +86,18 @@ export function SystemSettings() {
       </div>
 
       <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-text-primary">
+        <h3 className="text-sm font-medium mb-4 text-fg-primary">
           工作区设置
         </h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 rounded-lg bg-surface-panel-hover">
             <div className="flex items-center gap-2">
-              <FolderOpen size={16} className="text-text-tertiary" />
-              <span className="text-sm text-text-primary">
+              <FolderOpen size={16} className="text-fg-tertiary" />
+              <span className="text-sm text-fg-primary">
                 当前工作区
               </span>
             </div>
-            <span className="text-xs truncate max-w-[200px] text-text-tertiary">
+            <span className="text-xs truncate max-w-[200px] text-fg-tertiary">
               {currentWorkspace?.name || '未选择'}
             </span>
           </div>
@@ -120,8 +120,8 @@ function ThemeButton({ active, onClick, icon, label }: {
       onClick={onClick}
       className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-colors ${
         active
-          ? 'bg-text-primary text-text-inverse'
-          : 'bg-surface-panel-hover text-text-primary hover:bg-surface-card-active'
+          ? 'bg-emphasis text-fg-inverse'
+          : 'bg-surface-panel-hover text-fg-primary hover:bg-surface-card-active'
       }`}
     >
       {icon}

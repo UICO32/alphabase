@@ -166,10 +166,10 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
               minWidth: 0,
               minHeight: '80px',
               border: isActive
-                ? '2px solid var(--border-active, #3b82f6)'
+                ? '2px solid var(--line-active, #3b82f6)'
                 : dragOver
-                  ? '2px solid var(--border-active, #3b82f6)'
-                  : '1px dashed var(--border-default)',
+                  ? '2px solid var(--line-active, #3b82f6)'
+                  : '1px dashed var(--line-default)',
               borderRadius: '6px',
               background: isActive
                 ? 'rgba(59,130,246,0.06)'
@@ -183,7 +183,7 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
               transition: 'border-color 0.15s, background 0.15s',
             }}
           >
-            <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>
+            <span style={{ color: 'var(--fg-tertiary)', fontSize: '12px' }}>
               {isActive ? '按 Ctrl+V 粘贴图片' : dragOver ? '释放以添加' : '点击后粘贴图片'}
             </span>
           </div>

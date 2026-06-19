@@ -45,7 +45,7 @@ export const MoreActionsMenu = memo(function MoreActionsMenu({
         className="w-[200px]"
       >
         <div className="px-2 py-1.5">
-          <div className="text-xs text-muted-foreground mb-1.5">颜色</div>
+          <div className="text-xs text-fg-secondary mb-1.5">颜色</div>
           <div className="flex flex-wrap gap-1.5">
             {(Object.keys(CARD_COLORS) as CardColor[]).map((c) => (
               <button

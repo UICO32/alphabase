@@ -41,12 +41,12 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4">
-          <span className="font-semibold text-text-primary">
+          <span className="font-semibold text-fg-primary">
             选择工作区
           </span>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-panel-hover transition-colors"
+            className="p-2 rounded-lg text-fg-secondary hover:text-fg-primary hover:bg-surface-panel-hover transition-colors"
           >
             <X size={18} />
           </button>
@@ -58,20 +58,20 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
             className="w-full flex items-center gap-3 p-4 rounded-lg mb-5 bg-surface-panel-hover hover:bg-surface-card-active transition-colors group"
           >
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-surface-card group-hover:bg-surface-card-hover transition-colors">
-              <Plus size={20} className="text-text-secondary group-hover:text-accent-blue transition-colors" />
+              <Plus size={20} className="text-fg-secondary group-hover:text-accent-blue transition-colors" />
             </div>
             <div className="text-left">
-              <div className="text-sm font-medium text-text-primary">
+              <div className="text-sm font-medium text-fg-primary">
                 创建工作区
               </div>
-              <div className="text-xs text-text-tertiary">
+              <div className="text-xs text-fg-tertiary">
                 选择一个文件夹作为新的工作区
               </div>
             </div>
           </button>
 
           <div>
-            <div className="flex items-center gap-2 mb-3 text-xs text-text-tertiary">
+            <div className="flex items-center gap-2 mb-3 text-xs text-fg-tertiary">
               <Clock size={12} />
               <span>最近使用</span>
             </div>
@@ -90,17 +90,17 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
                     className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-surface-panel-hover active:bg-surface-card-active transition-colors"
                   >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-panel-hover">
-                      <Folder size={16} className="text-text-tertiary" />
+                      <Folder size={16} className="text-fg-tertiary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate text-text-primary">
+                      <div className="text-sm font-medium truncate text-fg-primary">
                         {workspace.name}
                       </div>
-                      <div className="text-xs truncate text-text-tertiary">
+                      <div className="text-xs truncate text-fg-tertiary">
                         {workspace.path}
                       </div>
                     </div>
-                    <div className="text-xs text-text-disabled shrink-0">
+                    <div className="text-xs text-fg-disabled shrink-0">
                       {new Date(workspace.lastOpened).toLocaleDateString('zh-CN')}
                     </div>
                   </button>

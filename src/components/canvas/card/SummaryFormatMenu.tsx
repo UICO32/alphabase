@@ -75,11 +75,11 @@ export function SummaryFormatMenu({
         borderRadius: 8,
         backgroundColor: 'var(--surface-card)',
         boxShadow: 'var(--shadow-lg)',
-        border: '1px solid var(--border-default)',
+        border: '1px solid var(--line-default)',
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div style={{ padding: '4px 10px', fontSize: 11, color: 'var(--text-tertiary)' }}>
+      <div style={{ padding: '4px 10px', fontSize: 11, color: 'var(--fg-tertiary)' }}>
         摘要格式
       </div>
       {FORMAT_OPTIONS.map((opt) => {
@@ -108,8 +108,8 @@ export function SummaryFormatMenu({
           >
             <span style={{ color: strokeColor, display: 'flex' }}>{opt.icon}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{opt.label}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{opt.desc}</div>
+              <div style={{ fontSize: 13, color: 'var(--fg-primary)' }}>{opt.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--fg-tertiary)' }}>{opt.desc}</div>
             </div>
             {isSelected && (
               <span style={{ color: strokeColor, fontSize: 12 }}>✓</span>

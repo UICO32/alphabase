@@ -14,7 +14,7 @@ export function PanelSection({ title, children, className = '' }: {
   return (
     <div className={`px-4 py-3 ${className}`}>
       {title && (
-        <div className="text-xs font-medium mb-2 uppercase tracking-wide text-text-secondary">
+        <div className="text-xs font-medium mb-2 uppercase tracking-wide text-fg-secondary">
           {title}
         </div>
       )}
@@ -30,7 +30,7 @@ export function ExpandButton({ direction, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="btn-base fixed top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-12 rounded-lg hover:shadow-xl glass-panel text-text-primary"
+      className="btn-base fixed top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-8 h-12 rounded-lg hover:shadow-xl glass-panel text-fg-primary"
       style={{
         left: direction === 'left' ? '0' : undefined,
         right: direction === 'right' ? '0' : undefined,
@@ -52,7 +52,7 @@ export function CollapseButton({ direction, onClick }: {
         e.stopPropagation()
         onClick()
       }}
-      className="btn-base flex items-center justify-center w-6 h-6 rounded text-text-secondary"
+      className="btn-base flex items-center justify-center w-6 h-6 rounded text-fg-secondary"
     >
       {direction === 'left' ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
     </button>

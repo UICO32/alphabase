@@ -53,19 +53,19 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
         style={{ width: SIDEBAR_WIDTH, transform: `translateX(${leftPanelCollapsed ? -SIDEBAR_WIDTH : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
         onWheel={handleWheel}
       >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-default transition-theme">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line-default transition-theme">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div
             className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer transition-theme hover:opacity-80"
             onClick={onOpenWorkspacePicker}
           >
-            <Folder size={16} className="text-text-secondary" />
-            <span className="text-sm font-medium truncate text-text-primary">
+            <Folder size={16} className="text-fg-secondary" />
+            <span className="text-sm font-medium truncate text-fg-primary">
               {currentWorkspace?.name || '未选择工作区'}
             </span>
           </div>
           <button
-            className="p-1.5 rounded-lg cursor-pointer transition-theme hover:opacity-80 text-text-secondary"
+            className="p-1.5 rounded-lg cursor-pointer transition-theme hover:opacity-80 text-fg-secondary"
             onClick={onOpenSettings}
           >
             <Settings size={14} />
@@ -105,7 +105,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
 
             <div className="px-2 py-2">
               <button
-                className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-text-secondary"
+                className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-fg-secondary"
                 onClick={onOpenTrash}
               >
                 <Trash2 size={14} />
@@ -117,7 +117,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
       {leftPanelCollapsed && (
         <button
           onClick={() => setLeftPanelCollapsed(false)}
-          className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-text-secondary border border-border-default"
+          className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
         >
           <PanelLeftOpen size={16} />
         </button>
@@ -135,7 +135,7 @@ function ViewModeButton({ active, onClick, icon, label }: {
   return (
     <button
       onClick={onClick}
-      className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs flex-1 justify-center cursor-pointer ${active ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+      className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs flex-1 justify-center cursor-pointer ${active ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
     >
       {icon}
       <span>{label}</span>

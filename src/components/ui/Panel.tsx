@@ -15,14 +15,14 @@ export function Panel({ title, children, collapsible = false, className = '' }: 
     <div className={`bg-surface-panel glass-panel rounded-lg ${className}`}>
       {title && (
         <div
-          className={`flex items-center justify-between px-4 py-3 border-b border-border-default transition-theme ${collapsible ? 'cursor-pointer' : ''}`}
+          className={`flex items-center justify-between px-4 py-3 border-b border-line-default transition-theme ${collapsible ? 'cursor-pointer' : ''}`}
           onClick={collapsible ? () => setCollapsed(!collapsed) : undefined}
         >
-          <span className="font-medium text-sm text-text-primary">{title}</span>
+          <span className="font-medium text-sm text-fg-primary">{title}</span>
           {collapsible && (
             <ChevronDown
               size={14}
-              className={`text-text-secondary transition-transform ${collapsed ? '' : 'rotate-180'}`}
+              className={`text-fg-secondary transition-transform ${collapsed ? '' : 'rotate-180'}`}
             />
           )}
         </div>

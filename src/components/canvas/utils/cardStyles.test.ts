@@ -51,18 +51,18 @@ describe('getCardTextColor', () => {
 })
 
 describe('getCardMutedTextColor', () => {
-  it('white/undefined 亮模式应返回固定灰色', () => {
-    expect(getCardMutedTextColor('white', false)).toBe('#9CA3AF')
-    expect(getCardMutedTextColor(undefined, false)).toBe('#9CA3AF')
+  it('white/undefined 亮模式应返回 mutedLight', () => {
+    expect(getCardMutedTextColor('white', false)).toBe(CARD_COLORS.white.mutedLight)
+    expect(getCardMutedTextColor(undefined, false)).toBe(CARD_COLORS.white.mutedLight)
   })
 
-  it('white/undefined 暗模式应返回固定灰色', () => {
-    expect(getCardMutedTextColor('white', true)).toBe('#6B7280')
-    expect(getCardMutedTextColor(undefined, true)).toBe('#6B7280')
+  it('white/undefined 暗模式应返回 mutedDark', () => {
+    expect(getCardMutedTextColor('white', true)).toBe(CARD_COLORS.white.mutedDark)
+    expect(getCardMutedTextColor(undefined, true)).toBe(CARD_COLORS.white.mutedDark)
   })
 
-  it('非白色应返回带透明度的文字色', () => {
-    const result = getCardMutedTextColor('red', false)
-    expect(result).toBe(CARD_COLORS.red.textLight + '99')
+  it('非白色应返回对应 muted 字段', () => {
+    expect(getCardMutedTextColor('red', false)).toBe(CARD_COLORS.red.mutedLight)
+    expect(getCardMutedTextColor('red', true)).toBe(CARD_COLORS.red.mutedDark)
   })
 })

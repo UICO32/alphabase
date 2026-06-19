@@ -19,7 +19,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
   return (
     <TooltipProvider delayDuration={300}>
       {/* 主工具栏 - 底部居中 */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-0.5 px-1.5 py-1.5 rounded-2xl z-40 glass-card border border-border-default">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-0.5 px-1.5 py-1.5 rounded-2xl z-40 glass-card border border-line-default">
         {/* 左组：创建工具 */}
         <div className="flex items-center gap-0.5">
           <Tooltip>
@@ -38,7 +38,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={onClipUrl}
-                className="btn-base p-2 rounded-xl text-text-primary"
+                className="btn-base p-2 rounded-xl text-fg-primary"
               >
                 <Scissors size={16} />
               </button>
@@ -53,7 +53,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	                  usePanelStore.getState().setRightPanelActiveTab('channels')
 	                  usePanelStore.getState().setRightPanelCollapsed(false)
 	                }}
-	                className="btn-base p-2 rounded-xl text-text-primary"
+	                className="btn-base p-2 rounded-xl text-fg-primary"
 	              >
 	                <Compass size={16} />
 	              </button>
@@ -65,7 +65,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={enterLassoMode}
-                className={`btn-base p-2 rounded-xl transition-colors text-text-primary ${isLassoMode ? 'bg-surface-panel-hover text-accent-blue' : ''}`}
+                className={`btn-base p-2 rounded-xl transition-colors text-fg-primary ${isLassoMode ? 'bg-surface-panel-hover text-accent-blue' : ''}`}
               >
                 <Frame size={16} />
               </button>
@@ -98,26 +98,26 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 
       {/* 缩放控件 - 右下角，3D模式下隐藏 */}
       {!showTopography && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg z-40 bg-surface-card shadow-md border border-border-default">
+        <div className="fixed bottom-6 right-6 flex items-center gap-0.5 px-1.5 py-1.5 rounded-lg z-40 bg-surface-card shadow-md border border-line-default">
 	          <Tooltip>
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('zoom-out', undefined)}
-	                className="btn-base p-1.5 rounded-md text-text-primary"
+	                className="btn-base p-1.5 rounded-md text-fg-primary"
 	              >
 	                <ZoomOut size={14} />
 	              </button>
 	            </TooltipTrigger>
 	            <TooltipContent side="top">缩小</TooltipContent>
 	          </Tooltip>
-	          <span className="text-xs px-1.5 cursor-default tabular-nums text-text-secondary">
+	          <span className="text-xs px-1.5 cursor-default tabular-nums text-fg-secondary">
 	            {Math.round(zoom * 100)}%
 	          </span>
 	          <Tooltip>
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('zoom-in', undefined)}
-	                className="btn-base p-1.5 rounded-md text-text-primary"
+	                className="btn-base p-1.5 rounded-md text-fg-primary"
 	              >
 	                <ZoomIn size={14} />
 	              </button>
@@ -129,7 +129,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('fit-view', undefined)}
-	                className="btn-base p-1.5 rounded-md text-text-primary"
+	                className="btn-base p-1.5 rounded-md text-fg-primary"
 	              >
 	                <Maximize size={14} />
 	              </button>

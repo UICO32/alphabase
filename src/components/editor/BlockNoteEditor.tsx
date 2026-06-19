@@ -96,7 +96,7 @@ const CardBlockNoteEditorInner = (
       initialContent: initialContent.current as Parameters<typeof useCreateBlockNote>[0] extends { initialContent?: infer T } ? T : never,
       uploadFile,
       dropCursor: () => dropCursor({
-        color: 'var(--border-active, #3b82f6)',
+        color: 'var(--line-active, #3b82f6)',
         width: 3,
       }),
       pasteHandler: ({ event, defaultPasteHandler }) => {
@@ -531,7 +531,7 @@ const CardBlockNoteEditorInner = (
     }, [editor, editable])
 
     return (
-      <div ref={containerRef} spellCheck={false} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor card-blocknote-editor--${theme} ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`} onClickCapture={(e) => {
+      <div ref={containerRef} spellCheck={false} style={{ position: 'relative', fontSize: '13px', lineHeight: '1.5' }} className={`card-blocknote-editor ${editable ? 'card-blocknote-editor--editable' : 'card-blocknote-editor--readonly'}`} onClickCapture={(e) => {
         const cardRef = (e.target as HTMLElement).closest('[data-card-id]')
         if (cardRef) {
           const id = cardRef.getAttribute('data-card-id')

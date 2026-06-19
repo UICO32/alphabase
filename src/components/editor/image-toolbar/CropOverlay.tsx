@@ -63,7 +63,6 @@ export function CropOverlay({
   )
 
   const imgRect = target.getBoundingClientRect()
-  const { isDark } = surface
 
   const overlayStyle: React.CSSProperties = {
     position: 'fixed',
@@ -94,7 +93,7 @@ export function CropOverlay({
             top: cropRect.y,
             width: cropRect.w,
             height: cropRect.h,
-            border: '2px solid #3b82f6',
+            border: '2px solid var(--color-accent-blue)',
             background: 'transparent',
             boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
             pointerEvents: 'none',
@@ -121,8 +120,8 @@ export function CropOverlay({
             fontSize: 12,
             borderRadius: 6,
             border: 'none',
-            background: '#3b82f6',
-            color: '#fff',
+            background: 'var(--color-accent-blue)',
+            color: 'var(--fg-inverse)',
             cursor: 'pointer',
           }}
         >
@@ -138,9 +137,9 @@ export function CropOverlay({
             padding: '4px 10px',
             fontSize: 12,
             borderRadius: 6,
-            border: `1px solid ${isDark ? '#475569' : '#cbd5e1'}`,
-            background: isDark ? '#1e293b' : '#fff',
-            color: isDark ? '#e2e8f0' : '#475569',
+            border: '1px solid var(--line-default)',
+            background: 'var(--surface-card)',
+            color: 'var(--fg-secondary)',
             cursor: 'pointer',
           }}
         >

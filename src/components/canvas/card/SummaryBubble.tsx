@@ -299,7 +299,7 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
           borderRadius: 8,
           backgroundColor: 'var(--surface-card)',
           boxShadow: 'var(--shadow-md)',
-          border: '1px solid var(--border-default)',
+          border: '1px solid var(--line-default)',
           overflow: 'hidden',
         }}
       >
@@ -332,7 +332,7 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
             style={{
               fontSize: 13,
               lineHeight: `${lineHeight}px`,
-              color: error ? 'var(--text-danger)' : 'var(--text-primary)',
+              color: error ? 'var(--fg-danger)' : 'var(--fg-primary)',
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
               paddingTop: lineHeight * 0.5,
@@ -340,9 +340,9 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
             }}
           >
             {error ? (
-              <span style={{ color: 'var(--text-danger)' }}>✗ {error}</span>
+              <span style={{ color: 'var(--fg-danger)' }}>✗ {error}</span>
             ) : showLoading ? (
-              <span style={{ color: 'var(--text-secondary)' }}>
+              <span style={{ color: 'var(--fg-secondary)' }}>
                 {LOADING_STAGES[stageIndex]?.text}
                 <span style={{ animation: 'blink 1s step-end infinite', marginLeft: 2 }}>…</span>
               </span>
@@ -369,8 +369,8 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
                 borderRadius: 6,
                 border: 'none',
                 cursor: 'pointer',
-                background: 'var(--text-primary)',
-                color: 'var(--text-inverse)',
+                background: 'var(--fg-primary)',
+                color: 'var(--fg-inverse)',
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.85' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1' }}
@@ -385,10 +385,10 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
               padding: '5px 10px',
               fontSize: 11,
               borderRadius: 6,
-              border: error ? 'none' : '1px solid var(--border-default)',
+              border: error ? 'none' : '1px solid var(--line-default)',
               cursor: 'pointer',
-              background: error ? 'var(--text-danger)' : 'var(--surface-card)',
-              color: error ? 'white' : 'var(--text-secondary)',
+              background: error ? 'var(--fg-danger)' : 'var(--surface-card)',
+              color: error ? 'white' : 'var(--fg-secondary)',
             }}
             onMouseEnter={(e) => {
               if (error) { (e.currentTarget as HTMLElement).style.opacity = '0.85' }

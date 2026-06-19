@@ -15,8 +15,9 @@ import { SystemSettings } from './settings/SystemSettings'
 import { SyncSettings } from './settings/SyncSettings'
 import { ExportSettings } from './settings/ExportSettings'
 import { AISettings } from './settings/AISettings'
+import { DesignSystemPanel } from './settings/DesignSystemPanel'
 
-type SettingsTab = 'system' | 'sync' | 'export' | 'ai'
+type SettingsTab = 'system' | 'sync' | 'export' | 'ai' | 'design'
 
 interface SettingsDialogProps {
   open: boolean
@@ -35,23 +36,24 @@ export function SettingsDialog({ open, onClose, initialTab = 'system' }: Setting
           onValueChange={(v) => setActiveTab(v as SettingsTab)}
           className="flex h-full"
         >
-          <TabsList className="flex-col h-full w-[140px] shrink-0 rounded-none border-r border-border-default bg-muted/50 p-3 gap-1 justify-start">
-            <TabsTrigger value="system" className="w-full justify-start rounded-lg text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              系统设置
-            </TabsTrigger>
-            <TabsTrigger value="sync" className="w-full justify-start rounded-lg text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              同步设置
-            </TabsTrigger>
-            <TabsTrigger value="export" className="w-full justify-start rounded-lg text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              导入导出
-            </TabsTrigger>
-            <TabsTrigger value="ai" className="w-full justify-start rounded-lg text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
-              AI 设置
-            </TabsTrigger>
+          <TabsList className="flex-col h-full w-[140px] shrink-0 rounded-none border-r border-line-default bg-surface-panel p-3 gap-1 justify-start">
+            {([['system','系统设置'],['sync','同步设置'],['export','导入导出'],['ai','AI 设置'],['design','🎨 设计系统']] as const).map(([val, label]) => (
+              <TabsTrigger
+                key={val}
+                value={val}
+                style={activeTab === val
+                  ? { backgroundColor: 'var(--surface-card-active)', color: 'var(--fg-primary)' }
+                  : { color: 'var(--fg-tertiary)' }
+                }
+                className="w-full justify-start rounded-lg text-sm transition-colors hover:text-fg-secondary data-[state=active]:shadow-sm"
+              >
+                {label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <div className="flex-1 flex flex-col overflow-hidden">
-            <DialogHeader className="px-6 py-4 border-b border-border-default">
+            <DialogHeader className="px-6 py-4 border-b border-line-default">
               <DialogTitle>设置</DialogTitle>
             </DialogHeader>
             <TabsContent value="system" className="flex-1 overflow-y-auto p-6 scrollbar-hide mt-0">
@@ -65,6 +67,9 @@ export function SettingsDialog({ open, onClose, initialTab = 'system' }: Setting
             </TabsContent>
             <TabsContent value="ai" className="flex-1 overflow-y-auto p-6 scrollbar-hide mt-0">
               <AISettings />
+            </TabsContent>
+            <TabsContent value="design" className="flex-1 overflow-y-auto p-6 scrollbar-hide mt-0">
+              <DesignSystemPanel />
             </TabsContent>
           </div>
         </Tabs>

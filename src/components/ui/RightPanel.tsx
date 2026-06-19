@@ -77,25 +77,25 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           onPointerDown={handleResizeStart}
         />
 
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border-default transition-theme">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-line-default transition-theme">
         <div className="flex gap-1">
           <button
             onClick={() => setRightPanelActiveTab('library')}
-            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'library' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'library' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
           >
             <Layers size={14} />
             卡片库
           </button>
           <button
             onClick={() => setRightPanelActiveTab('editor')}
-            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'editor' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'editor' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
           >
             <FileText size={14} />
             卡片编辑器
           </button>
           <button
             onClick={() => setRightPanelActiveTab('channels')}
-            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'channels' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+            className={`panel-tab panel-tab-hover flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs ${rightPanelActiveTab === 'channels' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
           >
             <Compass size={14} />
             频道
@@ -118,7 +118,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
             setWebviewUrl={setWebviewUrl}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-text-secondary">
+          <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-fg-secondary">
             <FileText size={48} className="mb-4 opacity-30" />
             <p className="text-sm">选择卡片进行编辑</p>
           </div>
@@ -129,7 +129,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
     {rightPanelCollapsed && (
       <button
         onClick={() => setRightPanelCollapsed(false)}
-        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-text-secondary border border-border-default"
+        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
       >
         <PanelRightOpen size={16} />
       </button>
@@ -154,7 +154,7 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
 
   if (!card) {
     return (
-      <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-text-secondary">
+      <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-fg-secondary">
         <p className="text-sm">卡片不存在或已被删除</p>
       </div>
     )
@@ -164,17 +164,17 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
     <div className="flex flex-col h-full">
       {isClipCard && (
         <div className="flex justify-center px-6 pt-3">
-          <div className="flex items-center rounded-full bg-surface-card border border-border-default p-0.5">
+          <div className="flex items-center rounded-full bg-surface-card border border-line-default p-0.5">
             <button
               onClick={() => setWebviewUrl(null)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${!webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${!webviewUrl ? 'bg-surface-panel text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
             >
               <FileText size={11} />
               剪藏
             </button>
             <button
               onClick={() => setWebviewUrl(sourceUrl!, cardId)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${webviewUrl ? 'bg-surface-panel text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${webviewUrl ? 'bg-surface-panel text-fg-primary shadow-sm' : 'text-fg-secondary hover:text-fg-primary'}`}
             >
               <Globe size={11} />
               网页

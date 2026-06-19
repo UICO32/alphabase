@@ -75,16 +75,16 @@ export function AISettings() {
   return (
     <>
       <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-text-primary">
+        <h3 className="text-sm font-medium mb-4 text-fg-primary">
           AI 摘要设置
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="text-xs mb-1 block text-text-secondary">提供商</label>
+            <label className="text-xs mb-1 block text-fg-secondary">提供商</label>
             <select
               value={provider}
               onChange={(e) => handleProviderChange(e.target.value as Provider)}
-              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary border-none outline-none"
+              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-fg-primary border-none outline-none"
             >
               {Object.entries(PROVIDER_DEFAULTS).map(([key, val]) => (
                 <option key={key} value={key}>{val.label}</option>
@@ -93,33 +93,33 @@ export function AISettings() {
           </div>
 
           <div>
-            <label className="text-xs mb-1 block text-text-secondary">API Key</label>
+            <label className="text-xs mb-1 block text-fg-secondary">API Key</label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => { setApiKey(e.target.value); setSaved(false) }}
               placeholder={configured ? '已配置（留空保持不变）' : '输入 API Key'}
-              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary border-none outline-none"
+              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-fg-primary border-none outline-none"
             />
           </div>
 
           <div>
-            <label className="text-xs mb-1 block text-text-secondary">Base URL</label>
+            <label className="text-xs mb-1 block text-fg-secondary">Base URL</label>
             <input
               type="text"
               value={baseUrl}
               onChange={(e) => { setBaseUrl(e.target.value); setSaved(false) }}
-              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary border-none outline-none font-mono"
+              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-fg-primary border-none outline-none font-mono"
             />
           </div>
 
           <div>
-            <label className="text-xs mb-1 block text-text-secondary">模型</label>
+            <label className="text-xs mb-1 block text-fg-secondary">模型</label>
             <input
               type="text"
               value={model}
               onChange={(e) => { setModel(e.target.value); setSaved(false) }}
-              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary border-none outline-none font-mono"
+              className="w-full p-3 rounded-lg text-sm bg-surface-panel-hover text-fg-primary border-none outline-none font-mono"
             />
           </div>
 
@@ -127,14 +127,14 @@ export function AISettings() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg text-sm bg-text-primary text-text-inverse hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg text-sm bg-brand text-white hover:bg-brand-hover transition-colors disabled:opacity-50"
             >
               {saving ? '保存中...' : saved ? '已保存' : '保存'}
             </button>
             <button
               onClick={handleTest}
               disabled={testing || !configured}
-              className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg text-sm bg-surface-panel-hover text-text-primary hover:bg-surface-card-active transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg text-sm bg-surface-panel-hover text-fg-primary hover:bg-surface-card-active transition-colors disabled:opacity-50"
             >
               {testing ? '检测中...' : '测试连接'}
             </button>
@@ -155,10 +155,10 @@ export function AISettings() {
       </div>
 
       <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-text-primary">
+        <h3 className="text-sm font-medium mb-4 text-fg-primary">
           使用说明
         </h3>
-        <div className="space-y-2 text-xs text-text-secondary">
+        <div className="space-y-2 text-xs text-fg-secondary">
           <p>悬停卡片右上角出现 ✦ 图标，点击即可生成 AI 摘要。</p>
           <p>• OpenAI：支持 GPT-4o-mini、GPT-4o 等模型</p>
           <p>• Claude：支持 Claude Sonnet、Haiku 等模型</p>

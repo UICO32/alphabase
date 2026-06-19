@@ -49,15 +49,15 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
       >
         {/* Header */}
         <div
-          className="flex items-center gap-3 px-6 py-4 border-b border-border-default"
+          className="flex items-center gap-3 px-6 py-4 border-b border-line-default"
           style={{ backgroundColor: 'hsla(220, 60%, 50%, 0.08)' }}
         >
-          <AlertTriangle size={24} style={{ color: 'var(--text-danger)' }} />
+          <AlertTriangle size={24} style={{ color: 'var(--fg-danger)' }} />
           <div>
-            <h3 className="font-semibold text-base text-text-primary">
+            <h3 className="font-semibold text-base text-fg-primary">
               工作区数据不一致
             </h3>
-            <p className="text-sm text-text-secondary">
+            <p className="text-sm text-fg-secondary">
               检测到数据可能丢失或损坏
             </p>
           </div>
@@ -65,7 +65,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
 
         {/* Content */}
         <div className="px-6 py-5 space-y-4 max-h-[400px] overflow-y-auto">
-          <p className="text-sm text-text-primary">
+          <p className="text-sm text-fg-primary">
             磁盘上的实际数据与元数据记录不匹配：
           </p>
 
@@ -74,15 +74,15 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
               <div
                 className="flex items-center justify-between p-3 rounded-lg bg-surface-card"
               >
-                <span className="text-sm text-text-primary">
+                <span className="text-sm text-fg-primary">
                   卡片数量
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-danger)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--fg-danger)' }}>
                     磁盘有 {conflict.actualCards} 张卡片
                   </span>
-                  <span className="text-sm text-text-secondary">·</span>
-                  <span className="text-sm font-medium text-text-secondary">
+                  <span className="text-sm text-fg-secondary">·</span>
+                  <span className="text-sm font-medium text-fg-secondary">
                     元数据记录 {conflict.expectedCards} 张
                   </span>
                 </div>
@@ -93,15 +93,15 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
               <div
                 className="flex items-center justify-between p-3 rounded-lg bg-surface-card"
               >
-                <span className="text-sm text-text-primary">
+                <span className="text-sm text-fg-primary">
                   画板数量
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-danger)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--fg-danger)' }}>
                     磁盘有 {conflict.actualBoards} 个画板
                   </span>
-                  <span className="text-sm text-text-secondary">·</span>
-                  <span className="text-sm font-medium text-text-secondary">
+                  <span className="text-sm text-fg-secondary">·</span>
+                  <span className="text-sm font-medium text-fg-secondary">
                     元数据记录 {conflict.expectedBoards} 个
                   </span>
                 </div>
@@ -114,22 +114,22 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
             <div className="space-y-2">
               {extraItems.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-text-secondary mb-1.5">
+                  <p className="text-xs font-medium text-fg-secondary mb-1.5">
                     磁盘多出（{extraItems.length}）
                   </p>
                   <div className="space-y-1">
                     {extraItems.slice(0, 5).map(item => (
                       <div key={item.id} className="flex items-center justify-between px-2.5 py-1.5 rounded bg-surface-card text-xs">
-                        <span className="text-text-primary truncate max-w-[280px]">
+                        <span className="text-fg-primary truncate max-w-[280px]">
                           {item.type === 'board' ? '📋 ' : ''}{item.title || item.id}
                         </span>
                         {item.updatedAt && (
-                          <span className="text-text-secondary shrink-0 ml-2">{formatRelativeTime(item.updatedAt)}</span>
+                          <span className="text-fg-secondary shrink-0 ml-2">{formatRelativeTime(item.updatedAt)}</span>
                         )}
                       </div>
                     ))}
                     {extraItems.length > 5 && (
-                      <p className="text-xs text-text-secondary px-2.5">...还有 {extraItems.length - 5} 项</p>
+                      <p className="text-xs text-fg-secondary px-2.5">...还有 {extraItems.length - 5} 项</p>
                     )}
                   </div>
                 </div>
@@ -137,22 +137,22 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
 
               {missingItems.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-danger)' }}>
+                  <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--fg-danger)' }}>
                     磁盘缺失（{missingItems.length}）
                   </p>
                   <div className="space-y-1">
                     {missingItems.slice(0, 5).map(item => (
                       <div key={item.id} className="flex items-center justify-between px-2.5 py-1.5 rounded bg-surface-card text-xs">
-                        <span className="text-text-primary truncate max-w-[280px]">
+                        <span className="text-fg-primary truncate max-w-[280px]">
                           {item.type === 'board' ? '📋 ' : ''}{item.title || item.id}
                         </span>
                         {item.updatedAt && (
-                          <span className="text-text-secondary shrink-0 ml-2">{formatRelativeTime(item.updatedAt)}</span>
+                          <span className="text-fg-secondary shrink-0 ml-2">{formatRelativeTime(item.updatedAt)}</span>
                         )}
                       </div>
                     ))}
                     {missingItems.length > 5 && (
-                      <p className="text-xs text-text-secondary px-2.5">...还有 {missingItems.length - 5} 项</p>
+                      <p className="text-xs text-fg-secondary px-2.5">...还有 {missingItems.length - 5} 项</p>
                     )}
                   </div>
                 </div>
@@ -170,18 +170,18 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
 
         {/* Actions */}
         <div
-          className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-default"
+          className="flex items-center justify-end gap-3 px-6 py-4 border-t border-line-default"
         >
           <button
             onClick={() => onChoice('cancel')}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-text-secondary hover:bg-surface-card"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-fg-secondary hover:bg-surface-card"
           >
             取消加载
           </button>
 
           <button
             onClick={() => onChoice('merge')}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 text-text-primary bg-surface-card border border-border-default hover:bg-border-default"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 text-fg-primary bg-surface-card border border-line-default hover:bg-border-default"
           >
             <Merge size={14} />
             自动合并
@@ -189,7 +189,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
 
           <button
             onClick={() => onChoice('continue')}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-[var(--text-inverse)] bg-[var(--color-blue-500)] hover:bg-[var(--color-blue-600)]"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-[var(--fg-inverse)] bg-[var(--color-blue-500)] hover:bg-[var(--color-blue-600)]"
           >
             保留磁盘数据
           </button>
@@ -197,7 +197,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
           {hasBackup && (
             <button
               onClick={() => onChoice('backup')}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 text-text-primary bg-surface-card border border-border-default hover:bg-border-default"
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 text-fg-primary bg-surface-card border border-line-default hover:bg-border-default"
             >
               <Database size={14} />
               使用备份恢复

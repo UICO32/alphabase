@@ -159,12 +159,12 @@ export function AgentReachPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Platform tabs */}
-      <div className="flex gap-1 px-3 py-2 border-b border-border-default">
+      <div className="flex gap-1 px-3 py-2 border-b border-line-default">
         {(Object.entries(PLATFORM_CONFIG) as [Platform, typeof config][]).map(([p, c]) => (
           <button
             key={p}
             onClick={() => c.available ? handlePlatformChange(p) : undefined}
-            className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${!c.available ? 'text-text-secondary opacity-40 cursor-not-allowed' : platform === p ? 'bg-surface-card text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
+            className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${!c.available ? 'text-fg-secondary opacity-40 cursor-not-allowed' : platform === p ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'}`}
             title={!c.available ? '即将支持' : undefined}
           >
             {c.label}
@@ -173,7 +173,7 @@ export function AgentReachPanel() {
       </div>
 
       {/* Action bar */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border-default">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-line-default">
         {config.actions.map((a) => {
           const ac = ACTION_CONFIG[a]
           const Icon = ac.icon
@@ -181,7 +181,7 @@ export function AgentReachPanel() {
             <button
               key={a}
               onClick={() => a === 'search' ? undefined : browse(platform, a)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition-colors ${action === a && a !== 'search' ? 'bg-surface-card text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition-colors ${action === a && a !== 'search' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'}`}
             >
               <Icon size={12} />
               {ac.label}
@@ -196,11 +196,11 @@ export function AgentReachPanel() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && query.trim()) browse(platform, 'search', query.trim()) }}
               placeholder="搜索..."
-              className="flex-1 px-2 py-1 rounded-md text-xs bg-surface-card border border-border-default outline-none text-text-primary"
+              className="flex-1 px-2 py-1 rounded-md text-xs bg-surface-card border border-line-default outline-none text-fg-primary"
             />
             <button
               onClick={() => { if (query.trim()) browse(platform, 'search', query.trim()) }}
-              className="p-1 rounded-md text-text-secondary hover:text-text-primary"
+              className="p-1 rounded-md text-fg-secondary hover:text-fg-primary"
             >
               <Search size={14} />
             </button>
@@ -212,16 +212,16 @@ export function AgentReachPanel() {
       <div className="flex-1 overflow-y-auto">
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <Loader2 size={20} className="animate-spin text-text-secondary" />
+            <Loader2 size={20} className="animate-spin text-fg-secondary" />
           </div>
         )}
 
         {error && (
-          <div className="px-4 py-8 text-center text-xs text-text-secondary whitespace-pre-line">{error}</div>
+          <div className="px-4 py-8 text-center text-xs text-fg-secondary whitespace-pre-line">{error}</div>
         )}
 
         {!loading && !error && items.length === 0 && (
-          <div className="px-4 py-8 text-center text-xs text-text-secondary">
+          <div className="px-4 py-8 text-center text-xs text-fg-secondary">
             {hasLoaded ? '暂无内容' : '选择操作或搜索以浏览内容'}
           </div>
         )}
@@ -229,11 +229,11 @@ export function AgentReachPanel() {
         {items.map((item) => (
           <div
             key={item.id}
-            className="flex items-start gap-2 px-3 py-2 border-b border-border-default hover:bg-surface-card-hover transition-colors"
+            className="flex items-start gap-2 px-3 py-2 border-b border-line-default hover:bg-surface-card-hover transition-colors"
           >
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-text-primary truncate">{item.title}</div>
-              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-text-secondary">
+              <div className="text-xs font-medium text-fg-primary truncate">{item.title}</div>
+              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-fg-secondary">
                 {item.author && <span>{item.author}</span>}
                 {item.duration && <span>{item.duration}</span>}
                 {item.stats && Object.entries(item.stats).map(([k, v]) => (
@@ -244,7 +244,7 @@ export function AgentReachPanel() {
             <button
               onClick={() => handleClip(item)}
               disabled={clippingId === item.id}
-              className="shrink-0 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-card transition-colors disabled:opacity-50"
+              className="shrink-0 p-1.5 rounded-md text-fg-secondary hover:text-fg-primary hover:bg-surface-card transition-colors disabled:opacity-50"
               title="剪藏到画布"
             >
               {clippingId === item.id

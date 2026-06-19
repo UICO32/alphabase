@@ -78,8 +78,8 @@ html, body, #root {
 
 /* 框选中的卡片高亮 */
 .card-node-lasso-selected {
-  outline: 2px solid rgba(99, 102, 241, 0.7) !important;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2), 0 0 16px rgba(99, 102, 241, 0.15) !important;
+  outline: 2px solid var(--color-accent-blue) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent-blue) 20%, transparent), 0 0 16px color-mix(in srgb, var(--color-accent-blue) 15%, transparent) !important;
 }
 
 

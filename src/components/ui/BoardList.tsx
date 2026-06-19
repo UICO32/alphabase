@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react'
 import { FileText, Plus, MoreHorizontal, Pencil, Trash, Copy, FolderOpen } from 'lucide-react'
 import { PanelSeparator } from './SharedUI'
 import { ContextMenuWrapper, type ContextMenuItem } from './ContextMenu'
@@ -104,8 +104,8 @@ export function BoardList({
   return (
     <>
       <div className="flex-1 overflow-y-auto px-2 py-1">
-        {boards.map((board) => (
-          <div key={board.id} className="relative">
+        {boards.map((board, index) => (
+          <div key={board.id} className="relative stagger-item" style={{ '--stagger': Math.min(index, 8) } as CSSProperties}>
             {editingBoardId === board.id ? (
               <input
                 ref={editInputRef}
@@ -119,14 +119,14 @@ export function BoardList({
                     setEditingBoardName('')
                   }
                 }}
-                className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-text-primary border border-border-default"
+                className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-fg-primary border border-line-default"
               />
             ) : (
               <ContextMenuWrapper
                 items={boardContextMenuItems(board.id)}
               >
                 <div
-                  className={`hepta-list-item flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+                  className={`hepta-list-item flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
                   onClick={() => onSwitchBoard(board.id)}
                   onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 >
@@ -140,7 +140,7 @@ export function BoardList({
                       e.stopPropagation()
                     }}
                   >
-                    <MoreHorizontal size={12} className="text-text-secondary" />
+                    <MoreHorizontal size={12} className="text-fg-secondary" />
                   </button>
                 </div>
               </ContextMenuWrapper>
@@ -163,12 +163,12 @@ export function BoardList({
                 }
               }}
               placeholder="输入画板名称..."
-              className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-text-primary border border-border-default"
+              className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-fg-primary border border-line-default"
             />
           </div>
         ) : (
           <button
-            className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-text-secondary"
+            className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-fg-secondary"
             onClick={() => setIsCreatingBoard(true)}
           >
             <Plus size={14} />

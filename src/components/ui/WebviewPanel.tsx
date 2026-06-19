@@ -46,26 +46,26 @@ export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-default shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-line-default shrink-0">
         {!embedded && (
           <button
             onClick={handleBack}
-            className="flex items-center justify-center w-6 h-6 rounded hover:bg-surface-card-hover text-text-secondary"
+            className="flex items-center justify-center w-6 h-6 rounded hover:bg-surface-card-hover text-fg-secondary"
             title="返回编辑器"
           >
             <ArrowLeft size={14} />
           </button>
         )}
         {!embedded && (
-          <div className="flex-1 px-2 py-1 rounded text-xs text-text-secondary bg-surface-card truncate select-all" title={url}>
+          <div className="flex-1 px-2 py-1 rounded text-xs text-fg-secondary bg-surface-card truncate select-all" title={url}>
             {url}
           </div>
         )}
         {embedded && <div className="flex-1" />}
-        {loading && <Loader2 size={14} className="animate-spin text-text-secondary shrink-0" />}
+        {loading && <Loader2 size={14} className="animate-spin text-fg-secondary shrink-0" />}
         <button
           onClick={handleOpenExternal}
-          className="flex items-center justify-center w-6 h-6 rounded hover:bg-surface-card-hover text-text-secondary"
+          className="flex items-center justify-center w-6 h-6 rounded hover:bg-surface-card-hover text-fg-secondary"
           title="在浏览器中打开"
         >
           <ExternalLink size={14} />
@@ -74,7 +74,7 @@ export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
       <div className="flex-1 relative">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-panel z-10">
-            <Loader2 size={24} className="animate-spin text-text-secondary" />
+            <Loader2 size={24} className="animate-spin text-fg-secondary" />
           </div>
         )}
         <webview

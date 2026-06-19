@@ -29,7 +29,7 @@ export function BoardLibraryView() {
     <div className="w-full h-full overflow-y-auto bg-surface-panel">
       <div className="max-w-5xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold text-text-primary">
+          <h1 className="text-xl font-semibold text-fg-primary">
             画板库
           </h1>
           <div className="w-64">
@@ -52,26 +52,26 @@ export function BoardLibraryView() {
               <div
                 key={board.id}
                 onClick={() => handleBoardClick(board.id)}
-                className={`hepta-list-item group relative p-4 rounded-xl cursor-pointer bg-surface-card border ${board.id === activeBoardId ? 'border-text-primary' : 'border-border-default'}`}
+                className={`hepta-list-item group relative p-4 rounded-xl cursor-pointer bg-surface-card border ${board.id === activeBoardId ? 'border-text-primary' : 'border-line-default'}`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center bg-surface-panel"
                   >
-                    <FileText size={20} className="text-text-secondary" />
+                    <FileText size={20} className="text-fg-secondary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-sm font-medium truncate text-text-primary"
+                      className="text-sm font-medium truncate text-fg-primary"
                     >
                       {board.name}
                     </div>
-                    <div className="text-xs text-text-secondary">
+                    <div className="text-xs text-fg-secondary">
                       {new Date(board.updatedAt).toLocaleDateString('zh-CN')}
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-text-secondary">
+                <div className="text-xs text-fg-secondary">
                   {new Date(board.createdAt).toLocaleDateString('zh-CN')}
                 </div>
               </div>

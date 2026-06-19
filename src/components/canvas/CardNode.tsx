@@ -345,13 +345,13 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   if (!card) {
     return (
       <div
-        className="rounded-xl border-2 border-dashed border-border-default flex items-center justify-center"
+        className="rounded-xl border-2 border-dashed border-line-default flex items-center justify-center"
         style={{
           width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
           height: (data.height ?? DEFAULT_CARD_HEIGHT) as number,
         }}
       >
-        <span className="text-text-tertiary text-sm">Card not found</span>
+        <span className="text-fg-tertiary text-sm">Card not found</span>
       </div>
     )
   }
@@ -371,7 +371,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const borderWidth = selected ? 2 : 1
   const borderColor = selected
     ? 'var(--card-selected-border)'
-    : getCardStroke(data.color)
+    : isEditing
+      ? 'var(--line-active)'
+      : getCardStroke(data.color)
 
   const cardBg = getCardFill(data.color, isDarkMode)
   const textColor = getCardTextColor(data.color, isDarkMode)

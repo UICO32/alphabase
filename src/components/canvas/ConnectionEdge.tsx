@@ -36,7 +36,7 @@ function ConnectionEdge({
           markerHeight="5"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-tertiary)" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--fg-tertiary)" />
         </marker>
         <marker
           id="edge-arrow-selected"
@@ -47,24 +47,25 @@ function ConnectionEdge({
           markerHeight="5"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--border-active)" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--brand)" />
         </marker>
       </defs>
       <BaseEdge
         path={edgePath}
         markerEnd={selected ? 'url(#edge-arrow-selected)' : 'url(#edge-arrow)'}
-        className="edge-default"
+        className={`edge-default${selected ? ' edge-selected' : ''}`}
         style={{
           ...style,
-          stroke: selected ? 'var(--border-active)' : 'var(--text-tertiary)',
-          strokeWidth: selected ? 3 : 2,
+          stroke: selected ? 'var(--brand)' : 'var(--fg-tertiary)',
+          strokeWidth: selected ? 2.5 : 2,
+          strokeDasharray: selected ? '6 4' : undefined,
           cursor: 'pointer',
         }}
       />
       <BaseEdge
         path={edgePath}
         style={{
-          stroke: selected ? 'var(--border-focus)' : 'transparent',
+          stroke: selected ? 'var(--line-focus)' : 'transparent',
           strokeWidth: selected ? 10 : 28,
           fill: 'none',
           pointerEvents: 'stroke',

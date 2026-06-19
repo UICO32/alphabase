@@ -124,9 +124,9 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
           style={{ boxShadow: 'var(--shadow-xl)', backgroundColor: 'var(--surface-card)' }}
         >
           <div
-            className="flex items-center justify-between px-5 py-3 border-b shrink-0 border-border-default"
+            className="flex items-center justify-between px-5 py-3 border-b shrink-0 border-line-default"
           >
-            <span className="text-sm font-medium truncate text-text-primary">
+            <span className="text-sm font-medium truncate text-fg-primary">
               {card.title || '无标题'}
             </span>
             <div className="flex items-center gap-2">
@@ -155,14 +155,14 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
               </button>
               <button
                 onClick={handleCloseWithSnapshot}
-                className="btn-base p-2 rounded-lg text-text-secondary"
+                className="btn-base p-2 rounded-lg text-fg-secondary"
               >
                 <X size={18} />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-5 py-2 border-b border-border-default">
+          <div className="flex items-center gap-1.5 px-5 py-2 border-b border-line-default">
             {(Object.keys(CARD_COLORS) as CardColor[]).map((color) => (
               <button
                 key={color}

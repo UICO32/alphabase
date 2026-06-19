@@ -17,6 +17,5 @@ export function getCardTextColor(color: CardColor | undefined, isDarkMode: boole
 
 export function getCardMutedTextColor(color: CardColor | undefined, isDarkMode: boolean): string {
   const c = CARD_COLORS[color ?? 'white'] ?? CARD_COLORS.white
-  if (color === 'white' || !color) return isDarkMode ? '#6B7280' : '#9CA3AF'
-  return isDarkMode ? c.textDark + '99' : c.textLight + '99'
+  return isDarkMode ? c.mutedDark : c.mutedLight
 }

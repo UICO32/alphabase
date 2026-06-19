@@ -12,7 +12,7 @@ export function SideTabButton({ active, children, onClick, title }: {
       size="sm"
       onClick={onClick}
       title={title}
-      className={`${active ? 'bg-surface-card text-text-primary' : 'text-text-secondary'}`}
+      className={`${active ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary'}`}
     >
       {children}
     </Button>

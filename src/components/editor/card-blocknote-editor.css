@@ -67,17 +67,17 @@
 }
 
 /* Dark theme overrides */
-.card-blocknote-editor--dark [data-card-id] {
+[data-theme="dark"] .card-blocknote-editor [data-card-id] {
   background-color: rgba(59, 130, 246, 0.2);
   color: #60a5fa;
 }
-.card-blocknote-editor--dark [data-card-id]:hover {
+[data-theme="dark"] .card-blocknote-editor [data-card-id]:hover {
   background-color: rgba(59, 130, 246, 0.3);
 }
-.card-blocknote-editor--dark [data-tag-name] {
+[data-theme="dark"] .card-blocknote-editor [data-tag-name] {
   background-color: rgba(139, 92, 246, 0.2);
   color: #a78bfa;
 }
-.card-blocknote-editor--dark [data-tag-name]:hover {
+[data-theme="dark"] .card-blocknote-editor [data-tag-name]:hover {
   background-color: rgba(139, 92, 246, 0.3);
 }

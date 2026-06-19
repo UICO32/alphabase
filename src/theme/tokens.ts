@@ -26,10 +26,23 @@ export function getTokens(names: string[]): Record<string, string> {
   return result
 }
 
+let themeTransitionTimer: number | undefined
+
+function withThemeTransition(apply: () => void): void {
+  if (typeof document === 'undefined') { apply(); return }
+  const root = document.documentElement
+  root.classList.add('theme-switching')
+  apply()
+  if (themeTransitionTimer) window.clearTimeout(themeTransitionTimer)
+  themeTransitionTimer = window.setTimeout(() => root.classList.remove('theme-switching'), 320)
+}
+
 export function setTheme(mode: ThemeMode): void {
   localStorage.setItem('hepta-theme', mode)
   const resolved = resolveTheme(mode)
-  document.documentElement.setAttribute('data-theme', resolved)
+  withThemeTransition(() => {
+    document.documentElement.setAttribute('data-theme', resolved)
+  })
 }
 
 export function getTheme(): ThemeMode {

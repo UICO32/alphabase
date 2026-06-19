@@ -1,7 +1,6 @@
 import { memo, useState, useMemo } from 'react'
 import { useCard, useCardStore } from '../../../stores/cardStore'
 import { useViewStore } from '../../../stores/viewStore'
-import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
 
 interface MiniCardProps {
   cardId: string
@@ -53,7 +52,6 @@ function extractFirstText(html: string): string {
 
 export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCardProps) {
   const card = useCard(cardId)
-  const isDarkMode = useIsDarkMode()
   const [isHovered, setIsHovered] = useState(false)
   const openKanbanEditDialog = useViewStore((s) => s.openKanbanEditDialog)
 
@@ -80,14 +78,12 @@ export const MiniCard = memo(function MiniCard({ cardId, width, height }: MiniCa
 
   const imageCount = images.length
 
-  const cardBg = isDarkMode ? '#2a2a2e' : '#FFFFFF'
-  const titleColor = isDarkMode ? '#e5e5e5' : '#1A1A1A'
-  const previewColor = isDarkMode ? '#999' : '#6B6B6B'
-  const borderColor = isHovered
-    ? (isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)')
-    : (isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)')
-  const shadowDefault = isDarkMode ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.04)'
-  const shadowHover = isDarkMode ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 12px rgba(0,0,0,0.06)'
+  const cardBg = 'var(--surface-card)'
+  const titleColor = 'var(--fg-primary)'
+  const previewColor = 'var(--fg-secondary)'
+  const borderColor = isHovered ? 'var(--line-hover)' : 'var(--line-default)'
+  const shadowDefault = 'var(--shadow-sm)'
+  const shadowHover = 'var(--shadow-md)'
 
   const imageGridStyle = (() => {
     if (imageCount === 1) return { gridTemplateColumns: '1fr' }

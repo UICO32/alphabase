@@ -27,8 +27,6 @@ export function ToolbarActions({
   onMouseLeave,
   onPointerDown,
 }: ToolbarActionsProps) {
-  const { isDark } = surface
-
   const btnStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -38,7 +36,7 @@ export function ToolbarActions({
     border: 'none',
     borderRadius: 6,
     background: 'transparent',
-    color: isDark ? '#e2e8f0' : '#475569',
+    color: 'var(--fg-secondary)',
     cursor: 'pointer',
     padding: 0,
   }
@@ -53,9 +51,9 @@ export function ToolbarActions({
         gap: 2,
         padding: 3,
         borderRadius: 8,
-        background: isDark ? 'rgba(15,23,42,0.92)' : 'rgba(255,255,255,0.95)',
-        border: `1px solid ${isDark ? 'rgba(51,65,85,0.8)' : 'rgba(226,232,240,0.9)'}`,
-        boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.12)',
+        background: 'var(--surface-card)',
+        border: '1px solid var(--line-default)',
+        boxShadow: 'var(--shadow-md)',
         pointerEvents: 'auto',
       }}
       onPointerDown={onPointerDown}
@@ -69,7 +67,7 @@ export function ToolbarActions({
       <button
         style={{
           ...btnStyle,
-          background: cropping ? (isDark ? 'rgba(59,130,246,0.3)' : 'rgba(59,130,246,0.15)') : 'transparent',
+          background: cropping ? 'var(--color-accent-blue)' : 'transparent',
         }}
         onClick={onCrop}
         title="裁切图片"

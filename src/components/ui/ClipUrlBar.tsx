@@ -121,7 +121,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         boxShadow: 'var(--shadow-lg)',
       }}
     >
-      <Scissors size={16} className="text-text-primary shrink-0" />
+      <Scissors size={16} className="text-fg-primary shrink-0" />
       <input
         ref={inputRef}
         value={url}
@@ -129,10 +129,10 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleClip() }}
         placeholder="粘贴网页链接..."
         disabled={loading}
-        className="flex-1 bg-transparent outline-none text-sm text-text-primary"
+        className="flex-1 bg-transparent outline-none text-sm text-fg-primary"
       />
       {loading ? (
-        <Loader2 size={16} className="animate-spin text-text-secondary shrink-0" />
+        <Loader2 size={16} className="animate-spin text-fg-secondary shrink-0" />
       ) : url ? (
         <Button variant="primary" size="sm" onClick={handleClip} className="shrink-0">
           剪藏
@@ -142,7 +142,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         <X size={14} />
       </IconButton>
       {error && (
-        <span className="text-xs" style={{ color: 'var(--text-danger)' }}>{error}</span>
+        <span className="text-xs" style={{ color: 'var(--fg-danger)' }}>{error}</span>
       )}
     </div>
   )

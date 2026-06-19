@@ -11,8 +11,8 @@ const sizeClasses = {
 }
 
 const variantClasses = {
-  default: 'text-text-primary hover:bg-surface-card-hover',
-  ghost: 'text-text-secondary hover:bg-surface-card-hover hover:text-text-primary',
+  default: 'text-fg-primary hover:bg-surface-card-hover',
+  ghost: 'text-fg-secondary hover:bg-surface-card-hover hover:text-fg-primary',
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
@@ -20,7 +20,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
     return (
       <button
         ref={ref}
-        className={`btn-base inline-flex items-center justify-center transition-colors ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+            className={`btn-base focus-ring inline-flex items-center justify-center transition-colors ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
         {...props}
       />
     )

@@ -16,17 +16,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="relative">
         {leftIcon && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-fg-secondary">
             {leftIcon}
           </span>
         )}
         <input
           ref={ref}
-          className={`w-full rounded-lg outline-none bg-surface-card text-text-primary border ${error ? 'border-border-danger' : 'border-border-default focus:border-accent-blue'} ${sizeClasses[inputSize]} ${className}`}
+          className={`w-full rounded-lg outline-none bg-surface-card text-fg-primary border ${error ? 'border-line-danger' : 'border-line-default focus:border-accent-blue'} ${sizeClasses[inputSize]} ${className}`}
           {...props}
         />
         {error && (
-          <span className="text-xs text-text-danger mt-1 block">{error}</span>
+          <span className="text-xs text-fg-danger mt-1 block">{error}</span>
         )}
       </div>
     )

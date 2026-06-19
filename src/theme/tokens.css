@@ -17,25 +17,31 @@
   --color-surface-overlay: var(--surface-overlay);
 
   /* Text Colors */
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-tertiary: var(--text-tertiary);
-  --color-text-disabled: var(--text-disabled);
-  --color-text-inverse: var(--text-inverse);
-  --color-text-link: var(--text-link);
-  --color-text-danger: var(--text-danger);
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-tertiary: var(--fg-tertiary);
+  --color-fg-disabled: var(--fg-disabled);
+  --color-fg-inverse: var(--fg-inverse);
+  --color-fg-link: var(--fg-link);
+  --color-fg-danger: var(--fg-danger);
 
   /* Border Colors */
-  --color-border-default: var(--border-default);
-  --color-border-hover: var(--border-hover);
-  --color-border-active: var(--border-active);
-  --color-border-focus: var(--border-focus);
-  --color-border-danger: var(--border-danger);
+  --color-line-default: var(--line-default);
+  --color-line-hover: var(--line-hover);
+  --color-line-active: var(--line-active);
+  --color-line-focus: var(--line-focus);
+  --color-line-danger: var(--line-danger);
 
   /* Accent Colors */
   --color-accent-blue: var(--color-blue-500);
   --color-accent-green: var(--color-green-500);
   --color-accent-red: var(--color-red-500);
+
+  /* Emphasis — 主强调色（主按钮/链接/激活态共享） */
+  --color-emphasis: var(--emphasis);
+
+  /* Brand — 品牌主色（关键交互强调：选中/链接/聚焦环/连接） */
+  --color-brand: var(--brand);
 
   /* shadcn/ui Tailwind Colors */
   --color-background: var(--background);
@@ -89,17 +95,41 @@
   --color-gray-800: #27272a;
   --color-gray-900: #171717;
 
-  /* Accent Colors */
+  /* Blue Scale */
   --color-blue-50: #eff6ff;
   --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-300: #93c5fd;
   --color-blue-400: #60a5fa;
   --color-blue-500: #3b82f6;
   --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af;
+  --color-blue-900: #1e3a8a;
+
+  /* Green Scale */
+  --color-green-50: #f0fdf4;
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-300: #86efac;
   --color-green-400: #4ade80;
   --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+  --color-green-800: #166534;
+  --color-green-900: #14532d;
+
+  /* Red Scale */
+  --color-red-50: #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
   --color-red-400: #f87171;
   --color-red-500: #ef4444;
   --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
 
   /* ============================================
      2. Semantic Colors - Light Theme
@@ -126,24 +156,36 @@
   /* Overlay */
   --surface-overlay: hsla(0, 0%, 10%, 0.5);
 
+  /* Hover Surface — 通用悬浮态（修复历史 --surface-hover 未定义引用） */
+  --surface-hover: var(--surface-card-hover);
+
   /* Text Colors */
-  --text-primary: hsl(0, 0%, 12%);
-  --text-secondary: hsl(0, 0%, 42%);
-  --text-tertiary: hsl(0, 0%, 58%);
-  --text-disabled: hsl(0, 0%, 78%);
-  --text-inverse: hsl(0, 0%, 98%);
+  --fg-primary: hsl(0, 0%, 12%);
+  --fg-secondary: hsl(0, 0%, 42%);
+  --fg-tertiary: hsl(0, 0%, 58%);
+  --fg-disabled: hsl(0, 0%, 78%);
+  --fg-inverse: hsl(0, 0%, 98%);
+
+  /* Emphasis — 强调色基（次级激活态），light=深灰 */
+  --emphasis: var(--color-gray-900);
+
+  /* Brand — 品牌主色（蓝），用于关键交互强调：选中态/链接/聚焦环/连接选中 */
+  --brand: #2563eb;
+  --brand-hover: #1d4ed8;
+  --brand-soft: color-mix(in srgb, var(--brand) 10%, transparent);
+  --brand-ring: color-mix(in srgb, var(--brand) 35%, transparent);
 
   /* Interactive Text */
-  --text-link: var(--color-gray-900);
-  --text-link-hover: var(--color-black);
-  --text-danger: var(--color-red-500);
+  --fg-link: var(--brand);
+  --fg-link-hover: var(--brand-hover);
+  --fg-danger: var(--color-red-500);
 
   /* Border Colors */
-  --border-default: hsla(0, 0%, 88%, 0.6);
-  --border-hover: hsla(0, 0%, 82%, 0.8);
-  --border-active: var(--color-gray-900);
-  --border-focus: rgba(0, 0, 0, 0.25);
-  --border-danger: var(--color-red-500);
+  --line-default: hsla(0, 0%, 88%, 0.6);
+  --line-hover: hsla(0, 0%, 82%, 0.8);
+  --line-active: var(--emphasis);
+  --line-focus: var(--brand-ring);
+  --line-danger: var(--color-red-500);
 
   /* ============================================
      3. Component Tokens
@@ -162,8 +204,12 @@
   --shadow-glow-blue: 0 0 0 2px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-glow-green: 0 0 0 2px rgba(34, 197, 94, 0.40), 0 4px 16px rgba(34, 197, 94, 0.15);
   --shadow-glow-red: 0 0 0 2px rgba(239, 68, 68, 0.35);
-  --shadow-inner: inset 0 0 0 1px var(--border-default);
-  --shadow-inner-active: inset 0 0 0 1px var(--border-active);
+  /* 强调态发光（品牌蓝选中态发光） */
+  --shadow-glow-accent: 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent);
+  --card-selected-shadow: var(--shadow-glow-accent);
+  --card-selected-border: var(--emphasis);
+  --shadow-inner: inset 0 0 0 1px var(--line-default);
+  --shadow-inner-active: inset 0 0 0 1px var(--line-active);
 
   /* Panel Border Glow */
   --panel-border-glow: inset 0 0 0 1px hsla(0, 0%, 70%, 0.15);
@@ -198,6 +244,15 @@
   --space-5: 20px;
   --space-6: 24px;
 
+  /* Z-Index — 统一层级语义 */
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 40;
+  --z-sticky: 50;
+  --z-overlay: 100;
+  --z-modal: 1000;
+  --z-toast: 1100;
+
   /* Motion */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -212,24 +267,24 @@
 
   /* shadcn/ui CSS Variables */
   --background: var(--surface-card);
-  --foreground: var(--text-primary);
+  --foreground: var(--fg-primary);
   --card: var(--surface-card);
-  --card-foreground: var(--text-primary);
+  --card-foreground: var(--fg-primary);
   --popover: var(--surface-card);
-  --popover-foreground: var(--text-primary);
-  --primary: var(--color-gray-900);
-  --primary-foreground: var(--text-inverse);
+  --popover-foreground: var(--fg-primary);
+  --primary: var(--emphasis);
+  --primary-foreground: var(--fg-inverse);
   --secondary: var(--surface-panel);
-  --secondary-foreground: var(--text-primary);
+  --secondary-foreground: var(--fg-primary);
   --muted: var(--surface-panel);
-  --muted-foreground: var(--text-secondary);
+  --muted-foreground: var(--fg-secondary);
   --accent: var(--surface-card-hover);
-  --accent-foreground: var(--text-primary);
-  --destructive: var(--color-red-500);
-  --destructive-foreground: var(--text-inverse);
-  --border: var(--border-default);
-  --input: var(--border-default);
-  --ring: var(--border-focus);
+  --accent-foreground: var(--fg-primary);
+  --destructive: var(--fg-danger);
+  --destructive-foreground: var(--fg-inverse);
+  --border: var(--line-default);
+  --input: var(--line-default);
+  --ring: var(--line-focus);
   --radius: var(--radius-md);
 }
 
@@ -260,24 +315,36 @@
   /* Overlay */
   --surface-overlay: hsla(0, 0%, 5%, 0.65);
 
+  /* Hover Surface — 通用悬浮态（修复历史 --surface-hover 未定义引用） */
+  --surface-hover: var(--surface-card-hover);
+
   /* Text Colors */
-  --text-primary: hsl(0, 0%, 92%);
-  --text-secondary: hsl(0, 0%, 68%);
-  --text-tertiary: hsl(0, 0%, 52%);
-  --text-disabled: hsl(0, 0%, 38%);
-  --text-inverse: hsl(0, 0%, 10%);
+  --fg-primary: hsl(0, 0%, 92%);
+  --fg-secondary: hsl(0, 0%, 68%);
+  --fg-tertiary: hsl(0, 0%, 52%);
+  --fg-disabled: hsl(0, 0%, 38%);
+  --fg-inverse: hsl(0, 0%, 10%);
+
+  /* Emphasis — 强调色基（次级激活态），dark=浅灰 */
+  --emphasis: var(--color-gray-300);
+
+  /* Brand — 品牌主色（蓝），暗色提亮保证对比 */
+  --brand: #60a5fa;
+  --brand-hover: #93c5fd;
+  --brand-soft: color-mix(in srgb, var(--brand) 14%, transparent);
+  --brand-ring: color-mix(in srgb, var(--brand) 40%, transparent);
 
   /* Interactive Text */
-  --text-link: var(--color-gray-300);
-  --text-link-hover: var(--color-gray-200);
-  --text-danger: var(--color-red-400);
+  --fg-link: var(--brand);
+  --fg-link-hover: var(--brand-hover);
+  --fg-danger: var(--color-red-400);
 
   /* Border Colors */
-  --border-default: hsla(0, 0%, 22%, 0.6);
-  --border-hover: hsla(0, 0%, 28%, 0.8);
-  --border-active: var(--color-gray-300);
-  --border-focus: rgba(212, 212, 216, 0.35);
-  --border-danger: var(--color-red-400);
+  --line-default: hsla(0, 0%, 22%, 0.6);
+  --line-hover: hsla(0, 0%, 28%, 0.8);
+  --line-active: var(--emphasis);
+  --line-focus: var(--brand-ring);
+  --line-danger: var(--color-red-400);
 
   /* Shadow */
   --shadow-sm: 0 1px 2px hsla(0, 0%, 5%, 0.2);
@@ -287,23 +354,28 @@
   --shadow-glow-blue: 0 0 0 2px rgba(212, 212, 216, 0.25), 0 8px 24px rgba(212, 212, 216, 0.15);
   --shadow-glow-green: 0 0 0 2px rgba(34, 197, 94, 0.45), 0 4px 20px rgba(34, 197, 94, 0.2);
   --shadow-glow-red: 0 0 0 2px rgba(239, 68, 68, 0.4);
-  --shadow-inner: inset 0 0 0 1px var(--border-default);
-  --shadow-inner-active: inset 0 0 0 1px var(--border-active);
+  /* 强调态发光（品牌蓝选中态发光） */
+  --shadow-glow-accent: 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent);
+  --card-selected-shadow: var(--shadow-glow-accent);
+  --card-selected-border: var(--emphasis);
+  --shadow-inner: inset 0 0 0 1px var(--line-default);
+  --shadow-inner-active: inset 0 0 0 1px var(--line-active);
 
   /* Panel Border Glow */
   --panel-border-glow: inset 0 0 0 1px hsla(0, 0%, 40%, 0.12);
 
   /* shadcn/ui Dark Overrides */
-  --primary: var(--color-gray-300);
-  --primary-foreground: var(--color-gray-900);
+  --primary: var(--emphasis);
+  --primary-foreground: var(--fg-inverse);
   --secondary: var(--surface-card-active);
-  --secondary-foreground: var(--text-primary);
+  --secondary-foreground: var(--fg-primary);
   --accent: var(--surface-card-active);
-  --accent-foreground: var(--text-primary);
+  --accent-foreground: var(--fg-primary);
   --muted: var(--surface-card-active);
-  --border: var(--border-default);
-  --input: var(--border-default);
-  --ring: var(--border-focus);
+  --destructive: var(--fg-danger);
+  --border: var(--line-default);
+  --input: var(--line-default);
+  --ring: var(--line-focus);
 }
 
 /* ============================================
@@ -375,9 +447,9 @@
 .card-skeleton-line {
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-200) 50%, var(--color-gray-100) 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  background: linear-gradient(110deg, var(--color-gray-100) 25%, var(--color-gray-200) 50%, var(--color-gray-100) 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
   margin-bottom: 10px;
 }
 
@@ -391,10 +463,16 @@
   background-size: 800px 100%;
 }
 
-/* React Flow card node entrance animation */
+/* React Flow card node entrance animation
+   scale 用独立属性，避免与 hover 的 transform: translateY 冲突 */
 @keyframes card-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; scale: 0.97; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes card-exit {
+  from { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.95; }
 }
 
 @keyframes toast-in {
@@ -402,24 +480,20 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.react-flow__node-card {
-  animation: card-enter 0.2s ease-out both;
-}
-
 /* ============================================
    BlockNote Editor Theme Overrides
    ============================================ */
 
 .bn-container {
-  --bn-colors-editor-text: var(--text-primary);
+  --bn-colors-editor-text: var(--fg-primary);
   --bn-colors-editor-background: var(--surface-card);
   --bn-colors-menu-background: var(--surface-card);
-  --bn-colors-menu-text: var(--text-primary);
+  --bn-colors-menu-text: var(--fg-primary);
   --bn-colors-menu-hover-background: var(--surface-card-hover);
-  --bn-colors-menu-hover-text: var(--text-primary);
+  --bn-colors-menu-hover-text: var(--fg-primary);
   --bn-colors-tooltip-background: var(--surface-panel);
-  --bn-colors-tooltip-text: var(--text-secondary);
+  --bn-colors-tooltip-text: var(--fg-secondary);
   --bn-colors-selected-item-color: var(--primary);
-  --bn-colors-side-menu-color: var(--text-tertiary);
-  --bn-colors-side-menu-hover-color: var(--text-primary);
+  --bn-colors-side-menu-color: var(--fg-tertiary);
+  --bn-colors-side-menu-hover-color: var(--fg-primary);
 }

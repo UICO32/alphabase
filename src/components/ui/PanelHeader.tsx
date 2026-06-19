@@ -1,9 +1,9 @@
 export function PanelHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div
-      className="flex items-center justify-between px-4 py-3 border-b border-border-default transition-theme"
+      className="flex items-center justify-between px-4 py-3 border-b border-line-default transition-theme"
     >
-      <span className="font-medium text-sm text-text-primary">
+      <span className="font-medium text-sm text-fg-primary">
         {title}
       </span>
       {children}

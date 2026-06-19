@@ -54,6 +54,10 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes edge-flow {
+  to { stroke-dashoffset: -20; }
+}
+
 /* Transition Utility Classes */
 .transition-theme {
   transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
@@ -98,13 +102,13 @@
 /* Focus Ring */
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--border-focus);
+  box-shadow: 0 0 0 2px var(--line-focus);
   transition: box-shadow var(--duration-normal) var(--ease-default);
 }
 
 /* Selected Glow */
 .selected-glow {
-  box-shadow: var(--shadow-glow-blue);
+  box-shadow: var(--shadow-glow-accent);
   transition: box-shadow var(--duration-slow) var(--ease-default);
 }
 
@@ -124,11 +128,11 @@
 }
 
 .animate-fadeInUp {
-  animation: fadeInUp var(--duration-slow) var(--ease-out) forwards;
+  animation: fadeInUp var(--duration-slow) var(--ease-bounce) forwards;
 }
 
 .animate-scaleIn {
-  animation: scaleIn var(--duration-slow) var(--ease-out) forwards;
+  animation: scaleIn var(--duration-slow) var(--ease-bounce) forwards;
 }
 
 .animate-pulse {
@@ -181,6 +185,7 @@
 
 /* Card Node Specific */
 .card-node-default {
+  animation: card-enter 0.32s var(--ease-bounce) both;
   transition: box-shadow var(--duration-normal) var(--ease-default),
               outline-color var(--duration-normal) var(--ease-default),
               transform var(--duration-fast) var(--ease-default);
@@ -192,12 +197,12 @@
 }
 
 .card-node-selected {
-  box-shadow: var(--shadow-glow-blue);
+  box-shadow: var(--shadow-glow-accent);
 }
 
 .card-node-connecting-source {
   animation: pulse 1.5s var(--ease-default) infinite;
-  box-shadow: var(--shadow-glow-blue);
+  box-shadow: var(--shadow-glow-accent);
 }
 
 .card-node-nearby-target {
@@ -222,13 +227,14 @@
 }
 
 .edge-selected {
-  stroke: var(--border-active);
-  stroke-width: 3;
-  stroke-dasharray: 8, 3;
+  stroke: var(--brand);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+  animation: edge-flow 0.8s linear infinite;
 }
 
 .edge-forbidden {
-  stroke: var(--text-danger);
+  stroke: var(--fg-danger);
   stroke-dasharray: 4, 4;
 }
 
@@ -244,7 +250,7 @@
 
 .panel-tab-selected {
   background-color: var(--surface-card);
-  color: var(--text-primary);
+  color: var(--fg-primary);
 }
 
 /* Button Specific */
@@ -270,7 +276,7 @@
 
 .btn-danger {
   background-color: rgba(239, 68, 68, 0.1);
-  color: var(--text-danger);
+  color: var(--fg-danger);
 }
 
 .btn-danger:hover {
@@ -314,12 +320,12 @@
   width: 22px;
   height: 22px;
   border-radius: 11px;
-  background: var(--text-inverse);
+  background: var(--fg-inverse);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-primary);
+  color: var(--fg-primary);
   z-index: 3;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
               background-color var(--duration-normal) var(--ease-default),
@@ -351,17 +357,17 @@
 }
 
 .input-base:hover {
-  border-color: var(--border-hover);
+  border-color: var(--line-hover);
 }
 
 .input-base:focus {
   outline: none;
-  border-color: var(--border-active);
-  box-shadow: var(--shadow-glow-blue);
+  border-color: var(--line-active);
+  box-shadow: var(--shadow-glow-accent);
 }
 
 .input-error {
-  border-color: var(--border-danger);
+  border-color: var(--line-danger);
   box-shadow: var(--shadow-glow-red);
 }
 
@@ -384,8 +390,8 @@
 }
 
 .hepta-list-item-selected {
-  border-color: var(--border-active);
-  box-shadow: var(--shadow-glow-blue);
+  border-color: var(--line-active);
+  box-shadow: var(--shadow-glow-accent);
 }
 
 /* Section Node */
@@ -396,13 +402,13 @@
 }
 
 .section-node:hover {
-  border-color: var(--border-hover);
+  border-color: var(--line-hover);
   background-color: var(--surface-card-hover);
 }
 
 .section-node-selected {
-  border-color: var(--border-active);
-  box-shadow: var(--shadow-glow-blue);
+  border-color: var(--line-active);
+  box-shadow: var(--shadow-glow-accent);
 }
 
 /* Media Node */
@@ -415,11 +421,90 @@
 }
 
 .media-node-selected {
-  box-shadow: var(--shadow-glow-blue);
-  outline: 2px solid var(--border-active);
+  box-shadow: var(--shadow-glow-accent);
+  outline: 2px solid var(--line-active);
 }
 
 /* Loading State */
 .loading-pulse {
   animation: pulse 1.5s var(--ease-default) infinite;
+}
+
+/* ============================================
+   Floating Menu — 统一浮层（下拉/右键/弹出菜单）
+   ============================================ */
+.floating-menu {
+  min-width: 120px;
+  padding: 6px 0;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface-card);
+  border: 1px solid var(--line-default);
+  box-shadow: var(--shadow-lg);
+}
+.floating-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 7px 12px;
+  font-size: 12px; line-height: 1.4;
+  color: var(--fg-secondary); background: transparent;
+  border: none; cursor: pointer; text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default);
+}
+.floating-menu-item:hover { background-color: var(--surface-card-hover); color: var(--fg-primary); }
+.floating-menu-item-active, .floating-menu-item-active:hover {
+  background-color: var(--surface-card-hover); color: var(--fg-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ============================================
+   Segmented Control — 面板内分段切换统一
+   ============================================ */
+.segmented { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background-color: var(--surface-panel-alt); }
+.segmented-item {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 5px 10px; border-radius: var(--radius-md);
+  font-size: 12px; color: var(--fg-secondary);
+  background: transparent; border: none; cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default),
+              box-shadow var(--duration-fast) var(--ease-default);
+}
+.segmented-item:hover { color: var(--fg-primary); background-color: var(--surface-card-hover); }
+.segmented-item-active, .segmented-item-active:hover {
+  background-color: var(--surface-card); color: var(--fg-primary); box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   List Item Selected — 列表项选中态统一（品牌色左指示条）
+   ============================================ */
+.hepta-list-item-indicator { position: relative; }
+.hepta-list-item-indicator.is-selected { background-color: var(--surface-card-hover); color: var(--fg-primary); }
+.hepta-list-item-indicator.is-selected::before {
+  content: ''; position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%); width: 2px; height: 60%;
+  border-radius: 0 2px 2px 0; background-color: var(--brand);
+}
+
+/* List stagger entrance — 配合 inline `style={{ '--stagger': i }}` 使用 */
+.stagger-item {
+  animation: fadeInUp 0.3s var(--ease-out) both;
+  animation-delay: calc(var(--stagger, 0) * 30ms);
+}
+
+/* 主题切换平滑过渡：仅颜色/边框/阴影，不含 backdrop-filter 避免卡顿。
+   切换时由 JS 在 documentElement 短暂添加 .theme-switching 类。 */
+.theme-switching,
+.theme-switching *:not(.no-theme-transition) {
+  transition: background-color var(--duration-normal) var(--ease-default),
+              border-color var(--duration-normal) var(--ease-default),
+              color var(--duration-normal) var(--ease-default),
+              fill var(--duration-normal) var(--ease-default),
+              stroke var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default) !important;
+}
+
+/* 窗口关闭按钮：克制红 hover，替代突兀的实色红 */
+.window-btn-close:hover {
+  background-color: color-mix(in srgb, var(--fg-danger) 12%, transparent);
+  color: var(--fg-danger);
 }

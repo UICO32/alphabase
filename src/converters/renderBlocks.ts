@@ -298,7 +298,7 @@ function renderInlineContent(node: Record<string, unknown>): string {
         ?.map((c) => renderInlineContent(c as Record<string, unknown>))
         .join('') || href
     // Blue + bold, no underline (hover shows underline via CSS)
-    return `<a href="${href}" style="color:var(--text-link,#3b82f6);font-weight:600;text-decoration:none">${linkContent}</a>`
+    return `<a href="${href}" style="color:var(--fg-link,#3b82f6);font-weight:600;text-decoration:none">${linkContent}</a>`
   }
   return ''
 }
