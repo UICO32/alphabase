@@ -4,6 +4,7 @@ import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { useCardStore } from '../../../stores/cardStore'
 import { useViewStore } from '../../../stores/viewStore'
 import { useLibraryStore } from '../../../stores/libraryStore'
+import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
 
 const LazyCardBlockNoteEditor = lazy(() =>
   import('../../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
@@ -48,6 +49,7 @@ export const CardContent = memo(function CardContent({
   onTagClick,
 }: CardContentProps) {
   const canScroll = isSelected || isEditing
+  const isDarkMode = useIsDarkMode()
 
   const sanitizedHTML = useMemo(() => {
     // Use store's lazy getPreviewHTML — generates on first access, caches after
@@ -78,7 +80,7 @@ export const CardContent = memo(function CardContent({
               onChange={onChange}
               onFocus={onFocus}
               onBlur={onBlur}
-              theme="light"
+              theme={isDarkMode ? 'dark' : 'light'}
               editable={isEditing}
               enforceInitialHeading={enforceInitialHeading}
               onNavigateToCard={onNavigateToCard}

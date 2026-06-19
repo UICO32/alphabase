@@ -49,6 +49,23 @@
   cursor: default;
 }
 
+/* Inline editor: transparent background to let card fill color show through */
+.card-blocknote-editor .bn-container {
+  --bn-colors-editor-background: transparent;
+}
+.card-blocknote-editor .bn-editor,
+.card-blocknote-editor .ProseMirror {
+  background-color: transparent !important;
+  padding-inline: 0 !important;
+  padding: 0 !important;
+}
+
+/* Override BlockNote default font-size (16px) to inherit parent's 13px,
+   so em-based heading sizes match between edit and preview modes */
+.card-blocknote-editor .bn-default-styles {
+  font-size: inherit !important;
+}
+
 /* Dark theme overrides */
 .card-blocknote-editor--dark [data-card-id] {
   background-color: rgba(59, 130, 246, 0.2);

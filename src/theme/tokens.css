@@ -70,6 +70,7 @@
    ============================================ */
 
 :root {
+  color-scheme: light;
   /* ============================================
      1. Primitive Colors
      ============================================ */
@@ -237,6 +238,7 @@
    ============================================ */
 
 [data-theme="dark"] {
+  color-scheme: dark;
   /* App Background */
   --surface-app: hsl(0, 0%, 7%);
 
@@ -323,34 +325,28 @@
 }
 
 .glass-panel-large {
-  background-color: var(--surface-panel-solid);
+  -webkit-backdrop-filter: var(--blur-panel);
+  backdrop-filter: var(--blur-panel);
+  background-color: var(--surface-panel);
   box-shadow: var(--panel-border-glow), var(--shadow-lg);
 }
 
 .glass-panel-large.panel-animating {
-  background-color: var(--surface-panel-solid);
+  -webkit-backdrop-filter: var(--blur-panel);
+  backdrop-filter: var(--blur-panel);
+  background-color: var(--surface-panel);
 }
 
 /* 降级：不支持 backdrop-filter 的浏览器 */
 @supports not (backdrop-filter: blur(20px)) {
   .glass-panel {
-    background-color: hsl(0, 0%, 96%);
+    background-color: var(--surface-panel-solid);
   }
   .glass-card {
-    background-color: hsl(0, 0%, 100%);
+    background-color: var(--surface-card-active);
   }
   .glass-panel-large {
-    background-color: hsl(0, 0%, 96%);
-  }
-
-  [data-theme="dark"] .glass-panel {
-    background-color: hsl(0, 0%, 10%);
-  }
-  [data-theme="dark"] .glass-card {
-    background-color: hsl(0, 0%, 12%);
-  }
-  [data-theme="dark"] .glass-panel-large {
-    background-color: hsl(0, 0%, 10%);
+    background-color: var(--surface-panel-solid);
   }
 }
 

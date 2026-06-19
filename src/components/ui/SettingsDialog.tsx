@@ -29,13 +29,13 @@ export function SettingsDialog({ open, onClose, initialTab = 'system' }: Setting
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="w-[700px] max-w-none h-[80vh] p-0 overflow-hidden">
+      <DialogContent className="flex flex-col gap-0 w-[700px] max-w-none h-[80vh] p-0 overflow-hidden">
         <Tabs
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as SettingsTab)}
           className="flex h-full"
         >
-          <TabsList className="flex-col h-full w-[140px] shrink-0 rounded-none border-r bg-muted/50 p-3 gap-1">
+          <TabsList className="flex-col h-full w-[140px] shrink-0 rounded-none border-r border-border-default bg-muted/50 p-3 gap-1 justify-start">
             <TabsTrigger value="system" className="w-full justify-start rounded-lg text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               系统设置
             </TabsTrigger>
@@ -51,7 +51,7 @@ export function SettingsDialog({ open, onClose, initialTab = 'system' }: Setting
           </TabsList>
 
           <div className="flex-1 flex flex-col overflow-hidden">
-            <DialogHeader className="px-6 py-4 border-b">
+            <DialogHeader className="px-6 py-4 border-b border-border-default">
               <DialogTitle>设置</DialogTitle>
             </DialogHeader>
             <TabsContent value="system" className="flex-1 overflow-y-auto p-6 scrollbar-hide mt-0">

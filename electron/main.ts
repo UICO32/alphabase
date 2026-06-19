@@ -48,7 +48,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const winOptions: Electron.BrowserWindowConstructorOptions = {
     width: 1200,
     height: 800,
     minWidth: 800,
@@ -64,7 +64,13 @@ function createWindow() {
       backgroundThrottling: false,
     },
     titleBarStyle: 'hidden',
-  })
+  }
+
+  if (process.platform === 'win32') {
+    winOptions.backgroundMaterial = 'mica'
+  }
+
+  mainWindow = new BrowserWindow(winOptions)
 
   createMenu(mainWindow)
   registerClipperHandlers()
