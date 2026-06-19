@@ -35,6 +35,7 @@ export interface AgentReachBrowseRequest {
   action: 'search' | 'hot' | 'rank' | 'trending'
   query?: string
   limit?: number
+  workspacePath?: string
 }
 
 export interface AgentReachBrowseItem {

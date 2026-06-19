@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Search, Loader2, Scissors, Flame, Trophy, TrendingUp } from 'lucide-react'
 import { clipUrl } from '../../utils/clipper'
 import { htmlToBlocks } from '../../converters/htmlToBlocks'
@@ -51,6 +51,7 @@ export function AgentReachPanel() {
   const [items, setItems] = useState<BrowseItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [hasLoaded, setHasLoaded] = useState(false)
   const [clippingId, setClippingId] = useState<string | null>(null)
 
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path)
@@ -62,20 +63,33 @@ export function AgentReachPanel() {
     setItems([])
 
     try {
-      const result = await (window as any).electronAPI.clipper.agentReachBrowse({
+      const electronAPI = (window as any).electronAPI
+      if (!electronAPI?.clipper?.agentReachBrowse) {
+        setError('频道浏览仅在 Electron 桌面端可用，请通过 electron:dev / electron:start 启动')
+        setHasLoaded(true)
+        return
+      }
+
+      const result = await electronAPI.clipper.agentReachBrowse({
         platform: browsePlatform,
         action: browseAction,
         query: browseQuery,
         limit: 20,
+        workspacePath,
       })
       setItems(result.items)
       setAction(browseAction)
     } catch (err: any) {
       setError(err.message || '加载失败')
     } finally {
+      setHasLoaded(true)
       setLoading(false)
     }
-  }, [])
+  }, [workspacePath])
+
+  useEffect(() => {
+    browse('bilibili', 'hot')
+  }, [browse])
 
   const handleClip = useCallback(async (item: BrowseItem) => {
     setClippingId(item.id)
@@ -204,12 +218,12 @@ export function AgentReachPanel() {
         )}
 
         {error && (
-          <div className="px-4 py-8 text-center text-xs text-text-secondary">{error}</div>
+          <div className="px-4 py-8 text-center text-xs text-text-secondary whitespace-pre-line">{error}</div>
         )}
 
         {!loading && !error && items.length === 0 && (
           <div className="px-4 py-8 text-center text-xs text-text-secondary">
-            选择操作或搜索以浏览内容
+            {hasLoaded ? '暂无内容' : '选择操作或搜索以浏览内容'}
           </div>
         )}
 

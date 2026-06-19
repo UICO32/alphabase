@@ -20,10 +20,12 @@ const DEFAULTS: AgentReachConfig = {
   agentReach: join(home, '.agent-reach-venv', 'Scripts', 'agent-reach.exe'),
 }
 
-let cached: AgentReachConfig | null = null
+const cache = new Map<string, AgentReachConfig>()
 
 export function loadConfig(workspacePath?: string): AgentReachConfig {
-  if (cached) return cached
+  const key = workspacePath || '__default__'
+  const hit = cache.get(key)
+  if (hit) return hit
 
   const configPath = process.env.HEPTA_AGENT_REACH_CONFIG
     || (workspacePath ? join(workspacePath, '.hepta', 'agent-reach.json') : undefined)
@@ -38,10 +40,11 @@ export function loadConfig(workspacePath?: string): AgentReachConfig {
     }
   }
 
-  cached = { ...DEFAULTS, ...fileConfig }
-  return cached
+  const merged = { ...DEFAULTS, ...fileConfig }
+  cache.set(key, merged)
+  return merged
 }
 
 export function resetConfig() {
-  cached = null
+  cache.clear()
 }

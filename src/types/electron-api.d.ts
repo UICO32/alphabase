@@ -36,6 +36,7 @@ declare global {
           action: 'search' | 'hot' | 'rank' | 'trending'
           query?: string
           limit?: number
+          workspacePath?: string
         }) => Promise<{
           items: Array<{
             id: string

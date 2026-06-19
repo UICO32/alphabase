@@ -1,4 +1,4 @@
-import { spawn } from 'child_process'
+import { spawn, execFile } from 'child_process'
 import { access } from 'fs/promises'
 import { log } from './logger'
 
@@ -16,8 +16,24 @@ export interface CliExecResult {
   timedOut: boolean
 }
 
+const execFileAsync = (cmd: string, args: string[]): Promise<void> =>
+  new Promise((resolve, reject) => {
+    execFile(cmd, args, (err) => err ? reject(err) : resolve())
+  })
+
 export async function cliExists(commandPath: string): Promise<boolean> {
-  try { await access(commandPath); return true } catch { return false }
+  // 带路径分隔符视为文件路径，直接检查
+  if (commandPath.includes('/') || commandPath.includes('\\')) {
+    try { await access(commandPath); return true } catch { return false }
+  }
+  // 裸命令名：在 PATH 中查找 (which / where)
+  try {
+    const cmd = process.platform === 'win32' ? 'where' : 'which'
+    await execFileAsync(cmd, [commandPath])
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function execCli(options: CliExecOptions): Promise<CliExecResult> {

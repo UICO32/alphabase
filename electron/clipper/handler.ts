@@ -10,6 +10,7 @@ import { extractXiaoyuzhou } from './platforms/xiaoyuzhou'
 import { downloadImages, replaceImageUrls } from './imageDownloader'
 import { turndown } from './turndown'
 import { loadConfig } from './cliConfig'
+import { execCli, cliExists } from './cliExecutor'
 import type { ClipRequest, ClipResult, ClipErrorBody, AgentReachBrowseRequest, AgentReachBrowseResult } from './types'
 
 const CLI_PLATFORMS = ['twitter', 'bilibili', 'youtube', 'xiaoyuzhou']
@@ -251,7 +252,7 @@ async function extractXHSViaOpenCLI(url: string, opencliPath: string): Promise<C
 // --- Agent Reach Browse ---
 
 async function handleAgentReachBrowse(_event: any, req: AgentReachBrowseRequest): Promise<AgentReachBrowseResult> {
-  const config = loadConfig()
+  const config = loadConfig(req.workspacePath)
 
   switch (req.platform) {
     case 'bilibili':
@@ -280,10 +281,32 @@ async function browseBilibili(config: ReturnType<typeof loadConfig>, req: AgentR
       throw Object.assign(new Error(`Unsupported action for bilibili: ${req.action}`), { code: 'CLI_ERROR' })
   }
 
-  const result = await execCliSafe(config.bili, args, 30000)
-  if (!result) return { items: [], hasMore: false }
+  let command = config.bili
+  if (!(await cliExists(command))) {
+    log.warn(`bili CLI not found at configured path: ${command}`)
+    if (command !== 'bili' && (await cliExists('bili'))) {
+      command = 'bili'
+    } else {
+      throw Object.assign(new Error(
+        `未找到 bili CLI。请先安装 bili 命令行工具，或在配置文件中设置 "bili" 路径。\n` +
+        `当前配置路径: ${config.bili}\n` +
+        `可通过环境变量 HEPTA_AGENT_REACH_CONFIG 指定配置文件，或在 workspace 下创建 .hepta/agent-reach.json 配置 { "bili": "/path/to/bili" }`
+      ), { code: 'CLI_NOT_FOUND' })
+    }
+  }
 
-  const data = JSON.parse(result.stdout)
+  let result
+  try {
+    result = await execCli({ command, args, timeout: 30000, env: { PYTHONIOENCODING: 'utf-8' } })
+  } catch (err: any) {
+    throw Object.assign(new Error(`bili CLI 执行失败: ${err.message}`), { code: 'CLI_ERROR' })
+  }
+
+  if (result.timedOut) throw Object.assign(new Error('bili CLI 执行超时，请稍后重试'), { code: 'CLI_TIMEOUT' })
+  if (result.exitCode !== 0) throw Object.assign(new Error(`bili CLI 执行失败 (exit ${result.exitCode}): ${result.stderr.slice(0, 300)}`), { code: 'CLI_ERROR' })
+
+  let data
+  try { data = JSON.parse(result.stdout) } catch { throw Object.assign(new Error('bili CLI 返回的内容不是有效的 JSON'), { code: 'CLI_ERROR' }) }
 
   if (req.action === 'search') {
     const items = (data.data || []).map((v: any) => mapBiliItem(v))
@@ -305,20 +328,6 @@ function mapBiliItem(v: any): AgentReachBrowseResult['items'][0] {
     stats: v.stats ? { 播放: v.stats.view, 点赞: v.stats.like } : undefined,
     duration: v.duration,
   }
-}
-
-async function execCliSafe(command: string, args: string[], timeout: number): Promise<{ stdout: string } | null> {
-  const { execCli, cliExists } = await import('./cliExecutor')
-  if (!(await cliExists(command))) {
-    log.warn(`CLI not found: ${command}`)
-    return null
-  }
-  const result = await execCli({ command, args, timeout, env: { PYTHONIOENCODING: 'utf-8' } })
-  if (result.exitCode !== 0 || result.timedOut) {
-    log.warn(`CLI failed (exit ${result.exitCode}): ${result.stderr.slice(0, 200)}`)
-    return null
-  }
-  return result
 }
 
 export function registerClipperHandlers() {
