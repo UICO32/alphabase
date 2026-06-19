@@ -16,7 +16,7 @@ export function extractTitleFromHTML(html: string): string {
   try {
     const parser = new DOMParser()
     const doc = parser.parseFromString(html, 'text/html')
-    const heading = doc.querySelector('h1, h2, h3')
+    const heading = doc.querySelector('[data-content-type="heading"] .bn-inline-content, h1, h2, h3')
     return heading?.textContent?.trim() || ''
   } catch {
     return ''
@@ -27,6 +27,19 @@ export function extractFirstTextFromHTML(html: string): string {
   try {
     const parser = new DOMParser()
     const doc = parser.parseFromString(html, 'text/html')
+    // Native BlockNote structure: .bn-block-outer > .bn-block-container > .bn-block-content[data-content-type]
+    const nativeBlocks = doc.querySelectorAll('.bn-block-content')
+    if (nativeBlocks.length > 0) {
+      for (const block of nativeBlocks) {
+        const contentType = (block as HTMLElement).dataset.contentType
+        if (contentType === 'heading') continue
+        const inline = block.querySelector('.bn-inline-content')
+        const text = (inline || block).textContent?.trim() || ''
+        if (text) return text
+      }
+      return ''
+    }
+    // Legacy HTML fallback
     const allBlocks = doc.body.children
     for (let i = 0; i < allBlocks.length; i++) {
       const el = allBlocks[i] as HTMLElement

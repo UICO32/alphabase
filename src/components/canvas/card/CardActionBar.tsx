@@ -12,7 +12,7 @@ function extractTitle(html: string): string {
   try {
     const parser = new DOMParser()
     const doc = parser.parseFromString(html, 'text/html')
-    const heading = doc.querySelector('h1, h2, h3')
+    const heading = doc.querySelector('[data-content-type="heading"] .bn-inline-content, h1, h2, h3')
     return heading?.textContent?.trim() || ''
   } catch {
     return ''

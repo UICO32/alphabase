@@ -81,3 +81,35 @@
 [data-theme="dark"] .card-blocknote-editor [data-tag-name]:hover {
   background-color: rgba(139, 92, 246, 0.3);
 }
+
+/* ─── Preview mode: reuse BlockNote native CSS ─── */
+
+.card-preview-native.bn-editor { padding-inline: 0 !important; --N800: #172b4d; --N40: #dfe1e6; }
+.card-preview-native.bn-default-styles { font-size: inherit !important; background-color: transparent !important; }
+.card-preview-native .bn-container { --bn-colors-editor-background: transparent; }
+.card-preview-native .bn-editor,
+.card-preview-native .ProseMirror { background-color: transparent !important; padding-inline: 0 !important; padding: 0 !important; }
+
+/* Remove interactive states (selection highlight, drag cursor, etc.) */
+.card-preview-native .ProseMirror-selectednode > * { outline: none !important; }
+.card-preview-native .column-resize-handle,
+.card-preview-native .prosemirror-dropcursor-* { display: none !important; }
+
+/* @card reference / #tag dark mode colors: CSS variables drive inline styles */
+[data-theme="dark"] .card-blocknote-editor,
+[data-theme="dark"] .card-preview-native {
+  --card-ref-bg: rgba(59, 130, 246, 0.2);
+  --card-ref-color: #60a5fa;
+  --tag-bg: rgba(139, 92, 246, 0.2);
+  --tag-color: #a78bfa;
+}
+
+/* ─── CardLibraryView text preview: reset BlockNote block styles for plain text flow ─── */
+
+.card-library-preview .bn-block-content { display: block !important; padding: 0 !important; }
+.card-library-preview .bn-block-content[data-content-type=heading] { font-size: inherit !important; font-weight: 600 !important; }
+.card-library-preview .bn-block-content[data-content-type=quote] { border-left: none !important; padding-left: 0 !important; font-style: normal !important; }
+.card-library-preview .bn-block-content[data-content-type=codeBlock] { background: transparent !important; padding: 0 !important; border-radius: 0 !important; }
+.card-library-preview .bn-inline-content { display: inline !important; }
+.card-library-preview .bn-block-group { margin-left: 0 !important; }
+.card-library-preview .bn-block-outer { margin: 0 !important; }

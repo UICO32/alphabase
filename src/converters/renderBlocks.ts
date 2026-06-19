@@ -1,7 +1,42 @@
 /**
  * Converts BlockNote JSON blocks array to preview HTML.
- * Must match BlockNote v0.31 Mantine rendering exactly (WYSIWYG).
+ * Prioritizes BlockNote native serialization (createInternalHTMLSerializer)
+ * to produce DOM-identical structure to the editor, falling back to
+ * hand-written HTML for compatibility.
  */
+
+import { BlockNoteEditor, createInternalHTMLSerializer } from '@blocknote/core'
+import { cardSchema } from '../components/editor/blocknoteSchema'
+
+// ─── Native BlockNote serialization (headless editor singleton) ───
+
+let headlessEditor: BlockNoteEditor | null = null
+function getHeadlessEditor(): BlockNoteEditor | null {
+  if (headlessEditor) return headlessEditor
+  try {
+    headlessEditor = BlockNoteEditor.create({ schema: cardSchema as any, _headless: true } as any)
+    return headlessEditor
+  } catch (e) {
+    console.warn('[renderBlocks] headless editor 创建失败，回退到手写渲染器', e)
+    return null
+  }
+}
+
+function renderBlocksToHTMLNative(content: string): string | null {
+  try {
+    const editor = getHeadlessEditor()
+    if (!editor) return null
+    const blocks = JSON.parse(content)
+    if (!Array.isArray(blocks) || blocks.length === 0) return ''
+    const serializer = createInternalHTMLSerializer(editor.pmSchema, editor as any)
+    return serializer.serializeBlocks(blocks as any, {})
+  } catch (e) {
+    console.warn('[renderBlocks] 原生 HTML 生成失败，回退到手写渲染器', e)
+    return null
+  }
+}
+
+// ─── Legacy hand-written HTML renderer (fallback) ───
 
 const BLOCK_STYLE = 'padding:3px 0;margin:0;line-height:1.5'
 const FONT =
@@ -315,8 +350,7 @@ function escapeCSS(str: string): string {
   return str.replace(/[^-a-zA-Z0-9#.,%()\s]/g, '')
 }
 
-export function renderBlocksToHTML(content: string): string {
-  if (!content) return ''
+function renderBlocksToHTMLLegacy(content: string): string {
   try {
     const blocks = JSON.parse(content)
     if (!Array.isArray(blocks) || blocks.length === 0) return ''
@@ -330,4 +364,11 @@ export function renderBlocksToHTML(content: string): string {
       .replace(/>/g, '&gt;')
       .replace(/\n/g, '<br />')
   }
+}
+
+export function renderBlocksToHTML(content: string): string {
+  if (!content) return ''
+  const native = renderBlocksToHTMLNative(content)
+  if (native !== null) return native
+  return renderBlocksToHTMLLegacy(content)
 }

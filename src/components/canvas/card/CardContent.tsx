@@ -90,28 +90,25 @@ export const CardContent = memo(function CardContent({
           </Suspense>
         </div>
       ) : (
-        <div
-          className="h-full overflow-y-auto px-6"
-          style={{
-            fontSize: '13px',
-            lineHeight: '1.5',
-            wordBreak: 'break-word',
-            whiteSpace: 'break-spaces',
-          }}
-          dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
-          onClickCapture={(e) => {
-            const anchor = (e.target as HTMLElement).closest('a')
-            if (anchor && anchor.href && (anchor.href.startsWith('http://') || anchor.href.startsWith('https://'))) {
-              e.preventDefault()
-              e.stopPropagation()
-              const viewState = useViewStore.getState()
-              if (!viewState.editingCardId) {
-                viewState.setEditingCardId(cardId)
+        <div className="h-full overflow-y-auto px-6" style={{ fontSize: '13px', lineHeight: '1.5' }}>
+          <div
+            className="bn-editor bn-default-styles card-preview-native"
+            style={{ wordBreak: 'break-word', whiteSpace: 'break-spaces' }}
+            dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
+            onClickCapture={(e) => {
+              const anchor = (e.target as HTMLElement).closest('a')
+              if (anchor && anchor.href && (anchor.href.startsWith('http://') || anchor.href.startsWith('https://'))) {
+                e.preventDefault()
+                e.stopPropagation()
+                const viewState = useViewStore.getState()
+                if (!viewState.editingCardId) {
+                  viewState.setEditingCardId(cardId)
+                }
+                useLibraryStore.getState().setWebviewUrl(anchor.href, cardId)
               }
-              useLibraryStore.getState().setWebviewUrl(anchor.href, cardId)
-            }
-          }}
-        />
+            }}
+          />
+        </div>
       )}
     </div>
   )
