@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useWorkspaceStore } from '../stores/workspaceStore'
-import { useEventBus } from '../stores/eventBus'
+import { emit } from '../stores/eventBus'
 
 interface UseAppEventsOptions {
   dataReady: boolean
@@ -9,7 +9,6 @@ interface UseAppEventsOptions {
 
 export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEventsOptions) {
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
-  const emit = useEventBus(s => s.emit)
 
   // Dismiss splash when dataReady (splash handles its own 2s min display time)
   useEffect(() => {

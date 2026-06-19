@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { ReactFlowInstance } from '@xyflow/react'
-import { useEventBus } from '../stores/eventBus'
+import { on } from '../stores/eventBus'
 
 interface UseCanvasZoomOptions {
   canvasRef: React.RefObject<HTMLDivElement | null>
@@ -8,8 +8,6 @@ interface UseCanvasZoomOptions {
 }
 
 export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOptions) {
-  const on = useEventBus(s => s.on)
-
   useEffect(() => {
     const off1 = on('zoom-in', () => reactFlowInstance.current?.zoomIn({ duration: 200 }))
     const off2 = on('zoom-out', () => reactFlowInstance.current?.zoomOut({ duration: 200 }))

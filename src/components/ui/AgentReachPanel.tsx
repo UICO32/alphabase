@@ -6,7 +6,7 @@ import { useCardStore } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { useEventBus } from '../../stores/eventBus'
+import { emit } from '../../stores/eventBus'
 
 type Platform = 'bilibili' | 'twitter' | 'youtube' | 'xiaohongshu'
 type Action = 'search' | 'hot' | 'rank' | 'trending'
@@ -55,7 +55,6 @@ export function AgentReachPanel() {
   const [clippingId, setClippingId] = useState<string | null>(null)
 
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path)
-  const emit = useEventBus(s => s.emit)
 
   const browse = useCallback(async (browsePlatform: Platform, browseAction: Action, browseQuery?: string) => {
     setLoading(true)

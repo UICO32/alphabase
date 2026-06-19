@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import type { HistoryEntry } from './useHistory'
 import { useCardStore } from '../stores/cardStore'
+import { useEditorHistoryStore } from '../stores/editorHistoryStore'
 import { useViewStore } from '../stores/viewStore'
 import { getEditorHandleForCard, suppressProseMirrorUndo, isProseMirrorSuppressed } from '../components/editor/utils/editorHandleRegistry'
 import { useEvent } from './useEvent'
@@ -83,8 +84,9 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNo
           e.preventDefault()
           e.stopImmediatePropagation()
           if (editingCardId) {
+            const historyStore = useEditorHistoryStore.getState()
             const cardStore = useCardStore.getState()
-            const content = cardStore.undoCardContent(editingCardId)
+            const content = historyStore.undoContent(editingCardId)
             if (content) {
               cardStore.updateCard(editingCardId, { content })
               if (editorHandle) editorHandle.setContent(content)
@@ -102,8 +104,9 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNo
           e.preventDefault()
           e.stopImmediatePropagation()
           if (editingCardId) {
+            const historyStore = useEditorHistoryStore.getState()
             const cardStore = useCardStore.getState()
-            const content = cardStore.redoCardContent(editingCardId)
+            const content = historyStore.redoContent(editingCardId)
             if (content) {
               cardStore.updateCard(editingCardId, { content })
               if (editorHandle) editorHandle.setContent(content)
@@ -224,7 +227,7 @@ export function useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNo
 
   useEvent('reinit-workspace', () => {
     clear()
-    useCardStore.getState().clearCardHistory()
+    useEditorHistoryStore.getState().clearHistory()
   }, [clear])
 
   return { handleUndo, handleRedo }

@@ -1,7 +1,7 @@
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { EmptyState } from './SharedUI'
 import { Folder, Plus, Clock, X } from 'lucide-react'
-import { useEventBus } from '../../stores/eventBus'
+import { emit } from '../../stores/eventBus'
 
 interface WorkspacePickerProps {
   onClose: () => void
@@ -10,7 +10,6 @@ interface WorkspacePickerProps {
 export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
   const recentWorkspaces = useWorkspaceStore(s => s.recentWorkspaces)
   const setCurrentWorkspace = useWorkspaceStore(s => s.setCurrentWorkspace)
-  const emit = useEventBus(s => s.emit)
 
   const handleSelectWorkspace = (workspace: { path: string; name: string; lastOpened: number }) => {
     setCurrentWorkspace({

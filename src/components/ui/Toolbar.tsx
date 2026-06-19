@@ -1,7 +1,7 @@
 import { useLibraryStore } from '../../stores/libraryStore'
 import { usePanelStore } from '../../stores/panelStore'
 import { useFrameInteraction, enterLassoMode } from '../canvas/utils/frameInteraction'
-import { useEventBus } from '../../stores/eventBus'
+import { emit } from '../../stores/eventBus'
 import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Goal, GalleryVerticalEnd, Compass } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/shadcn/tooltip'
 
@@ -15,7 +15,6 @@ interface ToolbarProps {
 export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopography }: ToolbarProps) {
   const zoom = useLibraryStore(s => s.zoom)
   const isLassoMode = useFrameInteraction(s => s.lassoMode)
-  const emit = useEventBus(s => s.emit)
 
   return (
     <TooltipProvider delayDuration={300}>

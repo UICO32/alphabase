@@ -26,8 +26,6 @@ describe('CardStore', () => {
     useCardStore.setState({
       cards: {},
       isLoaded: false,
-      cardHistory: {},
-      isUndoingContent: {},
     })
   })
 
@@ -142,43 +140,26 @@ describe('CardStore', () => {
     })
   })
 
-  describe('undo/redo', () => {
-    it('undo 应回退到上一个内容快照', () => {
-      useCardStore.getState().addCard(makeCard({ content: 'v1' }))
-      useCardStore.getState().recordCardContentSnapshot('card-1')
-      useCardStore.getState().updateCard('card-1', { content: 'v2' })
-      useCardStore.getState().recordCardContentSnapshot('card-1')
-      const result = useCardStore.getState().undoCardContent('card-1')
-      expect(result).toBe('v1')
+  describe('previewHTML', () => {
+    it('ensurePreviewHTMLBatch 后卡片对象引用应变化', () => {
+      useCardStore.getState().addCard(makeCard({ id: 'preview-test', content: '[test]' }))
+      const before = useCardStore.getState().cards['preview-test']
+      useCardStore.getState().ensurePreviewHTMLBatch(['preview-test'])
+      const after = useCardStore.getState().cards['preview-test']
+      expect(after).not.toBe(before)
+      expect(after.previewHTML).toBe('<p>mock</p>')
     })
 
-    it('redo 应前进到下一个内容快照', () => {
-      useCardStore.getState().addCard(makeCard({ content: 'v1' }))
-      useCardStore.getState().recordCardContentSnapshot('card-1')
-      useCardStore.getState().updateCard('card-1', { content: 'v2' })
-      useCardStore.getState().recordCardContentSnapshot('card-1')
-      useCardStore.getState().undoCardContent('card-1')
-      const result = useCardStore.getState().redoCardContent('card-1')
-      expect(result).toBe('v2')
-    })
-
-    it('无历史时 undo 应返回 null', () => {
-      useCardStore.getState().addCard(makeCard())
-      expect(useCardStore.getState().undoCardContent('card-1')).toBeNull()
-    })
-
-    it('clearCardHistory 应清除指定卡片历史', () => {
-      useCardStore.getState().addCard(makeCard())
-      useCardStore.getState().recordCardContentSnapshot('card-1')
-      useCardStore.getState().clearCardHistory('card-1')
-      expect(useCardStore.getState().cardHistory['card-1']).toBeUndefined()
-    })
-
-    it('clearCardHistory 无参数应清除全部历史', () => {
-      useCardStore.getState().addCard(makeCard())
-      useCardStore.getState().recordCardContentSnapshot('card-1')
-      useCardStore.getState().clearCardHistory()
-      expect(Object.keys(useCardStore.getState().cardHistory)).toHaveLength(0)
+    it('getPreviewHTML 后引用不变且不写 previewHTML', () => {
+      useCardStore.getState().addCard(makeCard({ id: 'preview-test-2', content: '[test]' }))
+      const before = useCardStore.getState().cards['preview-test-2']
+      const html = useCardStore.getState().getPreviewHTML('preview-test-2')
+      expect(html).toBe('<p>mock</p>')
+      const after = useCardStore.getState().cards['preview-test-2']
+      expect(after).toBe(before)
+      expect(after.previewHTML).toBeUndefined()
     })
   })
+
 })
+

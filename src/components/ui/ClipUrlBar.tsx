@@ -8,7 +8,7 @@ import { useCardStore } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { useEventBus } from '../../stores/eventBus'
+import { emit } from '../../stores/eventBus'
 
 interface ClipUrlBarProps {
   open: boolean
@@ -21,7 +21,6 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path)
-  const emit = useEventBus(s => s.emit)
 
   useEffect(() => {
     if (open) {

@@ -23,11 +23,15 @@ vi.mock('../utils/workspace/fs', () => ({
   rename: mockRename,
 }))
 
-vi.mock('../stores/eventBus', () => ({
-  useEventBus: () => ({
-    getState: () => ({ emit: vi.fn() }),
-  }),
-}))
+vi.mock('../stores/eventBus', () => {
+  const mockEmit = vi.fn()
+  const mockOn = vi.fn(() => vi.fn())
+  return {
+    emit: mockEmit,
+    on: mockOn,
+    useEventBus: { getState: () => ({ emit: mockEmit, on: mockOn }) },
+  }
+})
 
 describe('WorkspaceSyncEngine', () => {
   let engine: WorkspaceSyncEngine

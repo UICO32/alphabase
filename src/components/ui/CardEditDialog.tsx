@@ -2,6 +2,7 @@ import { useCallback, lazy, Suspense, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../stores/cardStore'
+import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
 import { useTrashStore } from '../../stores/trashStore'
 import { X, Trash2 } from 'lucide-react'
 import { clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
@@ -36,11 +37,13 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
   }, [cardId, updateCard])
 
   const handleEditorFocus = useCallback(() => {
-    useCardStore.getState().recordCardContentSnapshot(cardId)
+    const content = useCardStore.getState().cards[cardId]?.content
+    if (content) useEditorHistoryStore.getState().recordSnapshot(cardId, content)
   }, [cardId])
 
   const handleCloseWithSnapshot = useCallback(() => {
-    useCardStore.getState().recordCardContentSnapshot(cardId)
+    const content = useCardStore.getState().cards[cardId]?.content
+    if (content) useEditorHistoryStore.getState().recordSnapshot(cardId, content)
     onClose()
   }, [cardId, onClose])
 

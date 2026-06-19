@@ -2,6 +2,7 @@ import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } 
 import { useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore, useCard } from '../../stores/cardStore'
+import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
 import { useViewStore } from '../../stores/viewStore'
 import { getCardFill, getCardStroke, getCardTextColor } from './utils/cardStyles'
 import { connectionMediator } from './utils/connectionMediator'
@@ -11,7 +12,7 @@ import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useFrameInteraction } from './utils/frameInteraction'
 import { useBoardStore } from '../../stores/boardStore'
-import { useEventBus } from '../../stores/eventBus'
+import { emit } from '../../stores/eventBus'
 import { useAIStore } from '../../stores/aiStore'
 import { CardHandles } from './card/CardHandles'
 import { CardActionBar } from './card/CardActionBar'
@@ -206,12 +207,14 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   )
 
   const handleEditorFocus = useCallback(() => {
-    useCardStore.getState().recordCardContentSnapshot(data.cardId)
+    const content = useCardStore.getState().cards[data.cardId]?.content
+    if (content) useEditorHistoryStore.getState().recordSnapshot(data.cardId, content)
     useViewStore.getState().setEditingCardId(data.cardId)
   }, [data.cardId])
 
   const handleEditorBlur = useCallback(() => {
-    useCardStore.getState().recordCardContentSnapshot(data.cardId)
+    const content = useCardStore.getState().cards[data.cardId]?.content
+    if (content) useEditorHistoryStore.getState().recordSnapshot(data.cardId, content)
     setIsEditing(false)
   }, [data.cardId])
 
@@ -278,8 +281,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       ),
     )
   }, [data.cardId, updateCard, setNodes])
-
-  const emit = useEventBus(s => s.emit)
 
   const handleRemoveFromBoard = useCallback(() => {
     const cardData = useCardStore.getState().cards[data.cardId]

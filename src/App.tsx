@@ -12,7 +12,7 @@ import { useCardStore } from './stores/cardStore'
 import { useBoardStore } from './stores/boardStore'
 import { useTrashStore } from './stores/trashStore'
 import { useWorkspaceStore } from './stores/workspaceStore'
-import { useEventBus } from './stores/eventBus'
+import { emit } from './stores/eventBus'
 import { useEvent } from './hooks/useEvent'
 import { flushActiveSyncEngine, stopActiveSyncEngine } from './sync/syncEngineRef'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
@@ -45,8 +45,6 @@ function App() {
   const { dataReady, conflict, hasBackup, handleConflictChoice } = useWorkspaceDataLoader()
 
   useAppEvents({ dataReady, setShowWorkspacePicker })
-
-  const emit = useEventBus(s => s.emit)
 
   useEvent('switch-board', (detail) => {
     if (detail.boardId) {

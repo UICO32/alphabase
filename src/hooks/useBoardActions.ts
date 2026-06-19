@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useBoardStore } from '../stores/boardStore'
 import { useViewStore } from '../stores/viewStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
-import { useEventBus } from '../stores/eventBus'
+import { emit } from '../stores/eventBus'
 
 export function useBoardActions() {
   const boards = useBoardStore(s => s.boards)
@@ -10,7 +10,6 @@ export function useBoardActions() {
   const viewMode = useViewStore(s => s.viewMode)
   const setViewMode = useViewStore(s => s.setViewMode)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
-  const emit = useEventBus(s => s.emit)
 
   const createBoard = useCallback((name: string) => {
     const trimmed = name.trim()

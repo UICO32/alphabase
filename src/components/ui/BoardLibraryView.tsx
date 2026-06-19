@@ -3,13 +3,12 @@ import { useViewStore } from '../../stores/viewStore'
 import { useBoardStore } from '../../stores/boardStore'
 import { SearchInput, EmptyState } from './SharedUI'
 import { LayoutGrid, FileText } from 'lucide-react'
-import { useEventBus } from '../../stores/eventBus'
+import { emit } from '../../stores/eventBus'
 
 export function BoardLibraryView() {
   const setViewMode = useViewStore(s => s.setViewMode)
   const boards = useBoardStore(s => s.boards)
   const activeBoardId = useBoardStore(s => s.activeBoardId)
-  const emit = useEventBus(s => s.emit)
 
   const [searchQuery, setSearchQuery] = useState('')
 
