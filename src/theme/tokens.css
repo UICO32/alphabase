@@ -207,7 +207,7 @@
   /* 强调态发光（品牌蓝选中态发光） */
   --shadow-glow-accent: 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent);
   --card-selected-shadow: var(--shadow-glow-accent);
-  --card-selected-border: var(--emphasis);
+  --card-selected-border: var(--brand);
   --shadow-inner: inset 0 0 0 1px var(--line-default);
   --shadow-inner-active: inset 0 0 0 1px var(--line-active);
 
@@ -357,7 +357,7 @@
   /* 强调态发光（品牌蓝选中态发光） */
   --shadow-glow-accent: 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent);
   --card-selected-shadow: var(--shadow-glow-accent);
-  --card-selected-border: var(--emphasis);
+  --card-selected-border: var(--brand);
   --shadow-inner: inset 0 0 0 1px var(--line-default);
   --shadow-inner-active: inset 0 0 0 1px var(--line-active);
 
