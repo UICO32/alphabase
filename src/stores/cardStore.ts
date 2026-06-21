@@ -19,7 +19,8 @@ export interface GlobalCard {
   deletedAt?: number
   tags?: string[]
   flomoSlug?: string
-  sourceUrl?: string  // clip 来源 URL
+  sourceUrl?: string
+  viewMode?: 'editor' | 'web'
 }
 
 interface CardStore {
@@ -32,6 +33,7 @@ interface CardStore {
   restoreCard: (id: string) => void
   importCards: (cards: Record<string, GlobalCard>) => void
   loadCardsFromDB: (cards?: Record<string, GlobalCard>) => Promise<void>
+  reloadFromDB: (cards?: Record<string, GlobalCard>) => Promise<void>
   getPreviewHTML: (cardId: string) => string | undefined
   ensurePreviewHTMLBatch: (cardIds: string[]) => void
   schedulePreviewHTMLGeneration: () => void
@@ -99,6 +101,16 @@ export const useCardStore = create<CardStore>()(
         set({ cards, isLoaded: true })
       } else {
         set({ isLoaded: true })
+      }
+    },
+
+    // 强制重新加载：忽略 isLoaded 守卫，用磁盘上的最新数据覆盖 store。
+    // 用于合并/备份恢复后重新加载（此时 isLoaded 仍为 true，loadCardsFromDB 会提前返回）。
+    reloadFromDB: async (cards) => {
+      if (cards) {
+        set({ cards, isLoaded: true })
+      } else {
+        set({ cards: {}, isLoaded: true })
       }
     },
 

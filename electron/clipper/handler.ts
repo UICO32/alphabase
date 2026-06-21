@@ -117,7 +117,6 @@ async function extractViaHtml(platform: string, url: string): Promise<ClipResult
     // 小红书：尝试 opencli fallback
     if (platform === 'xiaohongshu') {
       try {
-        const { cliExists } = await import('./cliExecutor')
         const cfg = loadConfig()
         if (await cliExists(cfg.opencli)) {
           log.info('xhs extraction failed, trying opencli xiaohongshu')
@@ -211,7 +210,6 @@ async function loadWithBrowser(url: string): Promise<string> {
 }
 
 async function extractXHSViaOpenCLI(url: string, opencliPath: string): Promise<ClipResult | null> {
-  const { execCli } = await import('./cliExecutor')
   const result = await execCli({
     command: opencliPath,
     args: ['xiaohongshu', 'note', url, '-f', 'json'],
@@ -257,6 +255,8 @@ async function handleAgentReachBrowse(_event: any, req: AgentReachBrowseRequest)
   switch (req.platform) {
     case 'bilibili':
       return browseBilibili(config, req)
+    case 'xiaohongshu':
+      return browseXiaohongshu(config, req)
     default:
       throw Object.assign(new Error(`Unsupported platform: ${req.platform}`), { code: 'CLI_ERROR' })
   }
@@ -327,6 +327,69 @@ function mapBiliItem(v: any): AgentReachBrowseResult['items'][0] {
     description: v.description,
     stats: v.stats ? { 播放: v.stats.view, 点赞: v.stats.like } : undefined,
     duration: v.duration,
+  }
+}
+
+async function browseXiaohongshu(config: ReturnType<typeof loadConfig>, req: AgentReachBrowseRequest): Promise<AgentReachBrowseResult> {
+  const limit = req.limit || 20
+  let args: string[]
+
+  switch (req.action) {
+    case 'search':
+      if (!req.query) throw Object.assign(new Error('Search requires a query'), { code: 'CLI_ERROR' })
+      args = ['xiaohongshu', 'search', req.query, '-f', 'json', '--limit', String(limit)]
+      break
+    case 'hot':
+      args = ['xiaohongshu', 'feed', '-f', 'json', '--limit', String(limit)]
+      break
+    default:
+      throw Object.assign(new Error(`Unsupported action for xiaohongshu: ${req.action}`), { code: 'CLI_ERROR' })
+  }
+
+  let command = config.opencli
+  if (!(await cliExists(command))) {
+    log.warn(`opencli not found at configured path: ${command}`)
+    if (command !== 'opencli' && (await cliExists('opencli'))) {
+      command = 'opencli'
+    } else {
+      throw Object.assign(new Error(
+        `未找到 opencli。请先安装 opencli，或在配置文件中设置 "opencli" 路径。\n` +
+        `当前配置路径: ${config.opencli}\n` +
+        `可通过环境变量 HEPTA_AGENT_REACH_CONFIG 指定配置文件，或在 workspace 下创建 .hepta/agent-reach.json 配置 { "opencli": "/path/to/opencli" }`
+      ), { code: 'CLI_NOT_FOUND' })
+    }
+  }
+
+  let result
+  try {
+    result = await execCli({ command, args, timeout: 30000 })
+  } catch (err: any) {
+    throw Object.assign(new Error(`opencli 执行失败: ${err.message}`), { code: 'CLI_ERROR' })
+  }
+
+  if (result.timedOut) throw Object.assign(new Error('opencli 执行超时，请稍后重试'), { code: 'CLI_TIMEOUT' })
+  if (result.exitCode !== 0) throw Object.assign(new Error(`opencli 执行失败 (exit ${result.exitCode}): ${result.stderr.slice(0, 300)}`), { code: 'CLI_ERROR' })
+
+  let data
+  try { data = JSON.parse(result.stdout) } catch { throw Object.assign(new Error('opencli 返回的内容不是有效的 JSON'), { code: 'CLI_ERROR' }) }
+
+  const rawItems = Array.isArray(data) ? data : (data.data || data.items || [])
+  const items = rawItems.map((v: any) => mapXHSItem(v))
+  return { items, hasMore: items.length >= limit }
+}
+
+function mapXHSItem(v: any): AgentReachBrowseResult['items'][0] {
+  return {
+    id: v.noteId || v.id || v.note_id,
+    title: v.title || v.displayTitle || v.display_title,
+    author: v.user?.nickname || v.user?.name,
+    url: v.noteId ? `https://www.xiaohongshu.com/explore/${v.noteId}` : (v.url || v.share_info?.url),
+    thumbnail: v.cover || v.image || v.pic,
+    description: v.desc || v.description,
+    stats: (v.interactInfo || v.stats) ? {
+      点赞: v.interactInfo?.likedCount || v.stats?.likes,
+      收藏: v.interactInfo?.collectedCount || v.stats?.collects,
+    } : undefined,
   }
 }
 

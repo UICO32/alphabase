@@ -52,6 +52,7 @@ export const CardActionBar = memo(function CardActionBar({
   const isClipCard = !!(card?.sourceUrl)
   const webviewUrl = useLibraryStore(s => s.webviewUrl)
   const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
+  const updateCard = useCardStore(s => s.updateCard)
 
   const html = cardPreviewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
   const displayTitle = cardTitle || useMemo(() => extractTitle(html), [html, cardTitle])
@@ -116,8 +117,10 @@ export const CardActionBar = memo(function CardActionBar({
               e.stopPropagation()
               if (webviewUrl) {
                 setWebviewUrl(null)
+                updateCard(cardId, { viewMode: 'editor' })
               } else {
                 setWebviewUrl(card!.sourceUrl!, cardId)
+                updateCard(cardId, { viewMode: 'web' })
               }
             }}
           />

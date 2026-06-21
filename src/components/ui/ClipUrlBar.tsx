@@ -3,10 +3,18 @@ import { Scissors, X, Loader2 } from 'lucide-react'
 import { IconButton } from './IconButton'
 import { Button } from './Button'
 import { clipUrl, isValidHttpUrl } from '../../utils/clipper'
+
+function isVideoUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname
+    return hostname.includes('bilibili.com') || hostname.includes('b23.tv') || hostname.includes('youtube.com') || hostname.includes('youtu.be')
+  } catch { return false }
+}
 import { htmlToBlocks } from '../../converters/htmlToBlocks'
 import { useCardStore } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
+import { useLibraryStore } from '../../stores/libraryStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { emit } from '../../stores/eventBus'
 
@@ -44,6 +52,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
     setError('')
 
     const cardId = crypto.randomUUID()
+    const isVideo = isVideoUrl(trimmed)
 
     useCardStore.getState().addCard({
       id: cardId,
@@ -58,6 +67,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
       sourceUrl: trimmed,
       createdAt: Date.now(),
       title: '剪藏中…',
+      ...(isVideo ? { viewMode: 'web' as const } : {}),
     })
 
     emit('add-card-node', { cardId, color: 'blue' })
@@ -84,6 +94,11 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
 
       useViewStore.getState().setEditingCardId(cardId)
       usePanelStore.getState().setRightPanelActiveTab('editor')
+
+      // For video clips, open webview in right panel
+      if (isVideo) {
+        useLibraryStore.getState().setWebviewUrl(trimmed, cardId)
+      }
 
       onClose()
     } catch (err: unknown) {

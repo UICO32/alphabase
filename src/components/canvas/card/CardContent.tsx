@@ -1,9 +1,11 @@
 import DOMPurify from 'dompurify'
-import { memo, lazy, Suspense, useMemo } from 'react'
+import { memo, lazy, Suspense, useMemo, useState } from 'react'
+import { ExternalLink, Play } from 'lucide-react'
 import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { useCardStore } from '../../../stores/cardStore'
 import { useViewStore } from '../../../stores/viewStore'
 import { useLibraryStore } from '../../../stores/libraryStore'
+import { usePanelStore } from '../../../stores/panelStore'
 import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
 
 const LazyCardBlockNoteEditor = lazy(() =>
@@ -50,6 +52,8 @@ export const CardContent = memo(function CardContent({
 }: CardContentProps) {
   const canScroll = isSelected || isEditing
   const isDarkMode = useIsDarkMode()
+  const card = useCardStore(s => s.cards[cardId])
+  const isWebMode = card?.viewMode === 'web' && !!card?.sourceUrl
 
   const sanitizedHTML = useMemo(() => {
     // Use store's lazy getPreviewHTML — generates on first access, caches after
@@ -68,7 +72,7 @@ export const CardContent = memo(function CardContent({
       }}
       onWheelCapture={canScroll ? (e) => e.stopPropagation() : undefined}
     >
-      {(isSelected || isEditing) ? (
+      {isEditing ? (
         <div
           className="h-full overflow-y-auto px-6"
           style={{ fontSize: '13px', lineHeight: '1.5' }}
@@ -81,7 +85,7 @@ export const CardContent = memo(function CardContent({
               onFocus={onFocus}
               onBlur={onBlur}
               theme={isDarkMode ? 'dark' : 'light'}
-              editable={isEditing}
+              editable={true}
               enforceInitialHeading={enforceInitialHeading}
               onNavigateToCard={onNavigateToCard}
               onTagClick={onTagClick}
@@ -89,6 +93,8 @@ export const CardContent = memo(function CardContent({
             />
           </Suspense>
         </div>
+      ) : isWebMode && card?.sourceUrl ? (
+        <CardWebPreview cardId={cardId} sourceUrl={card.sourceUrl} />
       ) : (
         <div className="h-full overflow-y-auto px-6" style={{ fontSize: '13px', lineHeight: '1.5' }}>
           <div
@@ -113,3 +119,56 @@ export const CardContent = memo(function CardContent({
     </div>
   )
 })
+
+function getBilibiliEmbedUrl(url: string): string | null {
+  const bvMatch = url.match(/BV[\w]+/i)
+  if (!bvMatch) return null
+  return `//player.bilibili.com/player.html?bvid=${bvMatch[0]}&autoplay=0&high_quality=1`
+}
+
+function CardWebPreview({ cardId, sourceUrl }: { cardId: string; sourceUrl: string }) {
+  const [hovered, setHovered] = useState(false)
+  const isBilibili = getBilibiliEmbedUrl(sourceUrl)
+
+  const openInRightPanel = () => {
+    useLibraryStore.getState().setWebviewUrl(sourceUrl, cardId)
+    useViewStore.getState().setEditingCardId(cardId)
+    usePanelStore.getState().setRightPanelActiveTab('editor')
+    usePanelStore.getState().setRightPanelCollapsed(false)
+  }
+
+  return (
+    <div
+      className="h-full w-full flex items-center justify-center overflow-hidden relative cursor-pointer"
+      style={{ padding: 4 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={openInRightPanel}
+    >
+      <div
+        className="flex flex-col items-center justify-center gap-2 rounded-lg w-full h-full"
+        style={{
+          background: 'var(--surface-card)',
+          border: '1px solid var(--line-default)',
+        }}
+      >
+        {isBilibili ? (
+          <Play size={32} style={{ color: 'var(--fg-secondary)' }} />
+        ) : (
+          <ExternalLink size={32} style={{ color: 'var(--fg-secondary)' }} />
+        )}
+        <span className="text-xs text-fg-secondary truncate max-w-[80%]">
+          {isBilibili ? '点击播放视频' : '点击查看网页'}
+        </span>
+      </div>
+      {hovered && (
+        <div
+          className="absolute top-1 right-1 p-1 rounded-md"
+          style={{ background: 'var(--surface-hover)' }}
+        >
+          <ExternalLink size={14} style={{ color: 'var(--fg-primary)' }} />
+        </div>
+      )}
+    </div>
+  )
+}

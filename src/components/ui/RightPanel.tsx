@@ -166,14 +166,14 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
         <div className="flex justify-center px-6 pt-3">
           <div className="segmented">
             <button
-              onClick={() => setWebviewUrl(null)}
+              onClick={() => { setWebviewUrl(null); updateCard(cardId, { viewMode: 'editor' }) }}
               className={`segmented-item text-[11px] cursor-pointer ${!webviewUrl ? 'segmented-item-active' : ''}`}
             >
               <FileText size={11} />
               剪藏
             </button>
             <button
-              onClick={() => setWebviewUrl(sourceUrl!, cardId)}
+              onClick={() => { setWebviewUrl(sourceUrl!, cardId); updateCard(cardId, { viewMode: 'web' }) }}
               className={`segmented-item text-[11px] cursor-pointer ${webviewUrl ? 'segmented-item-active' : ''}`}
             >
               <Globe size={11} />
