@@ -159,10 +159,10 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
   },
 
   _saveState: async () => {
-    const { lastSyncTime, importedCount, accessToken, email } = get()
+    const { lastSyncTime, importedCount, accessToken, email, importedSlugs } = get()
     const workspaceDir = useWorkspaceStore.getState().currentWorkspace?.path
     if (!workspaceDir) return
-    const data = { lastSyncTime, importedCount, accessToken, email }
+    const data = { lastSyncTime, importedCount, accessToken, email, importedSlugs }
     await window.electronAPI.fs.writeFile(
       `${workspaceDir}/flomo-sync.json`,
       JSON.stringify(data, null, 2)

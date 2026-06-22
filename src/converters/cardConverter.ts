@@ -14,6 +14,8 @@ export function cardFileToGlobalCard(file: CardFile): GlobalCard {
     collapsed: file.collapsed,
     deletedAt: file.deletedAt,
     sourceUrl: file.sourceUrl,
+    tags: file.tags,
+    flomoSlug: file.flomoSlug,
   }
 }
 
@@ -30,6 +32,8 @@ export function globalCardToCardFile(card: GlobalCard): CardFile {
     collapsed: card.collapsed,
     deletedAt: card.deletedAt,
     sourceUrl: card.sourceUrl,
+    tags: card.tags,
+    flomoSlug: card.flomoSlug,
   }
 }
 

@@ -15,6 +15,7 @@ import { useWorkspaceStore } from './stores/workspaceStore'
 import { emit } from './stores/eventBus'
 import { useEvent } from './hooks/useEvent'
 import { flushActiveSyncEngine, stopActiveSyncEngine } from './sync/syncEngineRef'
+import { cleanupSubscriptions } from './sync/subscriptionManager'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
@@ -57,6 +58,7 @@ function App() {
 
     await new Promise(r => setTimeout(r, 50))
     await flushActiveSyncEngine()
+    cleanupSubscriptions()
 
     await stopActiveSyncEngine()
     useCardStore.setState({ cards: {}, isLoaded: false })

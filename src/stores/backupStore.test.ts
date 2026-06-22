@@ -27,14 +27,14 @@ describe('backupStore', () => {
   })
 
   describe('getBackupBasePath', () => {
-    it('should return backup path in sibling .heptabase-backups directory', () => {
+    it('should return backup path inside workspace .backups directory', () => {
       const result = getBackupBasePath('/data/workspaces/my-workspace')
-      expect(result).toBe('/data/workspaces/.heptabase-backups/my-workspace')
+      expect(result).toBe('/data/workspaces/my-workspace/.backups')
     })
 
     it('should handle Windows-style paths', () => {
       const result = getBackupBasePath('D:\\data\\workspaces\\my-workspace')
-      expect(result).toBe('D:/data/workspaces/.heptabase-backups/my-workspace')
+      expect(result).toBe('D:/data/workspaces/my-workspace/.backups')
     })
   })
 

@@ -5,11 +5,9 @@ const MAX_FILE_BACKUPS = 10
 const AUTO_BACKUP_INTERVAL_MS = 30 * 60 * 1000 // 30 minutes
 
 export function getBackupBasePath(workspacePath: string): string {
-  // 备份到工作区同级目录 .heptabase-backups/<workspaceName>
-  const parts = workspacePath.replace(/\\/g, '/').split('/')
-  const workspaceName = parts.filter(Boolean).pop() || 'default'
-  const parentDir = parts.slice(0, -1).join('/')
-  return `${parentDir}/.heptabase-backups/${workspaceName}`
+  // 备份必须在工作区内：工作区外的路径会被 isPathWithinWorkspace 安全护栏拒绝，
+  // 导致冲突弹窗的「使用备份恢复」永不出现、createFileSystemBackup 静默失败。
+  return `${workspacePath.replace(/\\/g, '/')}/.backups`
 }
 
 export async function copyDir(srcDir: string, destDir: string): Promise<void> {

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useBoardStore } from '../stores/boardStore'
-import { getActiveSyncEngine } from '../sync/syncEngineRef'
-import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from '../sync/subscribeStores'
 import { useEvent } from './useEvent'
 
 interface UseWorkspaceLifecycleOptions {
@@ -21,8 +19,6 @@ function defaultBoardNodes(_boardId: string) {
 
 export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }: UseWorkspaceLifecycleOptions) {
   const activeBoardIdRef = useRef<string | null>(null)
-  const unsubsRef = useRef<Array<() => void> | null>(null)
-  const syncingRef = useRef(false)
 
   const switchToBoard = useCallback((boardId: string) => {
     const boardStore = useBoardStore.getState()
@@ -105,38 +101,15 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
       setTimeout(scheduleEmbeddingInit, 3000)
     }
 
-    // Subscribe stores to the new sync engine
-    const syncEngine = getActiveSyncEngine()
-    if (syncEngine && !syncingRef.current) {
-      syncingRef.current = true
-      const unsubs = [
-        subscribeCardStore(syncEngine),
-        subscribeBoardStore(syncEngine),
-        subscribeTrashStore(syncEngine),
-      ]
-      unsubsRef.current = unsubs
-    }
+    // store→磁盘的订阅现在由模块级 subscriptionManager 管理
+    // （在 useWorkspaceDataLoader 的 reloadFromDB 之后 setupSubscriptions），
+    // 不再绑定到本组件生命周期，避免视图切换卸载组件时订阅被清理。
   }, [switchToBoard])
 
-  // On workspace switch: save current board, unsubscribe, reset state
-  // Do NOT stop the sync engine here — App.tsx manages that
+  // On workspace switch: save current board, reset state
+  // 订阅清理与 sync engine 停止由 App.tsx 的 workspace-changed 处理
+  // （cleanupSubscriptions + stopActiveSyncEngine），这里只重置 board 状态
   useEvent('reinit-workspace', () => {
-    // Unsubscribe from old sync engine
-    if (unsubsRef.current) {
-      unsubsRef.current.forEach(fn => fn())
-      unsubsRef.current = null
-    }
-    syncingRef.current = false
     activeBoardIdRef.current = null
   })
-
-  // Cleanup on unmount only — never stop sync engine from reactive state changes
-  useEffect(() => {
-    return () => {
-      if (unsubsRef.current) {
-        unsubsRef.current.forEach(fn => fn())
-        unsubsRef.current = null
-      }
-    }
-  }, [])
 }

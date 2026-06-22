@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { toast } from 'sonner'
 import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
@@ -12,6 +13,7 @@ import { exists } from '../utils/workspace/fs'
 import type { ConflictDiffItem } from '../utils/workspace/types'
 import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
+import { setupSubscriptions } from '../sync/subscriptionManager'
 import { embeddingStore } from '../stores/embeddingStore'
 import type { CardColor } from '../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
@@ -111,11 +113,13 @@ export function useWorkspaceDataLoader() {
 
     emitStartupProgress('加载数据...', 0, 4)
 
-    // Load all data in one pass: manifest + cards + metadata + sync engine init
-    // Run syncEngine.init in parallel with data reads — it only creates dirs
+    // Load all data in one pass: manifest + cards + metadata
+    // syncEngine.init 负责创建 cards/boards/trash 目录，loadAllCards 依赖目录存在。
+    // 并行执行在首次加载（目录不存在）时必然竞态，init 必须先于读完成。
     const syncEngine = new WorkspaceSyncEngine()
+    await syncEngine.init(workspacePath)
     const [manifest, cardFiles, metadata] = await Promise.all([
-      syncEngine.init(workspacePath).then(() => service.loadManifest()),
+      service.loadManifest(),
       service.loadAllCards(),
       service.loadMetadata(),
     ])
@@ -125,8 +129,22 @@ export function useWorkspaceDataLoader() {
     emitStartupProgress('处理卡片...', 1, 4)
 
     const globalCards: Record<string, ReturnType<typeof cardFileToGlobalCard>> = {}
+    let corruptCardCount = 0
     for (const cf of cardFiles) {
-      globalCards[cf.id] = cardFileToGlobalCard(cf)
+      // cardFileToGlobalCard 对损坏的卡片可能抛异常（例如 content 非法 JSON 被 extractTitleFromContent 间接消费）。
+      // 跳过坏卡而非让整个 loadWorkspaceData 走 catch 分支降级为 demo 卡片——否则用户会看到空白工作区。
+      try {
+        globalCards[cf.id] = cardFileToGlobalCard(cf)
+      } catch (err) {
+        corruptCardCount++
+        console.error('[workspace] 跳过损坏卡片', cf.id, err)
+      }
+    }
+    if (corruptCardCount > 0) {
+      toast.error(
+        `${corruptCardCount} 张卡片读取失败已跳过，可用「从备份恢复」找回`,
+        { duration: 8000 }
+      )
     }
 
     // Load cards into store first (without previewHTML generation — deferred to render)
@@ -135,9 +153,13 @@ export function useWorkspaceDataLoader() {
     // Load cards + board snapshots in parallel — cards go to store, boards to boardData
     const [boardSnapshots] = await Promise.all([
       service.loadAllBoards(),
-      useCardStore.getState().loadCardsFromDB(globalCards),
+      useCardStore.getState().reloadFromDB(globalCards),
     ])
     stepTime('cards+boards-loaded')
+
+    // 订阅在 reloadFromDB 之后设置：subscribeCardStore 的 prevCardsMap 需捕获已加载卡片，
+    // 否则首次回调会把全部卡片视为新增而触发重复写入。订阅独立于组件生命周期。
+    setupSubscriptions(syncEngine)
 
     emitStartupProgress('加载画板...', 2, 4)
 

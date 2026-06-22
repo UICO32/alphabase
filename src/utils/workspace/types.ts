@@ -60,6 +60,7 @@ export interface CardFile {
   updatedAt?: number
   deletedAt?: number
   sourceUrl?: string
+  flomoSlug?: string
 }
 
 export interface TrashFile {

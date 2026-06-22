@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 import { useWorkspaceStore } from '../stores/workspaceStore'
-import { emit } from '../stores/eventBus'
+import { emit, on } from '../stores/eventBus'
 
 interface UseAppEventsOptions {
   dataReady: boolean
@@ -52,6 +53,31 @@ export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEvents
       setShowWorkspacePicker(true)
     }
   }, [currentWorkspace, setShowWorkspacePicker])
+
+  // 监听 syncEngine 的 write-error：写入失败必须向用户反馈，否则数据会静默丢失。
+  // 节流避免短时间内大量写入失败刷屏。
+  useEffect(() => {
+    let lastToast = 0
+    let errorCount = 0
+    const THROTTLE_MS = 3000
+
+    const unsub = on('write-error', ({ path, error }) => {
+      console.error('[write-error]', path, error)
+      errorCount++
+      const now = Date.now()
+      if (now - lastToast < THROTTLE_MS) return
+      lastToast = now
+      const count = errorCount
+      errorCount = 0
+      toast.error(
+        count > 1
+          ? `${count} 个文件写入失败，数据可能未保存`
+          : `文件写入失败：${error}`,
+        { duration: 6000 }
+      )
+    })
+    return () => unsub()
+  }, [])
 
   // Flush sync engine before window closes to prevent data loss
   useEffect(() => {
