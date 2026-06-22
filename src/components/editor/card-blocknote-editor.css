@@ -95,6 +95,24 @@
 .card-preview-native .column-resize-handle,
 .card-preview-native .prosemirror-dropcursor-* { display: none !important; }
 
+/* Tag & cardReference inline content in preview mode */
+.card-preview-native [data-tag-name] {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-radius: 3px;
+  padding: 0 3px;
+  color: #8b5cf6;
+  font-weight: 500;
+  text-decoration: none;
+}
+.card-preview-native [data-card-id] {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 3px;
+  padding: 0 3px;
+  color: #3b82f6;
+  font-weight: 500;
+  text-decoration: none;
+}
+
 /* @card reference / #tag dark mode colors: CSS variables drive inline styles */
 [data-theme="dark"] .card-blocknote-editor,
 [data-theme="dark"] .card-preview-native {

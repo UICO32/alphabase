@@ -6,10 +6,11 @@ import { useCardStore } from '../../stores/cardStore'
 import { useLibraryStore, type SortBy, type SearchMode } from '../../stores/libraryStore'
 import { useViewStore } from '../../stores/viewStore'
 import { useEmbeddingStore } from '../../stores/embeddingStore'
+import { useTagStore } from '../../stores/tagStore'
 import { useFlomoSyncStore } from '../../sync/flomoSync'
 import { EmptyState } from './SharedUI'
 import { CardEditDialog } from './CardEditDialog'
-import { Layers, RefreshCw, Loader2, ChevronDown } from 'lucide-react'
+import { Layers, RefreshCw, Loader2, ChevronDown, X } from 'lucide-react'
 
 interface CardLibraryViewProps {
   onOpenSettings?: () => void
@@ -155,6 +156,11 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
   const editingCardId = useViewStore(s => s.editingCardId)
   const searchMode = useLibraryStore(s => s.searchMode)
   const setSearchMode = useLibraryStore(s => s.setSearchMode)
+  const tagFilter = useLibraryStore(s => s.tagFilter)
+  const setTagFilter = useLibraryStore(s => s.setTagFilter)
+
+  const tagStoreTags = useTagStore(s => s.tags)
+  const getTagsSortedByUsage = useTagStore(s => s.getTagsSortedByUsage)
 
   const { indexed, searching, searchScores, searchRelated, searchByText, clearResults } = useEmbeddingStore()
 
@@ -245,11 +251,16 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
     const active = Object.values(cards).filter(c => !c.deletedAt)
     let filtered = active
 
+    if (tagFilter) {
+      filtered = filtered.filter(c => c.tags?.includes(tagFilter))
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = active.filter(card =>
+      filtered = filtered.filter(card =>
         (card.title?.toLowerCase().includes(query) ||
-         card.content?.toLowerCase().includes(query))
+         card.content?.toLowerCase().includes(query) ||
+         card.tags?.some(t => t.toLowerCase().includes(query)))
       )
     }
 
@@ -275,7 +286,14 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
       default:
         return filtered
     }
-  }, [cards, searchQuery, sortBy, searchScores, searchMode])
+  }, [cards, searchQuery, sortBy, searchScores, searchMode, tagFilter])
+
+  const tagCloud = useMemo(() => {
+    void tagStoreTags
+    return getTagsSortedByUsage()
+      .filter(t => t.count > 0)
+      .slice(0, 30)
+  }, [getTagsSortedByUsage, tagStoreTags, cards])
 
   const handleDragStart = useCallback((e: React.DragEvent, cardId: string) => {
     const isAltPressed = e.altKey
@@ -353,13 +371,61 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
           </div>
 	          <div className="w-px h-4 mx-2 bg-line-default shrink-0" />
           <input
-   type="text"
+ type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={searchMode === 'semantic' ? '输入语义搜索内容，按回车触发...' : '搜索卡片...'}
             className="flex-1 py-2 text-sm outline-none bg-transparent text-fg-primary"
           />
         </div>
+
+        {/* Tag cloud */}
+        {tagCloud.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {tagCloud.map((t) => {
+              const active = tagFilter === t.name
+              return (
+                <button
+                  key={t.name}
+                  onClick={() => setTagFilter(active ? null : t.name)}
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
+                    active
+                      ? 'bg-[var(--brand,#8b5cf6)] text-white border-transparent'
+                      : 'bg-surface-card text-fg-secondary border-line-default hover:bg-surface-card-hover hover:text-fg-primary'
+                  }`}
+                  title={`${t.count} 张卡片${t.flomoSynced ? ' · flomo' : ''}`}
+                >
+                  #{t.name}
+                  <span className={`ml-1 ${active ? 'text-white/70' : 'text-fg-tertiary'}`}>
+                    {t.count}
+                  </span>
+                  {t.flomoSynced && (
+                    <span className={`ml-1 text-[9px] ${active ? 'text-white/70' : 'text-fg-tertiary'}`}>
+                      flomo
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Active tag filter banner */}
+        {tagFilter && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 bg-surface-card text-fg-secondary border border-[var(--brand,#8b5cf6)]/30">
+            <span className="flex items-center gap-1.5">
+              按标签过滤：<span className="font-medium text-[var(--brand,#8b5cf6)]">#{tagFilter}</span>
+              <span className="text-fg-tertiary">· {visibleCards.length} 条结果</span>
+            </span>
+            <button
+              onClick={() => setTagFilter(null)}
+              className="p-0.5 rounded hover:bg-surface-panel text-fg-tertiary hover:text-fg-primary"
+              title="清除标签过滤"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Sort + Flomo sync */}
         <div className="mb-4 flex items-center justify-between gap-2">
@@ -435,7 +501,13 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
         {visibleCards.length === 0 ? (
           <EmptyState
             icon={<Layers size={24} />}
-            text={sortBy === 'related' && !editingCardId ? '请先选中一张卡片' : (searchQuery ? '未找到匹配的卡片' : '暂无卡片')}
+            text={
+              tagFilter
+                ? `没有带 #${tagFilter} 标签的卡片`
+                : sortBy === 'related' && !editingCardId
+                  ? '请先选中一张卡片'
+                  : (searchQuery ? '未找到匹配的卡片' : '暂无卡片')
+            }
           />
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>

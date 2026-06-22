@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { convertFlomoMemo, type FlomoMemo } from '../converters/flomoConverter'
 import { useCardStore, type GlobalCard } from '../stores/cardStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useTagStore } from '../stores/tagStore'
 import { flushActiveSyncEngine } from './syncEngineRef'
 
 export interface FlomoSyncState {
@@ -110,6 +111,14 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
       useCardStore.getState().importCards(
         Object.fromEntries(cards.map(c => [c.id, c]))
       )
+
+      const importedTags = new Set<string>()
+      for (const card of cards) {
+        if (card.tags) for (const t of card.tags) importedTags.add(t)
+      }
+      if (importedTags.size > 0) {
+        useTagStore.getState().ensureTags(Array.from(importedTags), { flomoSynced: true })
+      }
 
       // 等待 syncEngine 将卡片写入磁盘后再保存同步状态
       // 防止进程崩溃/退出时卡片未落盘但 slug 已记录导致数据丢失

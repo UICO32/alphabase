@@ -14,6 +14,9 @@ interface LibraryStore {
   webviewSourceCardId: string | null
   setWebviewUrl: (url: string | null, cardId?: string | null) => void
 
+  tagFilter: string | null
+  setTagFilter: (tag: string | null) => void
+
   zoom: number
   setZoom: (zoom: number) => void
 
@@ -27,6 +30,7 @@ export const useLibraryStore = create<LibraryStore>()(
     searchMode: 'hybrid',
     webviewUrl: null,
     webviewSourceCardId: null,
+    tagFilter: null,
     zoom: 1,
     transform: [0, 0, 1],
 
@@ -37,6 +41,8 @@ export const useLibraryStore = create<LibraryStore>()(
       webviewUrl: url,
       webviewSourceCardId: cardId ?? null,
     }),
+
+    setTagFilter: (tag) => set({ tagFilter: tag }),
 
     setZoom: (zoom) => set({ zoom }),
     setTransform: (transform) => set({ transform }),

@@ -3,6 +3,7 @@ import type { DefaultReactSuggestionItem } from '@blocknote/react'
 import type { BlockNoteEditor } from '@blocknote/core'
 import { filterSuggestionItems } from './blocknoteSchema'
 import { useCardStore } from '../../stores/cardStore'
+import { useTagStore } from '../../stores/tagStore'
 
 interface TagSuggestionItem extends DefaultReactSuggestionItem {
   tagName: string
@@ -10,22 +11,13 @@ interface TagSuggestionItem extends DefaultReactSuggestionItem {
 
 export function TagSuggestionMenu({ editor, cardId }: { editor: BlockNoteEditor<any, any, any>; cardId?: string }) {
   const getItems = async (query: string) => {
-    const cards = useCardStore.getState().cards
-    const tagSet = new Set<string>()
-    for (const card of Object.values(cards)) {
-      if (card.tags) {
-        for (const tag of card.tags) {
-          tagSet.add(tag)
-        }
-      }
-    }
+    const sorted = useTagStore.getState().getTagsSortedByUsage()
 
-    const allItems: TagSuggestionItem[] = Array.from(tagSet)
-      .sort()
-      .map(tagName => ({
-        title: tagName,
-        subtext: '标签',
-        tagName,
+    const allItems: TagSuggestionItem[] = sorted
+      .map(t => ({
+        title: t.name,
+        subtext: t.flomoSynced ? `${t.count} 张卡片 · flomo` : `${t.count} 张卡片`,
+        tagName: t.name,
         icon: (
           <span style={{ color: '#8b5cf6', fontWeight: 600, fontSize: '13px' }}>#</span>
         ),
@@ -33,23 +25,58 @@ export function TagSuggestionMenu({ editor, cardId }: { editor: BlockNoteEditor<
           editor.insertInlineContent([
             {
               type: 'tag',
-              props: { tagName },
-              content: [{ type: 'text', text: tagName, styles: {} }],
+              props: { tagName: t.name },
+              content: [{ type: 'text', text: t.name, styles: {} }],
             },
           ])
-          // Also add tag to current card's tags array if cardId provided
           if (cardId) {
             const card = useCardStore.getState().cards[cardId]
-            if (card && (!card.tags || !card.tags.includes(tagName))) {
+            if (card && (!card.tags || !card.tags.includes(t.name))) {
               useCardStore.getState().updateCard(cardId, {
-                tags: [...(card.tags || []), tagName],
+                tags: [...(card.tags || []), t.name],
               })
+              useTagStore.getState().ensureTag(t.name)
             }
           }
         },
       }))
 
-    return filterSuggestionItems(allItems, query)
+    // If query doesn't match any existing tag, offer to create
+    const filtered = filterSuggestionItems(allItems, query)
+    if (query.trim() && allItems.every(t => t.tagName !== query.trim())) {
+      const newTagName = query.trim()
+      return [
+        {
+          title: newTagName,
+          subtext: '创建新标签',
+          tagName: newTagName,
+          icon: (
+            <span style={{ color: '#22c55e', fontWeight: 600, fontSize: '13px' }}>+</span>
+          ),
+          onItemClick: () => {
+            useTagStore.getState().ensureTag(newTagName)
+            editor.insertInlineContent([
+              {
+                type: 'tag',
+                props: { tagName: newTagName },
+                content: [{ type: 'text', text: newTagName, styles: {} }],
+              },
+            ])
+            if (cardId) {
+              const card = useCardStore.getState().cards[cardId]
+              if (card && (!card.tags || !card.tags.includes(newTagName))) {
+                useCardStore.getState().updateCard(cardId, {
+                  tags: [...(card.tags || []), newTagName],
+                })
+              }
+            }
+          },
+        },
+        ...filtered,
+      ]
+    }
+
+    return filtered
   }
 
   return (

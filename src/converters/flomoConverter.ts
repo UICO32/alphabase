@@ -136,6 +136,63 @@ function parseMarkdownToBlocks(md: string): Record<string, unknown>[] {
   return blocks
 }
 
+/**
+ * Match #tag patterns: # followed by non-whitespace, non-# characters.
+ * Avoids matching Markdown heading # (must be at line start or preceded by whitespace/punctuation).
+ */
+const TAG_PATTERN = /(?:^|[\s(（【])#([^\s#()（）【】、，。.;:!?，。；：！？]+)/g
+
+/** Extract tag names from markdown text, reversing turndown's `\_` → `_` */
+function extractTagsFromMarkdown(md: string): string[] {
+  const tags = new Set<string>()
+  let m: RegExpExecArray | null
+  const re = new RegExp(TAG_PATTERN.source, 'g')
+  while ((m = re.exec(md)) !== null) {
+    const name = m[1].replace(/\\_/g, '_').trim()
+    if (name) tags.add(name)
+  }
+  return Array.from(tags)
+}
+
+/** Convert `#tag` segments in plain text to tag inline content nodes */
+function injectTagInline(text: string): Record<string, unknown>[] {
+  const result: Record<string, unknown>[] = []
+  let lastIndex = 0
+  const re = new RegExp(TAG_PATTERN.source, 'g')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    const prefix = text.slice(lastIndex, m.index + m[0].indexOf('#'))
+    if (prefix) result.push({ type: 'text', text: prefix, styles: {} })
+    const tagName = m[1].replace(/\\_/g, '_').trim()
+    result.push({
+      type: 'tag',
+      props: { tagName },
+      content: [{ type: 'text', text: tagName, styles: {} }],
+    })
+    lastIndex = m.index + m[0].length
+  }
+  if (lastIndex < text.length) {
+    result.push({ type: 'text', text: text.slice(lastIndex), styles: {} })
+  }
+  return result.length > 0 ? result : [{ type: 'text', text, styles: {} }]
+}
+
+/** Walk blocks and replace plain-text content with tag inline nodes where applicable */
+function injectTagInlineIntoBlocks(blocks: Record<string, unknown>[]): void {
+  for (const block of blocks) {
+    const type = block.type as string
+    if (!['paragraph', 'heading', 'quote', 'bulletListItem', 'numberedListItem'].includes(type)) continue
+    const content = block.content as Record<string, unknown>[] | undefined
+    if (!content || content.length !== 1) continue
+    const node = content[0]
+    if (node?.type !== 'text') continue
+    const newContent = injectTagInline((node.text as string) || '')
+    if (newContent.length > 1 || newContent[0]?.type === 'tag') {
+      block.content = newContent
+    }
+  }
+}
+
 export function convertFlomoMemo(memo: FlomoMemo): ConvertedCard {
   const imageUrls = (memo.files || [])
     .filter(f => f.type?.startsWith('image/'))
@@ -143,7 +200,12 @@ export function convertFlomoMemo(memo: FlomoMemo): ConvertedCard {
 
   const markdown = turndown.turndown(memo.content || '')
   const blocks = parseMarkdownToBlocks(markdown)
-  const tags = (memo.tags || []).map(t => t.name)
+  injectTagInlineIntoBlocks(blocks)
+
+  // Merge memo.tags with tags extracted from body text
+  const bodyTags = extractTagsFromMarkdown(markdown)
+  const memoTags = (memo.tags || []).map(t => t.name)
+  const tags = [...new Set([...bodyTags, ...memoTags])]
 
   const firstText = memo.content?.replace(/<[^>]+>/g, '').trim() || ''
   const title = firstText.slice(0, 50) || `flomo ${memo.slug}`

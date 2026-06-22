@@ -4,6 +4,7 @@ import type { Node } from '@xyflow/react'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
 import { useViewStore } from '../../stores/viewStore'
+import { useLibraryStore } from '../../stores/libraryStore'
 import { getCardFill, getCardStroke, getCardTextColor } from './utils/cardStyles'
 import { connectionMediator } from './utils/connectionMediator'
 import { registerEditorHandle, clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
@@ -147,8 +148,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     useViewStore.getState().openCardEditor(targetCardId)
   }, [])
 
-  const handleTagClick = useCallback((_tagName: string) => {
-    // Future: navigate to tag filter view
+  const handleTagClick = useCallback((tagName: string) => {
+    useLibraryStore.getState().setTagFilter(tagName)
+    useViewStore.getState().setViewMode('cards')
   }, [])
 
   const getNodeSize = useCallback((node: Node) => {

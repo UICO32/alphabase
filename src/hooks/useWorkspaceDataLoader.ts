@@ -4,6 +4,7 @@ import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useTagStore } from '../stores/tagStore'
 import { useEvent } from './useEvent'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/workspace/migrateFromLocalStorage'
@@ -157,9 +158,10 @@ export function useWorkspaceDataLoader() {
     ])
     stepTime('cards+boards-loaded')
 
-    // 订阅在 reloadFromDB 之后设置：subscribeCardStore 的 prevCardsMap 需捕获已加载卡片，
-    // 否则首次回调会把全部卡片视为新增而触发重复写入。订阅独立于组件生命周期。
+    // 订阅在 reloadFromDB 之后设置
     setupSubscriptions(syncEngine)
+    // 加载标签库（非关键路径，失败不影响主流程）
+    useTagStore.getState().loadState().catch(() => {})
 
     emitStartupProgress('加载画板...', 2, 4)
 
