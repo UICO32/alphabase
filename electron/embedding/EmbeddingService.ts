@@ -263,6 +263,18 @@ export class EmbeddingService {
     return true
   }
 
+  /**
+   * Remove a single card's vector from the store. Used when a card is
+   * deleted/soft-deleted in the UI so that 3D clustering doesn't keep
+   * rendering a ghost house for it. Persists immediately.
+   */
+  removeVector(cardId: string): boolean {
+    if (!this.store.docs[cardId]) return false
+    delete this.store.docs[cardId]
+    this.saveStore()
+    return true
+  }
+
   private cleanStaleVectors(currentCardIds: Set<string>): number {
     let removed = 0
     for (const docId of Object.keys(this.store.docs)) {

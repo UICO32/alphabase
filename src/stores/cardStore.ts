@@ -3,6 +3,7 @@ import { useCallback } from 'react'
 import { renderBlocksToHTML } from '../converters/renderBlocks'
 import { flushActiveSyncEngine } from '../sync/syncEngineRef'
 import { useEditorHistoryStore } from './editorHistoryStore'
+import { embeddingStore } from './embeddingStore'
 import type { CardColor } from '../types/card'
 
 export interface GlobalCard {
@@ -47,10 +48,13 @@ export const useCardStore = create<CardStore>()(
     addCard: (card) => {
       set((state) => ({ cards: { ...state.cards, [card.id]: card } }))
       flushActiveSyncEngine()
+      // New card — queue incremental indexing
+      embeddingStore.getState().indexCardDebounced(card.id)
     },
 
     updateCard: (id, props) => {
       useEditorHistoryStore.getState().consumeUndoFlag(id)
+      const contentOrTitleChanged = 'content' in props || 'title' in props
       set((state) => {
         const existing = state.cards[id]
         if (!existing) return state
@@ -60,6 +64,10 @@ export const useCardStore = create<CardStore>()(
         }
         return { cards: { ...state.cards, [id]: updated } }
       })
+      // Content/title changes affect the vector — debounced re-index
+      if (contentOrTitleChanged) {
+        embeddingStore.getState().indexCardDebounced(id)
+      }
     },
 
     deleteCard: (id) => {
@@ -68,6 +76,8 @@ export const useCardStore = create<CardStore>()(
         delete next[id]
         return { cards: next }
       })
+      // Clear the vector immediately so 3D clustering drops the ghost house
+      void embeddingStore.getState().removeVector(id)
     },
 
     softDeleteCard: (id) => {
@@ -76,6 +86,7 @@ export const useCardStore = create<CardStore>()(
         if (!existing) return state
         return { cards: { ...state.cards, [id]: { ...existing, deletedAt: Date.now() } } }
       })
+      void embeddingStore.getState().removeVector(id)
     },
 
     restoreCard: (id) => {
@@ -85,6 +96,8 @@ export const useCardStore = create<CardStore>()(
         const { deletedAt, ...rest } = existing
         return { cards: { ...state.cards, [id]: rest as GlobalCard } }
       })
+      // Restored card needs to be re-vectorized
+      embeddingStore.getState().indexCardDebounced(id)
     },
 
     importCards: (cards) => {

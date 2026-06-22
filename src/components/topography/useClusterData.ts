@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { embeddingStore } from '../../stores/embeddingStore'
+import { embeddingStore, type ClusterResult } from '../../stores/embeddingStore'
 import { useBoardStore } from '../../stores/boardStore'
 import { useCardStore } from '../../stores/cardStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
@@ -52,6 +52,32 @@ async function writeCache(wsPath: string, peaks: TopicPeak[], cardCount: number,
   }
 }
 
+// Build peaks from a cluster result using the current board/card snapshot.
+// Kept module-level so both the initial load path and the clusterResult
+// subscription rebuild peaks through the same single entry point.
+function buildPeaksFromResult(result: ClusterResult): TopicPeak[] {
+  const board = useBoardStore.getState()
+  const cards = useCardStore.getState()
+  const cardPositions: Record<string, { x: number; y: number }> = {}
+  const cardLabels: Record<string, string> = {}
+
+  const activeBoardId = board.activeBoardId
+  if (activeBoardId) {
+    const boardData = board.getBoardData(activeBoardId)
+    if (boardData) {
+      for (const node of boardData.nodes) {
+        if (node.type === 'card' && node.data?.cardId) {
+          cardPositions[node.data.cardId as string] = { x: node.position.x, y: node.position.y }
+        }
+      }
+    }
+  }
+  for (const [id, card] of Object.entries(cards.cards)) {
+    cardLabels[id] = card.title || '未命名'
+  }
+  return buildTopicPeaks(result.clusters, result.orphanCards, cardPositions, cardLabels)
+}
+
 export function useClusterData() {
   const [peaks, setPeaks] = useState<TopicPeak[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,7 +103,9 @@ export function useClusterData() {
       setLoading(false)
     }
 
-    // 2. Ensure embedding store loaded, then cluster in background
+    // 2. Ensure embedding store loaded, then trigger clustering. Peaks are
+    //    rebuilt by the clusterResult subscription below — refresh() only
+    //    kicks off the cluster() call so there's a single peaks entry point.
     try {
       const store = embeddingStore.getState()
       if (!store.storeLoaded) {
@@ -85,7 +113,20 @@ export function useClusterData() {
         await store.init(wsPath)
       }
 
-      runClusteringAsync(cached)
+      // Check model availability
+      const status = await window.electronAPI.embedding.getStatus()
+      if (!status.modelAvailable) {
+        if (!cached) setLoading(false)
+        return
+      }
+
+      const result = await store.cluster(2)
+      // result non-empty → clusterResult was set, the subscription rebuilds peaks.
+      // Empty/failed result with no cache → show a friendly "indexing" hint.
+      if (!result && peaksRef.current.length === 0 && !cached) {
+        setError('正在索引卡片…')
+        setLoading(false)
+      }
     } catch (err: any) {
       console.error('[topography] error:', err)
       if (!cached) {
@@ -94,74 +135,6 @@ export function useClusterData() {
       }
     }
   }, [])
-
-  async function runClusteringAsync(cached: CachedTopography | null) {
-    try {
-      const store = embeddingStore.getState()
-      const allCardIds = Object.keys(useCardStore.getState().cards)
-      const currentCardCount = allCardIds.length
-      const currentHash = hashCardIds(allCardIds)
-
-      // Skip re-clustering if cache is fresh
-      if (cached && cached.cardIdHash === currentHash) {
-        console.log('[topography] cache is fresh (same cards), skip clustering')
-        renameWithLLM()
-        return
-      }
-
-      console.log('[topography] clustering...')
-
-      const result = await store.cluster(2)
-      if (!result) {
-        if (peaks.length === 0) {
-          setError('Clustering failed — no vectors available')
-          setLoading(false)
-        }
-        return
-      }
-
-      console.log('[topography] cluster result:', result.clusters.length, 'clusters,', result.orphanCards.length, 'orphans')
-
-      const board = useBoardStore.getState()
-      const cards = useCardStore.getState()
-      const cardPositions: Record<string, { x: number; y: number }> = {}
-      const cardLabels: Record<string, string> = {}
-
-      const activeBoardId = board.activeBoardId
-      if (activeBoardId) {
-        const boardData = board.getBoardData(activeBoardId)
-        if (boardData) {
-          for (const node of boardData.nodes) {
-            if (node.type === 'card' && node.data?.cardId) {
-              cardPositions[node.data.cardId as string] = { x: node.position.x, y: node.position.y }
-            }
-          }
-        }
-      }
-
-      for (const [id, card] of Object.entries(cards.cards)) {
-        cardLabels[id] = card.title || '未命名'
-      }
-
-      const built = buildTopicPeaks(result.clusters, result.orphanCards, cardPositions, cardLabels)
-
-      // Update peaks and persist cache
-      setPeaks(built)
-      setLoading(false)
-
-      const wsPath = wsPathRef.current
-      if (wsPath) writeCache(wsPath, built, currentCardCount, currentHash)
-
-      // 3. LLM naming runs last
-      renameWithLLM()
-    } catch (err: any) {
-      console.error('[topography] clustering error:', err)
-      if (peaks.length === 0) {
-        setError(err.message)
-        setLoading(false)
-      }
-    }
-  }
 
   async function renameWithLLM() {
     const electronAPI = (window as any).electronAPI
@@ -216,6 +189,28 @@ export function useClusterData() {
 
   const peaksRef = useRef<TopicPeak[]>([])
   peaksRef.current = peaks
+
+  // Subscribe to clusterResult changes — the SINGLE entry point for rebuilding
+  // peaks. Initial load, manual refresh, and incremental re-index all flow
+  // through here so peaks stay consistent across paths.
+  useEffect(() => {
+    const unsub = embeddingStore.subscribe((state, prev) => {
+      if (state.clusterResult && state.clusterResult !== prev.clusterResult) {
+        const built = buildPeaksFromResult(state.clusterResult)
+        setPeaks(built)
+        setLoading(false)
+        setError(null)
+
+        const wsPath = wsPathRef.current
+        if (wsPath) {
+          const allCardIds = Object.keys(useCardStore.getState().cards)
+          void writeCache(wsPath, built, allCardIds.length, hashCardIds(allCardIds))
+        }
+        void renameWithLLM()
+      }
+    })
+    return unsub
+  }, [])
 
   useEffect(() => {
     refresh()

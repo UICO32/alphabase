@@ -47,19 +47,75 @@ export interface EmbeddingState {
   threshold: number
   clusterResult: ClusterResult | null
 
+  // Download state
+  downloading: boolean
+  downloadProgress: number
+  downloadCurrentFile: string
+
   init: (workspacePath: string) => Promise<void>
   startIndexing: () => Promise<void>
   cancelIndexing: () => Promise<void>
   indexCard: (cardId: string) => Promise<boolean>
+  indexCardDebounced: (cardId: string, delay?: number) => void
+  removeVector: (cardId: string) => Promise<void>
   cluster: (minClusterSize?: number, clusterThreshold?: number) => Promise<ClusterResult | null>
   searchRelated: (cardId: string, topK?: number) => Promise<void>
   searchByText: (query: string, topK?: number) => Promise<void>
   clearResults: () => void
   setThreshold: (value: number) => Promise<void>
   checkStatus: () => Promise<void>
+  ensureIndexed: (workspacePath: string, timeoutMs?: number) => Promise<void>
+  downloadModel: () => Promise<void>
+  cancelDownload: () => Promise<void>
+  checkDownloadConfig: () => Promise<{ configured: boolean; modelDir: string }>
 }
 
-export const embeddingStore = createStore<EmbeddingState>()((set, _get) => ({
+// Module-level debounce state for incremental indexing. Kept outside the
+// store shape so it doesn't trigger re-renders on every keystroke.
+let indexDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const pendingIndexCardIds = new Set<string>()
+let isFlushing = false
+
+export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
+  // Flush all pending incremental index cards, then re-cluster so the 3D
+  // view picks up the new vectors. If the model isn't ready yet, the ids
+  // are put back into pending for the next flush to retry.
+  const flushPendingIndex = async () => {
+    if (isFlushing) return
+    isFlushing = true
+    indexDebounceTimer = null
+    const ids = [...pendingIndexCardIds]
+    pendingIndexCardIds.clear()
+    if (ids.length === 0) { isFlushing = false; return }
+
+    try {
+      const status = await window.electronAPI.embedding.getStatus()
+      if (!status.initialized) {
+        // Model not ready yet — put ids back so the next flush retries
+        for (const id of ids) pendingIndexCardIds.add(id)
+        return
+      }
+
+      let anySuccess = false
+      for (const id of ids) {
+        try {
+          const result = await window.electronAPI.embedding.indexCard(id)
+          if (result.success) anySuccess = true
+        } catch {
+          // A single card failing shouldn't abort the rest
+        }
+      }
+      if (anySuccess) {
+        await get().cluster()
+      }
+    } catch (err) {
+      console.warn('[embeddingStore] flush index failed:', err)
+    } finally {
+      isFlushing = false
+    }
+  }
+
+  return {
   initialized: false,
   modelLoaded: false,
   storeLoaded: false,
@@ -76,6 +132,10 @@ export const embeddingStore = createStore<EmbeddingState>()((set, _get) => ({
   searching: false,
   threshold: 0.45,
   clusterResult: null,
+
+  downloading: false,
+  downloadProgress: 0,
+  downloadCurrentFile: '',
 
   init: async (workspacePath: string) => {
     try {
@@ -214,7 +274,92 @@ export const embeddingStore = createStore<EmbeddingState>()((set, _get) => ({
       // checkStatus 失败不影响主流程
     }
   },
-}))
+
+  indexCardDebounced: (cardId: string, delay = 1500) => {
+    pendingIndexCardIds.add(cardId)
+    if (indexDebounceTimer) clearTimeout(indexDebounceTimer)
+    indexDebounceTimer = setTimeout(() => {
+      void flushPendingIndex()
+    }, delay)
+  },
+
+  removeVector: async (cardId: string) => {
+    try {
+      await window.electronAPI.embedding.removeVector(cardId)
+      const status = await window.electronAPI.embedding.getStatus()
+      if (status.docCount > 0 || status.initialized) {
+        await get().cluster()
+      }
+    } catch (err) {
+      console.warn('[embeddingStore] removeVector failed:', err)
+    }
+  },
+
+  ensureIndexed: async (_workspacePath: string, timeoutMs = 30000) => {
+    const store = get()
+    if (store.indexing) return
+
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      const status = await window.electronAPI.embedding.getStatus()
+      if (status.initialized) break
+      await new Promise(r => setTimeout(r, 500))
+    }
+
+    const latest = get()
+    if (!latest.indexed && !latest.indexing) {
+      try {
+        await latest.startIndexing()
+      } catch (err: any) {
+        console.warn('[embeddingStore] ensureIndexed failed:', err.message)
+      }
+    }
+  },
+
+  downloadModel: async () => {
+    set({ downloading: true, downloadProgress: 0, downloadCurrentFile: '' })
+
+    const offProgress = window.electronAPI.embedding.onDownloadProgress((data) => {
+      set({ downloadProgress: data.progress, downloadCurrentFile: data.currentFile })
+    })
+
+    let cleanedUp = false
+    const cleanup = () => {
+      if (cleanedUp) return
+      cleanedUp = true
+      offProgress()
+      offComplete()
+      offError()
+    }
+
+    const offComplete = window.electronAPI.embedding.onDownloadComplete((data) => {
+      set({ downloading: false, modelAvailable: data.success, downloadProgress: 100 })
+      cleanup()
+    })
+
+    const offError = window.electronAPI.embedding.onDownloadError((data) => {
+      console.error('[embeddingStore] download error:', data.message)
+      set({ downloading: false, downloadProgress: 0 })
+      cleanup()
+    })
+
+    const result = await window.electronAPI.embedding.downloadModel()
+    if (result.error) {
+      set({ downloading: false, downloadProgress: 0 })
+      cleanup()
+    }
+  },
+
+  cancelDownload: async () => {
+    await window.electronAPI.embedding.cancelDownload()
+    set({ downloading: false, downloadProgress: 0 })
+  },
+
+  checkDownloadConfig: async () => {
+    return await window.electronAPI.embedding.getDownloadConfig()
+  },
+  }
+})
 
 export function useEmbeddingStore(): EmbeddingState {
   return useStore(embeddingStore)

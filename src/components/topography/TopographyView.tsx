@@ -1,15 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useContourScene } from './useContourScene'
 import { useClusterData } from './useClusterData'
+import { useEmbeddingStore } from '../../stores/embeddingStore'
 import { useCardStore } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
 import type { TopicPeak } from './types'
 
+
+
 const DARK_BG = 0x00000f
 const LIGHT_BG = 0xf5f5f0
+
+// DIN family: DIN Alternate (macOS), DIN 1451 (some installs), Oswald as the
+// Google Fonts geometric fallback so Windows/Linux don't drop to plain Helvetica.
+const DIN_FONT = "'DIN Alternate', 'DIN 1451', DIN, Oswald, 'Helvetica Neue', sans-serif"
 
 const DARK_COLORS = {
   bg: DARK_BG, fog: 0x00000f, fogDensity: 0.018,
@@ -329,6 +336,26 @@ function updateSilhouette(house: HouseData, camDir: THREE.Vector3) {
 
   posAttr.needsUpdate = true
   house.outlineMesh.geometry.setDrawRange(0, segCount * 2)
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+      <span style={{
+        fontFamily: DIN_FONT, fontSize: 52, fontWeight: 100,
+        color: '#000', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+        letterSpacing: -1,
+      }}>{value}</span>
+      <span style={{
+        fontFamily: DIN_FONT, fontSize: 13, fontWeight: 100,
+        color: 'rgba(0,0,0,0.5)', lineHeight: 1, letterSpacing: 1,
+      }}>{label}</span>
+    </div>
+  )
+}
+
+function Sep() {
+  return <div style={{ width: 1, height: 48, background: 'rgba(0,0,0,0.1)', marginBottom: 16 }} />
 }
 
 export function TopographyView() {
@@ -848,8 +875,82 @@ export function TopographyView() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
   const C = isDark ? DARK_COLORS : LIGHT_COLORS
 
+  const { downloading, indexing, startIndexing, progress, total } = useEmbeddingStore()
+
+  const cardsObj = useCardStore(s => s.cards)
+  const stats = useMemo(() => {
+    const cardIds = Object.keys(cardsObj)
+    let days = 0
+    if (cardIds.length > 0) {
+      const now = Date.now()
+      let earliest = now
+      for (const id of cardIds) {
+        const t = cardsObj[id]?.createdAt
+        if (t && t < earliest) earliest = t
+      }
+      days = Math.max(1, Math.ceil((now - earliest) / 86400000))
+    }
+    return { cardCount: cardIds.length, topicCount: peaks.length, days }
+  }, [cardsObj, peaks])
+
+  const handleRefresh = () => {
+    if (indexing || downloading) return
+    void startIndexing()
+  }
+
+  const indexPct = total > 0 ? Math.min(Math.round((progress / total) * 100), 100) : 0
+  const indexIndeterminate = indexing && total === 0
+
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: `#${C.bg.toString(16).padStart(6, '0')}` }}>
+      <style>{`
+        @keyframes topography-spin { to { transform: rotate(360deg); } }
+        @keyframes topography-pulse { 0%,100% { opacity: 0.4; transform: translateX(0); } 50% { opacity: 1; transform: translateX(270%); } }
+      `}</style>
+      {/* Top-center data dashboard + manual index button. Numbers float on
+          the canvas with no background; pointerEvents:none so OrbitControls
+          stays draggable, with the button re-enabling pointer events. */}
+      <div style={{
+        position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+        pointerEvents: 'none',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28 }}>
+          <Stat value={stats.cardCount} label="张卡片" />
+          <Sep />
+          <Stat value={stats.topicCount} label="个主题" />
+          <Sep />
+          <Stat value={stats.days} label="天记录" />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+          <button onClick={handleRefresh} disabled={indexing || downloading}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: indexing ? 'rgba(20,20,20,0.5)' : '#0a0a0a',
+              color: '#fff', border: 'none', borderRadius: 999, padding: '8px 16px',
+              cursor: indexing ? 'wait' : 'pointer',
+              fontFamily: DIN_FONT, fontSize: 11, fontWeight: 400,
+            }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+              style={{ animation: indexing ? 'topography-spin 0.9s linear infinite' : 'none' }}>
+              <path d="M21 12a9 9 0 1 1-3-6.7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
+              <path d="M21 3v5h-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {indexing ? '索引中' : '索引卡片'}
+          </button>
+          {indexing && (
+            <div style={{ width: 180, height: 3, background: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden' }}>
+              {indexIndeterminate ? (
+                <div style={{ width: '40%', height: '100%', background: C.compassColor,
+                  animation: 'topography-pulse 1.2s ease-in-out infinite' }} />
+              ) : (
+                <div style={{ width: `${indexPct}%`, height: '100%', background: C.compassColor,
+                  transition: 'width .3s ease' }} />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
       {loading && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',

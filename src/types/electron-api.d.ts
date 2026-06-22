@@ -74,6 +74,7 @@ declare global {
           success: boolean
           error?: string
         }>
+        removeVector: (cardId: string) => Promise<{ success: boolean; error?: string }>
         cluster: (minClusterSize?: number, clusterThreshold?: number) => Promise<{
           clusters: Array<{
             id: string
@@ -99,9 +100,15 @@ declare global {
         }>
         checkModel: () => Promise<{ available: boolean }>
         setThreshold: (value: number) => Promise<{ success: boolean }>
+        downloadModel: () => Promise<{ success?: boolean; error?: string }>
+        cancelDownload: () => Promise<{ cancelled: boolean }>
+        getDownloadConfig: () => Promise<{ configured: boolean; modelDir: string }>
         onProgress: (callback: (data: { current: number; total: number }) => void) => () => void
         onComplete: (callback: (data: { totalCards: number; newIndexed: number; skipped: number; removed: number }) => void) => () => void
         onError: (callback: (data: { message: string }) => void) => () => void
+        onDownloadProgress: (callback: (data: { progress: number; currentFile: string }) => void) => () => void
+        onDownloadComplete: (callback: (data: { success: boolean }) => void) => () => void
+        onDownloadError: (callback: (data: { message: string; cancelled?: boolean }) => void) => () => void
       }
       startup: {
         log: (data: any) => Promise<void>

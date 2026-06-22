@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     init: (workspacePath: string) => ipcRenderer.invoke('embedding:init', workspacePath),
     indexAll: () => ipcRenderer.invoke('embedding:indexAll'),
     indexCard: (cardId: string) => ipcRenderer.invoke('embedding:indexCard', cardId),
+    removeVector: (cardId: string) => ipcRenderer.invoke('embedding:removeVector', cardId),
     cluster: (minClusterSize?: number) => ipcRenderer.invoke('embedding:cluster', minClusterSize),
     search: (cardId: string, topK?: number) => ipcRenderer.invoke('embedding:search', { cardId, topK }),
     searchByText: (query: string, topK?: number) => ipcRenderer.invoke('embedding:searchByText', { query, topK }),
@@ -50,6 +51,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatus: () => ipcRenderer.invoke('embedding:getStatus'),
     checkModel: () => ipcRenderer.invoke('embedding:checkModel'),
     setThreshold: (value: number) => ipcRenderer.invoke('embedding:setThreshold', { value }),
+    downloadModel: () => ipcRenderer.invoke('embedding:downloadModel'),
+    cancelDownload: () => ipcRenderer.invoke('embedding:cancelDownload'),
+    getDownloadConfig: () => ipcRenderer.invoke('embedding:getDownloadConfig'),
     onProgress: (callback: (data: any) => void) => {
       const handler = (_e: any, data: any) => callback(data)
       ipcRenderer.on('embedding:progress', handler)
@@ -64,6 +68,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const handler = (_e: any, data: any) => callback(data)
       ipcRenderer.on('embedding:error', handler)
       return () => ipcRenderer.removeListener('embedding:error', handler as any)
+    },
+    onDownloadProgress: (callback: (data: { progress: number; currentFile: string }) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('embedding:download-progress', handler)
+      return () => ipcRenderer.removeListener('embedding:download-progress', handler as any)
+    },
+    onDownloadComplete: (callback: (data: { success: boolean }) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('embedding:download-complete', handler)
+      return () => ipcRenderer.removeListener('embedding:download-complete', handler as any)
+    },
+    onDownloadError: (callback: (data: { message: string; cancelled?: boolean }) => void) => {
+      const handler = (_e: any, data: any) => callback(data)
+      ipcRenderer.on('embedding:download-error', handler)
+      return () => ipcRenderer.removeListener('embedding:download-error', handler as any)
     },
   },
   ai: {
