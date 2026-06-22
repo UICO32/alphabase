@@ -22,7 +22,6 @@ interface CropOverlayProps {
 
 export function CropOverlay({
   target,
-  surface,
   cropRect,
   onCropRectChange,
   onApplyCrop,

@@ -1,6 +1,5 @@
 import { spawn, execFile } from 'child_process'
 import { access } from 'fs/promises'
-import { log } from './logger'
 
 export interface CliExecOptions {
   command: string

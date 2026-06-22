@@ -16,10 +16,10 @@ vi.mock('../utils/workspace/fs', () => ({
 import { exists, readdir, mkdir, deleteFile, writeFile } from '../utils/workspace/fs'
 
 const mockExists = vi.mocked(exists)
-const mockReaddir = vi.mocked(readdir)
-const mockMkdir = vi.mocked(mkdir)
-const mockDeleteFile = vi.mocked(deleteFile)
-const mockWriteFile = vi.mocked(writeFile)
+vi.mocked(readdir)
+vi.mocked(mkdir)
+vi.mocked(deleteFile)
+vi.mocked(writeFile)
 
 describe('backupStore', () => {
   beforeEach(() => {

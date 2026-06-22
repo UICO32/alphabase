@@ -20,7 +20,6 @@ export function ToolbarActions({
   onCopy,
   onDownload,
   onCrop,
-  surface,
   cropping,
   toolbarRef,
   onMouseEnter,

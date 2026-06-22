@@ -34,6 +34,7 @@ app.commandLine.appendSwitch('disable-features', 'NetworkServiceSandbox')
 const __t0 = Date.now()
 let __t1 = 0
 let __t2 = 0
+let dataReadyArrived = false
 
 function logInfo(message: string) {
   if (!app.isPackaged) console.log(message)
@@ -109,8 +110,6 @@ function createWindow() {
       startupLog(`renderer console [${level}]: ${message}`)
     }
   })
-
-  let dataReadyArrived = false
 
   mainWindow.once('ready-to-show', () => {
     __t2 = Date.now()
