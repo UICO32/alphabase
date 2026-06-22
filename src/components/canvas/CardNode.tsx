@@ -19,7 +19,6 @@ import { CardActionBar } from './card/CardActionBar'
 import { CardContent } from './card/CardContent'
 import { CollapsedContent } from './card/CollapsedContent'
 import { MiniCard } from './card/MiniCard'
-import { SummaryButton } from './card/SummaryButton'
 import { ZoomPreview } from './card/ZoomPreview'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
@@ -451,11 +450,26 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
       <CardHandles />
 
-      <SummaryButton
-        color={data.color}
-        visible={isHovered || !!selected}
-        cardId={data.cardId}
-      />
+      {/*
+        AI 按钮悬停热区：覆盖卡片右上角外部（AI 按钮所在区域），
+        作为卡片的子元素，鼠标进入此区域不会触发卡片的 mouseleave，
+        从而在移向 AI 按钮时保持 hover 态。
+        仅在可交互时渲染，避免遮挡相邻卡片。
+      */}
+      {(isHovered || selected || hasSummaryBubble) && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: -32,
+            right: -44,
+            width: 56,
+            height: 40,
+            zIndex: 199,
+            pointerEvents: 'auto',
+          }}
+        />
+      )}
 
       <CardActionBar
         cardId={data.cardId}

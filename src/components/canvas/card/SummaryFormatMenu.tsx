@@ -6,7 +6,7 @@ import { type SummaryFormat } from '../../../stores/aiStore'
 
 interface SummaryFormatMenuProps {
   color: CardColor
-  triggerRef: React.RefObject<HTMLDivElement | null>
+  triggerRef: React.RefObject<HTMLElement | null>
   currentFormat: SummaryFormat
   onSelect: (format: SummaryFormat) => void
   onClose: () => void

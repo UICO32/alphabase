@@ -111,4 +111,23 @@ html, body, #root {
 .react-flow__resize-control.handle {
   z-index: 102;
 }
+
+/* 卡片操作按钮 — hover/active 用 color-mix 透明叠加，亮暗模式自适应 */
+.action-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--fg-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+.action-icon-btn:hover {
+  background: color-mix(in srgb, var(--fg-primary) 8%, transparent);
+  color: var(--fg-primary);
+}
+.action-icon-btn:active {
+  background: color-mix(in srgb, var(--fg-primary) 12%, transparent);
+}
   

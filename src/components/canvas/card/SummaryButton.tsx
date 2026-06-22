@@ -15,7 +15,7 @@ interface SummaryButtonProps {
 export function SummaryButton({ color, visible, cardId }: SummaryButtonProps) {
   const [bubbleOpen, setBubbleOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   const isStreaming = useAIStore(s => s.isStreaming)
   const streamingCardId = useAIStore(s => s.streamingCardId)
@@ -91,65 +91,49 @@ export function SummaryButton({ color, visible, cardId }: SummaryButtonProps) {
 
   return (
     <>
-      <div
-        ref={containerRef}
-        className="absolute z-20"
+      <button
+        ref={buttonRef}
+        className="action-icon-btn"
         style={{
-          top: -16,
-          right: -16,
-          width: 52,
-          height: 32,
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'flex-end',
-          gap: 1,
-          opacity: show ? 1 : 0,
-          pointerEvents: show ? 'auto' : 'none',
-          transition: 'opacity 0.15s',
+          width: 24,
+          height: 24,
+          cursor: 'pointer',
+          color: strokeColor,
+          fontSize: 14,
+          fontWeight: 700,
+          lineHeight: 1,
+          textShadow: '0 0 6px rgba(0,0,0,0.15)',
         }}
+        onClick={handleClickStar}
+        onPointerDown={(e) => e.stopPropagation()}
+        title="AI 摘要"
       >
+        {isThisCardStreaming ? '⋯' : '✦'}
+      </button>
+
+      {show && !bubbleOpen && (
         <button
+          className="action-icon-btn"
           style={{
-            background: 'none',
-            border: 'none',
+            width: 18,
+            height: 24,
             cursor: 'pointer',
             color: strokeColor,
-            fontSize: 14,
-            fontWeight: 700,
+            padding: '4px 1px',
+            opacity: 0.7,
             lineHeight: 1,
-            padding: '4px 2px',
-            textShadow: '0 0 6px rgba(0,0,0,0.15)',
           }}
-          onClick={handleClickStar}
+          onClick={handleClickArrow}
           onPointerDown={(e) => e.stopPropagation()}
-          title="AI 摘要"
         >
-          {isThisCardStreaming ? '⋯' : '✦'}
+          <ChevronDown size={12} />
         </button>
+      )}
 
-        {show && !bubbleOpen && (
-          <button
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: strokeColor,
-              padding: '4px 1px',
-              opacity: 0.7,
-              lineHeight: 1,
-            }}
-            onClick={handleClickArrow}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <ChevronDown size={12} />
-          </button>
-        )}
-      </div>
-
-      {menuOpen && containerRef.current && (
+      {menuOpen && buttonRef.current && (
         <SummaryFormatMenu
           color={color}
-          triggerRef={containerRef}
+          triggerRef={buttonRef}
           currentFormat={format}
           onSelect={handleSelectFormat}
           onClose={() => setMenuOpen(false)}
