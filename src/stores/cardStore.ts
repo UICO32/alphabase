@@ -6,6 +6,22 @@ import { useEditorHistoryStore } from './editorHistoryStore'
 import { embeddingStore } from './embeddingStore'
 import type { CardColor } from '../types/card'
 
+/**
+ * 模块级 HTML 渲染缓存。
+ *
+ * 为什么不用 cardId 做键：内容变化时缓存键必须随之失效，
+ * 用 content 字符串本身做键，内容一变自然落到新键，旧键无需手动清除。
+ *
+ * 为什么不用 store state 持久化：getPreviewHTML 在多个组件 render body 中
+ * 被调用（CardContent / CardActionBar / MiniCard / CollapsedContent），
+ * 写回 store 会触发额外的 setState → 订阅重渲染，反而抵消缓存收益。
+ * 模块级 Map 是被动读取、零订阅开销。
+ *
+ * 仅在缓存未命中时计算一次 renderBlocksToHTML（含 JSON parse + 块序列化），
+ * 命中后所有组件共享同一份 HTML 字符串。
+ */
+const previewHTMLCache = new Map<string, string>()
+
 export interface GlobalCard {
   id: string
   content: string
@@ -130,9 +146,16 @@ export const useCardStore = create<CardStore>()(
     getPreviewHTML: (cardId) => {
       const card = get().cards[cardId]
       if (!card) return undefined
+      // 1) card 上已持久化的 previewHTML 优先（来自 schedulePreviewHTMLGeneration 预生成）
       if (card.previewHTML) return card.previewHTML
       if (!card.content) return undefined
-      return renderBlocksToHTML(card.content)
+      // 2) 模块级缓存：用 content 字符串做键，内容变化自动失效
+      const cached = previewHTMLCache.get(card.content)
+      if (cached !== undefined) return cached
+      // 3) 未命中：计算一次并写回缓存
+      const html = renderBlocksToHTML(card.content)
+      previewHTMLCache.set(card.content, html)
+      return html
     },
 
     // Generate previewHTML for a batch of cards (e.g. visible in library)
@@ -142,7 +165,11 @@ export const useCardStore = create<CardStore>()(
       for (const id of cardIds) {
         const card = state.cards[id]
         if (card && !card.previewHTML && card.content) {
-          updates[id] = { ...card, previewHTML: renderBlocksToHTML(card.content) }
+          // 复用 getPreviewHTML 的缓存路径，避免此处独立计算
+          const html = get().getPreviewHTML(id)
+          if (html !== undefined) {
+            updates[id] = { ...card, previewHTML: html }
+          }
         }
       }
       if (Object.keys(updates).length > 0) {

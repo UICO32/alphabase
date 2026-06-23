@@ -53,6 +53,13 @@ export interface CardNodeData extends Record<string, unknown> {
   height?: number
   collapsed?: boolean
   frameId?: string
+  /**
+   * 所属 Frame 的布局类型（由 FrameNode 维护时下沉写入）。
+   * 卡片读取此字段以判断是否渲染 MiniCard（kanban 布局），
+   * 避免每次 render 都通过 useReactFlow().getNode(frameId) 查询 store ——
+   * 后者会让所有挂载卡片在任何节点变化时都重渲染。
+   */
+  frameLayout?: FrameLayout
   localX?: number
   localY?: number
   layoutSnapshots?: Partial<Record<FrameLayout, LayoutSnapshot>>

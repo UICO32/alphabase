@@ -289,6 +289,7 @@ export function ReactFlowCanvas() {
             data: {
               ...n.data,
               frameId,
+              frameLayout: 'free',
               localX,
               localY,
               layoutSnapshots: {
@@ -350,18 +351,23 @@ export function ReactFlowCanvas() {
 
   const onMove = useCallback(
     (() => {
-      let lastCall = 0
+      let lastTransformCall = 0
       let lastZoom = 0
       return (_event: MouseEvent | TouchEvent | null, viewport: { x: number; y: number; zoom: number }) => {
+        // CSS 变量：zoom 变化时即时更新，无节流
+        // ZoomPreview、缩放反比元素依赖此变量渲染，延迟会产生视觉跳变
         if (viewport.zoom !== lastZoom && canvasRef.current) {
           lastZoom = viewport.zoom
           canvasRef.current.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
           canvasRef.current.style.setProperty('--rf-zoom', String(viewport.zoom))
+          // zoom 标量只驱动轻量订阅（ZoomPreview），即时更新
+          useLibraryStore.setState({ zoom: viewport.zoom })
         }
+        // transform 三元组驱动较重的订阅（library、panels），100ms 节流
         const now = performance.now()
-        if (now - lastCall < 100) return
-        lastCall = now
-        useLibraryStore.setState({ zoom: viewport.zoom, transform: [viewport.x, viewport.y, viewport.zoom] })
+        if (now - lastTransformCall < 100) return
+        lastTransformCall = now
+        useLibraryStore.setState({ transform: [viewport.x, viewport.y, viewport.zoom] })
       }
     })(),
     [],
@@ -469,10 +475,12 @@ export function ReactFlowCanvas() {
     return true
   }, [])
 
-  // 确保 Frame 节点排在数组最前面，DOM 先渲染 = paint 底层，背景不会覆盖卡片
+  // 确保 Frame 节点排在数组最前面，DOM 先渲染 = paint 底层，背景不会覆盖卡片。
+  // React Flow 也通过 zIndex 控制层级（frame=-10, card=10），数组顺序作为额外保障。
   const sortedNodes = useMemo(() => {
-    const frames = nodes.filter(n => n.type === 'frame')
-    const others = nodes.filter(n => n.type !== 'frame')
+    const frames: Node[] = []
+    const others: Node[] = []
+    for (const n of nodes) (n.type === 'frame' ? frames : others).push(n)
     return [...frames, ...others]
   }, [nodes])
 

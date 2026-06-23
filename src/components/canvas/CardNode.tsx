@@ -44,12 +44,10 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     return () => registerEditorHandle(data.cardId, null)
   }, [data.cardId, isEditing, selected])
 
-  const frameLayout: FrameLayout = (() => {
-    if (!data.frameId) return 'free'
-    const frameNode = getNode(data.frameId)
-    if (!frameNode) return 'free'
-    return (frameNode.data as FrameNodeData).layout ?? 'free'
-  })()
+  // 直接读取下沉到 card data 的 frameLayout，避免每次 render 调用 getNode(frameId)
+  // —— useReactFlow().getNode 订阅整个 nodes store，会让所有卡片在任何节点变化时重渲染。
+  // frameLayout 由 FrameNode.handleLayoutChange 维护并写入子卡 data。
+  const frameLayout: FrameLayout = data.frameLayout ?? 'free'
   const showMiniCard = isInFrame && frameLayout === 'kanban' && !isEditing
 
   const miniCardRef = useRef<HTMLDivElement>(null)
@@ -111,16 +109,25 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   }, [showMiniCard, data.frameId, data.cardId, setNodes])
 
   useEffect(() => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id !== data.cardId) return n
-        return {
-          ...n,
-          dragHandle: isEditing ? '.card-drag-handle' : undefined,
-          ...(isCollapsed ? { height: COLLAPSED_CARD_HEIGHT } : {}),
-        }
-      }),
-    )
+    setNodes((nds) => {
+      const idx = nds.findIndex((n) => n.id === data.cardId)
+      if (idx === -1) return nds
+      const me = nds[idx]
+      const newDragHandle = isEditing ? '.card-drag-handle' : undefined
+      const newHeight = isCollapsed ? COLLAPSED_CARD_HEIGHT : undefined
+      // 守卫：状态未实际变化时直接返回原数组，避免每次挂载/更新都触发 store 更新
+      // —— 否则 100 张卡首次挂载会产生 O(n²) 的级联 setNodes（每张卡的重渲染又触发此 effect）。
+      if (me.dragHandle === newDragHandle && (newHeight === undefined || me.height === newHeight)) {
+        return nds
+      }
+      const next = [...nds]
+      next[idx] = {
+        ...me,
+        ...(me.dragHandle !== newDragHandle ? { dragHandle: newDragHandle } : {}),
+        ...(newHeight !== undefined && me.height !== newHeight ? { height: newHeight } : {}),
+      }
+      return next
+    })
   }, [isEditing, isCollapsed, data.cardId, setNodes])
 
   const card = useCard(data.cardId)
@@ -329,19 +336,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     })
   }, [data.cardId, getNode, setNodes, setEdges])
 
-  // Cache card data for SummaryButton to read when clicked
-  useEffect(() => {
-    const win = window as any
-    if (!win.__cardDataCache) win.__cardDataCache = {}
-    const cardData = useCardStore.getState().cards[data.cardId]
-    if (cardData) {
-      win.__cardDataCache[data.cardId] = {
-        content: cardData.content,
-        previewHTML: cardData.previewHTML || useCardStore.getState().getPreviewHTML(data.cardId) || '',
-        color: cardData.color,
-      }
-    }
-  }, [data.cardId, card?.content, card?.previewHTML])
+  // SummaryButton/SummaryBubble 通过 zustand selector 直接读 cardStore，
+  // 不需要全局缓存。之前残留的 __cardDataCache 全局对象已废弃。
 
   if (!card) {
     return (

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { calcSnapNudge, getNodesBounds } from '../../src/utils/alignment'
-import type { SnapBounds } from '../../src/utils/alignment'
+import { calcSnapNudge, getNodesBounds } from '../../src/components/canvas/utils/alignment'
+import type { SnapBounds } from '../../src/components/canvas/utils/alignment'
 
 describe('calcSnapNudge', () => {
   const threshold = 10

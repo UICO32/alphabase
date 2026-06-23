@@ -32,8 +32,12 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
   const saveBoardData = useBoardStore((s) => s.saveBoardData)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLoadedRef = useRef(isLoaded)
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
 
   isLoadedRef.current = isLoaded
+  nodesRef.current = nodes
+  edgesRef.current = edges
 
   const syncToStore = useCallback(() => {
     if (!activeBoardId || !isLoadedRef.current) return
@@ -75,6 +79,8 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
   }, [isLoaded, syncToStore])
 
   // Flush pending save on unmount so board data isn't lost when canvas unmounts
+  // 空依赖：只挂载/卸载时注册 cleanup，不随 nodes/edges 变化重挂。
+  // cleanup 闭包里读 ref 获取最新值，避免 nodes/edges 变化时不必要的 effect 重建。
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -84,10 +90,10 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
       if (!isLoadedRef.current) return
       const boardStore = useBoardStore.getState()
       if (boardStore.activeBoardId) {
-        boardStore.saveBoardData(boardStore.activeBoardId, serializeBoardData(nodes, edges))
+        boardStore.saveBoardData(boardStore.activeBoardId, serializeBoardData(nodesRef.current, edgesRef.current))
       }
     }
-  }, [nodes, edges])
+  }, [])
 
   // Force-save current board when workspace is about to switch
   useEvent('save-current-board', () => {

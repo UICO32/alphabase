@@ -1,5 +1,6 @@
 import { readJSON, writeJSON, exists, readdir, readDirFiles, mkdir, deleteFile } from '../utils/workspace/fs'
 import type { BoardManifest, BoardSnapshot, CardFile, TrashFile, WorkspaceMetadata, ConflictDiffItem } from '../utils/workspace/types'
+import { listFileSystemBackups, restoreFromBackup } from '../stores/backupStore'
 
 export class WorkspaceService {
   private workspacePath: string = ''
@@ -346,27 +347,53 @@ export class WorkspaceService {
     const actions: string[] = []
     const boardsDir = `${this.workspacePath}/boards`
 
-    // 修复 manifest：删除文件缺失的 board 条目
-    const validBoards = []
-    for (const board of manifest.boards) {
-      const boardPath = `${boardsDir}/${board.id}.json`
-      if (await exists(boardPath)) {
-        validBoards.push(board)
-      } else {
+    // 1. 检查灾难性数据丢失：manifest 声明的 board 文件在磁盘上全部不存在
+    if (manifest.boards.length > 0) {
+      const presentBoards: typeof manifest.boards = []
+      const missingBoards: typeof manifest.boards = []
+      for (const board of manifest.boards) {
+        const boardPath = `${boardsDir}/${board.id}.json`
+        if (await exists(boardPath)) {
+          presentBoards.push(board)
+        } else {
+          missingBoards.push(board)
+        }
+      }
+
+      // 全部 board 文件丢失 → 灾难性数据丢失，尝试从备份恢复
+      if (presentBoards.length === 0) {
+        const backups = await listFileSystemBackups(this.workspacePath)
+        if (backups.length > 0) {
+          backups.sort((a, b) => b.createdAt - a.createdAt)
+          const newest = backups[0]
+          const result = await restoreFromBackup(newest.timestamp, this.workspacePath)
+          if (result.success) {
+            actions.push(`Restored workspace from backup ${newest.timestamp}`)
+            return { repaired: true, actions }
+          }
+          actions.push(`Backup restore from ${newest.timestamp} failed: ${result.error || 'unknown error'}`)
+        }
+        // 回退到裁剪逻辑
+      }
+
+      // 2. 局部丢失：移除 manifest 中文件缺失的 board 条目
+      for (const board of missingBoards) {
+        const idx = manifest.boards.findIndex(b => b.id === board.id)
+        if (idx !== -1) manifest.boards.splice(idx, 1)
         actions.push(`Removed board ${board.id} from manifest (file missing)`)
       }
     }
 
-    // 添加孤立文件到 manifest
+    // 3. 添加孤立文件到 manifest
     if (await exists(boardsDir)) {
       const boardFiles = await readdir(boardsDir)
       for (const file of boardFiles) {
         if (!file.endsWith('.json') || file === '_manifest.json') continue
         const boardId = file.replace('.json', '')
-        if (!validBoards.some(b => b.id === boardId)) {
+        if (!manifest.boards.some(b => b.id === boardId)) {
           try {
             await readJSON<BoardSnapshot>(`${boardsDir}/${file}`)
-            validBoards.push({
+            manifest.boards.push({
               id: boardId,
               name: `Recovered board ${boardId}`,
               createdAt: Date.now(),
@@ -380,10 +407,10 @@ export class WorkspaceService {
       }
     }
 
-    if (validBoards.length !== manifest.boards.length || actions.length > 0) {
+    if (actions.length > 0) {
       const cards = await this.loadAllCards()
-      await this.saveManifest({ boards: validBoards })
-      await this.saveMetadata({ version: 1, cardCount: cards.length, boardCount: validBoards.length, lastModified: Date.now() })
+      await this.saveManifest({ boards: manifest.boards })
+      await this.saveMetadata({ version: 1, cardCount: cards.length, boardCount: manifest.boards.length, lastModified: Date.now() })
       return { repaired: true, actions }
     }
 

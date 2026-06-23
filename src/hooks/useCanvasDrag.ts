@@ -313,6 +313,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
             data: {
               ...n.data,
               frameId: containingFrame.id,
+              frameLayout,
               localX: local.x,
               localY: local.y,
               layoutSnapshots: newSnapshots,
@@ -327,6 +328,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
             data: {
               ...n.data,
               frameId: undefined,
+              frameLayout: undefined,
               localX: undefined,
               localY: undefined,
               width: freeSnap?.width ?? nd.width ?? DEFAULT_CARD_WIDTH,
@@ -340,9 +342,13 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
             const frameLayout = ((frame.data as Record<string, unknown>).layout as FrameLayout) ?? 'free'
             const localX = nd.localX ?? (n.position.x - frame.position.x)
             const localY = nd.localY ?? (n.position.y - frame.position.y)
+            // 顺带同步 frameLayout（旧数据可能缺失此字段），保证 CardNode 不退化回 getNode 查询
             return {
               ...n,
-              data: updateSingleCardSnapshot(nd, frameLayout, localX, localY, nd.width, nd.height),
+              data: {
+                ...updateSingleCardSnapshot(nd, frameLayout, localX, localY, nd.width, nd.height),
+                frameLayout,
+              },
             }
           }
         }

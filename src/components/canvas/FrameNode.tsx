@@ -169,9 +169,16 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
           }
 
           const pos = result.positions[n.id]
-          if (!pos) return n
+          // 子卡即使没有位置变更（理论上 layout 切换都有），也要同步下沉新的 frameLayout，
+          // 否则 CardNode 仍读到旧 data.frameLayout，无法正确切换 MiniCard 渲染。
+          const isChild = (n.data as Record<string, unknown>).frameId === id
+          if (!isChild) return n
 
           const baseData = (cardSnapshots.get(n.id) ?? n.data) as Record<string, unknown>
+          if (!pos) {
+            return { ...n, data: { ...baseData, frameLayout: layout } }
+          }
+
           return {
             ...n,
             position: {
@@ -180,6 +187,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
             },
             data: {
               ...baseData,
+              frameLayout: layout,
               localX: pos.x,
               localY: pos.y,
               ...(pos.width ? { width: pos.width } : {}),

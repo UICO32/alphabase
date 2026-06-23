@@ -24,7 +24,7 @@ export function useFrameSync({ nodes, setNodes }: UseFrameSyncOptions) {
         hasChanges = true
         return {
           ...node,
-          data: { ...node.data, frameId: undefined, localX: undefined, localY: undefined },
+          data: { ...node.data, frameId: undefined, frameLayout: undefined, localX: undefined, localY: undefined },
         }
       }
 

@@ -49,11 +49,36 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
       boardStore.saveBoardData(boardId, boardData)
     }
 
-    setNodes((boardData.nodes as Node[]).map(n => ({
-      ...n,
-      zIndex: n.type === 'frame' ? -10 : 10,
-      ...(n.type === 'frame' ? { dragHandle: '.frame-drag-handle' } : {}),
-    })))
+    setNodes(() => {
+      const loaded = boardData.nodes as Node[]
+      // 补齐子卡的 frameLayout（下沉字段）：旧 board 数据里的子卡没有此字段，
+      // 从对应 Frame 节点的 layout 推导一次写入，避免 CardNode 退化回每次 render
+      // 调用 getNode(frameId) 查询（性能瓶颈）。
+      const frameLayoutById = new Map<string, string>()
+      for (const n of loaded) {
+        if (n.type === 'frame') {
+          const layout = (n.data as Record<string, unknown>).layout
+          frameLayoutById.set(n.id, (layout as string) ?? 'free')
+        }
+      }
+      const needsBackfill = loaded.some(
+        n => n.type !== 'frame' && (n.data as Record<string, unknown>).frameId
+          && (n.data as Record<string, unknown>).frameLayout === undefined,
+      )
+      const nodes = needsBackfill
+        ? loaded.map(n => {
+            const fid = (n.data as Record<string, unknown>).frameId as string | undefined
+            if (!fid || n.type === 'frame') return n
+            const layout = frameLayoutById.get(fid) ?? 'free'
+            return { ...n, data: { ...n.data, frameLayout: layout } }
+          })
+        : loaded
+      return nodes.map(n => ({
+        ...n,
+        zIndex: n.type === 'frame' ? -10 : 10,
+        ...(n.type === 'frame' ? { dragHandle: '.frame-drag-handle' } : {}),
+      }))
+    })
     setEdges(boardData.edges as Edge[])
   }, [setNodes, setEdges, nodesRef])
 

@@ -56,7 +56,7 @@ export const CardActionBar = memo(function CardActionBar({
   const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
   const updateCard = useCardStore(s => s.updateCard)
 
-  const html = cardPreviewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
+  const html = useMemo(() => cardPreviewHTML || useCardStore.getState().getPreviewHTML(cardId) || '', [cardId, cardPreviewHTML])
   const extractedTitle = useMemo(() => extractTitle(html), [html])
   const displayTitle = cardTitle || extractedTitle
 

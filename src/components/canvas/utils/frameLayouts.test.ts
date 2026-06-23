@@ -69,8 +69,10 @@ describe('computeLayout', () => {
     const children = [makeCardNode('c1')]
     const result = computeLayout(frame, children, 'kanban')
     expect(result.positions['c1']).toEqual(
-      expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }),
+      expect.objectContaining({ width: expect.any(Number) }),
     )
+    // computeKanbanLayout 只返回 {x, y, width}，height 来自卡片 data
+    expect(result.positions['c1'].height).toBeUndefined()
   })
 
   it('layout=undefined 走 free 分支', () => {
@@ -86,7 +88,7 @@ describe('computeLayout', () => {
 describe('computeBentoLayout', () => {
   const frame = makeFrameNode()
   const PADDING = 16
-  const HEADER_HEIGHT = 44
+  const HEADER_HEIGHT = 8
   const GAP = 12
   const contentW = 600 - PADDING * 2
   const contentH = 400 - HEADER_HEIGHT - PADDING * 2
