@@ -204,7 +204,7 @@ export function convertFlomoMemo(memo: FlomoMemo): ConvertedCard {
 
   // Merge memo.tags with tags extracted from body text
   const bodyTags = extractTagsFromMarkdown(markdown)
-  const memoTags = (memo.tags || []).map(t => t.name)
+  const memoTags = (memo.tags || []).map(t => t?.name).filter(Boolean) as string[]
   const tags = [...new Set([...bodyTags, ...memoTags])]
 
   const firstText = memo.content?.replace(/<[^>]+>/g, '').trim() || ''

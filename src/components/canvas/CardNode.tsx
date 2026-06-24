@@ -365,9 +365,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
-  const borderWidth = selected ? 2 : 1
+  const borderWidth = 1
   const borderColor = selected
-    ? 'var(--card-selected-border)'
+    ? getCardStroke(data.color)
     : isEditing
       ? 'var(--line-active)'
       : getCardStroke(data.color)
@@ -413,7 +413,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           : isHovered
             ? `${hoverOutline}, var(--shadow-lg)`
           : selected
-            ? 'var(--card-selected-shadow)'
+            ? 'inset 0 0 0 1px var(--card-selected-border), var(--card-selected-shadow)'
             : 'var(--shadow-sm)',
         cursor,
       }}

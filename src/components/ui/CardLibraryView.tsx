@@ -66,7 +66,7 @@ const CardItem = memo(function CardItem({
   onDragStart: (e: React.DragEvent, cardId: string) => void
   onClick: (e: React.MouseEvent) => void
 }) {
-  const previewHTML = card.previewHTML || ''
+  const previewHTML = card.previewHTML || useCardStore.getState().getPreviewHTML(card.id) || ''
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
   const images = useMemo(() => extractImages(previewHTML), [previewHTML])
   const textHTML = useMemo(() => stripImages(DOMPurify.sanitize(previewHTML, { ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i })), [previewHTML])
@@ -76,7 +76,25 @@ const CardItem = memo(function CardItem({
   return (
     <div
       draggable
-      onDragStart={(e) => onDragStart(e, card.id)}
+      onDragStart={(e) => {
+        onDragStart(e, card.id)
+        // 浮空拖拽效果
+        ;(e.currentTarget as HTMLElement).classList.add('card-item-floating')
+        // 自定义拖拽影像
+        const ghost = e.currentTarget.cloneNode(true) as HTMLElement
+        ghost.style.position = 'absolute'
+        ghost.style.top = '-9999px'
+        ghost.style.opacity = '0.85'
+        ghost.style.transform = 'rotate(0deg) scale(1.05)'
+        ghost.style.boxShadow = '0 20px 40px rgba(0,0,0,0.2)'
+        ghost.style.borderRadius = '8px'
+        document.body.appendChild(ghost)
+        e.dataTransfer.setDragImage(ghost, 70, 70)
+        requestAnimationFrame(() => document.body.removeChild(ghost))
+      }}
+      onDragEnd={(e) => {
+        ;(e.currentTarget as HTMLElement).classList.remove('card-item-floating')
+      }}
       onClick={onClick}
       className="hepta-list-item group relative p-2.5 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default"
       style={{ aspectRatio: '1/1' }}
@@ -251,18 +269,18 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
     const active = Object.values(cards).filter(c => !c.deletedAt)
     let filtered = active
 
-    if (tagFilter) {
-      filtered = filtered.filter(c => c.tags?.includes(tagFilter))
-    }
+if (tagFilter) {
+	      filtered = filtered.filter(c => c.tags?.includes(tagFilter))
+	    }
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(card =>
-        (card.title?.toLowerCase().includes(query) ||
-         card.content?.toLowerCase().includes(query) ||
-         card.tags?.some(t => t.toLowerCase().includes(query)))
-      )
-    }
+if (searchQuery.trim()) {
+	      const query = searchQuery.toLowerCase()
+	      filtered = filtered.filter(card =>
+	        ((card.title ?? '')?.toLowerCase().includes(query) ||
+	         (card.content ?? '')?.toLowerCase().includes(query) ||
+	         card.tags?.some(t => t && t.toLowerCase().includes(query)))
+	      )
+	    }
 
     if ((searchMode === 'semantic' || searchMode === 'hybrid') && searchQuery.trim()) {
       const scored = filtered
@@ -287,6 +305,18 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
         return filtered
     }
   }, [cards, searchQuery, sortBy, searchScores, searchMode, tagFilter])
+
+  // 可见卡片变化时，预生成缺少 previewHTML 的卡片 HTML（避免在 render 中调 getPreviewHTML 触发 flushSync 警告）
+  useEffect(() => {
+    const missing = visibleCards.filter(c => !c.previewHTML && c.content).map(c => c.id)
+    if (missing.length > 0) {
+      // 使用 requestIdleCallback 或 setTimeout 延迟到 render 完成后执行
+      const id = requestIdleCallback(() => {
+        useCardStore.getState().ensurePreviewHTMLBatch(missing)
+      })
+      return () => cancelIdleCallback(id)
+    }
+  }, [visibleCards])
 
   const tagCloud = useMemo(() => {
     void tagStoreTags
@@ -326,8 +356,14 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
           margin: 0 !important;
           line-height: 1.4 !important;
         }
+        .card-item-floating {
+          transform: scale(1.08) !important;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.18), 0 0 0 2px rgba(139,92,246,0.3) !important;
+          opacity: 0.6;
+          transition: all 0.2s ease-out;
+        }
       `}</style>
-      <div className="p-4">
+      <div className="max-w-3xl mx-auto p-4">
         {/* Search bar with mode switch */}
         <div
           className="mb-3 flex items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2"

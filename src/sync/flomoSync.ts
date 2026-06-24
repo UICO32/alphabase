@@ -108,9 +108,12 @@ export const useFlomoSyncStore = create<FlomoSyncState & FlomoSyncActions>((set,
         cards.push(card)
       }
 
-      useCardStore.getState().importCards(
-        Object.fromEntries(cards.map(c => [c.id, c]))
-      )
+useCardStore.getState().importCards(
+	        Object.fromEntries(cards.map(c => [c.id, c]))
+	      )
+
+	      // 立即为新卡片生成 previewHTML，确保卡片库第一时间显示正文内容
+	      useCardStore.getState().ensurePreviewHTMLBatch(cards.map(c => c.id))
 
       const importedTags = new Set<string>()
       for (const card of cards) {

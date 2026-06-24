@@ -112,6 +112,16 @@ export function useWorkspaceDataLoader() {
     const service = new WorkspaceService()
     service.setWorkspacePath(workspacePath)
 
+    // 注册工作区路径到主进程白名单，解锁 fs:* IPC。workspace:registerPath
+    // handler 早就存在，但前端从未调用 → registeredPaths 永远为空 →
+    // isPathWithinWorkspace 永远返回 false → 所有 fs 读写被拒（"Path outside
+    // workspace"），embedding 等子系统无法工作。
+    try {
+      await (window as any).electronAPI?.workspace?.registerPath(workspacePath)
+    } catch (err) {
+      console.warn('[workspace] registerPath failed:', err)
+    }
+
     emitStartupProgress('加载数据...', 0, 4)
 
     // Load all data in one pass: manifest + cards + metadata
@@ -449,22 +459,31 @@ export function useWorkspaceDataLoader() {
       try {
         const workspacePath = localStorage.getItem(LAST_WORKSPACE_KEY)
 
-        if (!workspacePath) {
-          emitStartupProgress('初始化工作区...', 0, 4)
-          await initElectronFSAdapter()
-          emitStartupProgress('加载卡片数据...', 1, 4)
-          ensureGlobalDemoCards()
-          emitStartupProgress('加载画板...', 2, 4)
-          ensureDefaultBoard()
-          emitStartupProgress('准备就绪', 4, 4)
-          const ms = Math.round(performance.now())
-          console.log(`[startup-renderer] demo mode ready: ${ms}ms`)
-          try {
-            await (window as any).electronAPI?.startup?.log?.({ totalMs: ms, steps: [{ name: 'demo-ready', ms }] })
-          } catch { /* noop */ }
-          if (!cancelled) { setDataReady(true); notifyDataReady() }
-          return
-        }
+if (!workspacePath) {
+	          emitStartupProgress('初始化工作区...', 0, 4)
+	          await initElectronFSAdapter()
+	          emitStartupProgress('加载卡片数据...', 1, 4)
+	          // 不插入 demo 卡片——空工作区显示空画布装饰引导页
+	          emitStartupProgress('加载画板...', 2, 4)
+	          // 创建默认空画板
+	          const boardStore = useBoardStore.getState()
+	          boardStore.addBoard({
+	            id: 'board-default',
+	            name: '默认画板',
+	            createdAt: Date.now(),
+	            updatedAt: Date.now(),
+	          })
+	          boardStore.setActiveBoard('board-default')
+	          boardStore.setLoaded(true)
+	          emitStartupProgress('准备就绪', 4, 4)
+	          const ms = Math.round(performance.now())
+	          console.log(`[startup-renderer] empty workspace ready: ${ms}ms`)
+	          try {
+	            await (window as any).electronAPI?.startup?.log?.({ totalMs: ms, steps: [{ name: 'empty-ready', ms }] })
+	          } catch { /* noop */ }
+	          if (!cancelled) { setDataReady(true); notifyDataReady() }
+	          return
+	        }
 
         await initElectronFSAdapter()
 
