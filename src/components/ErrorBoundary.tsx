@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
-          <p className="text-sm mb-4" style={{ color: '#71717a' }}>页面出现错误</p>
+          <p className="text-sm mb-4 text-fg-tertiary">页面出现错误</p>
           <button
             className="px-4 py-2 rounded-lg text-sm cursor-pointer glass-panel"
             onClick={() => this.setState({ hasError: false, error: null })}

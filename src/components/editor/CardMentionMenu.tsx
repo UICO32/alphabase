@@ -24,7 +24,7 @@ export function CardMentionMenu({ editor }: { editor: BlockNoteEditor<any, any, 
               width: '14px',
               height: '14px',
               borderRadius: '3px',
-              backgroundColor: card.color === 'white' ? '#e5e7eb' : `var(--card-color-${card.color}, #e5e7eb)`,
+              backgroundColor: card.color === 'white' ? 'var(--surface-card-active)' : `var(--card-color-${card.color}, var(--surface-card-active))`,
               flexShrink: 0,
             }}
           />

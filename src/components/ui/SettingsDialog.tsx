@@ -36,7 +36,7 @@ export function SettingsDialog({ open, onClose, initialTab = 'system' }: Setting
           onValueChange={(v) => setActiveTab(v as SettingsTab)}
           className="flex h-full"
         >
-          <TabsList className="flex-col h-full w-[140px] shrink-0 rounded-none border-r border-line-default bg-surface-panel p-3 gap-1 justify-start">
+          <TabsList className="flex-col h-full w-[140px] shrink-0 rounded-none border-r border-line-default bg-surface-panel-alt p-3 gap-1 justify-start">
             {([['system','系统设置'],['sync','同步设置'],['export','导入导出'],['ai','AI 设置'],['design','🎨 设计系统']] as const).map(([val, label]) => (
               <TabsTrigger
                 key={val}

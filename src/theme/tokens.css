@@ -496,4 +496,38 @@
   --bn-colors-selected-item-color: var(--primary);
   --bn-colors-side-menu-color: var(--fg-tertiary);
   --bn-colors-side-menu-hover-color: var(--fg-primary);
+  --bn-colors-suggestion-menu-background: var(--surface-card);
+  --bn-colors-suggestion-menu-text: var(--fg-primary);
+  --bn-colors-suggestion-menu-item-hover-background: var(--surface-card-hover);
+  --bn-colors-suggestion-menu-item-hover-text: var(--fg-primary);
+  --bn-colors-suggestion-menu-item-active-background: var(--surface-card-active);
+  --bn-colors-suggestion-menu-item-active-text: var(--fg-primary);
+  --bn-colors-formatting-toolbar-background: var(--surface-card);
+  --bn-colors-formatting-toolbar-text: var(--fg-primary);
+  --bn-colors-formatting-toolbar-hover-background: var(--surface-card-hover);
+  --bn-colors-formatting-toolbar-hover-text: var(--fg-primary);
+  --bn-colors-formatting-toolbar-active-background: var(--surface-card-active);
+  --bn-colors-formatting-toolbar-active-text: var(--fg-primary);
+}
+
+/* BlockNote Mantine 暗色适配 — Mantine v7 用 hash class 名，用属性/结构选择器覆盖 */
+[data-theme="dark"] .bn-container [role="menu"],
+[data-theme="dark"] .bn-container [role="listbox"],
+[data-theme="dark"] .bn-container [data-overflow] {
+  background-color: var(--surface-card) !important;
+  border-color: var(--line-default) !important;
+  color: var(--fg-primary) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+[data-theme="dark"] .bn-container [role="menu"] [role="menuitem"]:hover,
+[data-theme="dark"] .bn-container [role="menu"] [role="menuitem"][data-hovered],
+[data-theme="dark"] .bn-container [role="option"]:hover {
+  background-color: var(--surface-card-hover) !important;
+  color: var(--fg-primary) !important;
+}
+
+[data-theme="dark"] .bn-container .bn-suggestion-menu-item[data-is-selected="true"],
+[data-theme="dark"] .bn-container .bn-suggestion-menu-item:hover {
+  background-color: var(--surface-card-hover) !important;
 }

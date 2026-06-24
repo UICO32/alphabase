@@ -491,9 +491,32 @@
   animation-delay: calc(var(--stagger, 0) * 30ms);
 }
 
-/* 主题切换平滑过渡：仅颜色/边框/阴影，不含 backdrop-filter 避免卡顿。
-   切换时由 JS 在 documentElement 短暂添加 .theme-switching 类。 */
-.theme-switching,
+/* 主题切换 — view-transition 优先（Chromium 111+），零 per-element 开销 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-default);
+}
+::view-transition-old(root) {
+  animation-name: vt-fade-out;
+}
+::view-transition-new(root) {
+  animation-name: vt-fade-in;
+}
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Fallback: 无 view-transition 时用 scoped root transition（不用 * 通配） */
+.theme-switching {
+  transition: background-color var(--duration-normal) var(--ease-default),
+              color var(--duration-normal) var(--ease-default);
+}
 .theme-switching *:not(.no-theme-transition) {
   transition: background-color var(--duration-normal) var(--ease-default),
               border-color var(--duration-normal) var(--ease-default),

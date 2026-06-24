@@ -30,6 +30,14 @@ let themeTransitionTimer: number | undefined
 
 function withThemeTransition(apply: () => void): void {
   if (typeof document === 'undefined') { apply(); return }
+  // Prefer view-transition API (Chromium 111+) — zero per-element transition overhead
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }
+  if (doc.startViewTransition) {
+    const t = doc.startViewTransition(() => apply())
+    t.finished.catch(() => {})
+    return
+  }
+  // Fallback: scoped transition on root only (not * selector)
   const root = document.documentElement
   root.classList.add('theme-switching')
   apply()

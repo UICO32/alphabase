@@ -3,6 +3,7 @@ import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
+import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
 import { Layers, FileText, PanelRightOpen, Globe, Compass } from 'lucide-react'
@@ -147,6 +148,7 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
 }) {
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
+  const isDarkMode = useIsDarkMode()
 
   const handleChange = useCallback((content: string) => {
     updateCard(cardId, { content })
@@ -193,6 +195,7 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
               onChange={handleChange}
               editable={true}
               cardId={cardId}
+              theme={isDarkMode ? 'dark' : 'light'}
             />
           </Suspense>
         )}
