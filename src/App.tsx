@@ -152,6 +152,9 @@ function App() {
   }
 
   const isBoardView = viewMode === 'board'
+  const leftPanelCollapsed = usePanelStore(s => s.leftPanelCollapsed)
+  // 非画板视图下，左侧面板展开时主内容向右平移 260px，与 LeftPanel translateX 同步动画
+  const mainPaddingLeft = (!isBoardView && !leftPanelCollapsed) ? 260 : 0
 
   useEffect(() => {
     if (!dataReady) return
@@ -167,7 +170,7 @@ function App() {
     <div className="w-full h-full flex flex-col" style={{ backgroundColor: 'var(--surface-panel)' }}>
       <Toaster position="bottom-center" richColors />
       <TitleBar />
-      <div className={`flex-1 min-h-0 ${isBoardView ? 'relative' : 'flex'}`}>
+      <div className="flex-1 min-h-0" style={{ position: 'relative' }}>
         <LeftPanel
           onOpenSettings={() => setShowSettings(true)}
           onOpenTrash={() => setShowTrash(true)}
@@ -175,8 +178,13 @@ function App() {
         />
 
         <main
-          className={`${isBoardView ? 'absolute inset-0 rounded-lg mx-0.5 mb-0.5' : 'flex-1 rounded-lg m-0.5'} overflow-hidden`}
-          style={{ backgroundColor: (isBoardView && showTopography) ? '#0a0f2e' : 'var(--surface-app)', transition: 'background-color 0.4s ease', borderRadius: 0 }}
+          className="absolute inset-0 overflow-hidden"
+          style={{
+            backgroundColor: (isBoardView && showTopography) ? '#0a0f2e' : 'var(--surface-app)',
+            transition: 'background-color 0.4s ease, padding-left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            borderRadius: 0,
+            paddingLeft: mainPaddingLeft,
+          }}
         >
           {renderMainContent()}
         </main>
