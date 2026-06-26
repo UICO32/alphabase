@@ -149,6 +149,7 @@ export function useContourScene(peaks: TopicPeak[]) {
       line: THREE.Line
       tube: THREE.Mesh | null
       fill: THREE.Mesh | null
+      level: number
     }> = []
 
     const mountainGroup = new THREE.Group()
@@ -162,7 +163,7 @@ export function useContourScene(peaks: TopicPeak[]) {
         // Line
         const lineGeo = new THREE.BufferGeometry().setFromPoints([...vecs, vecs[0]])
         lineGeo.setDrawRange(0, 0)
-        const line = new THREE.Line(lineGeo, LINE_MAT)
+        const line = new THREE.Line(lineGeo, LINE_MAT.clone())
         mountainGroup.add(line)
 
         // Tube
@@ -170,7 +171,7 @@ export function useContourScene(peaks: TopicPeak[]) {
         if (vecs.length >= 6) {
           const curve = new THREE.CatmullRomCurve3(vecs, true, 'catmullrom', 0.4)
           const tubeGeo = new THREE.TubeGeometry(curve, Math.min(vecs.length * 2, 360), 0.030, 8, true)
-          tube = new THREE.Mesh(tubeGeo, TUBE_MAT)
+          tube = new THREE.Mesh(tubeGeo, TUBE_MAT.clone())
           tube.visible = false
           mountainGroup.add(tube)
         }
@@ -195,7 +196,7 @@ export function useContourScene(peaks: TopicPeak[]) {
           mountainGroup.add(fill)
         }
 
-        contours.push({ line, tube, fill })
+        contours.push({ line, tube, fill, level: lv })
       }
     }
 

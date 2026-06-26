@@ -1,0 +1,469 @@
+# Electron 启动 + 向量索引 + 3D 视图修复 — 分步复刻指南
+
+> 修复 Electron 应用无法启动、3D 地形图显示不了、向量索引需手动操作等问题。本文档让复刻者能按顺序逐步还原所有改动。
+
+## 执行顺序总览
+
+| Step | 阶段 | 前置依赖 | 风险 | 验证方式 |
+|------|------|----------|------|----------|
+| 1    | 补齐缺失源文件（workspacePaths / tray） | 无 | 低 | typecheck |
+| 2    | 修复 clipper IPC 重复注册崩溃 | Step 1 | 低 | 启动不崩 |
+| 3    | 统一模型路径到 userData/embedding | Step 1 | 中 | typecheck |
+| 4    | 实现模型自动下载 IPC | Step 3 | 中 | typecheck |
+| 5    | 前端接通 workspace:registerPath | Step 1 | 中 | fs IPC 不再报 Path outside |
+| 6    | 傻瓜式自动索引 + 3D 视图下载引导 | Step 4, 5 | 中 | typecheck |
+| 7    | 修复聚类小样本 bug | Step 6 | 低 | 4 张卡片能聚出簇 |
+| 8    | 3D 入场动画改为层层浮现 + 修闪烁 | Step 7 | 低 | 视觉验证 |
+
+> ⚠️ Step 3 必须在 Step 4 之前（下载 IPC 依赖路径统一）。Step 5 必须在 Step 6 之前（自动索引依赖 fs 解锁）。
+
+---
+
+## Step 1：补齐缺失源文件
+
+### 前置条件
+无
+
+### 问题
+`electron/main.ts` import 了 `./workspacePaths` 和 `./tray`，但这两个文件在整个仓库里不存在（git 历史也没有），导致 main 进程编译失败，`dist-electron/main.cjs` 不生成，Electron 拉不起来。
+
+### 1.1 新建 `electron/workspacePaths.ts`
+
+workspace 路径白名单 + 媒体文件名安全校验。`main.ts` 里所有 `fs:*` IPC 靠 `isPathWithinWorkspace` 做安全护栏，`hepta-media://` 协议靠 `isMediaFilenameSafe` 防路径穿越。
+
+```typescript
+// electron/workspacePaths.ts
+import { resolve, normalize, sep } from 'path'
+
+const registeredPaths = new Set<string>()
+
+function normalizePath(p: string): string {
+  return normalize(resolve(p))
+}
+
+export function registerWorkspacePath(path: string): void {
+  if (!path) return
+  registeredPaths.add(normalizePath(path))
+}
+
+export function unregisterWorkspacePath(path: string): void {
+  if (!path) return
+  registeredPaths.delete(normalizePath(path))
+}
+
+export function isPathWithinWorkspace(path: string): boolean {
+  if (!path || registeredPaths.size === 0) return false
+  const resolved = normalizePath(path)
+  const isWindows = process.platform === 'win32'
+  for (const root of registeredPaths) {
+    if (pathStartsWithRoot(resolved, root, isWindows)) return true
+  }
+  return false
+}
+
+function pathStartsWithRoot(target: string, root: string, caseInsensitive: boolean): boolean {
+  if (target === root) return true
+  const sepStr = sep
+  const rootWithSep = root.endsWith(sepStr) ? root : root + sepStr
+  if (target.startsWith(rootWithSep)) return true
+  if (caseInsensitive) {
+    const t = target.toLowerCase()
+    const r = root.toLowerCase()
+    if (t === r) return true
+    const rWithSep = r.endsWith(sepStr) ? r : r + sepStr
+    if (t.startsWith(rWithSep)) return true
+  }
+  return false
+}
+
+const SAFE_MEDIA_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif'])
+
+export function isMediaFilenameSafe(filename: string): boolean {
+  if (!filename) return false
+  if (/[\\/]/.test(filename)) return false
+  if (filename === '.' || filename === '..') return false
+  if (filename.startsWith('.')) return false
+  const ext = filename.split('.').pop()?.toLowerCase()
+  if (!ext || !SAFE_MEDIA_EXTS.has(ext)) return false
+  return true
+}
+```
+
+### 1.2 新建 `electron/tray.ts`
+
+系统托盘（打包后才用，开发模式不触发，但 import 必须能 resolve）。
+
+```typescript
+// electron/tray.ts
+import { app, Tray, Menu, nativeImage, type BrowserWindow } from 'electron'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+let tray: Tray | null = null
+let isQuitting = false
+
+export function setIsQuitting(value: boolean): void { isQuitting = value }
+export function getIsQuitting(): boolean { return isQuitting }
+
+export function createTray(mainWindow: BrowserWindow): void {
+  if (tray) return
+  const icon = nativeImage.createEmpty() // 简化：实际从 build/ 加载
+  tray = new Tray(icon)
+  tray.setToolTip('Heptabase Canvas')
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Show', click: () => { mainWindow.show(); mainWindow.focus() } },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { setIsQuitting(true); app.quit() } },
+  ])
+  tray.setContextMenu(contextMenu)
+  tray.on('click', () => {
+    if (mainWindow.isVisible()) mainWindow.hide()
+    else { mainWindow.show(); mainWindow.focus() }
+  })
+}
+
+export function destroyTray(): void {
+  if (tray) { tray.destroy(); tray = null }
+}
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep -E "workspacePaths|tray"
+# 应无输出（无错误）
+```
+
+---
+
+## Step 2：修复 clipper IPC 重复注册崩溃
+
+### 前置条件
+Step 1 完成
+
+### 问题
+`registerClipperHandlers()` 没有 `registered` 守卫，vite-plugin-electron 的 HMR 重载 main 进程时 `createWindow()` 重新执行，第二次 `ipcMain.handle('clipper:clip')` 抛 `Attempted to register a second handler`。
+
+### 2.1 `electron/clipper/handler.ts` — 加守卫
+
+```typescript
+// 改前
+export function registerClipperHandlers() {
+  ipcMain.handle('clipper:clip', handleClip)
+  ipcMain.handle('clipper:agentReachBrowse', handleAgentReachBrowse)
+}
+
+// 改后
+let clipperRegistered = false
+
+export function registerClipperHandlers() {
+  if (clipperRegistered) return
+  clipperRegistered = true
+  ipcMain.handle('clipper:clip', handleClip)
+  ipcMain.handle('clipper:agentReachBrowse', handleAgentReachBrowse)
+}
+```
+
+### 验证
+```bash
+# 编辑 electron 任意文件触发 HMR 重载，观察 main 进程不崩
+cd alphabase && pnpm electron:dev
+# 编辑 electron/main.ts 任意注释 → 保存 → 日志不应出现 "second handler" 错误
+```
+
+---
+
+## Step 3：统一模型路径到 userData/embedding
+
+### 前置条件
+Step 1 完成
+
+### 问题
+模型路径有两套，不一致：
+- `EmbeddingService.init` 实际加载：`workspacePath/.embedding-model/`
+- `index.ts` 的 `getStatus` 检查：`userData/embedding/`
+
+且 `EmbeddingService` import 了 `electron` 的 `app`，但它被 `vite-plugin-electron` 打成独立 chunk，通过 `require()` 动态加载时 `require("electron")` 可能返回 npm 包路径字符串，导致 `app` 为 undefined，模块加载即抛 `Cannot convert undefined or null to object`。
+
+### 3.1 `electron/embedding/EmbeddingService.ts` — 去掉 electron import
+
+```typescript
+// 改前
+import { app } from 'electron'
+// ...
+async init(workspacePath: string, modelDir?: string) {
+  this.modelDir = modelDir || join(app.getPath('userData'), 'embedding')
+}
+
+// 改后（删掉 import { app }）
+async init(workspacePath: string, modelDir: string) {
+  // modelDir 由调用方（index.ts）传入，不在 Service 里 import electron
+  this.modelDir = modelDir
+}
+```
+
+### 3.2 `electron/embedding/index.ts` — 调用时传共享路径
+
+```typescript
+// init handler 里
+const result = await svc.init(workspacePath, getEmbeddingDir())
+// getEmbeddingDir() 返回 join(app.getPath('userData'), 'embedding')
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep embedding
+# 应无错误
+```
+
+---
+
+## Step 4：实现模型自动下载 IPC
+
+### 前置条件
+Step 3 完成
+
+### 4.1 `electron/embedding/index.ts` — 下载源 + 下载逻辑
+
+在文件顶部配置下载源（ModelScope 直链，3 个文件）：
+
+```typescript
+const MODEL_DOWNLOAD_URLS = {
+  model: 'https://www.modelscope.cn/models/jinaai/jina-embeddings-v5-text-nano-retrieval/resolve/master/onnx/model_q4f16.onnx',
+  modelData: 'https://www.modelscope.cn/models/jinaai/jina-embeddings-v5-text-nano-retrieval/resolve/master/onnx/model_q4f16.onnx_data',
+  tokenizer: 'https://www.modelscope.cn/models/jinaai/jina-embeddings-v5-text-nano-retrieval/resolve/master/tokenizer.json',
+}
+```
+
+新增 3 个 IPC handler：
+- `embedding:downloadModel` — 流式下载 3 个文件（.onnx + .onnx_data + tokenizer.json），`.tmp` 中转 + rename 防中断留半截，进度按文件权重合并上报
+- `embedding:cancelDownload` — AbortController 取消
+- `embedding:getDownloadConfig` — 返回是否配置了下载源
+
+下载完自动校验 3 个文件 + 重新 init 模型。
+
+### 4.2 `electron/preload.ts` — 暴露下载 API
+
+```typescript
+downloadModel: () => ipcRenderer.invoke('embedding:downloadModel'),
+cancelDownload: () => ipcRenderer.invoke('embedding:cancelDownload'),
+getDownloadConfig: () => ipcRenderer.invoke('embedding:getDownloadConfig'),
+onDownloadProgress: (cb) => { /* ipcRenderer.on('embedding:download-progress') */ },
+onDownloadComplete: (cb) => { /* ... */ },
+onDownloadError: (cb) => { /* ... */ },
+```
+
+### 4.3 `src/types/electron-api.d.ts` — 补类型声明
+
+在 `embedding` 接口里加 `downloadModel` / `cancelDownload` / `getDownloadConfig` 及 3 个事件回调的类型。
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep -E "embedding|download"
+# 应无错误
+```
+
+---
+
+## Step 5：前端接通 workspace:registerPath
+
+### 前置条件
+Step 1 完成
+
+### 问题
+`workspace:registerPath` IPC handler 早就存在，但**前端代码从来没调用过它**。导致 `registeredPaths` 永远为空 → `isPathWithinWorkspace` 永远返回 false → 所有 `fs:*` IPC 被拒（报 "Path outside workspace"）→ embedding init 失败。
+
+### 5.1 `src/hooks/useWorkspaceDataLoader.ts` — 在 loadWorkspaceData 里注册
+
+```typescript
+// 改前
+const service = new WorkspaceService()
+service.setWorkspacePath(workspacePath)
+
+// 改后
+const service = new WorkspaceService()
+service.setWorkspacePath(workspacePath)
+// 注册工作区路径，解锁 fs:* IPC
+try {
+  await window.electronAPI.workspace.registerPath(workspacePath)
+} catch (err) {
+  console.warn('[workspace] registerPath failed:', err)
+}
+```
+
+### 验证
+```bash
+# 启动应用，打开工作区，终端日志不应再出现 "Path outside workspace"
+cd alphabase && pnpm electron:dev
+```
+
+---
+
+## Step 6：傻瓜式自动索引 + 3D 视图下载引导
+
+### 前置条件
+Step 4、Step 5 完成
+
+### 6.1 `src/stores/embeddingStore.ts` — 自动索引
+
+- `_get` 改 `get`（要用 `get()` 调自身 action）
+- 新增 `ensureIndexed` action：轮询 `getStatus` 等 ONNX session 就绪（`initialized=true`），然后自动调 `startIndexing`；超时 30s
+- `init` 成功后自动调 `ensureIndexed()`
+- 新增 `downloadModel` / `cancelDownload` / `checkDownloadConfig` action
+
+### 6.2 `src/components/topography/useClusterData.ts` — 下载引导 + 自动刷新
+
+- 模型不可用时设 `needModel` 状态（而非报错）
+- 监听 `onDownloadComplete` 和 `onComplete` 事件，下载完/索引完自动 `refresh()`
+- 索引中/无向量时显示友好提示（"正在索引卡片，请稍候…"）
+- `return { peaks, loading, error, needModel, refresh }`
+
+### 6.3 `src/components/topography/TopographyView.tsx` — 下载引导 UI
+
+- 解构 `needModel` + `useEmbeddingStore()` 的下载状态
+- `needModel` 时显示居中浮层：「向量模型未就绪」+「下载模型」按钮 + 进度条
+
+### 6.4 `src/components/ui/settings/VectorIndexSettings.tsx` — 简化设置页
+
+- 移除「向量化全部卡片」手动按钮
+- 保留状态展示（已索引卡片数、进度条）
+- 模型缺失时显示下载入口
+- 保留相似度阈值滑块
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep -E "embeddingStore|topography|VectorIndex"
+# 应无错误
+```
+
+---
+
+## Step 7：修复聚类小样本 bug
+
+### 前置条件
+Step 6 完成
+
+### 问题
+`n=4` 张卡片时：`targetCount = Math.max(4, 0) = 4`，`maxClusterSize = Math.ceil(4/4) = 1`。每簇最多 1 个成员 → 无法合并 → 全部成 orphan → 0 clusters。
+
+### 7.1 `electron/embedding/EmbeddingService.ts` — 修参数公式
+
+```typescript
+// 改前
+const targetCount = Math.max(4, Math.min(12, Math.floor(n / 8)))
+const maxClusterSize = Math.ceil(n / targetCount)
+
+// 改后
+const targetCount = Math.max(2, Math.min(12, Math.floor(n / 8)))
+const maxClusterSize = Math.max(minClusterSize, Math.ceil(n / targetCount))
+```
+
+`n=4` 时：`targetCount=2, maxClusterSize=2`，可两两合并成 2 个簇。
+
+### 验证
+```bash
+# 4 张卡片聚类应输出 2 clusters，0 orphans
+# 日志：[embedding/cluster] START agglomerative: n=4, target=2, maxSize=2
+#      [embedding/cluster] DONE: 2 clusters, 0 orphans
+```
+
+---
+
+## Step 8：3D 入场动画改为层层浮现 + 修闪烁
+
+### 前置条件
+Step 7 完成
+
+### 8.1 `src/components/topography/useContourScene.ts` — contour 带 level + 克隆材质
+
+- contour 类型加 `level: number` 字段
+- tube 和 line 材质 `.clone()`（共享材质导致动画改 opacity 闪烁）
+
+```typescript
+// 改前
+const line = new THREE.Line(lineGeo, LINE_MAT)
+tube = new THREE.Mesh(tubeGeo, TUBE_MAT)
+
+// 改后
+const line = new THREE.Line(lineGeo, LINE_MAT.clone())
+tube = new THREE.Mesh(tubeGeo, TUBE_MAT.clone())
+
+// contours.push 加 level
+contours.push({ line, tube, fill, level: lv })
+```
+
+### 8.2 `src/components/topography/TopographyView.tsx` — 层层浮现动画
+
+```typescript
+// 改前：line-draw → solidify
+const ENTRY_START = 500, DRAW_MS = 320, STAGGER_MS = 50, SOLID_LAG = 130
+const contourAnim = sceneData.contours.map((c, i) => ({
+  ...c, ptCount: c.line.geometry.attributes.position.count,
+  lineStart: ENTRY_START + i * STAGGER_MS,
+  lineEnd: ENTRY_START + i * STAGGER_MS + DRAW_MS,
+  solidifyAt: ENTRY_START + i * STAGGER_MS + DRAW_MS + SOLID_LAG,
+  drawn: false, solidified: false,
+}))
+
+// 改后：按高度从低到高，层层 fade + 上浮
+const ENTRY_START = 400, LAYER_STAGGER = 45, LAYER_FADE_MS = 380, RISE_AMOUNT = 0.35
+const sortedContours = [...sceneData.contours].sort((a, b) => a.level - b.level)
+let rank = -1, prevLevel = -Infinity
+const contourAnim = sortedContours.map(c => {
+  if (c.level !== prevLevel) { rank++; prevLevel = c.level }
+  return { ...c, startAt: ENTRY_START + rank * LAYER_STAGGER, appeared: false }
+})
+```
+
+animate 循环里：
+```typescript
+// 改后
+if (elapsed < c.startAt) continue
+const p = Math.min((elapsed - c.startAt) / LAYER_FADE_MS, 1)
+const eased = 1 - Math.pow(1 - p, 3)  // ease-out cubic
+if (c.tube) {
+  c.tube.visible = true
+  ;(c.tube.material as THREE.MeshBasicMaterial).opacity = 0.88 * eased
+  c.tube.position.y = (1 - eased) * -RISE_AMOUNT
+}
+if (c.fill) {
+  c.fill.visible = true
+  ;(c.fill.material as THREE.MeshBasicMaterial).opacity = 0.58 * eased
+  c.fill.position.y = c.level + (1 - eased) * -RISE_AMOUNT
+}
+c.line.visible = false
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep -E "topography|ContourScene"
+# 应无错误
+# 视觉：3D 视图地形从底向上层层浮现，不闪烁
+```
+
+---
+
+## 复刻检查清单
+
+- [ ] `pnpm typecheck` 无新增错误（原有 pre-existing 错误除外）
+- [ ] `pnpm electron:dev` 能拉起 Electron 窗口
+- [ ] 打开工作区后终端无 "Path outside workspace" 报错
+- [ ] 设置页「向量索引」无手动按钮，显示自动索引状态
+- [ ] 模型缺失时 3D 视图显示「下载模型」按钮
+- [ ] 4 张卡片能聚出 2 个簇（非 0 clusters）
+- [ ] 3D 入场动画为层层浮现，无闪烁
+- [ ] HMR 重载 main 进程不崩（无 "second handler" 错误）
+
+## 后续可优化方向
+
+- **emoji 路径**：含 emoji 的工作区路径（如 `🟢save`）在 `isPathWithinWorkspace` 的 `startsWith` 比较上仍有偶发问题（NFC/NFD 编码差异），影响自动备份。可改用 `path.relative()` 判断包含关系
+- **模型下载断点续传**：当前下载用 `.tmp` + rename，中断后需重头下。大文件（120MB）可加 Range 请求续传
+- **pre-existing typecheck 错误**：`main.ts:217 dataReadyArrived` 作用域、`BoardSubmenu` 缺 `MenuItem` 模块、若干未使用变量，与本次改动无关但应择机清理
+
+## 关键教训
+
+1. **共享材质是动画闪烁的常见根因**：Three.js 中多个 mesh 共用同一材质实例时，改 opacity 会互相覆盖。动画驱动的 per-mesh 属性必须用独立材质（`.clone()`）
+2. **Electron 主进程 chunk 不要 import electron**：`vite-plugin-electron` 把 `EmbeddingService` 打成独立 chunk，`require("electron")` 在非主进程上下文会返回路径字符串而非模块。需要 `app` 的代码留在 `index.ts`（主入口），把路径作为参数传给 Service
+3. **IPC handler 注册必须加守卫**：HMR 会重跑 main 进程，`ipcMain.handle` 重复注册同 channel 会崩。所有 `register*Handlers` 函数都应有 `registered` boolean 守卫
+4. **安全护栏要接通才有意义**：`registerPath` IPC 早就实现了，但前端没调用，等于安全门一直锁着，所有 fs 操作全被拒。新增 IPC 时要同步检查前端调用方

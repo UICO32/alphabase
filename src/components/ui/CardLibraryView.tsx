@@ -363,10 +363,14 @@ if (searchQuery.trim()) {
           transition: all 0.2s ease-out;
         }
       `}</style>
-      <div className="max-w-3xl mx-auto p-4">
-        {/* Search bar with mode switch */}
-        <div
-          className="mb-3 flex items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2"
+      <div className="max-w-3xl mx-auto p-6">
+        <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-xl font-semibold text-fg-primary">
+            卡片库
+          </h1>
+          {/* Search bar with mode switch */}
+          <div
+            className="flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 sm:w-72"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && searchMode !== 'keyword') {
               handleSearchSubmit()
@@ -413,6 +417,7 @@ if (searchQuery.trim()) {
             placeholder={searchMode === 'semantic' ? '输入语义搜索内容，按回车触发...' : '搜索卡片...'}
             className="flex-1 py-2 text-sm outline-none bg-transparent text-fg-primary"
           />
+          </div>
         </div>
 
         {/* Tag cloud */}

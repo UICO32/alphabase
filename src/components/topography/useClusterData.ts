@@ -82,6 +82,7 @@ export function useClusterData() {
   const [peaks, setPeaks] = useState<TopicPeak[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [needModel, setNeedModel] = useState(false)
   const wsPathRef = useRef<string>('')
 
   const refresh = useCallback(async () => {
@@ -116,9 +117,11 @@ export function useClusterData() {
       // Check model availability
       const status = await window.electronAPI.embedding.getStatus()
       if (!status.modelAvailable) {
+        setNeedModel(true)
         if (!cached) setLoading(false)
         return
       }
+      setNeedModel(false)
 
       const result = await store.cluster(2)
       // result non-empty → clusterResult was set, the subscription rebuilds peaks.
@@ -216,7 +219,7 @@ export function useClusterData() {
     refresh()
   }, [refresh])
 
-  return { peaks, loading, error, refresh }
+  return { peaks, loading, error, needModel, refresh }
 }
 
 function isUUID(s: string): boolean {

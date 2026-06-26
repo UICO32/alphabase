@@ -15,6 +15,7 @@ interface CardDragData {
   type: 'card'
   cardId: string
   isNewInstance: boolean
+  dragOffset?: { x: number; y: number }
 }
 
 export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOptions) {
@@ -73,16 +74,22 @@ export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOp
                 useCardStore.getState().addCard(newCard)
                 cardId = newCard.id
               }
+              const dropOffset = dragData.dragOffset ?? { x: 0, y: 0 }
+              const dropPosition = instance.screenToFlowPosition({
+                x: event.clientX - dropOffset.x,
+                y: event.clientY - dropOffset.y,
+              })
               const node: Node<CardNodeData> = {
                 id: cardId,
                 type: 'card',
-                position,
+                position: dropPosition,
                 data: {
                   cardId,
                   color: card.color,
                   collapsed: card.collapsed,
                   fixedHeight: card.fixedHeight,
                 },
+                className: 'card-node-landing',
               }
               setNodes((nds) => [...nds, node])
             }

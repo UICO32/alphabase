@@ -1,0 +1,538 @@
+# 3D 聚类实时同步 + 增量索引 + 数据看板 — 分步复刻指南
+
+> 修复卡片库更新后 3D 聚类不刷新、卡片内容变化索引不更新、3D 视图缺手动刷新入口、缺数据看板等问题。本文档让复刻者能按顺序逐步还原所有改动。
+
+## 执行顺序总览
+
+| Step | 阶段 | 前置依赖 | 风险 | 验证方式 |
+|------|------|----------|------|----------|
+| 1    | 后端加 removeVector 能力 | 无 | 低 | typecheck |
+| 2    | embeddingStore 加防抖增量索引 + removeVector | Step 1 | 中 | typecheck |
+| 3    | cardStore 在增删改时触发增量索引/清理向量 | Step 2 | 中 | typecheck |
+| 4    | useClusterData 订阅 clusterResult 重建 peaks | Step 2 | 中 | typecheck |
+| 5    | TopographyView 加手动刷新按钮 + 进度条 | Step 4 | 低 | 视觉验证 |
+| 6    | 顶部数据看板 + DIN 字体 | Step 5 | 低 | 视觉验证 |
+
+> ⚠️ Step 2 必须在 Step 3 之前（cardStore 调用 embeddingStore 的新方法）。Step 4 必须在 Step 5 之前（按钮依赖 useClusterData 暴露的状态）。
+
+---
+
+## Step 1：后端加 removeVector 能力
+
+### 前置条件
+无
+
+### 问题
+卡片删除/软删除后，后端向量库里仍保留其 embedding，导致 3D 聚类渲染出「幽灵房子」。`EmbeddingService` 只有 `indexCard`（会顺带清理不存在的卡片），没有单独的 `removeVector` 方法。
+
+### 1.1 `electron/embedding/EmbeddingService.ts` — 新增 removeVector 方法
+
+在 `indexCard` 方法之后、`cleanStaleVectors` 之前插入：
+
+```typescript
+/**
+ * Remove a single card's vector from the store. Used when a card is
+ * deleted/soft-deleted in the UI so that 3D clustering doesn't keep
+ * rendering a ghost house for it. Persists immediately.
+ */
+removeVector(cardId: string): boolean {
+  if (!this.store.docs[cardId]) return false
+  delete this.store.docs[cardId]
+  this.saveStore()
+  return true
+}
+```
+
+### 1.2 `electron/embedding/index.ts` — 注册 IPC handler
+
+在 `embedding:indexCard` handler 之后插入：
+
+```typescript
+ipcMain.handle('embedding:removeVector', async (_event, cardId: string) => {
+  if (!service) return { success: false }
+  try {
+    const removed = service.removeVector(cardId)
+    return { success: removed }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+})
+```
+
+### 1.3 `electron/preload.ts` — 暴露 API
+
+在 `indexCard` 之后加：
+
+```typescript
+removeVector: (cardId: string) => ipcRenderer.invoke('embedding:removeVector', cardId),
+```
+
+### 1.4 `src/types/electron-api.d.ts` — 补类型声明
+
+在 `indexCard` 的类型之后加：
+
+```typescript
+removeVector: (cardId: string) => Promise<{ success: boolean; error?: string }>
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep -E "EmbeddingService|embedding/index|preload|electron-api"
+# 应无错误
+```
+
+---
+
+## Step 2：embeddingStore 加防抖增量索引 + removeVector
+
+### 前置条件
+Step 1 完成
+
+### 问题
+后端 `indexCard` 增量索引能力一直存在，但前端没有调用方。卡片内容变化时不会重新向量化，3D 聚类永远基于旧向量。需要：
+1. 防抖索引（合并连续编辑，避免每次按键都跑 ONNX）
+2. 删卡片时立即清理向量
+3. 两者完成后都要自动 re-cluster，让 3D 视图刷新
+
+### 2.1 `src/stores/embeddingStore.ts` — 接口新增两个方法
+
+在 `EmbeddingState` 接口的 `indexCard` 之后加：
+
+```typescript
+/**
+ * Debounced incremental indexing for a single card. Coalesces rapid
+ * edits (e.g. typing) into one re-index after `delay` ms of silence.
+ * After flushing all pending cards, re-runs clustering so the 3D view
+ * picks up the new vectors. No-op if the model isn't loaded yet.
+ */
+indexCardDebounced: (cardId: string, delay?: number) => void
+/**
+ * Remove a card's vector immediately (used on delete/soft-delete so
+ * the 3D view doesn't render ghost houses). Re-clusters afterwards.
+ */
+removeVector: (cardId: string) => Promise<void>
+```
+
+### 2.2 模块级防抖状态 + store 工厂改 block 形式
+
+store 工厂从 `(set, get) => ({ ... })` 改成 `(set, get) => { const flushPendingIndex = ...; return { ... } }`，以便定义闭包内函数：
+
+```typescript
+// 模块级防抖状态，放在 store 外部避免暴露在 store shape 里
+let indexDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const pendingIndexCardIds = new Set<string>()
+let isFlushing = false
+
+export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
+  // flush 所有 pending 卡片的增量索引，然后 re-cluster
+  const flushPendingIndex = async () => {
+    if (isFlushing) return
+    isFlushing = true
+    indexDebounceTimer = null
+    const ids = [...pendingIndexCardIds]
+    pendingIndexCardIds.clear()
+    if (ids.length === 0) { isFlushing = false; return }
+
+    try {
+      // 模型未就绪时把 id 放回 pending，下次 flush 重试
+      const status = await window.electronAPI.embedding.getStatus()
+      if (!status.initialized) {
+        for (const id of ids) pendingIndexCardIds.add(id)
+        return
+      }
+
+      let anySuccess = false
+      for (const id of ids) {
+        try {
+          const result = await window.electronAPI.embedding.indexCard(id)
+          if (result.success) anySuccess = true
+        } catch {
+          // 单个失败不影响其他卡片
+        }
+      }
+      if (anySuccess) {
+        await get().cluster()
+      }
+    } catch (err) {
+      console.warn('[embeddingStore] flush index failed:', err)
+    } finally {
+      isFlushing = false
+    }
+  }
+
+  return {
+    // ...原有 state 和方法...
+
+    indexCardDebounced: (cardId: string, delay = 1500) => {
+      pendingIndexCardIds.add(cardId)
+      if (indexDebounceTimer) clearTimeout(indexDebounceTimer)
+      indexDebounceTimer = setTimeout(() => {
+        void flushPendingIndex()
+      }, delay)
+    },
+
+    removeVector: async (cardId: string) => {
+      try {
+        await window.electronAPI.embedding.removeVector(cardId)
+        const status = await window.electronAPI.embedding.getStatus()
+        if (status.docCount > 0 || status.initialized) {
+          await get().cluster()
+        }
+      } catch (err) {
+        console.warn('[embeddingStore] removeVector failed:', err)
+      }
+    },
+
+    // ...其余方法...
+  }
+})
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep embeddingStore
+# 应无错误
+```
+
+---
+
+## Step 3：cardStore 在增删改时触发增量索引/清理向量
+
+### 前置条件
+Step 2 完成
+
+### 问题
+`cardStore` 的 `updateCard` / `addCard` / `deleteCard` / `softDeleteCard` / `restoreCard` 都不通知 embedding 系统，导致向量库和工作区状态脱节。
+
+### 3.1 `src/stores/cardStore.ts` — import embeddingStore
+
+```typescript
+// 改前
+import { useEditorHistoryStore } from './editorHistoryStore'
+import type { CardColor } from '../types/card'
+
+// 改后
+import { useEditorHistoryStore } from './editorHistoryStore'
+import { embeddingStore } from './embeddingStore'
+import type { CardColor } from '../types/card'
+```
+
+### 3.2 各 action 接入增量索引/清理
+
+```typescript
+addCard: (card) => {
+  set((state) => ({ cards: { ...state.cards, [card.id]: card } }))
+  flushActiveSyncEngine()
+  // 新卡片 — 排队增量索引
+  embeddingStore.getState().indexCardDebounced(card.id)
+},
+
+updateCard: (id, props) => {
+  useEditorHistoryStore.getState().consumeUndoFlag(id)
+  const contentOrTitleChanged = 'content' in props || 'title' in props
+  set((state) => { /* ...原有逻辑... */ })
+  // 内容/标题变化影响向量 — 防抖重索引
+  if (contentOrTitleChanged) {
+    embeddingStore.getState().indexCardDebounced(id)
+  }
+},
+
+deleteCard: (id) => {
+  set((state) => { /* ...原有逻辑... */ })
+  // 立即清理向量，避免幽灵房子
+  void embeddingStore.getState().removeVector(id)
+},
+
+softDeleteCard: (id) => {
+  set((state) => { /* ...原有逻辑... */ })
+  void embeddingStore.getState().removeVector(id)
+},
+
+restoreCard: (id) => {
+  set((state) => { /* ...原有逻辑... */ })
+  // 恢复的卡片需要重新向量化
+  embeddingStore.getState().indexCardDebounced(id)
+},
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep cardStore
+# 应无错误
+```
+
+---
+
+## Step 4：useClusterData 订阅 clusterResult 重建 peaks
+
+### 前置条件
+Step 2 完成
+
+### 问题
+`useClusterData` 有两个致命问题：
+1. **缓存拦截**：`cardIdHash` 只看卡片 ID 集合，内容变化时 hash 不变 → 跳过聚类直接用旧缓存
+2. **无订阅**：不监听 `embeddingStore.clusterResult` 变化，增量索引/re-cluster 后 peaks 不更新
+
+### 4.1 `src/components/topography/useClusterData.ts` — 提取 buildPeaksFromResult
+
+把原来散在 `runClusteringAsync` 里的 peaks 构建逻辑提取为模块级纯函数，供初始加载和订阅共用：
+
+```typescript
+function buildPeaksFromResult(result: ClusterResult): TopicPeak[] {
+  const board = useBoardStore.getState()
+  const cards = useCardStore.getState()
+  const cardPositions: Record<string, { x: number; y: number }> = {}
+  const cardLabels: Record<string, string> = {}
+
+  const activeBoardId = board.activeBoardId
+  if (activeBoardId) {
+    const boardData = board.getBoardData(activeBoardId)
+    if (boardData) {
+      for (const node of boardData.nodes) {
+        if (node.type === 'card' && node.data?.cardId) {
+          cardPositions[node.data.cardId as string] = { x: node.position.x, y: node.position.y }
+        }
+      }
+    }
+  }
+  for (const [id, card] of Object.entries(cards.cards)) {
+    cardLabels[id] = card.title || '未命名'
+  }
+  return buildTopicPeaks(result.clusters, result.orphanCards, cardPositions, cardLabels)
+}
+```
+
+### 4.2 订阅 clusterResult 变化
+
+在 `useClusterData` 内新增 useEffect，订阅 `embeddingStore`，`clusterResult` 变化时重建 peaks + 写缓存 + 触发 LLM 命名：
+
+```typescript
+useEffect(() => {
+  const unsub = embeddingStore.subscribe((state, prev) => {
+    if (state.clusterResult && state.clusterResult !== prev.clusterResult) {
+      const built = buildPeaksFromResult(state.clusterResult)
+      setPeaks(built)
+      setLoading(false)
+      setError(null)
+
+      const wsPath = wsPathRef.current
+      if (wsPath) {
+        const allCardIds = Object.keys(useCardStore.getState().cards)
+        void writeCache(wsPath, built, allCardIds.length, hashCardIds(allCardIds))
+      }
+      void renameWithLLM(built, setPeaks, wsPathRef)
+    }
+  })
+  return unsub
+}, [])
+```
+
+### 4.3 简化 refresh()
+
+`refresh()` 不再自己构建 peaks，只负责触发 `cluster()`。peaks 重建统一走上面的订阅：
+
+```typescript
+const refresh = useCallback(async () => {
+  // ...读缓存快速显示...
+  const store = embeddingStore.getState()
+  if (!store.storeLoaded) await store.init(wsPath)
+  const status = await window.electronAPI.embedding.getStatus()
+  if (!status.modelAvailable) { setNeedModel(true); setLoading(false); return }
+  const result = await store.cluster(2)
+  // result 非空时，clusterResult 已 set，订阅 effect 会重建 peaks
+  if (!result && peaksRef.current.length === 0) {
+    // 显示「正在索引卡片…」等友好提示
+  }
+}, [])
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep useClusterData
+# 应无错误
+```
+
+---
+
+## Step 5：TopographyView 加手动刷新按钮 + 进度条
+
+### 前置条件
+Step 4 完成
+
+### 5.1 `src/components/topography/TopographyView.tsx` — 取索引状态
+
+```typescript
+const { downloading, downloadProgress, downloadError, downloadConfigured,
+        downloadModel, indexing, startIndexing, progress, total } = useEmbeddingStore()
+
+const handleRefresh = () => {
+  if (indexing || downloading) return
+  void startIndexing()  // onComplete → useClusterData 的 effect → refresh
+}
+
+const indexPct = total > 0 ? Math.min(Math.round((progress / total) * 100), 100) : 0
+const indexIndeterminate = indexing && total === 0
+```
+
+### 5.2 跑道圆按钮 + 进度条
+
+按钮放在顶部居中（看板下方），黑底白字跑道圆，索引中图标旋转 + 文字变「索引中」：
+
+```tsx
+<button onClick={handleRefresh} disabled={indexing}
+  style={{
+    display: 'flex', alignItems: 'center', gap: 6,
+    background: indexing ? 'rgba(20,20,20,0.5)' : '#0a0a0a',
+    color: '#fff', border: 'none', borderRadius: 999, padding: '8px 16px',
+    cursor: indexing ? 'wait' : 'pointer',
+    fontFamily: DIN_FONT, fontSize: 11, fontWeight: 400,
+  }}>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+    style={{ animation: indexing ? 'topography-spin 0.9s linear infinite' : 'none' }}>
+    <path d="M21 12a9 9 0 1 1-3-6.7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
+    <path d="M21 3v5h-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+  {indexing ? '索引中' : '索引卡片'}
+</button>
+```
+
+进度条（按钮下方，仅索引中显示）：
+- 已知总量：实心条宽度 = `indexPct%`，`transition: width .3s`
+- 未知总量：40% 宽脉冲条，`topography-pulse` 动画 1.2s
+
+```tsx
+{indexing && (
+  <div style={{ width: 180, height: 3, background: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden' }}>
+    {indexIndeterminate ? (
+      <div style={{ width: '40%', height: '100%', background: C.compassColor,
+        animation: 'topography-pulse 1.2s ease-in-out infinite' }} />
+    ) : (
+      <div style={{ width: `${indexPct}%`, height: '100%', background: C.compassColor,
+        transition: 'width .3s ease' }} />
+    )}
+  </div>
+)}
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep TopographyView
+# 应无错误
+# 视觉：按钮在顶部居中，索引中图标旋转 + 进度条显示
+```
+
+---
+
+## Step 6：顶部数据看板 + DIN 字体
+
+### 前置条件
+Step 5 完成
+
+### 6.1 `index.html` — 引入 Oswald 字体（DIN 兜底）
+
+DIN 不在 Google Fonts，用 Oswald 作为几何形态最接近的免费兜底：
+
+```html
+<!-- DIN family: DIN Alternate (macOS), DIN 1451 (some installs), Oswald fallback -->
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200;300;400;500;600;700&display=swap" rel="stylesheet" />
+```
+
+### 6.2 `TopographyView.tsx` — DIN 字体栈常量 + Stat/Sep 组件
+
+```typescript
+const DIN_FONT = "'DIN Alternate', 'DIN 1451', DIN, Oswald, 'Helvetica Neue', sans-serif"
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+      <span style={{
+        fontFamily: DIN_FONT, fontSize: 52, fontWeight: 100,
+        color: '#000', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+        letterSpacing: -1,
+      }}>{value}</span>
+      <span style={{
+        fontFamily: DIN_FONT, fontSize: 13, fontWeight: 100,
+        color: 'rgba(0,0,0,0.5)', lineHeight: 1, letterSpacing: 1,
+      }}>{label}</span>
+    </div>
+  )
+}
+
+function Sep() {
+  return <div style={{ width: 1, height: 48, background: 'rgba(0,0,0,0.1)', marginBottom: 16 }} />
+}
+```
+
+### 6.3 stats 计算 + 看板布局
+
+```typescript
+const cardsObj = useCardStore(s => s.cards)
+const stats = useMemo(() => {
+  const cardIds = Object.keys(cardsObj)
+  let days = 0
+  if (cardIds.length > 0) {
+    const now = Date.now()
+    let earliest = now
+    for (const id of cardIds) {
+      const t = cardsObj[id]?.createdAt
+      if (t && t < earliest) earliest = t
+    }
+    days = Math.max(1, Math.ceil((now - earliest) / 86400000))
+  }
+  return { cardCount: cardIds.length, topicCount: peaks.length, days }
+}, [cardsObj, peaks])
+```
+
+看板布局——数字裸露在画布上，无背景，`pointerEvents: 'none'` 不挡 OrbitControls：
+
+```tsx
+<div style={{
+  position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)',
+  zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+  pointerEvents: 'none',  // 整体不挡拖拽
+}}>
+  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28 }}>
+    <Stat value={stats.cardCount} label="张卡片" />
+    <Sep />
+    <Stat value={stats.topicCount} label="个主题" />
+    <Sep />
+    <Stat value={stats.days} label="天记录" />
+  </div>
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+    {/* 跑道圆按钮 + 进度条（Step 5 的内容） */}
+  </div>
+</div>
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck 2>&1 | grep TopographyView
+# 应无错误
+# 视觉：顶部居中三组大号 DIN 数字，无背景，直接浮在等高线画布上
+```
+
+---
+
+## 复刻检查清单
+
+- [ ] `pnpm typecheck` 无新增错误
+- [ ] 编辑卡片内容 1.5s 后 3D 视图自动刷新聚类
+- [ ] 删除卡片后 3D 视图对应的房子立即消失
+- [ ] 点「索引卡片」按钮触发全量索引，进度条显示百分比
+- [ ] 顶部居中显示三组 DIN 大数字（卡片/主题/天），无白色背景
+- [ ] 数字容器不阻挡 OrbitControls 旋转/缩放
+- [ ] 跑道圆按钮在数字下方居中，索引中图标旋转 + 文字变「索引中」
+
+## 后续可优化方向
+
+- **增量索引节流**：当前 1.5s 防抖，大量卡片批量编辑时可能排队过多。可加最大 pending 数量限制
+- **LLM 命名竞态**：`renameWithLLM` 按 peak.id 更新，但快速连续聚类时 LLM 回调可能乱序。可加请求版本号
+- **暗色模式适配**：当前数字固定纯黑 `#000`，暗色模式下可能需要切白色（需判断 `isDark`）
+- **进度条增量索引感知**：当前进度条只在全量 `indexAll` 时显示，增量索引（`indexCardDebounced`）不显示。可给增量索引也加个轻量提示
+
+## 关键教训
+
+1. **缓存 hash 要覆盖内容，不只是 ID**：原 `cardIdHash` 只看卡片 ID 集合，内容变化时不触发重聚类。如果用内容 hash，要么 hash 标题+updatedAt，要么干脆订阅数据源变化跳过缓存判断
+2. **单一数据流避免状态分裂**：peaks 重建应只有一个入口（订阅 `clusterResult`），不要在多处调用 `buildPeaksFromResult`。否则初始加载、手动刷新、增量索引三条路径容易产生不一致
+3. **pointerEvents 分层**：3D 视图上的 DOM 覆盖层（数据看板）要 `pointerEvents: 'none'`，否则会挡住 OrbitControls。但内部的按钮/交互元素要单独 `pointerEvents: 'auto'` 重新启用
+4. **DIN 字体跨平台兜底**：DIN 不是 web 安全字体，macOS 有 DIN Alternate，Windows/Linux 通常没有。必须配 Oswald 等 Google Fonts 兜底，否则 fallback 到 Helvetica 会丢失几何感

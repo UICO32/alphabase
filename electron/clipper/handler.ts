@@ -393,7 +393,11 @@ function mapXHSItem(v: any): AgentReachBrowseResult['items'][0] {
   }
 }
 
+let clipperRegistered = false
+
 export function registerClipperHandlers() {
+  if (clipperRegistered) return
+  clipperRegistered = true
   ipcMain.handle('clipper:clip', handleClip)
   ipcMain.handle('clipper:agentReachBrowse', handleAgentReachBrowse)
 }

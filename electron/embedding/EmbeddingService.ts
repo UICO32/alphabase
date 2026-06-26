@@ -343,8 +343,11 @@ export class EmbeddingService {
     }
 
     const n = docs.length
-    const targetCount = Math.max(4, Math.min(12, Math.floor(n / 8)))
-    const maxClusterSize = Math.ceil(n / targetCount)
+    // targetCount 下限为 2（而非 4）：n=4 时 floor(4/8)=0，旧公式 max(4,0)=4 →
+    // maxClusterSize=ceil(4/4)=1，每簇最多 1 个成员无法合并 → 全部成 orphan → 0 clusters。
+    // 改为 max(2,...) 后 n=4 → targetCount=2, maxClusterSize=max(2,2)=2，可两两合并。
+    const targetCount = Math.max(2, Math.min(12, Math.floor(n / 8)))
+    const maxClusterSize = Math.max(minClusterSize, Math.ceil(n / targetCount))
     console.log(`[embedding/cluster] START agglomerative: n=${n}, target=${targetCount}, maxSize=${maxClusterSize}`)
 
     // Agglomerative clustering: start with each doc as its own cluster,

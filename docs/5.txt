@@ -1,0 +1,246 @@
+# 标签体系重构 — 工作区标签库 + # 引用 + flomo 标签同步
+
+> 构建独立的 tagStore 标签库，让 # 菜单可引用整个工作区的标签（计数/创建/排序/过滤）；增强 flomo 同步，解析正文 #标签 为 tag inline content，并同步到标签库。修复 legacy 渲染器丢弃 tag inline content 的预览态渲染问题。
+
+## 问题现象
+
+- **# 菜单只能从已有卡片的 tags[] 收集标签**：标签没有独立实体，无法知道创建时间、来源（flomo 或本地）、使用计数
+- **创建新标签困难**：输入一个不存在的标签名时，# 菜单不会提供"创建"选项，用户只能先在某张卡片上手动写 tags[]
+- **点击标签无反应**：`handleTagClick` 是空函数（`// Future: navigate to tag filter view`），标签不可导航
+- **卡片库无标签过滤**：无法按标签筛选卡片，也无法看到工作区有哪些标签
+- **flomo 正文中的 #标签 丢失**：`flomoConverter` 只取 `memo.tags` 字段，正文 `#想法` 这样的文本被当作普通文字，未转换为 tag inline content
+- **flomo 标签无来源标识**：同步后标签与本地标签混在一起，无法区分
+- **legacy 渲染器丢弃 tag/cardReference**：`renderInlineContent` 只处理 `text` 和 `link`，回退到 legacy 时标签内容被完全丢弃
+- **预览态缺标签样式**：`.card-preview-native` 下无 `[data-tag-name]` / `[data-card-id]` 的 CSS 规则
+
+## 根因
+
+| 问题 | 根因 | 位置 |
+|------|------|------|
+| # 菜单无法引用工作区标签 | 标签散落在各卡片 `tags[]` 数组里，无独立实体、无计数、无排序 | `TagSuggestionMenu.tsx` |
+| 点击标签无反应 | `handleTagClick` 是空函数 | `CardNode.tsx:150` |
+| 卡片库无标签过滤 | `libraryStore` 无 `tagFilter` 字段，`CardLibraryView` 无标签云 UI | `libraryStore.ts`、`CardLibraryView.tsx` |
+| flomo 正文 #标签 丢失 | `convertFlomoMemo` 只取 `memo.tags`，不解析正文 `#标签` 文本 | `flomoConverter.ts:139` |
+| flomo 标签无来源标识 | 同步后标签直接进卡片 `tags[]`，无 flomo 标记 | `flomoSync.ts:96` |
+| legacy 渲染器丢弃 tag | `renderInlineContent` 只处理 text/link，tag 返回空字符串 | `renderBlocks.ts:303` |
+| 预览态缺标签样式 | `.card-preview-native` 下无 `[data-tag-name]` 规则 | `card-blocknote-editor.css:85` |
+
+## 修改内容
+
+### 1. `src/stores/tagStore.ts` — 新建标签库（核心）
+
+新建模块，标签作为独立实体管理：
+
+```typescript
+export interface TagEntity {
+  name: string
+  createdAt: number
+  /** 是否从 flomo 同步而来 */
+  flomoSynced?: boolean
+  color?: string
+}
+```
+
+核心能力：
+- **持久化**：`loadState()` / `saveState()` 读写工作区 `tags.json`
+- **派生计数**：`getTagCounts()` 从所有未删除卡片的 `tags[]` 实时派生使用计数
+- **排序**：`getTagsSortedByUsage()` 按计数降序 + 字母序，合并 tagStore 未登记的标签
+- **创建**：`ensureTag()` / `ensureTags()` 幂等创建，支持 `flomoSynced` 标记升级
+- **重命名**：`renameTag(old, new)` — 更新 tagStore + 所有卡片 `tags[]` + 卡片内容中的 tag inline content
+- **删除**：`deleteTag(name)` — 从 tagStore 移除 + 从所有卡片 `tags[]` 移除 + 内容中 tag inline 替换为纯文本
+
+重命名/删除时会递归遍历 blocks JSON 的 content/children/rows，原地修改 tag inline 节点，并清空 `previewHTML` 以便重新生成。
+
+### 2. `src/components/editor/TagSuggestionMenu.tsx` — 增强 # 菜单
+
+改前：从 `cards[].tags[]` 收集标签，无计数、无创建选项。
+
+改后：
+- 从 `tagStore.getTagsSortedByUsage()` 获取标签（按使用频率排序）
+- 每个标签显示 `subtext`：`"3 张卡片"` 或 `"3 张卡片 · flomo"`
+- 输入不存在的标签时，列表顶部出现"创建新标签"选项（绿色 `+` 图标）
+- 选中后调用 `tagStore.ensureTag()` 登记 + `updateCard({ tags })` 挂载到当前卡片
+
+### 3. `src/stores/libraryStore.ts` — 新增 tagFilter 字段
+
+```typescript
+// 改前
+interface LibraryStore {
+  sortBy: SortBy
+  searchMode: SearchMode
+  webviewUrl: string | null
+  // ...
+}
+
+// 改后（新增）
+interface LibraryStore {
+  sortBy: SortBy
+  searchMode: SearchMode
+  webviewUrl: string | null
+  tagFilter: string | null        // ← 新增
+  setTagFilter: (tag: string | null) => void  // ← 新增
+  // ...
+}
+```
+
+### 4. `src/components/canvas/CardNode.tsx` — 点击标签跳转
+
+```typescript
+// 改前
+const handleTagClick = useCallback((_tagName: string) => {
+  // Future: navigate to tag filter view
+}, [])
+
+// 改后
+const handleTagClick = useCallback((tagName: string) => {
+  useLibraryStore.getState().setTagFilter(tagName)
+  useViewStore.getState().setViewMode('cards')
+}, [])
+```
+
+新增 `import { useLibraryStore } from '../../stores/libraryStore'`。
+
+### 5. `src/components/ui/CardLibraryView.tsx` — 标签云 + 过滤栏
+
+在搜索框下方、排序栏上方插入：
+
+- **标签云**：前 30 个高频标签（count > 0），按使用频率排序。点击切换 `tagFilter`，再次点击取消。激活态用紫色高亮。
+- **过滤横幅**：`tagFilter` 激活时显示 `按标签过滤：#想法 · N 条结果`，右侧 X 按钮清除。
+- **visibleCards 过滤逻辑**：新增 `if (tagFilter) filtered = filtered.filter(c => c.tags?.includes(tagFilter))`，搜索也支持按标签名匹配。
+- **空状态**：`tagFilter` 激活且无结果时显示 `没有带 #xxx 标签的卡片`。
+
+### 6. `src/converters/flomoConverter.ts` — 解析正文 #标签
+
+新增 `TAG_PATTERN` 正则与两个函数：
+
+```typescript
+// 匹配 # 后紧跟非空白、非 # 的连续字符（避免误匹配 Markdown heading # 标题）
+const TAG_PATTERN = /(?:^|[\s(（【])#([^\s#()（）【】、，。.;:!?，。；：！？]+)/g
+```
+
+- `extractTagsFromMarkdown(md)` — 从 markdown 文本提取标签名，反转义 turndown 产生的 `\_` → `_`
+- `injectTagInline(text)` — 把段落纯文本中的 `#标签` 片段转换为 tag inline content 节点，保留前后文本
+
+`convertFlomoMemo` 改后：
+1. `turndown` 转 markdown
+2. `parseMarkdownToBlocks` 解析为 blocks
+3. `injectTagInlineIntoBlocks` — 遍历文本类块（paragraph/heading/quote/list），把 content 从纯 text 替换为含 tag inline 的混合 content
+4. `extractTagsFromMarkdown` + `memo.tags` 合并去重 → `tags` 数组
+
+### 7. `src/sync/flomoSync.ts` — 同步标签到 tagStore
+
+在 `importCards` 之后新增：
+
+```typescript
+const importedTags = new Set<string>()
+for (const card of cards) {
+  if (card.tags) for (const t of card.tags) importedTags.add(t)
+}
+if (importedTags.size > 0) {
+  useTagStore.getState().ensureTags(Array.from(importedTags), { flomoSynced: true })
+}
+```
+
+新增 `import { useTagStore } from '../stores/tagStore'`。
+
+### 8. `src/hooks/useWorkspaceDataLoader.ts` — 加载标签库
+
+在 `setupSubscriptions` 之后、`emitStartupProgress('加载画板...')` 之前新增：
+
+```typescript
+useTagStore.getState().loadState().catch(() => {})
+```
+
+非关键路径，失败不影响主流程。
+
+### 9. `src/converters/renderBlocks.ts` — legacy 渲染器支持 tag/cardReference
+
+```typescript
+// 改前：renderInlineContent 只处理 text 和 link，tag 返回 ''
+  if (node.type === 'link') { ... }
+  return ''
+
+// 改后：新增 tag 和 cardReference 分支
+  if (node.type === 'link') { ... }
+  if (node.type === 'tag') {
+    const tagName = ((node.props as { tagName?: string })?.tagName) || ''
+    const innerContent = (node.content as unknown[])
+      ?.map((c) => renderInlineContent(c as Record<string, unknown>))
+      .join('') || escapeHTML(tagName)
+    return `<span data-tag-name="${escapeHTML(tagName)}" style="background-color:var(--tag-bg,rgba(139,92,246,0.1));border-radius:3px;padding:0 3px;color:var(--tag-color,#8b5cf6);font-weight:500;cursor:pointer;text-decoration:none">${innerContent}</span>`
+  }
+  if (node.type === 'cardReference') {
+    const cardId = ((node.props as { cardId?: string })?.cardId) || ''
+    const innerContent = (node.content as unknown[])
+      ?.map((c) => renderInlineContent(c as Record<string, unknown>))
+      .join('') || ''
+    return `<span data-card-id="${escapeHTML(cardId)}" style="background-color:var(--card-ref-bg,rgba(59,130,246,0.1));border-radius:3px;padding:0 3px;color:var(--card-ref-color,#3b82f6);font-weight:500;cursor:pointer;text-decoration:none">${innerContent}</span>`
+  }
+  return ''
+```
+
+### 10. `src/components/editor/card-blocknote-editor.css` — 预览态标签样式
+
+在 `.card-preview-native .ProseMirror` 规则之后、`/* Remove interactive states */` 之前新增：
+
+```css
+/* Tag & cardReference inline content in preview mode */
+.card-preview-native [data-tag-name] {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-radius: 3px;
+  padding: 0 3px;
+  color: #8b5cf6;
+  font-weight: 500;
+  text-decoration: none;
+}
+.card-preview-native [data-card-id] {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-radius: 3px;
+  padding: 0 3px;
+  color: #3b82f6;
+  font-weight: 500;
+  text-decoration: none;
+}
+```
+
+## 验证
+
+```bash
+# lint
+npx tsc --noEmit
+
+# 测试（新增 + 现有）
+cd alphabase && npx vitest run src/stores/tagStore.test.ts src/converters/flomoConverter.test.ts src/converters/renderBlocks.custom.test.ts
+# → 61 tests passed
+
+# 全套测试（确认无回归）
+cd alphabase && npx vitest run
+# → 新增测试全过；预先存在的 topography/frameLayouts/alignment 失败与本次无关（git stash 验证）
+
+# grep 确认关键改动到位
+grep -rn "tagStore" alphabase/src/stores/ alphabase/src/sync/ alphabase/src/hooks/ alphabase/src/components/editor/
+grep -rn "tagFilter" alphabase/src/stores/libraryStore.ts alphabase/src/components/ui/CardLibraryView.tsx
+grep -rn "TAG_PATTERN\|injectTagInline" alphabase/src/converters/flomoConverter.ts
+```
+
+## 视觉验证项
+
+- [ ] 卡片编辑态输入 `#`，弹出标签建议菜单，显示计数与来源
+- [ ] 输入新标签名，顶部出现"创建新标签"选项
+- [ ] 编辑态插入的 `#标签` 显示紫色高亮
+- [ ] 预览态（非选中）的 `#标签` 也显示紫色高亮（不丢样式）
+- [ ] 点击预览态/编辑态的 `#标签`，跳转到卡片库并按标签过滤
+- [ ] 卡片库顶部显示标签云，点击标签切换过滤
+- [ ] flomo 同步后，正文中的 `#标签` 显示为 tag inline（紫色），而非普通文本
+- [ ] flomo 同步的标签在 # 菜单中显示 `· flomo` 标识
+- [ ] `tagStore.renameTag` 后，所有卡片的 tags[] 和内容中的 tag inline 同步更新
+- [ ] `tagStore.deleteTag` 后，tag inline 被替换为纯文本，文字保留
+
+## 后续可优化方向
+
+- **标签管理 UI**：目前标签只能通过 # 菜单和代码操作，缺少一个独立的标签管理面板（重命名/删除/合并/查看全部）
+- **标签颜色自定义**：`TagEntity.color` 字段已预留，但 UI 上未提供颜色选择
+- **标签重命名撤销**：`renameTag` / `deleteTag` 是批量操作，目前不可撤销，应接入 `editorHistoryStore`
+- **flomo 双向同步**：目前只从 flomo 拉取，本地创建的标签不会推送回 flomo
+- **标签搜索**：卡片库搜索框已支持按标签名匹配，但语义搜索模式下标签权重未提升
+- **tags.json 迁移**：首次加载工作区时，可从现有卡片 `tags[]` 自动回填 tagStore，避免冷启动空标签库

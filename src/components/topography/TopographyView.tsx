@@ -365,7 +365,7 @@ export function TopographyView() {
   const tooltipElRef = useRef<HTMLDivElement | null>(null)
   const peaksRef = useRef<TopicPeak[]>([])
 
-  const { peaks, loading, error } = useClusterData()
+  const { peaks, loading, error, needModel } = useClusterData()
   peaksRef.current = peaks
   const sceneData = useContourScene(peaks)
 
@@ -695,19 +695,16 @@ export function TopographyView() {
     }
     container.addEventListener('click', onClick)
 
-    // Entry animation: line-draw → solidify
-    const ENTRY_START = 500, DRAW_MS = 320, STAGGER_MS = 50, SOLID_LAG = 130
-    const contourAnim = sceneData.contours.map((c, i) => ({
-      ...c,
-      ptCount: c.line.geometry.attributes.position.count,
-      lineStart: ENTRY_START + i * STAGGER_MS,
-      lineEnd: ENTRY_START + i * STAGGER_MS + DRAW_MS,
-      solidifyAt: ENTRY_START + i * STAGGER_MS + DRAW_MS + SOLID_LAG,
-      drawn: false,
-      solidified: false,
-    }))
+    // Entry animation: layered fade + rise (by contour level, low→high)
+    const ENTRY_START = 400, LAYER_STAGGER = 45, LAYER_FADE_MS = 380, RISE_AMOUNT = 0.35
+    const sortedContours = [...sceneData.contours].sort((a, b) => a.level - b.level)
+    let rank = -1, prevLevel = -Infinity
+    const contourAnim = sortedContours.map(c => {
+      if (c.level !== prevLevel) { rank++; prevLevel = c.level }
+      return { ...c, startAt: ENTRY_START + rank * LAYER_STAGGER, appeared: false }
+    })
     const ENTRY_TOTAL = contourAnim.length > 0
-      ? contourAnim[contourAnim.length - 1].solidifyAt + 400
+      ? contourAnim[contourAnim.length - 1].startAt + LAYER_FADE_MS + 400
       : 2000
 
     const t0 = performance.now()
@@ -721,19 +718,27 @@ export function TopographyView() {
       const elapsed = performance.now() - t0
       controls.update()
 
-      // Entry: line-draw → solidify
+      // Entry: layered fade + rise
       if (!entryDone) {
         for (const c of contourAnim) {
-          if (elapsed >= c.lineStart && !c.drawn) {
-            const p = Math.min((elapsed - c.lineStart) / DRAW_MS, 1)
-            c.line.geometry.setDrawRange(0, Math.floor(p * c.ptCount))
-            if (p >= 1) c.drawn = true
-          }
-          if (c.drawn && !c.solidified && elapsed >= c.solidifyAt) {
+          if (elapsed >= c.startAt && !c.appeared) {
+            const p = Math.min((elapsed - c.startAt) / LAYER_FADE_MS, 1)
+            const ease = 1 - Math.pow(1 - p, 3) // ease-out cubic
+            // Hide the line-draw wireframe, show tube+fill directly
             c.line.visible = false
-            if (c.tube) c.tube.visible = true
-            if (c.fill) c.fill.visible = true
-            c.solidified = true
+            if (c.tube) {
+              c.tube.visible = true
+              const tMat = c.tube.material as THREE.MeshBasicMaterial
+              tMat.opacity = 0.88 * ease
+              c.tube.position.y = -RISE_AMOUNT * (1 - ease)
+            }
+            if (c.fill) {
+              c.fill.visible = true
+              const fMat = c.fill.material as THREE.MeshBasicMaterial
+              fMat.opacity = 0.58 * ease
+              c.fill.position.y = c.level - RISE_AMOUNT * (1 - ease)
+            }
+            if (p >= 1) c.appeared = true
           }
         }
         if (!anchorsShown && elapsed > ENTRY_TOTAL - 350) {
@@ -875,7 +880,7 @@ export function TopographyView() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
   const C = isDark ? DARK_COLORS : LIGHT_COLORS
 
-  const { downloading, indexing, startIndexing, progress, total } = useEmbeddingStore()
+  const { downloading, downloadProgress, downloadModel, indexing, startIndexing, progress, total } = useEmbeddingStore()
 
   const cardsObj = useCardStore(s => s.cards)
   const stats = useMemo(() => {
@@ -907,9 +912,8 @@ export function TopographyView() {
         @keyframes topography-spin { to { transform: rotate(360deg); } }
         @keyframes topography-pulse { 0%,100% { opacity: 0.4; transform: translateX(0); } 50% { opacity: 1; transform: translateX(270%); } }
       `}</style>
-      {/* Top-center data dashboard + manual index button. Numbers float on
-          the canvas with no background; pointerEvents:none so OrbitControls
-          stays draggable, with the button re-enabling pointer events. */}
+      {/* Top-center data dashboard + manual index button */}
+      {(!needModel && !downloading) && (
       <div style={{
         position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)',
         zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
@@ -951,6 +955,39 @@ export function TopographyView() {
           )}
         </div>
       </div>
+      )}
+      {/* Model download overlay */}
+      {(needModel || downloading) && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+          background: isDark ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.85)',
+          borderRadius: 16, padding: '32px 40px', maxWidth: 340, textAlign: 'center',
+          backdropFilter: 'blur(12px)',
+        }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: C.textColor, fontFamily: DIN_FONT }}>
+            向量模型未就绪
+          </div>
+          <div style={{ fontSize: 12, lineHeight: 1.6, color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>
+            3D 地形图需要本地向量模型来聚类卡片。下载模型（约 120MB）后即可自动索引。
+          </div>
+          <button onClick={() => void downloadModel()} disabled={downloading}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: downloading ? 'rgba(20,20,20,0.5)' : '#0a0a0a',
+              color: '#fff', border: 'none', borderRadius: 999, padding: '10px 20px',
+              cursor: downloading ? 'wait' : 'pointer',
+              fontFamily: DIN_FONT, fontSize: 12, fontWeight: 500,
+            }}>
+            {downloading ? `下载中 ${Math.round(downloadProgress || 0)}%` : '下载模型'}
+          </button>
+          {downloading && (
+            <div style={{ width: 220, height: 4, background: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.round(downloadProgress || 0)}%`, height: '100%', background: C.compassColor, transition: 'width .3s ease' }} />
+            </div>
+          )}
+        </div>
+      )}
       {loading && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',

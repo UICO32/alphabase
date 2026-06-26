@@ -2,6 +2,13 @@ import { useState, useRef, useEffect, useCallback, type CSSProperties } from 're
 import { FileText, Plus, MoreHorizontal, Pencil, Trash, Copy, FolderOpen } from 'lucide-react'
 import { PanelSeparator } from './SharedUI'
 import { ContextMenuWrapper, type ContextMenuItem } from './ContextMenu'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem as DropdownMenuItemComp,
+  DropdownMenuSeparator,
+} from '@/components/ui/shadcn/dropdown-menu'
 
 interface Board {
   id: string
@@ -126,7 +133,7 @@ export function BoardList({
                 items={boardContextMenuItems(board.id)}
               >
                 <div
-	                  className={`hepta-list-item hepta-list-item-indicator flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'is-selected' : 'text-fg-secondary'}`}
+                  className={`hepta-list-item hepta-list-item-indicator flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'is-selected' : 'text-fg-secondary'}`}
                   onClick={() => onSwitchBoard(board.id)}
                   onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 >
@@ -134,14 +141,32 @@ export function BoardList({
                     <FileText size={14} />
                     <span className="text-sm truncate">{board.name}</span>
                   </div>
-                  <button
-	                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-theme hover:bg-surface-card-hover"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                    }}
-                  >
-                    <MoreHorizontal size={12} className="text-fg-secondary" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded transition-theme hover:bg-surface-card-hover"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreHorizontal size={12} className="text-fg-secondary" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {boardContextMenuItems(board.id).map((item, i) =>
+                        item.type === 'separator' ? (
+                          <DropdownMenuSeparator key={i} />
+                        ) : (
+                          <DropdownMenuItemComp
+                            key={i}
+                            onClick={item.onClick}
+                            className={item.danger ? 'text-destructive focus:text-destructive' : ''}
+                          >
+                            {item.icon}
+                            <span>{item.label}</span>
+                          </DropdownMenuItemComp>
+                        )
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </ContextMenuWrapper>
             )}

@@ -1,0 +1,391 @@
+# 卡片头部按钮 + 画板库视觉 + hover 热区修复 — 分步复刻指南
+
+> 五处交互/视觉问题修复：① 画板库激活态蓝色描边去除；② AI 按钮位置独立浮于卡片外部右上角；③ hover 背景过白改为透明叠加；④ 「...」更多操作菜单点击无效；⑤ 卡片功能按钮 hover 光标错误。涉及 6 文件。
+>
+> **本文档目的**：让能力一般的模型/开发者能按 Step 1→5 顺序逐步复刻。每步含前置条件、操作、验证方法。
+
+## 执行顺序总览
+
+| Step | 阶段 | 前置依赖 | 风险 | 验证方式 |
+|------|------|----------|------|----------|
+| 1 | 画板库蓝色描边去除 | 无 | 低 | 视觉 |
+| 2 | hover 透明叠加背景 | 无 | 低 | 视觉 |
+| 3 | ActionBarButton forwardRef 修复（「...」点击 + 光标） | 无 | 低 | lint + 视觉 |
+| 4 | AI 按钮独立浮于卡片外部 + 位置稳定 | Step 3 | 中 | 视觉 |
+| 5 | AI 按钮悬停热区 | Step 4 | 中 | 视觉 |
+
+> ⚠️ Step 4 依赖 Step 3（ActionBarButton forwardRef 是 SummaryButton 集成的基础）。Step 5 依赖 Step 4（热区保护 AI 按钮的 hover 连续性）。Step 1-3 相互独立，可并行。
+
+---
+
+## Step 1：画板库蓝色描边去除
+
+### 前置条件
+无
+
+### 1.1 BoardLibraryView.tsx — 激活态改用 ring 替代 border-brand
+
+**文件**：`src/components/ui/BoardLibraryView.tsx`
+
+画板卡片激活态原来用 `border-brand`（蓝色描边），视觉过重。改为统一中性边框 `border-line-default` + 柔光 `ring`。
+
+**改前**：
+```tsx
+<div
+  key={board.id}
+  onClick={() => handleBoardClick(board.id)}
+  className={`group relative flex flex-col rounded-xl cursor-pointer bg-surface-card border overflow-hidden transition-theme hover:-translate-y-0.5 hover:shadow-lg ${board.id === activeBoardId ? 'border-brand' : 'border-line-default'}`}
+>
+```
+
+**改后**：
+```tsx
+<div
+  key={board.id}
+  onClick={() => handleBoardClick(board.id)}
+  className={`group relative flex flex-col rounded-xl cursor-pointer bg-surface-card border border-line-default overflow-hidden transition-theme hover:-translate-y-0.5 hover:shadow-lg ${board.id === activeBoardId ? 'ring-2 ring-brand/40' : ''}`}
+>
+```
+
+### 验证
+- 视觉：激活画板无蓝色描边，改为淡蓝光环
+- `grep -r "border-brand" src/components/ui/BoardLibraryView.tsx` 应无结果
+
+---
+
+## Step 2：hover 透明叠加背景
+
+### 前置条件
+无
+
+### 2.1 index.css — `.action-icon-btn` hover 背景改用 color-mix
+
+**文件**：`src/index.css`
+
+原 hover 背景用 `var(--surface-hover)` = `var(--surface-card-hover)` = `hsla(0,0%,98%,0.98)`（接近纯白），在浅色卡片上过重。改为 `color-mix` 透明叠加，亮/暗模式自适应。
+
+**改前**：
+```css
+.action-icon-btn:hover {
+  background: var(--surface-hover);
+  color: var(--fg-primary);
+}
+.action-icon-btn:active {
+  background: var(--surface-card-active);
+}
+```
+
+**改后**：
+```css
+.action-icon-btn:hover {
+  background: color-mix(in srgb, var(--fg-primary) 8%, transparent);
+  color: var(--fg-primary);
+}
+.action-icon-btn:active {
+  background: color-mix(in srgb, var(--fg-primary) 12%, transparent);
+}
+```
+
+### 验证
+- 视觉：hover 时背景为半透明灰色叠加，不再过白
+
+---
+
+## Step 3：ActionBarButton forwardRef 修复
+
+### 前置条件
+无
+
+### 3.1 CardActionBar.tsx — ActionBarButton 改用 forwardRef
+
+**文件**：`src/components/canvas/card/CardActionBar.tsx`
+
+`MoreActionsMenu` 用 Radix `DropdownMenuTrigger asChild`，要求子组件能转发 ref。原 `ActionBarButton` 是普通函数组件，ref 丢失导致 Radix 无法绑定触发器，「...」点击无效。同时 `cursor: inherit` 继承父级 `grab`，改为 `pointer`。
+
+**改前**：
+```tsx
+function ActionBarButton({
+  icon,
+  onClick,
+  onPointerDown,
+}: {
+  icon: React.ReactNode
+  onClick: (e: React.MouseEvent) => void
+  onPointerDown?: (e: React.PointerEvent) => void
+}) {
+  return (
+    <button
+      className="action-icon-btn"
+      style={{ width: 24, height: 24, cursor: 'inherit' }}
+      onClick={onClick}
+      onPointerDown={onPointerDown}
+    >
+      {icon}
+    </button>
+  )
+}
+```
+
+**改后**：
+```tsx
+interface ActionBarButtonProps {
+  icon: React.ReactNode
+  onClick?: (e: React.MouseEvent) => void
+  onPointerDown?: (e: React.PointerEvent) => void
+  title?: string
+}
+
+const ActionBarButton = forwardRef<HTMLButtonElement, ActionBarButtonProps & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick' | 'onPointerDown'>>(
+  function ActionBarButton({ icon, onClick, onPointerDown, title, style, className, ...rest }, ref) {
+    return (
+      <button
+        ref={ref}
+        className={`action-icon-btn ${className || ''}`}
+        style={{ width: 24, height: 24, cursor: 'pointer', ...style }}
+        onClick={onClick}
+        onPointerDown={onPointerDown}
+        title={title}
+        {...rest}
+      >
+        {icon}
+      </button>
+    )
+  }
+)
+```
+
+### 3.2 CardActionBar.tsx — 各按钮补 title 属性
+
+利用 `...rest` 展开，为所有 `ActionBarButton` 补 `title`（tooltip），提升可发现性：
+
+```tsx
+<ActionBarButton
+  icon={<ArrowUpRight size={14} />}
+  onClick={(e) => { e.stopPropagation(); connectionMediator.start(cardId, 'top') }}
+  onPointerDown={(e) => e.stopPropagation()}
+  title="发起连接"
+/>
+```
+
+### 验证
+- `npx tsc --noEmit` 无新增错误
+- 视觉：「...」点击能弹出更多操作菜单
+- 视觉：按钮 hover 光标为手指（pointer），不再是抓握（grab）
+
+---
+
+## Step 4：AI 按钮独立浮于卡片外部 + 位置稳定
+
+### 前置条件
+Step 3 完成（ActionBarButton forwardRef）
+
+### 4.1 SummaryButton.tsx — 移除外层包裹 div，ref 挂在 ✦ 按钮上
+
+**文件**：`src/components/canvas/card/SummaryButton.tsx`
+
+原来 ✦ 和 ▾ 被一个 `<div ref={containerRef}>` 包裹，导致 AI 按钮被框在 flex 行内。改为 Fragment 直接渲染两个按钮，`buttonRef` 挂在 ✦ 上供 `SummaryFormatMenu` 定位。
+
+**改前**：
+```tsx
+return (
+  <>
+    <div ref={containerRef} className="flex items-center" style={{ flexShrink: 0 }}>
+      <button className="action-icon-btn" style={{ ... }}>✦</button>
+      {show && !bubbleOpen && (
+        <button className="action-icon-btn" style={{ ... }}>▾</button>
+      )}
+    </div>
+    {menuOpen && containerRef.current && ( ... )}
+    {bubbleOpen && ( ... )}
+  </>
+)
+```
+
+**改后**：
+```tsx
+const buttonRef = useRef<HTMLButtonElement>(null)
+// ...
+return (
+  <>
+    <button
+      ref={buttonRef}
+      className="action-icon-btn"
+      style={{ width: 24, height: 24, cursor: 'pointer', ... }}
+      onClick={handleClickStar}
+    >
+      {isThisCardStreaming ? '⋯' : '✦'}
+    </button>
+
+    {show && !bubbleOpen && (
+      <button
+        className="action-icon-btn"
+        style={{ width: 18, height: 24, cursor: 'pointer', ... }}
+        onClick={handleClickArrow}
+      >
+        <ChevronDown size={12} />
+      </button>
+    )}
+
+    {menuOpen && buttonRef.current && (
+      <SummaryFormatMenu triggerRef={buttonRef} ... />
+    )}
+    {bubbleOpen && ( <SummaryBubble ... /> )}
+  </>
+)
+```
+
+### 4.2 SummaryFormatMenu.tsx — triggerRef 类型放宽
+
+**文件**：`src/components/canvas/card/SummaryFormatMenu.tsx`
+
+`triggerRef` 从 `HTMLDivElement` 放宽为 `HTMLElement`，兼容 button 元素：
+
+**改前**：
+```tsx
+triggerRef: React.RefObject<HTMLDivElement | null>
+```
+
+**改后**：
+```tsx
+triggerRef: React.RefObject<HTMLElement | null>
+```
+
+### 4.3 CardActionBar.tsx — AI 按钮用 absolute 定位浮于卡片外部
+
+**文件**：`src/components/canvas/card/CardActionBar.tsx`
+
+把 `SummaryButton` 从功能按钮组 flex 容器中取出，用 `position: absolute` 独立定位到卡片右上角外部。订阅 `streamingCardId` 保证流式输出/气泡打开期间 AI 按钮可见。固定容器 `width: 42`（= ✦24 + ▾18），确保 ▾ 显隐切换时 ✦ 位置不漂移。
+
+**改前**：
+```tsx
+<div className="flex items-center gap-0.5" style={{ opacity: showIcons ? 1 : 0, ... }}>
+  <SummaryButton color={color} visible={showIcons} cardId={cardId} />
+  <ActionBarButton icon={<ArrowUpRight />} ... />
+  ...
+</div>
+```
+
+**改后**：
+```tsx
+// 订阅 AI 流式状态
+const streamingCardId = useAIStore(s => s.streamingCardId)
+const showIcons = isHovered || selected || isConnecting
+const showSummary = showIcons || streamingCardId === cardId
+
+return (
+  <div className="card-drag-handle ..." style={{ ..., position: 'relative' }}>
+    {/* AI 按钮：absolute 定位，固定宽度 */}
+    <div
+      style={{
+        position: 'absolute',
+        top: -24,
+        right: -36,
+        width: 42,
+        zIndex: 200,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        opacity: showSummary ? 1 : 0,
+        pointerEvents: showSummary ? 'auto' : 'none',
+        transition: 'opacity 0.3s',
+      }}
+    >
+      <SummaryButton color={color} visible={showIcons} cardId={cardId} />
+    </div>
+
+    {/* 功能按钮组（不含 AI 按钮） */}
+    <div className="flex items-center gap-0.5" style={{ opacity: showIcons ? 1 : 0, ... }}>
+      <ActionBarButton icon={<ArrowUpRight />} ... />
+      ...
+    </div>
+  </div>
+)
+```
+
+### 验证
+- `npx tsc --noEmit` 无新增错误
+- 视觉：AI 按钮（✦▾）浮在卡片右上角外部，与功能按钮组分离
+- 视觉：流式输出时 ▾ 消失，✦ 位置不变
+
+---
+
+## Step 5：AI 按钮悬停热区
+
+### 前置条件
+Step 4 完成
+
+### 5.1 CardNode.tsx — 添加透明热区 div
+
+**文件**：`src/components/canvas/CardNode.tsx`
+
+AI 按钮浮在卡片外部，鼠标从卡片移向 AI 按钮时会穿过外部空间触发卡片 `mouseleave`，导致 `isHovered=false`，AI 按钮消失。在 `CardHandles` 后、`CardActionBar` 前加一个透明热区 div，作为卡片 DOM 子元素，鼠标进入热区 = 仍在卡片内，hover 不丢失。
+
+**改前**：
+```tsx
+<CardHandles />
+<CardActionBar ... />
+```
+
+**改后**：
+```tsx
+<CardHandles />
+
+{/*
+  AI 按钮悬停热区：覆盖卡片右上角外部（AI 按钮所在区域），
+  作为卡片的子元素，鼠标进入此区域不会触发卡片的 mouseleave，
+  从而在移向 AI 按钮时保持 hover 态。
+  仅在可交互时渲染，避免遮挡相邻卡片。
+*/}
+{(isHovered || selected || hasSummaryBubble) && (
+  <div
+    aria-hidden
+    style={{
+      position: 'absolute',
+      top: -32,
+      right: -44,
+      width: 56,
+      height: 40,
+      zIndex: 199,
+      pointerEvents: 'auto',
+    }}
+  />
+)}
+
+<CardActionBar ... />
+```
+
+### 热区设计要点
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `top` | -32 | 覆盖 AI 按钮（top:-24）上方 8px 缓冲 |
+| `right` | -44 | 覆盖 AI 按钮（right:-36）右侧 8px 缓冲 |
+| `width` | 56 | 覆盖 AI 按钮宽度（42）+ 左侧 14px 衔接卡片 |
+| `height` | 40 | 底部深入卡片 8px，无缝衔接 |
+| `zIndex` | 199 | 低于 AI 按钮（200），AI 按钮可点击 |
+| 条件渲染 | `isHovered \|\| selected \|\| hasSummaryBubble` | 未交互时不渲染，避免遮挡相邻卡片 |
+
+### 验证
+- 视觉：鼠标从卡片内部移向 AI 按钮时，hover 态不丢失
+- 视觉：流式输出/报错时 AI 按钮位置稳定
+
+---
+
+## 复刻检查清单
+
+- [ ] `grep -r "border-brand" src/components/ui/BoardLibraryView.tsx` 无结果
+- [ ] `grep -r "cursor: 'inherit'" src/components/canvas/card/CardActionBar.tsx` 无结果
+- [ ] `npx tsc --noEmit` 无新增错误
+- [ ] 视觉：画板库激活态无蓝色描边
+- [ ] 视觉：hover 背景为透明叠加，不过白
+- [ ] 视觉：「...」点击能弹出菜单
+- [ ] 视觉：功能按钮 hover 光标为手指
+- [ ] 视觉：AI 按钮浮在卡片外部右上角
+- [ ] 视觉：流式输出时 ✦ 位置不变
+- [ ] 视觉：移向 AI 按钮时 hover 不丢失
+
+## 后续可优化方向
+
+- AI 按钮位置（top/right）目前硬编码，可考虑提取为常量或随卡片宽度自适应
+- 热区尺寸（56×40）为经验值，可考虑根据 AI 按钮实际尺寸动态计算
+- `SummaryButton` 的 `visible` prop 与 `CardActionBar` 的 `showSummary` 逻辑有重复，可收敛

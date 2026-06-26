@@ -60,6 +60,7 @@ function App() {
     await flushActiveSyncEngine()
     cleanupSubscriptions()
 
+    useViewStore.getState().setViewMode('board')
     await stopActiveSyncEngine()
     useCardStore.setState({ cards: {}, isLoaded: false })
     useBoardStore.setState({ boards: [], activeBoardId: null, isLoaded: false, boardData: {} })

@@ -25,7 +25,6 @@ interface LeftPanelProps {
 export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }: LeftPanelProps) {
   const leftPanelCollapsed = usePanelStore(s => s.leftPanelCollapsed)
   const viewMode = useViewStore(s => s.viewMode)
-  const isBoardView = viewMode === 'board'
   const setLeftPanelCollapsed = usePanelStore(s => s.setLeftPanelCollapsed)
   const setViewMode = useViewStore(s => s.setViewMode)
 
@@ -49,7 +48,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
   return (
     <>
       <div
-        className={`${isBoardView ? 'absolute left-0 top-0 bottom-0 z-10' : 'shrink-0'} flex flex-col h-full overflow-hidden glass-panel-large`}
+        className="absolute left-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden glass-panel-large"
         style={{ width: SIDEBAR_WIDTH, transform: `translateX(${leftPanelCollapsed ? -SIDEBAR_WIDTH : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
         onWheel={handleWheel}
       >
