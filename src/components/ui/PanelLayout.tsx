@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeftToLine, ArrowRightToLine } from 'lucide-react'
 
 export function PanelSeparator() {
   return (
@@ -37,7 +37,7 @@ export function ExpandButton({ direction, onClick }: {
         boxShadow: 'var(--shadow-lg)',
       }}
     >
-      {direction === 'left' ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+      {direction === 'left' ? <ArrowRightToLine size={16} /> : <ArrowLeftToLine size={16} />}
     </button>
   )
 }
@@ -54,7 +54,7 @@ export function CollapseButton({ direction, onClick }: {
       }}
       className="btn-base flex items-center justify-center w-6 h-6 rounded text-fg-secondary"
     >
-      {direction === 'left' ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+      {direction === 'left' ? <ArrowLeftToLine size={14} /> : <ArrowRightToLine size={14} />}
     </button>
   )
 }

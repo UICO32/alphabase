@@ -10,7 +10,7 @@ import { useTagStore } from '../../stores/tagStore'
 import { useFlomoSyncStore } from '../../sync/flomoSync'
 import { EmptyState } from './SharedUI'
 import { CardEditDialog } from './CardEditDialog'
-import { Layers, RefreshCw, Loader2, ChevronDown, X } from 'lucide-react'
+import { GalleryVerticalEnd, RefreshCw, Loader2, ChevronDown, X } from 'lucide-react'
 
 interface CardLibraryViewProps {
   onOpenSettings?: () => void
@@ -580,7 +580,7 @@ if (searchQuery.trim()) {
 
         {visibleCards.length === 0 ? (
           <EmptyState
-            icon={<Layers size={24} />}
+            icon={<GalleryVerticalEnd size={24} />}
             text={
               tagFilter
                 ? `没有带 #${tagFilter} 标签的卡片`

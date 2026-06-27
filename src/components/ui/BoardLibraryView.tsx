@@ -3,7 +3,7 @@ import { useViewStore } from '../../stores/viewStore'
 import { useBoardStore } from '../../stores/boardStore'
 import { useCardStore } from '../../stores/cardStore'
 import { SearchInput, EmptyState } from './SharedUI'
-import { LayoutGrid } from 'lucide-react'
+import { Layers } from 'lucide-react'
 import { emit } from '../../stores/eventBus'
 import { CARD_COLORS, DEFAULT_CARD_HEIGHT, DEFAULT_CARD_WIDTH, type CardColor } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
@@ -202,7 +202,7 @@ export function BoardLibraryView() {
 
         {filteredBoards.length === 0 ? (
           <EmptyState
-            icon={<LayoutGrid size={48} />}
+            icon={<Layers size={48} />}
             text={searchQuery ? '未找到匹配的画板' : '暂无画板'}
           />
         ) : (

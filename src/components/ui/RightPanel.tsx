@@ -1,4 +1,4 @@
-import { useCallback, useRef, lazy, Suspense } from 'react'
+import { useCallback, useRef, useEffect, lazy, Suspense } from 'react'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
 import { useLibraryStore } from '../../stores/libraryStore'
@@ -6,7 +6,7 @@ import { useCardStore, useCard } from '../../stores/cardStore'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { CollapseButton } from './SharedUI'
 import { CardLibraryView } from './CardLibraryView'
-import { Layers, FileText, PanelRightOpen, Globe, Compass } from 'lucide-react'
+import { GalleryVerticalEnd, FileText, ArrowLeftToLine, Globe, Compass } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
 import { AgentReachPanel } from './AgentReachPanel'
 
@@ -61,6 +61,12 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
     e.stopPropagation()
   }, [])
 
+  useEffect(() => {
+    if (rightPanelActiveTab === 'editor' && !editingCardId) {
+      setRightPanelActiveTab('library')
+    }
+  }, [rightPanelActiveTab, editingCardId, setRightPanelActiveTab])
+
   if (viewMode !== 'board') return null
 
   const showEditorContent = !rightPanelCollapsed && rightPanelActiveTab === 'editor' && editingCardId
@@ -78,32 +84,46 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           onPointerDown={handleResizeStart}
         />
 
-      <div className="flex items-center justify-between px-3 py-2 border-b border-line-default transition-theme">
-        <div className="segmented">
-          <button
-            onClick={() => setRightPanelActiveTab('library')}
-            className={`segmented-item cursor-pointer ${rightPanelActiveTab === 'library' ? 'segmented-item-active' : ''}`}
-          >
-            <Layers size={14} />
-            卡片库
-          </button>
-          <button
-            onClick={() => setRightPanelActiveTab('editor')}
-            className={`segmented-item cursor-pointer ${rightPanelActiveTab === 'editor' ? 'segmented-item-active' : ''}`}
-          >
-            <FileText size={14} />
-            卡片编辑器
-          </button>
-          <button
-            onClick={() => setRightPanelActiveTab('channels')}
-            className={`segmented-item cursor-pointer ${rightPanelActiveTab === 'channels' ? 'segmented-item-active' : ''}`}
-          >
-            <Compass size={14} />
-            频道
-          </button>
-        </div>
-        <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
-      </div>
+      <div className="flex items-center justify-between px-3 py-3 border-b border-line-default transition-theme">
+	        <div className="segmented">
+	          <button
+	            onClick={() => setRightPanelActiveTab('library')}
+	            className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'library' ? 'segmented-item-active' : ''}`}
+	          >
+	            <GalleryVerticalEnd size={14} />
+	            卡片库
+	          </button>
+	          <button
+	            onClick={() => setRightPanelActiveTab('channels')}
+	            className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'channels' ? 'segmented-item-active' : ''}`}
+	          >
+	            <Compass size={14} />
+	            频道
+	          </button>
+	          {(() => {
+	            const editorVisible = !!editingCardId
+	            return (
+	              <div
+	                className="overflow-hidden transition-all duration-300 ease-out"
+	                style={{
+	                  maxWidth: editorVisible ? 88 : 0,
+	                  opacity: editorVisible ? 1 : 0,
+	                  marginLeft: editorVisible ? 0 : -2,
+	                }}
+	              >
+	                <button
+	                  onClick={() => setRightPanelActiveTab('editor')}
+	                  className={`segmented-item cursor-pointer whitespace-nowrap w-[84px] justify-center ${rightPanelActiveTab === 'editor' ? 'segmented-item-active' : ''}`}
+	                >
+	                  <FileText size={14} />
+	                  编辑
+	                </button>
+	              </div>
+	            )
+	          })()}
+	        </div>
+	        <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
+	      </div>
 
       <div className="flex-1 overflow-y-auto">
         {rightPanelActiveTab === 'channels' ? (
@@ -111,13 +131,15 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         ) : rightPanelActiveTab === 'library' ? (
           !rightPanelCollapsed && <CardLibraryView onOpenSettings={onOpenSettings} />
         ) : showEditorContent ? (
-          <ClipAwareEditorView
-            cardId={editingCardId!}
-            isClipCard={isClipCard}
-            sourceUrl={editingCard?.sourceUrl}
-            webviewUrl={webviewUrl}
-            setWebviewUrl={setWebviewUrl}
-          />
+	          <div key={editingCardId} className="h-full animate-fadeIn">
+	            <ClipAwareEditorView
+	              cardId={editingCardId!}
+	              isClipCard={isClipCard}
+	              sourceUrl={editingCard?.sourceUrl}
+	              webviewUrl={webviewUrl}
+	              setWebviewUrl={setWebviewUrl}
+	            />
+	          </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-fg-secondary">
             <FileText size={48} className="mb-4 opacity-30" />
@@ -130,9 +152,9 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
     {rightPanelCollapsed && (
       <button
         onClick={() => setRightPanelCollapsed(false)}
-        className="fixed top-10 right-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
+        className="fixed top-10 right-2 z-50 flex items-center justify-center w-10 h-10 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
       >
-        <PanelRightOpen size={16} />
+        <ArrowLeftToLine size={16} />
       </button>
     )}
   </>

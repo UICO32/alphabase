@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react'
-import { FileText, Plus, MoreHorizontal, Pencil, Trash, Copy, FolderOpen } from 'lucide-react'
+import { Layers2, Plus, MoreHorizontal, Pencil, Trash, Copy, FolderOpen } from 'lucide-react'
 import { PanelSeparator } from './SharedUI'
 import { ContextMenuWrapper, type ContextMenuItem } from './ContextMenu'
 import {
@@ -138,7 +138,7 @@ export function BoardList({
                   onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 >
                   <div className="flex items-center gap-2">
-                    <FileText size={14} />
+                    <Layers2 size={14} />
                     <span className="text-sm truncate">{board.name}</span>
                   </div>
                   <DropdownMenu>

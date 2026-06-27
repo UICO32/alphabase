@@ -1,6 +1,6 @@
 import { usePanelStore } from '../../stores/panelStore'
 import { useViewStore } from '../../stores/viewStore'
-import { ChevronLeft } from 'lucide-react'
+import { ArrowLeftToLine } from 'lucide-react'
 
 export function RightPanelCollapsed() {
   const setRightPanelCollapsed = usePanelStore(s => s.setRightPanelCollapsed)
@@ -18,7 +18,7 @@ export function RightPanelCollapsed() {
         boxShadow: 'var(--shadow-md)',
       }}
     >
-      <ChevronLeft size={14} />
+      <ArrowLeftToLine size={14} />
     </button>
   )
 }

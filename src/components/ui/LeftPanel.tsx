@@ -6,12 +6,12 @@ import { useBoardActions } from '../../hooks/useBoardActions'
 import { CollapseButton, PanelSeparator } from './SharedUI'
 import { BoardList } from './BoardList'
 import {
-  LayoutGrid,
   Layers,
+  GalleryVerticalEnd,
   Trash2,
-  Settings,
-  Folder,
-  PanelLeftOpen,
+  Bolt,
+  Birdhouse,
+  ArrowRightToLine,
 } from 'lucide-react'
 
 const SIDEBAR_WIDTH = 260
@@ -55,13 +55,13 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
           className={`flex flex-col overflow-hidden glass-panel-large h-full ${viewMode !== 'board' ? 'glass-panel-flat' : ''}`}
           onWheel={handleWheel}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-line-default transition-theme">
+          <div className="flex items-center justify-between px-4 py-4 border-b border-line-default transition-theme">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div
                 className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer transition-theme hover:opacity-80"
                 onClick={onOpenWorkspacePicker}
               >
-                <Folder size={16} className="text-fg-secondary" />
+                <Birdhouse size={18} className="text-fg-secondary" />
                 <span className="text-sm font-medium truncate text-fg-primary">
                   {currentWorkspace?.name || '未选择工作区'}
                 </span>
@@ -70,7 +70,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
                 className="p-1.5 rounded-lg cursor-pointer transition-theme hover:opacity-80 text-fg-secondary"
                 onClick={onOpenSettings}
               >
-                <Settings size={14} />
+                <Bolt size={16} />
               </button>
             </div>
             <CollapseButton direction="left" onClick={() => setLeftPanelCollapsed(true)} />
@@ -80,13 +80,13 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
             <ViewModeButton
               active={viewMode === 'boardLibrary'}
               onClick={() => setViewMode('boardLibrary')}
-              icon={<LayoutGrid size={14} />}
+              icon={<Layers size={14} />}
               label="画板库"
             />
             <ViewModeButton
               active={viewMode === 'cards'}
               onClick={() => setViewMode('cards')}
-              icon={<Layers size={14} />}
+              icon={<GalleryVerticalEnd size={14} />}
               label="卡片库"
             />
           </div>
@@ -120,9 +120,9 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
       {leftPanelCollapsed && (
         <button
           onClick={() => setLeftPanelCollapsed(false)}
-          className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
+          className="fixed top-10 left-2 z-50 flex items-center justify-center w-10 h-10 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
         >
-          <PanelLeftOpen size={16} />
+          <ArrowRightToLine size={16} />
         </button>
       )}
     </>
