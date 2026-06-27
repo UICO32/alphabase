@@ -78,25 +78,53 @@ const CardItem = memo(function CardItem({
       draggable
       onDragStart={(e) => {
         onDragStart(e, card.id)
-        // 浮空拖拽效果
-        ;(e.currentTarget as HTMLElement).classList.add('card-item-floating')
-        // 自定义拖拽影像
+        // 先 clone 再加虚线类，避免 ghost 复制到虚线样式
+        const rect = e.currentTarget.getBoundingClientRect()
         const ghost = e.currentTarget.cloneNode(true) as HTMLElement
-        ghost.style.position = 'absolute'
-        ghost.style.top = '-9999px'
-        ghost.style.opacity = '0.85'
-        ghost.style.transform = 'rotate(0deg) scale(1.05)'
-        ghost.style.boxShadow = '0 20px 40px rgba(0,0,0,0.2)'
-        ghost.style.borderRadius = '8px'
-        document.body.appendChild(ghost)
-        e.dataTransfer.setDragImage(ghost, 70, 70)
-        requestAnimationFrame(() => document.body.removeChild(ghost))
+        // wrapper 提供阴影空间
+        const PAD = 32
+        const wrapper = document.createElement('div')
+        wrapper.style.position = 'fixed'
+        wrapper.style.left = `${rect.left - PAD}px`
+        wrapper.style.top = `${rect.top - PAD}px`
+        wrapper.style.width = `${rect.width + PAD * 2}px`
+        wrapper.style.height = `${rect.height + PAD * 2}px`
+        wrapper.style.padding = `${PAD}px`
+        wrapper.style.margin = '0'
+        wrapper.style.boxSizing = 'border-box'
+        wrapper.style.pointerEvents = 'none'
+        wrapper.style.background = 'transparent'
+        // ghost 本体：实色、overflow visible、transition none
+        ghost.style.position = 'relative'
+        ghost.style.left = '0'
+        ghost.style.top = '0'
+        ghost.style.width = `${rect.width}px`
+        ghost.style.height = `${rect.height}px`
+        ghost.style.margin = '0'
+        ghost.style.transform = 'none'
+        ghost.style.transition = 'none'
+        ghost.style.opacity = '1'
+        ghost.style.borderStyle = 'solid'
+        ghost.style.overflow = 'visible'
+        ghost.style.boxShadow = '0 24px 60px rgba(0,0,0,0.08)'
+        ghost.style.pointerEvents = 'none'
+        wrapper.appendChild(ghost)
+        document.body.appendChild(wrapper)
+        const offsetX = Math.min(Math.max(e.clientX - rect.left, 0), rect.width) + PAD
+        const offsetY = Math.min(Math.max(e.clientY - rect.top, 0), rect.height) + PAD
+        e.dataTransfer.setDragImage(wrapper, offsetX, offsetY)
+        requestAnimationFrame(() => document.body.removeChild(wrapper))
+        // clone 完成后再让源卡片显示为虚线占位框
+        ;(e.currentTarget as HTMLElement).classList.add('card-item-floating')
       }}
       onDragEnd={(e) => {
-        ;(e.currentTarget as HTMLElement).classList.remove('card-item-floating')
+        const el = e.currentTarget as HTMLElement
+        el.classList.remove('card-item-floating')
+        el.classList.add('card-item-returning')
+        el.addEventListener('animationend', () => el.classList.remove('card-item-returning'), { once: true })
       }}
       onClick={onClick}
-      className="hepta-list-item group relative p-2.5 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default"
+      className="group relative p-2.5 rounded-xl cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover hover:shadow-md active:scale-[0.98]"
       style={{ aspectRatio: '1/1' }}
     >
       {/* Title row — truncate with ellipsis, time right */}
@@ -357,20 +385,32 @@ if (searchQuery.trim()) {
           line-height: 1.4 !important;
         }
         .card-item-floating {
-          transform: scale(1.08) !important;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.18), 0 0 0 2px rgba(139,92,246,0.3) !important;
-          opacity: 0.6;
-          transition: all 0.2s ease-out;
+          opacity: 0.5;
+          border-style: dashed !important;
+          border-color: rgba(120,120,120,0.35) !important;
+          border-width: 1.5px !important;
+          box-shadow: none !important;
+          background: transparent !important;
+          transition: opacity 0.15s ease-out, border-style 0.15s ease-out, background 0.15s ease-out;
+        }
+        .card-item-floating > * {
+          opacity: 0.3;
+          filter: grayscale(0.6);
+        }
+        @keyframes card-return-bounce {
+          0% { transform: scale(0.94); opacity: 0.6; }
+          55% { transform: scale(1.03); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .card-item-returning {
+          animation: card-return-bounce 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
       `}</style>
       <div className="max-w-3xl mx-auto p-6">
-        <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-semibold text-fg-primary">
-            卡片库
-          </h1>
-          {/* Search bar with mode switch */}
-          <div
-            className="flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 sm:w-72"
+        <h1 className="text-xl font-semibold text-fg-primary mb-3">卡片库</h1>
+        {/* Search bar with mode switch */}
+        <div
+          className="flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 mb-4"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && searchMode !== 'keyword') {
               handleSearchSubmit()
@@ -418,7 +458,6 @@ if (searchQuery.trim()) {
             className="flex-1 py-2 text-sm outline-none bg-transparent text-fg-primary"
           />
           </div>
-        </div>
 
         {/* Tag cloud */}
         {tagCloud.length > 0 && (
@@ -431,7 +470,7 @@ if (searchQuery.trim()) {
                   onClick={() => setTagFilter(active ? null : t.name)}
                   className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
                     active
-                      ? 'bg-[var(--brand,#8b5cf6)] text-white border-transparent'
+                      ? 'bg-brand text-fg-inverse border-transparent'
                       : 'bg-surface-card text-fg-secondary border-line-default hover:bg-surface-card-hover hover:text-fg-primary'
                   }`}
                   title={`${t.count} 张卡片${t.flomoSynced ? ' · flomo' : ''}`}
@@ -453,9 +492,9 @@ if (searchQuery.trim()) {
 
         {/* Active tag filter banner */}
         {tagFilter && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 bg-surface-card text-fg-secondary border border-[var(--brand,#8b5cf6)]/30">
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 bg-surface-card text-fg-secondary border border-brand/30">
             <span className="flex items-center gap-1.5">
-              按标签过滤：<span className="font-medium text-[var(--brand,#8b5cf6)]">#{tagFilter}</span>
+              按标签过滤：<span className="font-medium text-brand">#{tagFilter}</span>
               <span className="text-fg-tertiary">· {visibleCards.length} 条结果</span>
             </span>
             <button

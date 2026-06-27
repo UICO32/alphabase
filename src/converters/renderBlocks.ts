@@ -332,21 +332,21 @@ function renderInlineContent(node: Record<string, unknown>): string {
       (node.content as unknown[])
         ?.map((c) => renderInlineContent(c as Record<string, unknown>))
         .join('') || href
-    return `<a href="${href}" style="color:var(--fg-link,#3b82f6);font-weight:600;text-decoration:none">${linkContent}</a>`
+    return `<a href="${href}" style="color:var(--fg-link);font-weight:600;text-decoration:none">${linkContent}</a>`
   }
   if (node.type === 'tag') {
     const tagName = ((node.props as { tagName?: string })?.tagName) || ''
     const innerContent = (node.content as unknown[])
       ?.map((c) => renderInlineContent(c as Record<string, unknown>))
       .join('') || escapeHTML(tagName)
-    return `<span data-tag-name="${escapeHTML(tagName)}" style="background-color:var(--tag-bg,rgba(139,92,246,0.1));border-radius:3px;padding:0 3px;color:var(--tag-color,#8b5cf6);font-weight:500;cursor:pointer;text-decoration:none">${innerContent}</span>`
+    return `<span data-tag-name="${escapeHTML(tagName)}" style="background-color:var(--tag-bg);border-radius:3px;padding:0 3px;color:var(--tag-color);font-weight:500;cursor:pointer;text-decoration:none">${innerContent}</span>`
   }
   if (node.type === 'cardReference') {
     const cardId = ((node.props as { cardId?: string })?.cardId) || ''
     const innerContent = (node.content as unknown[])
       ?.map((c) => renderInlineContent(c as Record<string, unknown>))
       .join('') || ''
-    return `<span data-card-id="${escapeHTML(cardId)}" style="background-color:var(--card-ref-bg,rgba(59,130,246,0.1));border-radius:3px;padding:0 3px;color:var(--card-ref-color,#3b82f6);font-weight:500;cursor:pointer;text-decoration:none">${innerContent}</span>`
+    return `<span data-card-id="${escapeHTML(cardId)}" style="background-color:var(--card-ref-bg);border-radius:3px;padding:0 3px;color:var(--card-ref-color);font-weight:500;cursor:pointer;text-decoration:none">${innerContent}</span>`
   }
   return ''
 }

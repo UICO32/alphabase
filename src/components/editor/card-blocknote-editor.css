@@ -15,32 +15,32 @@
 
 /* Card reference inline content */
 .card-blocknote-editor [data-card-id] {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: var(--card-ref-bg);
   border-radius: 3px;
   padding: 0 3px;
-  color: #3b82f6;
+  color: var(--card-ref-color);
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
   transition: background-color 0.15s;
 }
 .card-blocknote-editor [data-card-id]:hover {
-  background-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--card-ref-bg-hover);
 }
 
 /* Tag inline content */
 .card-blocknote-editor [data-tag-name] {
-  background-color: rgba(139, 92, 246, 0.1);
+  background-color: var(--tag-bg);
   border-radius: 3px;
   padding: 0 3px;
-  color: #8b5cf6;
+  color: var(--tag-color);
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
   transition: background-color 0.15s;
 }
 .card-blocknote-editor [data-tag-name]:hover {
-  background-color: rgba(139, 92, 246, 0.2);
+  background-color: var(--tag-bg-hover);
 }
 
 /* Read-only mode: disable cursor */
@@ -66,22 +66,6 @@
   font-size: inherit !important;
 }
 
-/* Dark theme overrides */
-[data-theme="dark"] .card-blocknote-editor [data-card-id] {
-  background-color: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
-}
-[data-theme="dark"] .card-blocknote-editor [data-card-id]:hover {
-  background-color: rgba(59, 130, 246, 0.3);
-}
-[data-theme="dark"] .card-blocknote-editor [data-tag-name] {
-  background-color: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
-}
-[data-theme="dark"] .card-blocknote-editor [data-tag-name]:hover {
-  background-color: rgba(139, 92, 246, 0.3);
-}
-
 /* ─── Preview mode: reuse BlockNote native CSS ─── */
 
 .card-preview-native.bn-editor { padding-inline: 0 !important; --N800: #172b4d; --N40: #dfe1e6; }
@@ -97,29 +81,20 @@
 
 /* Tag & cardReference inline content in preview mode */
 .card-preview-native [data-tag-name] {
-  background-color: rgba(139, 92, 246, 0.1);
+  background-color: var(--tag-bg);
   border-radius: 3px;
   padding: 0 3px;
-  color: #8b5cf6;
+  color: var(--tag-color);
   font-weight: 500;
   text-decoration: none;
 }
 .card-preview-native [data-card-id] {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: var(--card-ref-bg);
   border-radius: 3px;
   padding: 0 3px;
-  color: #3b82f6;
+  color: var(--card-ref-color);
   font-weight: 500;
   text-decoration: none;
-}
-
-/* @card reference / #tag dark mode colors: CSS variables drive inline styles */
-[data-theme="dark"] .card-blocknote-editor,
-[data-theme="dark"] .card-preview-native {
-  --card-ref-bg: rgba(59, 130, 246, 0.2);
-  --card-ref-color: #60a5fa;
-  --tag-bg: rgba(139, 92, 246, 0.2);
-  --tag-color: #a78bfa;
 }
 
 /* ─── CardLibraryView text preview: reset BlockNote block styles for plain text flow ─── */

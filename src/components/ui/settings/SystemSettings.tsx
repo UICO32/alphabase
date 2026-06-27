@@ -2,13 +2,30 @@ import { useThemeStore } from '../../../stores/themeStore'
 import { useWorkspaceStore } from '../../../stores/workspaceStore'
 import { Moon, Sun, Monitor, FolderOpen } from 'lucide-react'
 import { VectorIndexSettings } from './VectorIndexSettings'
+import { ToggleGroup, ToggleGroupItem } from '../shadcn/toggle-group'
+import { Switch } from '../shadcn/switch'
+import { Button } from '../shadcn/button'
+import { SettingGroup, SettingRow } from './SettingPrimitives'
+import { setAccentColor, getAccentColor } from '../../../theme'
 import type { GridPattern } from '../../canvas/AdaptiveBackground'
+import { useState } from 'react'
 
 const GRID_PATTERNS: { value: GridPattern; label: string }[] = [
   { value: 'cross', label: '十字' },
   { value: 'dot', label: '方块' },
   { value: 'circle', label: '圆形' },
   { value: 'triangle', label: '三角' },
+]
+
+const THEME_MODES = [
+  { value: 'light' as const, label: '浅色', icon: Sun },
+  { value: 'dark' as const, label: '深色', icon: Moon },
+  { value: 'system' as const, label: '跟随系统', icon: Monitor },
+]
+
+const ACCENT_PRESETS = [
+  '#2563eb', '#7c3aed', '#db2777', '#dc2626',
+  '#ea580c', '#ca8a04', '#16a34a', '#0891b2',
 ]
 
 export function SystemSettings() {
@@ -20,112 +37,96 @@ export function SystemSettings() {
   const settings = useWorkspaceStore(s => s.settings)
   const updateSettings = useWorkspaceStore(s => s.updateSettings)
 
+  const [accentColor, setAccentColorState] = useState(getAccentColor())
+
+  const handleAccentChange = (color: string) => {
+    setAccentColor(color)
+    setAccentColorState(color)
+  }
+
+  const handleResetAccent = () => {
+    setAccentColor(null)
+    setAccentColorState(null)
+  }
+
   return (
     <>
-      <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-fg-primary">
-          画布设置
-        </h3>
-        <div className="space-y-3">
-          <div>
-            <span className="text-sm text-fg-primary block mb-2">背景图案</span>
-            <div className="flex gap-2">
-              {GRID_PATTERNS.map((p) => (
-                <button
-                  key={p.value}
-                  onClick={() => setGridPattern(p.value)}
-                  className={`flex-1 py-2 px-3 rounded-lg text-sm transition-colors ${
-                    gridPattern === p.value
-                      ? 'bg-emphasis text-fg-inverse'
-                      : 'bg-surface-panel-hover text-fg-primary hover:bg-surface-card-active'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+      <SettingGroup title="外观">
+        <SettingRow label="主题模式">
+          <ToggleGroup
+            type="single"
+            value={themeMode}
+            onValueChange={(v) => { if (v) setThemeMode(v as typeof themeMode) }}
+            className="w-[260px]"
+          >
+            {THEME_MODES.map((m) => {
+              const Icon = m.icon
+              return (
+                <ToggleGroupItem key={m.value} value={m.value}>
+                  <Icon size={14} /><span>{m.label}</span>
+                </ToggleGroupItem>
+              )
+            })}
+          </ToggleGroup>
+        </SettingRow>
+        <SettingRow label="强调色" description="应用于标签、链接、选中态与聚焦环">
+          <div className="flex items-center gap-1.5">
+            {ACCENT_PRESETS.map((c) => (
+              <button
+                key={c}
+                onClick={() => handleAccentChange(c)}
+                className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110"
+                style={{
+                  backgroundColor: c,
+                  borderColor: accentColor === c ? 'var(--fg-primary)' : 'transparent',
+                }}
+              />
+            ))}
+            <label className="w-5 h-5 rounded-full border-2 border-line-default cursor-pointer overflow-hidden relative hover:scale-110 transition-transform">
+              <input
+                type="color"
+                value={accentColor ?? '#2563eb'}
+                onChange={(e) => handleAccentChange(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-[8px] text-fg-tertiary">+</span>
+            </label>
+            {accentColor && (
+              <Button variant="ghost" size="icon" onClick={handleResetAccent} className="h-5 w-5" title="恢复默认">
+                <span className="text-xs text-fg-tertiary">×</span>
+              </Button>
+            )}
           </div>
-          <label className="flex items-center justify-between p-3 rounded-lg bg-surface-panel-hover cursor-pointer hover:bg-surface-card-active transition-colors">
-            <span className="text-sm text-fg-primary">
-              删除前确认
-            </span>
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-accent-blue"
-              checked={settings.confirmDelete}
-              onChange={(e) => updateSettings({ confirmDelete: e.target.checked })}
-            />
-          </label>
-        </div>
-      </div>
+        </SettingRow>
+        <SettingRow label="背景图案">
+          <ToggleGroup
+            type="single"
+            value={gridPattern}
+            onValueChange={(v) => { if (v) setGridPattern(v as GridPattern) }}
+            className="w-[200px]"
+          >
+            {GRID_PATTERNS.map((p) => (
+              <ToggleGroupItem key={p.value} value={p.value}>
+                {p.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </SettingRow>
+        <SettingRow label="删除前确认">
+          <Switch
+            checked={settings.confirmDelete}
+            onCheckedChange={(v) => updateSettings({ confirmDelete: v })}
+          />
+        </SettingRow>
+      </SettingGroup>
 
-      <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-fg-primary">
-          主题设置
-        </h3>
-        <div className="flex gap-3">
-          <ThemeButton
-            active={themeMode === 'light'}
-            onClick={() => setThemeMode('light')}
-            icon={<Sun size={18} />}
-            label="浅色"
-          />
-          <ThemeButton
-            active={themeMode === 'dark'}
-            onClick={() => setThemeMode('dark')}
-            icon={<Moon size={18} />}
-            label="深色"
-          />
-          <ThemeButton
-            active={themeMode === 'system'}
-            onClick={() => setThemeMode('system')}
-            icon={<Monitor size={18} />}
-            label="跟随系统"
-          />
-        </div>
-      </div>
-
-      <div className="mb-8">
-        <h3 className="text-sm font-medium mb-4 text-fg-primary">
-          工作区设置
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-lg bg-surface-panel-hover">
-            <div className="flex items-center gap-2">
-              <FolderOpen size={16} className="text-fg-tertiary" />
-              <span className="text-sm text-fg-primary">
-                当前工作区
-              </span>
-            </div>
-            <span className="text-xs truncate max-w-[200px] text-fg-tertiary">
-              {currentWorkspace?.name || '未选择'}
-            </span>
-          </div>
-        </div>
-      </div>
+      <SettingGroup title="工作区">
+        <SettingRow label="当前工作区" description={currentWorkspace?.name ?? undefined}>
+          <FolderOpen size={16} className="text-fg-tertiary" />
+        </SettingRow>
+      </SettingGroup>
 
       <VectorIndexSettings />
     </>
-  )
-}
-
-function ThemeButton({ active, onClick, icon, label }: {
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  label: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg transition-colors ${
-        active
-          ? 'bg-emphasis text-fg-inverse'
-          : 'bg-surface-panel-hover text-fg-primary hover:bg-surface-card-active'
-      }`}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
   )
 }

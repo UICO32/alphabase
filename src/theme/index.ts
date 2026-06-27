@@ -7,6 +7,9 @@ export {
   toggleTheme,
   getSystemTheme,
   resolveTheme,
+  getAccentColor,
+  applyAccentColor,
+  setAccentColor,
 } from './tokens'
 
 export type {

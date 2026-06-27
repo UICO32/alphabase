@@ -38,6 +38,13 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const { setNodes, setEdges, getNode } = useReactFlow()
   const isDarkMode = useIsDarkMode()
 
+  // autoEdit: 双击创建的卡片自动进入编辑态
+  const isAutoEdit = useViewStore((s) => s.autoEditCardId === data.cardId)
+
+  useEffect(() => {
+    if (isAutoEdit) setIsEditing(true)
+  }, [isAutoEdit])
+
   // 注册/注销编辑器 handle，供 useCanvasKeyboard 查询 canUndo
   useEffect(() => {
     registerEditorHandle(data.cardId, editorRef.current ?? null)
@@ -210,6 +217,10 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     (content: string) => {
       clearProseMirrorSuppression(data.cardId)
       updateCard(data.cardId, { content })
+      // User typed something — this autoEdit card is now confirmed, won't be auto-deleted
+      if (useViewStore.getState().autoEditCardId === data.cardId) {
+        useViewStore.getState().setAutoEditCardId(null)
+      }
     },
     [data.cardId, updateCard],
   )
@@ -375,9 +386,11 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const cardBg = getCardFill(data.color, isDarkMode)
   const textColor = getCardTextColor(data.color, isDarkMode)
 
-  const hoverOutline = isHovered && !selected
+  const hoverOutline = isHovered
     ? `0 0 0 3px ${getCardStroke(data.color)}33`
     : ''
+
+  const selectedShadow = 'inset 0 0 0 1px var(--card-selected-border), var(--card-selected-shadow)'
 
   const cursor = isCollapsed ? 'grab'
     : isEditing ? 'text'
@@ -410,10 +423,12 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
             ? 'var(--shadow-glow-green)'
           : isConnectionTarget && isHovered
             ? 'var(--shadow-glow-green)'
+          : isHovered && selected
+            ? `${selectedShadow}, ${hoverOutline}`
           : isHovered
             ? `${hoverOutline}, var(--shadow-lg)`
           : selected
-            ? 'inset 0 0 0 1px var(--card-selected-border), var(--card-selected-shadow)'
+            ? selectedShadow
             : 'var(--shadow-sm)',
         cursor,
       }}

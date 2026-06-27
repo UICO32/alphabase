@@ -191,17 +191,13 @@ export function BoardLibraryView() {
   return (
     <div className="w-full h-full overflow-y-auto bg-surface-panel">
       <div className="max-w-3xl mx-auto p-6">
-        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-xl font-semibold text-fg-primary">
-            画板库
-          </h1>
-          <div className="w-full sm:w-72">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="搜索画板..."
-            />
-          </div>
+        <h1 className="text-xl font-semibold text-fg-primary mb-3">画板库</h1>
+        <div className="mb-6">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="搜索画板..."
+          />
         </div>
 
         {filteredBoards.length === 0 ? (
@@ -218,9 +214,9 @@ export function BoardLibraryView() {
                 <div
                   key={board.id}
                   onClick={() => handleBoardClick(board.id)}
-                  className={`group relative cursor-pointer rounded-2xl bg-surface-card p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-card-hover hover:shadow-md ${isActive ? 'bg-surface-card-hover' : ''}`}
+                  className={`group relative cursor-pointer rounded-xl bg-surface-card border border-line-default p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover hover:shadow-md ${isActive ? 'ring-2 ring-brand/40 border-line-hover' : ''}`}
                 >
-                  <div className="aspect-[4/3] w-full overflow-hidden rounded-xl">
+                  <div className="aspect-[4/3] w-full overflow-hidden rounded-lg">
                     <BoardMiniMap
                       nodes={preview.nodes}
                       edges={preview.edges}

@@ -77,7 +77,6 @@ export function ReactFlowCanvas() {
   const isDarkMode = useIsDarkMode()
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
   const lassoRect = useFrameInteraction((s) => s.lassoRect)
-  const editingCardId = useViewStore((s) => s.editingCardId)
   const kanbanEditDialogCardId = useViewStore((s) => s.kanbanEditDialogCardId)
   const kanbanEditDialogSourceRect = useViewStore((s) => s.kanbanEditDialogSourceRect)
   const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
@@ -180,7 +179,7 @@ export function ReactFlowCanvas() {
     recordCurrentState()
   }, [originalOnNodeDragStop, recordCurrentState])
 
-  const { handleDoubleClick } = useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recordCurrentState, snapshotNow })
+  const { handleDoubleClick, handleMouseDown: handleDoubleClickMouseDown } = useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recordCurrentState, snapshotNow })
 
   useEffect(() => {
     const id = 'rf-hide-selection-rect'
@@ -388,15 +387,25 @@ export function ReactFlowCanvas() {
   const onPaneClick = useCallback(() => {
     connectionMediator.clear()
     kanbanDragPreview.clear()
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        selected: false,
-      })),
-    )
+
+    // Auto-delete empty autoEdit card when clicking blank area
+    const { autoEditCardId } = useViewStore.getState()
+    if (autoEditCardId) {
+      useViewStore.getState().setAutoEditCardId(null)
+      const cardData = useCardStore.getState().cards[autoEditCardId]
+      if (cardData) {
+        emit('remove-card-from-board', { cardId: autoEditCardId, cardContent: cardData })
+      }
+      useCardStore.getState().deleteCard(autoEditCardId)
+      setNodes((nds) => nds.filter((n) => n.id !== autoEditCardId).map((n) => ({ ...n, selected: false })))
+      setEdges((eds) => eds.filter((e) => e.source !== autoEditCardId && e.target !== autoEditCardId))
+    } else {
+      setNodes((nds) => nds.map((n) => ({ ...n, selected: false })))
+    }
+
     editingNodeIdRef.current = null
     useViewStore.getState().setEditingCardId(null)
-  }, [setNodes])
+  }, [setNodes, setEdges])
 
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
     const card = selectedNodes.find(n => n.type === 'card')
@@ -582,15 +591,31 @@ export function ReactFlowCanvas() {
 
   return (
     <ErrorBoundary>
-	    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
+	    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onMouseDown={handleDoubleClickMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
 	      <style>{`
 		        .suggested-card {
 		          will-change: transform, opacity;
 		          backface-visibility: hidden;
 		        }
 		        .suggested-card.is-dragging {
-		          opacity: 0;
-		          pointer-events: none;
+		          opacity: 0.5;
+		          border-style: dashed !important;
+		          border-color: rgba(120,120,120,0.35) !important;
+		          border-width: 1.5px !important;
+		          box-shadow: none !important;
+		          background: transparent !important;
+		        }
+		        .suggested-card.is-dragging > * {
+		          opacity: 0.3;
+		          filter: grayscale(0.6);
+		        }
+		        @keyframes suggested-card-return {
+		          0% { opacity: 0.5; filter: brightness(0.88); }
+		          55% { opacity: 1; filter: brightness(1.08); }
+		          100% { opacity: 1; filter: brightness(1); }
+		        }
+		        .suggested-card.is-returning {
+		          animation: suggested-card-return 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 		        }
 		        .suggested-card:hover {
 		          z-index: 999 !important;
@@ -631,7 +656,7 @@ export function ReactFlowCanvas() {
         isValidConnection={isValidConnection}
         autoPanOnNodeDrag={false}
         panOnDrag={lockCanvasMovement ? false : (isLassoMode ? false : [2])}
-        selectionOnDrag={lockCanvasMovement ? false : (isLassoMode ? false : !editingCardId)}
+        selectionOnDrag={lockCanvasMovement ? false : !isLassoMode}
         selectionMode={SelectionMode.Partial}
         panActivationKeyCode="Space"
         onMove={onMove}
@@ -750,22 +775,47 @@ export function ReactFlowCanvas() {
                       dragOffset: { x: 65, y: 86 },
                     }))
                     e.dataTransfer.effectAllowed = 'copy'
+                    // 先 clone 再加虚线类
+                    const rect = e.currentTarget.getBoundingClientRect()
                     const ghost = e.currentTarget.cloneNode(true) as HTMLElement
-                    ghost.style.position = 'fixed'
-                    ghost.style.left = '-10000px'
-                    ghost.style.top = '-10000px'
-                    ghost.style.width = '130px'
-                    ghost.style.opacity = '0.95'
-                    ghost.style.transform = 'rotate(0deg) scale(1.05)'
-                    ghost.style.boxShadow = '0 22px 48px rgba(0,0,0,0.24)'
-                    ghost.style.borderRadius = '12px'
-                    document.body.appendChild(ghost)
-                    e.dataTransfer.setDragImage(ghost, 65, 86)
-                    requestAnimationFrame(() => document.body.removeChild(ghost))
+                    const PAD = 32
+                    const wrapper = document.createElement('div')
+                    wrapper.style.position = 'fixed'
+                    wrapper.style.left = `${rect.left - PAD}px`
+                    wrapper.style.top = `${rect.top - PAD}px`
+                    wrapper.style.width = `${rect.width + PAD * 2}px`
+                    wrapper.style.height = `${rect.height + PAD * 2}px`
+                    wrapper.style.padding = `${PAD}px`
+                    wrapper.style.margin = '0'
+                    wrapper.style.boxSizing = 'border-box'
+                    wrapper.style.pointerEvents = 'none'
+                    wrapper.style.background = 'transparent'
+                    ghost.style.position = 'relative'
+                    ghost.style.left = '0'
+                    ghost.style.top = '0'
+                    ghost.style.width = `${rect.width}px`
+                    ghost.style.height = `${rect.height}px`
+                    ghost.style.margin = '0'
+                    ghost.style.transform = 'none'
+                    ghost.style.transition = 'none'
+                    ghost.style.opacity = '1'
+                    ghost.style.borderStyle = 'solid'
+                    ghost.style.overflow = 'visible'
+                    ghost.style.boxShadow = '0 24px 60px rgba(0,0,0,0.08)'
+                    ghost.style.pointerEvents = 'none'
+                    wrapper.appendChild(ghost)
+                    document.body.appendChild(wrapper)
+                    const offsetX = Math.min(Math.max(e.clientX - rect.left, 0), rect.width) + PAD
+                    const offsetY = Math.min(Math.max(e.clientY - rect.top, 0), rect.height) + PAD
+                    e.dataTransfer.setDragImage(wrapper, offsetX, offsetY)
+                    requestAnimationFrame(() => document.body.removeChild(wrapper))
                     e.currentTarget.classList.add('is-dragging')
                   }}
                   onDragEnd={(e) => {
-                    e.currentTarget.classList.remove('is-dragging')
+                    const el = e.currentTarget as HTMLElement
+                    el.classList.remove('is-dragging')
+                    el.classList.add('is-returning')
+                    el.addEventListener('animationend', () => el.classList.remove('is-returning'), { once: true })
                   }}
                   onClick={() => {
                     const instance = reactFlowInstance.current

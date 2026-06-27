@@ -19,7 +19,7 @@ export function TagSuggestionMenu({ editor, cardId }: { editor: BlockNoteEditor<
         subtext: t.flomoSynced ? `${t.count} 张卡片 · flomo` : `${t.count} 张卡片`,
         tagName: t.name,
         icon: (
-          <span style={{ color: '#8b5cf6', fontWeight: 600, fontSize: '13px' }}>#</span>
+          <span style={{ color: 'var(--tag-color)', fontWeight: 600, fontSize: '13px' }}>#</span>
         ),
         onItemClick: () => {
           editor.insertInlineContent([

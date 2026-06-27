@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { setTheme, getTheme, resolveTheme, type ThemeMode } from '../theme'
+import { setTheme, getTheme, resolveTheme, applyAccentColor, getAccentColor, type ThemeMode } from '../theme'
 import type { GridPattern } from '../components/canvas/AdaptiveBackground'
 
 interface ThemeStore {
@@ -49,6 +49,7 @@ export function startSystemThemeSync(): () => void {
       const isDark = mediaQuery.matches
       const resolved = isDark ? 'dark' : 'light'
       document.documentElement.setAttribute('data-theme', resolved)
+      applyAccentColor(getAccentColor())
       useThemeStore.setState({ isDarkMode: isDark })
     }
   }

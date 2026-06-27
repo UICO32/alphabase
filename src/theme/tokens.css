@@ -177,6 +177,14 @@
   --brand-soft: color-mix(in srgb, var(--brand) 10%, transparent);
   --brand-ring: color-mix(in srgb, var(--brand) 35%, transparent);
 
+  /* Tag & Card Reference inline chips — 收敛到 brand，消除历史硬编码紫色（泛红根因） */
+  --tag-color: var(--brand);
+  --tag-bg: var(--brand-soft);
+  --tag-bg-hover: color-mix(in srgb, var(--brand) 22%, transparent);
+  --card-ref-color: var(--brand);
+  --card-ref-bg: var(--brand-soft);
+  --card-ref-bg-hover: color-mix(in srgb, var(--brand) 22%, transparent);
+
   /* Interactive Text */
   --fg-link: var(--brand);
   --fg-link-hover: var(--brand-hover);
@@ -336,6 +344,14 @@
   --brand-soft: color-mix(in srgb, var(--brand) 14%, transparent);
   --brand-ring: color-mix(in srgb, var(--brand) 40%, transparent);
 
+  /* Tag & Card Reference inline chips — 暗色下提高可见度 */
+  --tag-color: var(--brand);
+  --tag-bg: var(--brand-soft);
+  --tag-bg-hover: color-mix(in srgb, var(--brand) 28%, transparent);
+  --card-ref-color: var(--brand);
+  --card-ref-bg: var(--brand-soft);
+  --card-ref-bg-hover: color-mix(in srgb, var(--brand) 28%, transparent);
+
   /* Interactive Text */
   --fg-link: var(--brand);
   --fg-link-hover: var(--brand-hover);
@@ -409,6 +425,13 @@
   -webkit-backdrop-filter: var(--blur-panel);
   backdrop-filter: var(--blur-panel);
   background-color: var(--surface-panel);
+}
+
+/* 贴合主内容的面板变体（画板库/卡片库视图）：去阴影，改用右侧分隔线。
+   这些视图下主内容已向右让出面板宽度，面板不再浮于画布之上，阴影会显得突兀。 */
+.glass-panel-large.glass-panel-flat {
+  box-shadow: none;
+  border-right: 1px solid var(--line-default);
 }
 
 /* 降级：不支持 backdrop-filter 的浏览器 */

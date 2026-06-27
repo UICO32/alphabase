@@ -110,12 +110,12 @@ export const tagSpec = createReactInlineContentSpec(
         data-tag-name={inlineContent.props.tagName as string}
         ref={contentRef}
         style={{
-          backgroundColor: 'var(--tag-bg, rgba(139,92,246,0.1))',
+          backgroundColor: 'var(--tag-bg)',
           borderRadius: '3px',
           padding: '0 3px',
           cursor: 'pointer',
           textDecoration: 'none',
-          color: 'var(--tag-color, #8b5cf6)',
+          color: 'var(--tag-color)',
           fontWeight: 500,
         }}
       />
