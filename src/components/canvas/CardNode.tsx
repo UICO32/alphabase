@@ -201,6 +201,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       // 点击编辑器内部时（ProseMirror contenteditable），不拦截
       const target = e.target as HTMLElement
       if (target.closest('[contenteditable="true"]')) return
+      // 点击划词工具栏、图片工具栏等编辑器浮层时，不要把光标移到点击坐标——
+      // 这些按钮有自己的行为，focusAtCoords 会破坏当前选区并把光标插到按钮下方。
+      if (target.closest('.bn-formatting-toolbar, .bn-link-toolbar, .bn-suggestion-menu, .bn-ui-container, .image-toolbar')) return
       if (isEditing) {
         editorRef.current?.focusAtCoords({ x: e.clientX, y: e.clientY })
         return
@@ -377,8 +380,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   }
 
   const borderWidth = 1
-  const borderColor = selected
-    ? getCardStroke(data.color)
+  const activeBorderColor = selected
+    ? 'var(--card-selected-border)'
     : isEditing
       ? 'var(--line-active)'
       : getCardStroke(data.color)
@@ -390,7 +393,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     ? `0 0 0 3px ${getCardStroke(data.color)}33`
     : ''
 
-  const selectedShadow = 'inset 0 0 0 1px var(--card-selected-border), var(--card-selected-shadow)'
+  const selectedShadow = '0 0 0 1px var(--card-selected-border), 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent)'
+  const editingShadow = '0 0 0 1px var(--line-active), 0 0 0 2px color-mix(in srgb, var(--line-active) 18%, transparent)'
+  const activeShadow = selected ? selectedShadow : isEditing ? editingShadow : ''
 
   const cursor = isCollapsed ? 'grab'
     : isEditing ? 'text'
@@ -416,19 +421,19 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
         height: nodeHeight,
         backgroundColor: cardBg,
-        border: `${borderWidth}px solid ${borderColor}`,
+        border: `${borderWidth}px solid ${activeBorderColor}`,
         boxShadow: isConnectingSource
           ? 'var(--shadow-glow-accent)'
           : isNearbyTarget
             ? 'var(--shadow-glow-green)'
           : isConnectionTarget && isHovered
             ? 'var(--shadow-glow-green)'
-          : isHovered && selected
-            ? `${selectedShadow}, ${hoverOutline}`
+          : isHovered && activeShadow
+            ? `${activeShadow}, ${hoverOutline}`
           : isHovered
             ? `${hoverOutline}, var(--shadow-lg)`
-          : selected
-            ? selectedShadow
+          : activeShadow
+            ? activeShadow
             : 'var(--shadow-sm)',
         cursor,
       }}

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 const SIDEBAR_WIDTH_MIN = 260
 const SIDEBAR_WIDTH_MAX = 600
-const SIDEBAR_WIDTH_DEFAULT = 360
+const SIDEBAR_WIDTH_DEFAULT = 260
 
 interface PanelStore {
   leftPanelCollapsed: boolean

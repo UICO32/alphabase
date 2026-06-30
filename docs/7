@@ -1,0 +1,231 @@
+# 拖拽效果优化 — 分步复刻指南
+
+> 优化右侧卡片库 + 空画布建议卡片的拖拽体验：自定义拖拽影像（实色、阴影完整）、源卡片虚线占位框、拖拽取消弹性回弹。本文档记录已落地部分与未完成部分。
+
+## 问题现象
+
+原始拖拽效果（来自提交 `d4e343e` / `7b0c6d0`）体验差：
+
+- 按下时卡片变得非常大（源卡片 `scale(1.08)` + 重阴影 + 紫描边）
+- 拖拽过程中卡片巨大且半透明（ghost 脱离栅格后撑满视口宽度）
+- ghost 有蓝色描边、半透明、阴影被裁切
+- 拖拽失败回到原位时闪烁（opacity 50% → 0% → 100%）
+
+## 根因
+
+| 问题 | 根因 | 位置 |
+|------|------|------|
+| ghost 撑满视口 | `cloneNode` 后挂到 body，脱离栅格上下文，块级 div 撑满视口宽度 | `CardLibraryView.tsx:84` / `ReactFlowCanvas.tsx:761` |
+| 按下卡片变大 | `card-item-floating` 用 `scale(1.08)` + 重阴影 | `CardLibraryView.tsx` CSS |
+| ghost 半透明 | `setDragImage` 是浏览器原生行为，Chromium 强制叠加半透明，CSS 无法消除 | 浏览器限制 |
+| ghost 阴影被裁切 | `setDragImage` 只截取元素渲染矩形，`box-shadow` 画在矩形外被截掉；ghost 继承源卡片 `overflow-hidden` | `setDragImage` 限制 |
+| ghost 是虚线形式 | `cloneNode` 在 `classList.add('card-item-floating')` **之后**执行，ghost 复制了虚线类 | `CardLibraryView.tsx` onDragStart 时序 |
+| 回弹闪烁 | `onDragEnd` 先 remove floating（opacity 0.5→1 transition）再 add returning（动画 0% opacity 0.6），transition 与 animation 打架；子元素 `opacity:0.3` 无 transition 瞬切 | `CardLibraryView.tsx` onDragEnd |
+
+## 已落地的修改
+
+### 涉及文件
+
+- `alphabase/src/components/ui/CardLibraryView.tsx` — 右侧卡片库
+- `alphabase/src/components/canvas/ReactFlowCanvas.tsx` — 空画布建议卡片
+
+### 1. 自定义拖拽影像：wrapper 提供阴影空间
+
+`setDragImage` 只截取元素的渲染矩形（bounding box），`box-shadow` 画在矩形之外会被截掉。用 wrapper div 包裹 ghost，wrapper 比 ghost 大 `PAD=32px` 的 padding，阴影落在 padding 区域内，截图时完整包含。
+
+**关键：先 `cloneNode` 再加虚线类**，避免 ghost 复制到 `card-item-floating` 的虚线样式。
+
+```tsx
+// CardLibraryView.tsx onDragStart
+onDragStart={(e) => {
+  onDragStart(e, card.id)
+  // 先 clone 再加虚线类，避免 ghost 复制到虚线样式
+  const rect = e.currentTarget.getBoundingClientRect()
+  const ghost = e.currentTarget.cloneNode(true) as HTMLElement
+  // wrapper 提供阴影空间
+  const PAD = 32
+  const wrapper = document.createElement('div')
+  wrapper.style.position = 'fixed'
+  wrapper.style.left = `${rect.left - PAD}px`
+  wrapper.style.top = `${rect.top - PAD}px`
+  wrapper.style.width = `${rect.width + PAD * 2}px`
+  wrapper.style.height = `${rect.height + PAD * 2}px`
+  wrapper.style.padding = `${PAD}px`
+  wrapper.style.margin = '0'
+  wrapper.style.boxSizing = 'border-box'
+  wrapper.style.pointerEvents = 'none'
+  wrapper.style.background = 'transparent'
+  // ghost 本体：实色、overflow visible、transition none
+  ghost.style.position = 'relative'
+  ghost.style.left = '0'
+  ghost.style.top = '0'
+  ghost.style.width = `${rect.width}px`
+  ghost.style.height = `${rect.height}px`
+  ghost.style.margin = '0'
+  ghost.style.transform = 'none'
+  ghost.style.transition = 'none'
+  ghost.style.opacity = '1'
+  ghost.style.borderStyle = 'solid'
+  ghost.style.overflow = 'visible'
+  ghost.style.boxShadow = '0 24px 60px rgba(0,0,0,0.08)'  // 极淡大弥散
+  ghost.style.pointerEvents = 'none'
+  wrapper.appendChild(ghost)
+  document.body.appendChild(wrapper)
+  const offsetX = Math.min(Math.max(e.clientX - rect.left, 0), rect.width) + PAD
+  const offsetY = Math.min(Math.max(e.clientY - rect.top, 0), rect.height) + PAD
+  e.dataTransfer.setDragImage(wrapper, offsetX, offsetY)
+  requestAnimationFrame(() => document.body.removeChild(wrapper))
+  // clone 完成后再让源卡片显示为虚线占位框
+  ;(e.currentTarget as HTMLElement).classList.add('card-item-floating')
+}}
+```
+
+`ReactFlowCanvas.tsx` 建议卡片处同样实现（`onDragStart` 约 758 行起），区别仅在于建议卡片 clone 后加的是 `is-dragging` 类。
+
+### 2. 源卡片虚线占位框（淡灰）
+
+拖拽时源卡片变为淡灰虚线框，保留布局空间，内容淡化：
+
+```css
+/* CardLibraryView.tsx */
+.card-item-floating {
+  opacity: 0.5;
+  border-style: dashed !important;
+  border-color: rgba(120,120,120,0.35) !important;
+  border-width: 1.5px !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  transition: opacity 0.15s ease-out, border-style 0.15s ease-out, background 0.15s ease-out;
+}
+.card-item-floating > * {
+  opacity: 0.3;
+  filter: grayscale(0.6);
+}
+```
+
+```css
+/* ReactFlowCanvas.tsx */
+.suggested-card.is-dragging {
+  opacity: 0.5;
+  border-style: dashed !important;
+  border-color: rgba(120,120,120,0.35) !important;
+  border-width: 1.5px !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.suggested-card.is-dragging > * {
+  opacity: 0.3;
+  filter: grayscale(0.6);
+}
+```
+
+### 3. 拖拽取消弹性回弹
+
+`onDragEnd` 时移除虚线框类，加 `returning` 类触发轻微弹性动画：
+
+```css
+/* CardLibraryView.tsx */
+@keyframes card-return-bounce {
+  0% { transform: scale(0.94); opacity: 0.6; }
+  55% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.card-item-returning {
+  animation: card-return-bounce 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+```
+
+```css
+/* ReactFlowCanvas.tsx — 建议卡片用 brightness 代替 scale，保留扇形 transform */
+@keyframes suggested-card-return {
+  0% { opacity: 0.5; filter: brightness(0.88); }
+  55% { opacity: 1; filter: brightness(1.08); }
+  100% { opacity: 1; filter: brightness(1); }
+}
+.suggested-card.is-returning {
+  animation: suggested-card-return 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+```
+
+```tsx
+// onDragEnd（两处一致）
+onDragEnd={(e) => {
+  const el = e.currentTarget as HTMLElement
+  el.classList.remove('card-item-floating')  // 或 'is-dragging'
+  el.classList.add('card-item-returning')    // 或 'is-returning'
+  el.addEventListener('animationend', () => el.classList.remove('card-item-returning'), { once: true })
+}}
+```
+
+### 阴影参数
+
+```
+0 24px 60px rgba(0,0,0,0.08)
+```
+
+- 模糊半径 `60px`：大弥散
+- alpha `0.08`：极淡
+- 偏移 `24px`：轻微方向感
+
+## 未完成部分（已知问题，待后续修复）
+
+### ❌ 拖拽取消回弹仍有闪烁
+
+**现象**：拖拽失败回到原位时，最后几帧闪烁。效果大致是：拖动时 50% 透明 → 松手后回到原位变 0% → 再从 0% 快速变成 100%。
+
+**已尝试但未解决的方案**：
+
+1. **调换时序**（先 add returning 再 remove floating）—— 区别不大
+2. **returning 类用 `!important` 接管 opacity/子元素/transition** —— 区别不大
+3. **回弹动画全程 `opacity: 1`**（仅靠 scale/brightness 体现弹性）—— 区别不大
+4. **子元素 floating 加 transition** —— 区别不大
+
+**推测根因**：闪烁可能不是源卡片本身的 opacity 问题，而是**浏览器拖拽影像消失与源卡片恢复之间的视觉空档**。`setDragImage` 的影像在 `onDragEnd` 瞬间消失，源卡片此时还是虚线框状态（opacity 0.5），影像消失 + 源卡片半透明 = 视觉上"变 0%"，然后回弹动画恢复到 1.0 = "快速变 100%"。
+
+**调试受阻原因**：在 Electron 环境（`electron:dev`）下，加了 `console.log('[D]')` 调试日志，但 Electron DevTools 控制台未检测到任何日志输出。无法确认是 HMR 未生效还是日志被拦截，导致无法定位闪烁发生的精确帧和属性值。
+
+**后续排查方向**：
+- 确认 Electron DevTools 是否正常连接渲染进程（`Cmd+Option+I` 打开，Console 标签）
+- 确认 HMR 是否生效：在组件顶部加 `console.log('mount')`，刷新后看是否有输出
+- 若 HMR 不生效，重启 `electron:dev`，或改用浏览器 `npm run dev` + `localhost:5173` 调试
+- 用 `getComputedStyle` 逐帧追踪 `onDragEnd` 后 8 帧的 opacity / animationName，定位闪烁帧
+- 若确认是影像消失空档问题，可尝试：`onDragEnd` 时延迟 1 帧再移除虚线框，让源卡片先恢复实体再让影像消失
+
+### ❌ Chromium 拖拽影像半透明无法消除
+
+**现象**：`setDragImage` 生成的拖拽影像在移动过程中被浏览器强制叠加一层半透明（约 0.5-0.7）。
+
+**根因**：这是 Chromium/操作系统的原生拖拽反馈行为，CSS（包括 `opacity:1`）无法消除。
+
+**已尝试但放弃的方案**：自定义拖拽层（1x1 透明 gif 隐藏原生影像 + 自建 fixed 元素跟随鼠标）。该方案虽能实现实色不透明，但引入严重副作用：
+- 与 ReactFlow 双击/框选事件链冲突
+- 误触发建议卡片 `onClick` 创建新卡片
+- 建议卡片拖拽时影像消失
+
+最终回退到 `setDragImage` 方案，接受原生半透明作为合理的拖拽反馈。
+
+**后续可选方向**：
+- 接受半透明（Figma/Notion 等应用也接受此行为）
+- 或完全放弃 HTML5 drag，改用 pointer events 自定义拖拽（但需重写 ReactFlow 的 `onDrop`/`dataTransfer` 逻辑，成本高）
+
+### ⚠️ 建议卡片拖拽与双击/框选的兼容性
+
+自定义拖拽层方案曾导致误操作创建新卡片，回退 `setDragImage` 后已解决。但建议卡片的 `onClick`（创建卡片）与 `draggable` 的边界仍需观察，快速点击不应触发拖拽，微小拖拽不应触发点击。
+
+## 复刻检查清单
+
+- [ ] `CardLibraryView.tsx` onDragStart：先 clone 再加 `card-item-floating`
+- [ ] `CardLibraryView.tsx`：ghost 用 wrapper 包裹，PAD=32，`overflow: visible`，`transition: none`
+- [ ] `CardLibraryView.tsx` CSS：`card-item-floating` 淡灰虚线，`card-item-returning` 弹性动画
+- [ ] `ReactFlowCanvas.tsx` onDragStart：同样 wrapper 方案，加 `is-dragging`
+- [ ] `ReactFlowCanvas.tsx` CSS：`is-dragging` 淡灰虚线，`is-returning` brightness 弹性（不动 transform）
+- [ ] 阴影统一 `0 24px 60px rgba(0,0,0,0.08)`
+- [ ] 无残留调试日志（`grep -r "\[D\]\|DRAG-DEBUG" src/` 无结果）
+
+## 关键教训
+
+1. **`setDragImage` 的固有限制**：只截取元素渲染矩形（box-shadow 会被截），且 Chromium 强制半透明。这两个限制无法用 CSS 绕过，只能用 wrapper padding 解决阴影，接受半透明。
+2. **`cloneNode` 时序**：必须在加状态类（floating/dragging）**之前** clone，否则 ghost 复制到虚线样式。
+3. **自定义拖拽层方案的陷阱**：用 1x1 gif + 全局 drag 监听替代 `setDragImage` 会破坏 ReactFlow 事件链，得不偿失。
+4. **Electron 调试**：`electron:dev` 的 HMR 和 DevTools 连接需额外确认，浏览器 `npm run dev` 更可靠。
+5. **回弹闪烁的真正难点**：可能是影像消失与源卡片恢复的时序空档，而非纯 CSS opacity 冲突——但因调试受阻未能证实。

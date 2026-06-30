@@ -1,0 +1,202 @@
+# 图标方案落地 + 面板头部优化 + 编辑 tab 滑入滑出 — 分步复刻指南
+
+> 落地 `docs/icons/图标.md` 选定的 8 项 lucide 图标映射；加大左右面板顶部区域；右侧"编辑"tab 未选中卡片时不展示、选中时滑入滑出；统一三个 tab 固定等宽。
+
+## 执行顺序总览
+
+| Step | 阶段 | 前置依赖 | 风险 | 验证方式 |
+|------|------|----------|------|----------|
+| 1    | 升级 lucide-react 拿到 Birdhouse | 无 | 低 | tsc |
+| 2    | 8 项图标映射替换 | Step 1 | 低 | tsc + 视觉 |
+| 3    | 面板头部加大 + 编辑 tab 滑入滑出 + 固定等宽 | Step 2 | 低 | 视觉 |
+
+## Step 1：升级 lucide-react
+
+### 前置条件
+无
+
+### 1.1 package.json — 版本升级
+
+`Birdhouse` 在 lucide-react ≥ 0.468 才有，0.400.0 缺失。直接升到 1.x（无 breaking change）。
+
+```diff
+- "lucide-react": "^0.400.0"
++ "lucide-react": "^1.21.0"
+```
+
+### 验证
+```bash
+cd alphabase && pnpm update lucide-react@latest
+ls node_modules/lucide-react/dist/esm/icons/ | grep birdhouse  # 应输出 birdhouse.mjs
+pnpm typecheck
+```
+
+## Step 2：8 项图标映射替换
+
+### 前置条件
+Step 1 完成
+
+### 映射表（源自 `docs/icons/图标.md`）
+
+| # | 用途 | 新图标 | 原图标 | 位置 |
+|---|------|--------|--------|------|
+| 1 | 工作区 | `Birdhouse` | `Folder` | LeftPanel 顶部 |
+| 2 | 设置 | `Bolt` | `Settings` | LeftPanel 设置按钮 |
+| 3 | 左面板收/展 | `ArrowLeftToLine` | `PanelLeftOpen`/`ChevronRight`/`ChevronLeft`(left) | LeftPanel 展开钮 + LeftPanelCollapsed + PanelLayout(Collapse/ExpandButton left) |
+| 4 | 右面板收/展 | `ArrowRightToLine` | `PanelRightOpen`/`ChevronLeft`/`ChevronRight`(right) | RightPanel 展开钮 + RightPanelCollapsed + PanelLayout(right) |
+| 5 | 画板库 | `Layers` | `LayoutGrid` | LeftPanel 画板库 tab + BoardLibraryView 空态 |
+| 6 | 画布 | `Layers2` | `FileText` | BoardList 画板列表项 |
+| 7 | 卡片库 | `GalleryVerticalEnd` | `Layers` | LeftPanel/RightPanel 卡片库 tab + CardLibraryView 空态 |
+| 8 | 3D 地形视图 | `Axis3d` | `Goal` | Toolbar topography 开启态 |
+
+### 2.1 涉及文件（9 个）
+
+- `src/components/ui/LeftPanel.tsx` — #1#2#3#5#7
+- `src/components/ui/RightPanel.tsx` — #4#7
+- `src/components/ui/LeftPanelCollapsed.tsx` — #3
+- `src/components/ui/RightPanelCollapsed.tsx` — #4
+- `src/components/ui/PanelLayout.tsx` — #3#4
+- `src/components/ui/BoardList.tsx` — #6
+- `src/components/ui/BoardLibraryView.tsx` — #5
+- `src/components/ui/CardLibraryView.tsx` — #7
+- `src/components/ui/Toolbar.tsx` — #8
+
+每个文件改两处：import 语句换图标名、JSX 里 `<OldIcon />` → `<NewIcon />`。
+
+### 2.2 关键注意：左/右面板展开按钮方向
+
+展开按钮的图标方向**与收起按钮相反**：
+- 左面板 CollapseButton（向左收）= `ArrowLeftToLine`；左面板展开按钮（向右展）= `ArrowRightToLine`
+- 右面板 CollapseButton（向右收）= `ArrowRightToLine`；右面板展开按钮（向左展）= `ArrowLeftToLine`
+
+⚠️ LeftPanel/RightPanel 里的展开按钮是**内联**在 `{xxxCollapsed && <button>}` 里的，不是 LeftPanelCollapsed/RightPanelCollapsed 组件（那两个组件当前未被引用，但仍同步改了图标方向保持一致）。
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck
+grep -rn "PixelIcon" src/  # 应无输出（本次方案用 lucide，非 PixelIcon）
+```
+
+## Step 3：面板头部加大 + 编辑 tab 滑入滑出 + 固定等宽
+
+### 前置条件
+Step 2 完成
+
+### 3.1 LeftPanel.tsx — 顶部 padding 加大
+
+```diff
+- <div className="flex items-center justify-between px-4 py-3 border-b border-line-default transition-theme">
++ <div className="flex items-center justify-between px-4 py-4 border-b border-line-default transition-theme">
+    ...
+-   <Birdhouse size={16} className="text-fg-secondary" />
++   <Birdhouse size={18} className="text-fg-secondary" />
+    ...
+-   <Bolt size={14} />
++   <Bolt size={16} />
+```
+
+### 3.2 RightPanel.tsx — 顶部 padding + tab 改造
+
+顶部 `py-2` → `py-3`。
+
+**tab 顺序改为：卡片库 → 频道 → 编辑**（编辑移到频道右侧），文案"卡片编辑器"→"编辑"。
+
+**三个 tab 固定等宽** `w-[84px]` + `whitespace-nowrap` 防换行：
+
+```jsx
+<button className="segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ...">
+  <GalleryVerticalEnd size={14} />
+  卡片库
+</button>
+<button className="segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ...">
+  <Compass size={14} />
+  频道
+</button>
+```
+
+**编辑 tab 滑入滑出**：常驻 DOM，用 wrapper 的 `maxWidth`（0 ↔ 88）+ `opacity`（0 ↔ 1）做 300ms 过渡，收起时 `marginLeft: -2` 抵消 segmented 的 `gap: 2px`：
+
+```jsx
+{(() => {
+  const editorVisible = !!editingCardId
+  return (
+    <div
+      className="overflow-hidden transition-all duration-300 ease-out"
+      style={{
+        maxWidth: editorVisible ? 88 : 0,
+        opacity: editorVisible ? 1 : 0,
+        marginLeft: editorVisible ? 0 : -2,
+      }}
+    >
+      <button className="segmented-item cursor-pointer whitespace-nowrap w-[84px] justify-center ...">
+        <FileText size={14} />
+        编辑
+      </button>
+    </div>
+  )
+})()}
+```
+
+### 3.3 RightPanel.tsx — 编辑器内容淡入 + 自动回退
+
+编辑器内容外层包 `key={editingCardId}` 的 `animate-fadeIn`，切换卡片时重新触发淡入：
+
+```jsx
+showEditorContent ? (
+  <div key={editingCardId} className="h-full animate-fadeIn">
+    <ClipAwareEditorView ... />
+  </div>
+)
+```
+
+新增 effect：处于 editor tab 但选中卡片被取消时，自动回退到 library tab：
+
+```jsx
+useEffect(() => {
+  if (rightPanelActiveTab === 'editor' && !editingCardId) {
+    setRightPanelActiveTab('library')
+  }
+}, [rightPanelActiveTab, editingCardId, setRightPanelActiveTab])
+```
+
+### 3.4 展开按钮尺寸固定
+
+LeftPanel/RightPanel 内联展开按钮原本 `h-7 px-2`（宽度由 padding 撑开会压扁），改 `w-10 h-10` 固定正方形：
+
+```diff
+- className="fixed top-10 left-2 z-50 flex items-center justify-center h-7 px-2 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
++ className="fixed top-10 left-2 z-50 flex items-center justify-center w-10 h-10 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
+```
+
+### 验证
+```bash
+cd alphabase && pnpm typecheck
+```
+视觉验证：
+- 左面板顶部更宽敞，工作区/设置图标略大
+- 右面板未选卡片时只有「卡片库」「频道」两个 tab；选中卡片后「编辑」从右侧滑入
+- 取消选中卡片后「编辑」tab 滑出，且若原在编辑 tab 会自动切回卡片库
+- 三个 tab 等宽不换行
+- 面板收起后展开按钮为 40×40 正方形不被压扁
+
+## 复刻检查清单
+
+- [ ] `pnpm typecheck` 通过
+- [ ] grep 确认无 PixelIcon 残留
+- [ ] 8 个图标位置与 `docs/icons/图标.md` 一致
+- [ ] 左/右面板展开按钮图标方向正确（左展=ArrowRightToLine，右展=ArrowLeftToLine）
+- [ ] 编辑 tab 滑入滑出无残留缝隙
+- [ ] 三个 tab 等宽不换行
+
+## 后续可优化方向
+
+- `LeftPanelCollapsed`/`RightPanelCollapsed` 组件当前未被引用（展开按钮内联在 LeftPanel/RightPanel 里），可考虑删除或统一收敛
+- 编辑 tab 滑入滑出的 `maxWidth: 88` 是经验值，若改 tab 文案需同步调整
+- lucide-react 1.x 升级后可全量排查是否有其它已废弃图标名
+
+## 关键教训
+
+- **先确认组件是否被引用再改**：本次曾改了 LeftPanelCollapsed/RightPanelCollapsed 但实际展开按钮内联在 LeftPanel/RightPanel，导致"没变化"。改前应先 grep 确认引用关系。
+- **展开/收起图标方向相反**：CollapseButton 指向收起方向，展开按钮指向展开方向，二者相反，别一刀切用同名图标。
+- **segmented gap 抵消**：滑入滑出用 maxWidth 收到 0 时，segmented 的 `gap: 2px` 会在左侧留缝，需 `marginLeft: -2` 抵消。
+顺手修一下之前漏掉的未使用 import（LeftPanel 的 ArrowLeftToLine、RightPanel 的 ArrowRightToLine

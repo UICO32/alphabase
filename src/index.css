@@ -21,15 +21,15 @@ html, body, #root {
   overflow: visible !important;
 }
 
-/* 未选中/未编辑态卡片用 clip-path 裁切内容，支持过渡动画 */
+/* 未选中/未编辑态卡片用 clip-path 裁切内容，选中态描边即时消失避免圆角残影 */
 .card-node-default.overflow-hidden {
   clip-path: inset(0);
-  transition: clip-path 150ms ease, box-shadow var(--duration-normal) var(--ease-default), border-color var(--duration-normal) var(--ease-default);
+  transition: clip-path 80ms ease, box-shadow 80ms ease, border-color 80ms ease;
 }
 
 .card-node-default.overflow-visible {
   clip-path: none;
-  transition: clip-path 150ms ease, box-shadow var(--duration-normal) var(--ease-default), border-color var(--duration-normal) var(--ease-default);
+  transition: clip-path 80ms ease, box-shadow 80ms ease, border-color 80ms ease;
 }
 
 .react-flow__renderer,

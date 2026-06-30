@@ -1,0 +1,609 @@
+# 色彩体系收敛 + 设置面板 UI 统一 — 分步复刻指南
+
+> 两件事：① 消除标签/卡片引用系统长期硬编码的紫色（泛红根因），收敛到单一可自定义强调色 `--brand`，并支持用户在设置里换主题色；② 设置面板各处各做各的原生控件/大按钮，统一到 shadcn/ui 体系（ToggleGroup/Switch/Slider/Button/Input/Select + 统一布局基元）。涉及 20+ 文件。
+
+> **本文档目的**：让能力一般的模型/开发者能按 Step 1→5 顺序逐步复刻。每步含前置条件、操作、验证方法。
+
+## 执行顺序总览
+
+| Step | 阶段 | 前置依赖 | 风险 | 验证方式 |
+|------|------|----------|------|----------|
+| 1 | 面板去阴影（画板库/卡片库视图） | 无 | 低 | 视觉 |
+| 2 | 画板库/卡片库卡片格式统一 + 搜索框下移 | 无 | 低 | 视觉 |
+| 3 | 色彩 token 收敛：tag/card-ref 派生自 brand，消除紫色硬编码 | 无 | 中 | grep + lint |
+| 4 | 强调色自定义基础设施（tokens.ts + index.html 防闪 + 设置 UI） | Step 3 | 中 | typecheck + 视觉 |
+| 5 | 设置面板 UI 统一到 shadcn 组件 | 无 | 中 | typecheck + lint + 测试 |
+
+> ⚠️ Step 4 依赖 Step 3（自定义强调色要写 `--tag-color` 等 token，须先在 tokens.css 定义）。Step 1/2/5 相互独立。
+
+---
+
+## Step 1：画板库/卡片库视图左侧面板去阴影
+
+### 前置条件
+无
+
+### 1.1 tokens.css — 新增 `glass-panel-flat` 变体
+
+**文件**：`src/theme/tokens.css`
+
+`.glass-panel-large.panel-animating` 块之后追加：
+
+```css
+/* 贴合主内容的面板变体（画板库/卡片库视图）：去阴影，改用右侧分隔线。
+   这些视图下主内容已向右让出面板宽度，面板不再浮于画布之上，阴影会显得突兀。 */
+.glass-panel-large.glass-panel-flat {
+  box-shadow: none;
+  border-right: 1px solid var(--line-default);
+}
+```
+
+### 1.2 LeftPanel.tsx — 非 board 视图挂载 flat 变体
+
+**文件**：`src/components/ui/LeftPanel.tsx`
+
+外层定位 div 内层包一个 glass-panel div，按 viewMode 切换：
+
+```tsx
+<div
+  className="absolute left-0 top-0 bottom-0 z-10"
+  style={{ width: SIDEBAR_WIDTH, transform: `translateX(${leftPanelCollapsed ? -SIDEBAR_WIDTH : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
+>
+  <div
+    className={`flex flex-col overflow-hidden glass-panel-large h-full ${viewMode !== 'board' ? 'glass-panel-flat' : ''}`}
+    onWheel={handleWheel}
+  >
+    {/* 原有内容 */}
+  </div>
+</div>
+```
+
+### 验证
+- 视觉：画板库/卡片库视图左侧面板无投影，仅右侧一条分隔线；画板视图仍保留 glass 阴影
+
+---
+
+## Step 2：画板库与卡片库卡片格式统一 + 搜索框下移
+
+### 前置条件
+无
+
+### 2.1 BoardLibraryView.tsx — 标题独占行，搜索框下移；卡片格式对齐卡片库
+
+**文件**：`src/components/ui/BoardLibraryView.tsx`
+
+标题区改前（标题 + 搜索框同行）：
+```tsx
+<div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
+  <h1 className="text-xl font-semibold text-fg-primary">画板库</h1>
+  <div className="w-full sm:w-72">
+    <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="搜索画板..." />
+  </div>
+</div>
+```
+
+改后（标题独占行，搜索框整宽在下）：
+```tsx
+<h1 className="text-xl font-semibold text-fg-primary mb-3">画板库</h1>
+<div className="mb-6">
+  <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="搜索画板..." />
+</div>
+```
+
+画板卡片改前（`rounded-2xl` 无边框 + hover 变背景）：
+```tsx
+className={`group relative cursor-pointer rounded-2xl bg-surface-card p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-card-hover hover:shadow-md ${isActive ? 'bg-surface-card-hover' : ''}`}
+```
+内层 `<div className="aspect-[4/3] w-full overflow-hidden rounded-xl">`
+
+改后（与卡片库统一：`rounded-xl` + `border` + hover 描边/阴影 + 激活 ring）：
+```tsx
+className={`group relative cursor-pointer rounded-xl bg-surface-card border border-line-default p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover hover:shadow-md ${isActive ? 'ring-2 ring-brand/40 border-line-hover' : ''}`}
+```
+内层 `<div className="aspect-[4/3] w-full overflow-hidden rounded-lg">`
+
+### 2.2 CardLibraryView.tsx — 标题独占行，搜索框整宽下移
+
+**文件**：`src/components/ui/CardLibraryView.tsx`
+
+改前：
+```tsx
+<div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+  <h1 className="text-xl font-semibold text-fg-primary">卡片库</h1>
+  <div className="flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 sm:w-72" ...>
+```
+
+改后：
+```tsx
+<h1 className="text-xl font-semibold text-fg-primary mb-3">卡片库</h1>
+<div className="flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 mb-4" ...>
+```
+
+### 2.3 CardLibraryView.tsx — CardItem 卡片格式与画板库统一
+
+**文件**：`src/components/ui/CardLibraryView.tsx`（`CardItem` 组件）
+
+改前（`rounded-lg` 无 hover 反馈，挂 `hepta-list-item`）：
+```tsx
+className="hepta-list-item group relative p-2.5 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default"
+```
+
+改后（`rounded-xl` + hover 描边/阴影 + active 缩放，**移除 `hepta-list-item`**——该类在 animations.css 定义了 `transform: translateX(2px)`，与上浮 hover 冲突）：
+```tsx
+className="group relative p-2.5 rounded-xl cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover hover:shadow-md active:scale-[0.98]"
+```
+
+### 验证
+- 视觉：画板库与卡片库卡片圆角/边框/阴影/hover 完全一致；搜索框都在标题正下方整宽显示
+
+---
+
+## Step 3：色彩 token 收敛 — tag/card-ref 派生自 brand，消除紫色硬编码
+
+### 前置条件
+无
+
+### 根因
+
+标签（`#标签`）与卡片引用（`@卡片`）系统在 6 处硬编码紫色 `#8b5cf6` / `rgba(139,92,246,...)`，而主题 `--brand` 是蓝色 `#2563eb`，`--tag-color`/`--tag-bg` 从未定义——紫色 fallback 始终生效，与蓝色品牌色割裂，是「泛红/泛紫」的根因。
+
+| 问题 | 根因 | 位置 |
+|------|------|------|
+| 标签泛紫 | `renderBlocks.ts` tag inline 用 `var(--tag-color,#8b5cf6)` fallback，而 `--tag-color` 从未定义 | `src/converters/renderBlocks.ts:342` |
+| 编辑器标签紫 | `blocknoteSchema.tsx` + `card-blocknote-editor.css` 硬编码 `#8b5cf6` / `rgba(139,92,246,...)` | `src/components/editor/blocknoteSchema.tsx:113,118`、`src/components/editor/card-blocknote-editor.css:33,36,43,78,81,100,103,121,122` |
+| 标签建议菜单 # 紫 | `TagSuggestionMenu.tsx` 硬编码 `color:'#8b5cf6'` | `src/components/editor/TagSuggestionMenu.tsx:22` |
+| 标签云/过滤栏紫 | `CardLibraryView.tsx` 用 `bg-[var(--brand,#8b5cf6)]` | `src/components/ui/CardLibraryView.tsx` 标签云 + 过滤横幅 |
+| 拖拽预览紫边框 | `var(--brand, #8b5cf6)` fallback | `CardLibraryView.tsx` `.card-item-floating`、`ReactFlowCanvas.tsx` `.suggested-card` |
+
+### 3.1 tokens.css — 亮/暗主题新增 tag/card-ref 语义 token，派生自 --brand
+
+**文件**：`src/theme/tokens.css`
+
+`:root` 的 `--brand-ring` 之后、`--fg-link` 之前插入（亮色）：
+
+```css
+  /* Tag & Card Reference inline chips — 收敛到 brand，消除历史硬编码紫色（泛红根因） */
+  --tag-color: var(--brand);
+  --tag-bg: var(--brand-soft);
+  --tag-bg-hover: color-mix(in srgb, var(--brand) 22%, transparent);
+  --card-ref-color: var(--brand);
+  --card-ref-bg: var(--brand-soft);
+  --card-ref-bg-hover: color-mix(in srgb, var(--brand) 22%, transparent);
+```
+
+`[data-theme="dark"]` 同位置插入（暗色 hover 提浓）：
+
+```css
+  /* Tag & Card Reference inline chips — 暗色下提高可见度 */
+  --tag-color: var(--brand);
+  --tag-bg: var(--brand-soft);
+  --tag-bg-hover: color-mix(in srgb, var(--brand) 28%, transparent);
+  --card-ref-color: var(--brand);
+  --card-ref-bg: var(--brand-soft);
+  --card-ref-bg-hover: color-mix(in srgb, var(--brand) 28%, transparent);
+```
+
+### 3.2 renderBlocks.ts — tag/card-ref inline 去紫色 fallback
+
+**文件**：`src/converters/renderBlocks.ts`
+
+```ts
+// 改前
+return `<a href="${href}" style="color:var(--fg-link,#3b82f6);...">`
+return `<span data-tag-name="..." style="background-color:var(--tag-bg,rgba(139,92,246,0.1));...color:var(--tag-color,#8b5cf6);...">`
+return `<span data-card-id="..." style="background-color:var(--card-ref-bg,rgba(59,130,246,0.1));...color:var(--card-ref-color,#3b82f6);...">`
+
+// 改后（去 fallback，token 已在 tokens.css 定义）
+return `<a href="${href}" style="color:var(--fg-link);...">`
+return `<span data-tag-name="..." style="background-color:var(--tag-bg);...color:var(--tag-color);...">`
+return `<span data-card-id="..." style="background-color:var(--card-ref-bg);...color:var(--card-ref-color);...">`
+```
+
+### 3.3 blocknoteSchema.tsx — tag inline 样式去 fallback
+
+**文件**：`src/components/editor/blocknoteSchema.tsx`
+
+```tsx
+// 改前
+backgroundColor: 'var(--tag-bg, rgba(139,92,246,0.1))',
+color: 'var(--tag-color, #8b5cf6)',
+
+// 改后
+backgroundColor: 'var(--tag-bg)',
+color: 'var(--tag-color)',
+```
+
+### 3.4 card-blocknote-editor.css — 编辑器/预览态 tag/card-ref 改用 token，删暗色覆写块
+
+**文件**：`src/components/editor/card-blocknote-editor.css`
+
+将所有 `rgba(139,92,246,...)` / `#8b5cf6` / `rgba(59,130,246,...)` / `#3b82f6` / `#60a5fa` / `#a78bfa` 硬编码替换为 `var(--tag-*)` / `var(--card-ref-*)`。同时删除整个 `[data-theme="dark"] .card-blocknote-editor [data-card-id]` 暗色覆写块和 `[data-theme="dark"] .card-blocknote-editor, [data-theme="dark"] .card-preview-native { --tag-bg: ... }` 块——暗色由 tokens.css 的 `[data-theme="dark"]` 统一定义，无需在此重复。
+
+改后（编辑器态示例）：
+```css
+.card-blocknote-editor [data-card-id] {
+  background-color: var(--card-ref-bg);
+  border-radius: 3px; padding: 0 3px;
+  color: var(--card-ref-color); font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  transition: background-color 0.15s;
+}
+.card-blocknote-editor [data-card-id]:hover { background-color: var(--card-ref-bg-hover); }
+
+.card-blocknote-editor [data-tag-name] {
+  background-color: var(--tag-bg);
+  border-radius: 3px; padding: 0 3px;
+  color: var(--tag-color); font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  transition: background-color 0.15s;
+}
+.card-blocknote-editor [data-tag-name]:hover { background-color: var(--tag-bg-hover); }
+```
+
+预览态 `.card-preview-native [data-tag-name]` / `[data-card-id]` 同理改用 token。
+
+### 3.5 TagSuggestionMenu.tsx — # 图标颜色改用 token
+
+**文件**：`src/components/editor/TagSuggestionMenu.tsx`
+
+```tsx
+// 改前
+<span style={{ color: '#8b5cf6', fontWeight: 600, fontSize: '13px' }}>#</span>
+// 改后
+<span style={{ color: 'var(--tag-color)', fontWeight: 600, fontSize: '13px' }}>#</span>
+```
+
+### 3.6 CardLibraryView.tsx — 标签云/过滤栏/拖拽边框去紫色
+
+**文件**：`src/components/ui/CardLibraryView.tsx`
+
+```tsx
+// 标签云激活态改前
+'bg-[var(--brand,#8b5cf6)] text-white border-transparent'
+// 改后
+'bg-brand text-fg-inverse border-transparent'
+
+// 过滤横幅改前
+border border-[var(--brand,#8b5cf6)]/30  →  border border-brand/30
+text-[var(--brand,#8b5cf6)]  →  text-brand
+
+// 拖拽预览 .card-item-floating 改前
+border-color: var(--brand, #8b5cf6) !important;
+// 改后
+border-color: var(--brand) !important;
+```
+
+### 3.7 ReactFlowCanvas.tsx — suggested-card 拖拽边框去 fallback
+
+**文件**：`src/components/canvas/ReactFlowCanvas.tsx`
+
+```css
+/* 改前 */ border-color: var(--brand, #8b5cf6) !important;
+/* 改后 */ border-color: var(--brand) !important;
+```
+
+### 验证
+```bash
+# 紫色硬编码清零（FrameNode.tsx 的「薰衣草」是画板边框色板选项，内容色，保留）
+grep -rn "#8b5cf6\|139,\s*92,\s*246\|a78bfa" src/  # 仅 FrameNode.tsx:16 命中
+pnpm typecheck
+```
+
+---
+
+## Step 4：强调色自定义基础设施
+
+### 前置条件
+Step 3 完成（`--tag-color` 等 token 已在 tokens.css 定义）
+
+### 4.1 tokens.ts — 新增 applyAccentColor / setAccentColor / getAccentColor
+
+**文件**：`src/theme/tokens.ts`
+
+在 `withThemeTransition` 之后、`setTheme` 之前新增。单一颜色驱动整个 brand 家族 + 下游 tag/card-ref/link/focus；暗色自动混白提亮：
+
+```ts
+const ACCENT_STORAGE_KEY = 'hepta-accent-color'
+
+export function getAccentColor(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(ACCENT_STORAGE_KEY)
+}
+
+export function applyAccentColor(color: string | null): void {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  const derived = [
+    '--brand', '--brand-hover', '--brand-soft', '--brand-ring',
+    '--tag-color', '--tag-bg', '--tag-bg-hover',
+    '--card-ref-color', '--card-ref-bg', '--card-ref-bg-hover',
+    '--fg-link', '--fg-link-hover', '--line-focus',
+  ]
+  if (!color) {
+    for (const p of derived) root.style.removeProperty(p)
+    return
+  }
+  const isDark = root.getAttribute('data-theme') === 'dark'
+  const base = isDark ? `color-mix(in srgb, ${color} 72%, #ffffff)` : color
+  const hover = isDark
+    ? `color-mix(in srgb, ${color} 58%, #ffffff)`
+    : `color-mix(in srgb, ${color} 86%, #000000)`
+  const soft = `color-mix(in srgb, ${base} 12%, transparent)`
+  const softHover = isDark
+    ? `color-mix(in srgb, ${base} 28%, transparent)`
+    : `color-mix(in srgb, ${base} 22%, transparent)`
+  const ring = `color-mix(in srgb, ${base} 35%, transparent)`
+  const s = root.style
+  s.setProperty('--brand', base)
+  s.setProperty('--brand-hover', hover)
+  s.setProperty('--brand-soft', soft)
+  s.setProperty('--brand-ring', ring)
+  s.setProperty('--tag-color', base)
+  s.setProperty('--tag-bg', soft)
+  s.setProperty('--tag-bg-hover', softHover)
+  s.setProperty('--card-ref-color', base)
+  s.setProperty('--card-ref-bg', soft)
+  s.setProperty('--card-ref-bg-hover', softHover)
+  s.setProperty('--fg-link', base)
+  s.setProperty('--fg-link-hover', hover)
+  s.setProperty('--line-focus', ring)
+}
+
+export function setAccentColor(color: string | null): void {
+  if (typeof window === 'undefined') return
+  if (color) localStorage.setItem(ACCENT_STORAGE_KEY, color)
+  else localStorage.removeItem(ACCENT_STORAGE_KEY)
+  applyAccentColor(color)
+}
+```
+
+修改 `setTheme` 和 `initTheme`，在亮暗切换后重新派生强调色：
+
+```ts
+export function setTheme(mode: ThemeMode): void {
+  localStorage.setItem('hepta-theme', mode)
+  const resolved = resolveTheme(mode)
+  withThemeTransition(() => {
+    document.documentElement.setAttribute('data-theme', resolved)
+    applyAccentColor(getAccentColor())  // ← 新增
+  })
+}
+
+export function initTheme(): void {
+  const mode = getTheme()
+  const resolved = resolveTheme(mode)
+  document.documentElement.setAttribute('data-theme', resolved)
+  applyAccentColor(getAccentColor())  // ← 新增
+}
+```
+
+### 4.2 theme/index.ts — 导出新函数
+
+**文件**：`src/theme/index.ts`
+
+```ts
+export {
+  getTokenValue, getTokens, setTheme, getTheme, initTheme, toggleTheme,
+  getSystemTheme, resolveTheme,
+  getAccentColor, applyAccentColor, setAccentColor,  // ← 新增
+} from './tokens'
+```
+
+### 4.3 themeStore.ts — 系统主题同步时重应用强调色
+
+**文件**：`src/stores/themeStore.ts`
+
+```ts
+import { setTheme, getTheme, resolveTheme, applyAccentColor, getAccentColor, type ThemeMode } from '../theme'
+// ...
+// startSystemThemeSync 内：
+if (state.themeMode === 'system') {
+  const isDark = mediaQuery.matches
+  const resolved = isDark ? 'dark' : 'light'
+  document.documentElement.setAttribute('data-theme', resolved)
+  applyAccentColor(getAccentColor())  // ← 新增
+  useThemeStore.setState({ isDarkMode: isDark })
+}
+```
+
+### 4.4 index.html — 预绘制应用强调色防闪烁
+
+**文件**：`index.html`
+
+在内联主题脚本末尾（`r.setProperty('--sp-fill', ...)` 之后）追加，镜像 `applyAccentColor` 逻辑，保证首屏不闪：
+
+```js
+var ac = localStorage.getItem('hepta-accent-color');
+if (ac) {
+  var b = isDark ? 'color-mix(in srgb,' + ac + ' 72%,#ffffff)' : ac;
+  var hv = isDark ? 'color-mix(in srgb,' + ac + ' 58%,#ffffff)' : 'color-mix(in srgb,' + ac + ' 86%,#000000)';
+  var so = 'color-mix(in srgb,' + b + ' 12%,transparent)';
+  var sh = isDark ? 'color-mix(in srgb,' + b + ' 28%,transparent)' : 'color-mix(in srgb,' + b + ' 22%,transparent)';
+  var rg = 'color-mix(in srgb,' + b + ' 35%,transparent)';
+  r.setProperty('--brand', b);
+  r.setProperty('--brand-hover', hv);
+  r.setProperty('--brand-soft', so);
+  r.setProperty('--brand-ring', rg);
+  r.setProperty('--tag-color', b);
+  r.setProperty('--tag-bg', so);
+  r.setProperty('--tag-bg-hover', sh);
+  r.setProperty('--card-ref-color', b);
+  r.setProperty('--card-ref-bg', so);
+  r.setProperty('--card-ref-bg-hover', sh);
+  r.setProperty('--fg-link', b);
+  r.setProperty('--fg-link-hover', hv);
+  r.setProperty('--line-focus', rg);
+}
+```
+
+### 4.5 SystemSettings.tsx — 强调色设置 UI
+
+见 Step 5.4（随设置面板统一一起做，ToggleGroup/Switch/Button 已就绪）。
+
+### 验证
+```bash
+pnpm typecheck
+# 视觉：设置 → 系统设置 → 强调色，选不同色，标签/链接/选中态/聚焦环同步变化；切深色自动提亮
+```
+
+---
+
+## Step 5：设置面板 UI 统一到 shadcn 组件
+
+### 前置条件
+无（独立于 Step 1-4，但强调色 UI 落在 SystemSettings，与 Step 4 并行）
+
+### 背景
+
+项目已用 shadcn/ui（基于 Radix UI），`cn`/`cva`/`tailwind-merge` 就绪。问题不是缺库，而是设置面板各处用原生 `<select>`/`<input type=checkbox/range>` + 手写大按钮。装 3 个同生态 Radix 包补齐组件：
+
+```bash
+pnpm add @radix-ui/react-toggle-group @radix-ui/react-switch @radix-ui/react-slider
+```
+
+### 5.1 新增 5 个 shadcn 组件
+
+**文件**：`src/components/ui/shadcn/{button,input,toggle-group,switch,slider}.tsx`
+
+- `button.tsx`：cva 变体（default/secondary/outline/ghost/destructive × sm/default/lg/icon），统一 `h-9`
+- `input.tsx`：统一输入框（`h-9` + focus ring）
+- `toggle-group.tsx`：**视觉复用项目已有 `.segmented` / `.segmented-item` 类**，与左右面板分段控件完全一致 + Radix 键盘/无障碍
+- `switch.tsx`：开关，品牌色激活态
+- `slider.tsx`：滑块，品牌色轨道
+
+### 5.2 新增共享布局基元
+
+**文件**：`src/components/ui/settings/SettingPrimitives.tsx`
+
+```tsx
+export function SettingRow({ label, description, children }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <div className="min-w-0">
+        <div className="text-sm text-fg-primary">{label}</div>
+        {description && <div className="text-xs text-fg-tertiary mt-0.5">{description}</div>}
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
+  )
+}
+
+export function SettingGroup({ title, children }) {
+  return (
+    <section className="mb-8">
+      <h3 className="text-sm font-medium mb-2 text-fg-primary">{title}</h3>
+      <div className="divide-y divide-line-default">{children}</div>
+    </section>
+  )
+}
+
+export function FieldLabel({ children }) {
+  return <label className="text-xs mb-1 block text-fg-secondary">{children}</label>
+}
+```
+
+### 5.3 重写 SystemSettings.tsx
+
+**文件**：`src/components/ui/settings/SystemSettings.tsx`
+
+- 主题模式：`p-4` 大 ThemeButton → `ToggleGroup`（与左右面板分段控件同款）
+- 背景图案：手写按钮 → `ToggleGroup`
+- 删除确认：原生 `<input type=checkbox>` → `Switch`
+- 强调色：8 预设色板（`w-5` 圆点）+ 自定义取色器 + 恢复默认 `Button ghost icon`
+- 全部走 `SettingGroup > SettingRow` 布局
+
+```tsx
+<SettingGroup title="外观">
+  <SettingRow label="主题模式">
+    <ToggleGroup type="single" value={themeMode} onValueChange={(v) => { if (v) setThemeMode(v as ThemeMode) }} className="w-[260px]">
+      {THEME_MODES.map((m) => {
+        const Icon = m.icon
+        return (
+          <ToggleGroupItem key={m.value} value={m.value}>
+            <Icon size={14} /><span>{m.label}</span>
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
+  </SettingRow>
+  <SettingRow label="强调色" description="应用于标签、链接、选中态与聚焦环">
+    {/* 色板 + 取色器 + 恢复默认 */}
+  </SettingRow>
+</SettingGroup>
+```
+
+### 5.4 重写 VectorIndexSettings.tsx
+
+**文件**：`src/components/ui/settings/VectorIndexSettings.tsx`
+
+- 原生 `<input type=range>` → `Slider`（`value={[threshold]}` / `onValueChange={([v]) => ...}`）
+- `p-3` 大按钮 → `Button`
+- `bg-accent-blue` 进度条 → `bg-brand`
+- 复用 `SettingGroup/SettingRow`
+
+### 5.5 重写 AISettings.tsx
+
+**文件**：`src/components/ui/settings/AISettings.tsx`
+
+- 原生 `<select>` → shadcn `Select`（`SelectTrigger`/`SelectContent`/`SelectItem`）
+- `p-3` 输入框 → `Input`
+- 手写按钮 → `Button`
+
+### 5.6 重写 SyncSettings.tsx
+
+**文件**：`src/components/ui/settings/SyncSettings.tsx`
+
+- 原生 `<input>` → `Input`
+- `p-3` 手写按钮 → `Button`
+- 已连接/已导入住 → `SettingRow`
+
+> 注意：`email` 类型为 `string | null`，传给 `SettingRow` 的 `description` 须 `email ?? undefined`。
+
+### 5.7 重写 ExportSettings.tsx
+
+**文件**：`src/components/ui/settings/ExportSettings.tsx`
+
+`p-4` 手写大按钮 → `Button variant="secondary"` + `SettingGroup`。
+
+### 验证
+```bash
+pnpm typecheck   # 零错误
+pnpm vitest run  # 257 passed
+# 视觉：所有设置项控件高度统一 h-9，分段选择与左右面板同款，开关/滑块/下拉风格一致
+```
+
+---
+
+## 复刻检查清单
+
+- [ ] `grep -rn "#8b5cf6\|139,\s*92,\s*246\|a78bfa" src/` 仅 `FrameNode.tsx:16` 命中（薰衣草色板选项，内容色，保留）
+- [ ] `grep -n "glass-panel-flat" src/theme/tokens.css` 有定义
+- [ ] `grep -n "applyAccentColor\|setAccentColor\|getAccentColor" src/theme/tokens.ts` 有实现
+- [ ] `grep -n "hepta-accent-color" index.html` 有预绘制逻辑
+- [ ] `pnpm typecheck` 零错误
+- [ ] `pnpm vitest run` 全绿
+- [ ] 视觉：画板库/卡片库视图左侧面板无阴影
+- [ ] 视觉：画板库与卡片库卡片圆角/边框/hover 一致
+- [ ] 视觉：搜索框在标题正下方整宽显示
+- [ ] 视觉：标签/卡片引用颜色跟随强调色，无紫色
+- [ ] 视觉：设置强调色后，标签/链接/选中态/聚焦环同步变化
+- [ ] 视觉：深色模式下自定义强调色自动提亮
+- [ ] 视觉：设置面板所有控件高度统一，分段选择与左右面板同款
+
+---
+
+## 后续可优化方向
+
+- `CARD_COLORS`（卡片色板，白/红/橙…十色）仍为独立硬编码体系，属内容语义色，与主题强调色正交，暂未并入。若要进一步收敛可走 Primitive token，但会改变卡片视觉语义，建议单独评估
+- `FrameNode.tsx` 的画板边框色板（靛蓝/蓝/绿…）也是独立硬编码，同上
+- 设置面板的 `DesignSystemPanel`（设计系统展示）仍是手写 tab，未统一到 shadcn，后续可补
+- 强调色仅支持单一色，未支持「主色 + 辅色」双色调方案
+
+---
+
+## 关键教训
+
+- **「泛红」根因是 fallback 永远生效**：`var(--tag-color, #8b5cf6)` 这种写法，只要 `--tag-color` 没定义，紫色 fallback 就永远生效。收敛时必须同时在 tokens.css 定义 token，才能让 fallback 真正成为「后备」而非「实际值」
+- **`hepta-list-item` 的 hover transform 会冲突**：该类在 animations.css 定义了 `transform: translateX(2px)`，与 Tailwind 的 `hover:-translate-y-0.5` 同属 transform，CSS 类优先级会覆盖 utility。需移除该类或改用 `@layer` 分层
+- **shadcn ToggleGroup 视觉统一的关键是复用已有 `.segmented` 类**：而非另起炉灶定义新样式，否则设置面板的分段选择与左右面板会风格分裂
+- **自定义强调色必须在 index.html 预绘制**：否则首屏会用 tokens.css 默认蓝色闪一下再切到用户自定义色，体验割裂。预绘制逻辑要镜像 `applyAccentColor` 的派生算法

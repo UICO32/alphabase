@@ -13,7 +13,7 @@ export function RightPanelCollapsed() {
   return (
     <button
       onClick={() => setRightPanelCollapsed(false)}
-      className="btn-base fixed top-1/2 -translate-y-1/2 right-0 z-50 flex items-center justify-center w-6 h-12 rounded-l-lg glass-panel text-fg-primary"
+      className="btn-base fixed top-1/2 -translate-y-1/2 right-0 z-50 flex items-center justify-center w-6 h-12 rounded-l-lg hover:shadow-lg glass-panel text-fg-primary"
       style={{
         boxShadow: 'var(--shadow-md)',
       }}

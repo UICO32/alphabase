@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import DOMPurify from 'dompurify'
 import {
   ReactFlow,
   ConnectionMode,
@@ -14,12 +13,6 @@ import {
   type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import {
-  RefreshCw,
-  Image as ImageIcon,
-  FileText,
-  StickyNote,
-} from 'lucide-react'
 
 import { ErrorBoundary } from '../ErrorBoundary'
 
@@ -32,7 +25,6 @@ import { usePanelStore } from '../../stores/panelStore'
 import { useThemeStore } from '../../stores/themeStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore } from '../../stores/cardStore'
-import { useBoardStore } from '../../stores/boardStore'
 import { emit } from '../../stores/eventBus'
 import { MemoizedConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
@@ -72,7 +64,6 @@ const edgeTypes = {
 export function ReactFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-  const [suggestionPage, setSuggestionPage] = useState(0)
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
@@ -81,7 +72,6 @@ export function ReactFlowCanvas() {
   const kanbanEditDialogSourceRect = useViewStore((s) => s.kanbanEditDialogSourceRect)
   const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
   const gridPattern = useThemeStore((s) => s.gridPattern)
-  const boards = useBoardStore((s) => s.boards)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
@@ -181,6 +171,7 @@ export function ReactFlowCanvas() {
 
   const { handleDoubleClick, handleMouseDown: handleDoubleClickMouseDown } = useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recordCurrentState, snapshotNow })
 
+  // 隐藏 ReactFlow 默认框选矩形（使用自定义框选 UI）
   useEffect(() => {
     const id = 'rf-hide-selection-rect'
     if (document.getElementById(id)) return
@@ -360,6 +351,18 @@ export function ReactFlowCanvas() {
     reactFlowInstance.current = instance
   }, [])
 
+  // 初始节点加载后立即 snap-fit（duration:0 → 无动画过渡，避免 fitView 动画与 card-enter 并发造成的卡顿）
+  const initialFitDoneRef = useRef(false)
+  useEffect(() => {
+    if (initialFitDoneRef.current || nodes.length === 0) return
+    initialFitDoneRef.current = true
+    // requestAnimationFrame 确保 ReactFlow 内部已经完成节点布局
+    const raf = requestAnimationFrame(() => {
+      reactFlowInstance.current?.fitView({ duration: 0, padding: 0.2 })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [nodes.length])
+
   const onMove = useCallback(
     (() => {
       let lastTransformCall = 0
@@ -384,7 +387,9 @@ export function ReactFlowCanvas() {
     [],
   )
 
-  const onPaneClick = useCallback(() => {
+  const onPaneClick = useCallback((event: React.MouseEvent) => {
+    if (event.button !== 0) return
+
     connectionMediator.clear()
     kanbanDragPreview.clear()
 
@@ -407,38 +412,38 @@ export function ReactFlowCanvas() {
     useViewStore.getState().setEditingCardId(null)
   }, [setNodes, setEdges])
 
+  const handleActivateCardEditor = useCallback((cardId: string) => {
+    const viewState = useViewStore.getState()
+    if (viewState.editingCardId !== cardId) {
+      viewState.setEditingCardId(cardId)
+    }
+
+    const libraryState = useLibraryStore.getState()
+    if (libraryState.sortBy !== 'related') {
+      const panelState = usePanelStore.getState()
+      if (panelState.rightPanelActiveTab !== 'editor') {
+        panelState.setRightPanelActiveTab('editor')
+      }
+    }
+  }, [])
+
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
     const card = selectedNodes.find(n => n.type === 'card')
     if (card) {
       const cardId = (card.data as Record<string, unknown>)?.cardId as string | undefined
-      if (cardId) {
-        const viewState = useViewStore.getState()
-        if (viewState.editingCardId !== cardId) {
-          viewState.setEditingCardId(cardId)
-          const libraryState = useLibraryStore.getState()
-          if (libraryState.sortBy !== 'related') {
-            usePanelStore.getState().setRightPanelActiveTab('editor')
-          }
-        }
-      }
+      if (cardId) handleActivateCardEditor(cardId)
     }
-  }, [])
+  }, [handleActivateCardEditor])
 
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       editingNodeIdRef.current = node.id
       if (node.type === 'card') {
         const cardId = (node.data as Record<string, unknown>)?.cardId as string | undefined
-        if (cardId) {
-          useViewStore.getState().setEditingCardId(cardId)
-          const libraryState = useLibraryStore.getState()
-          if (libraryState.sortBy !== 'related') {
-            usePanelStore.getState().setRightPanelActiveTab('editor')
-          }
-        }
+        if (cardId) handleActivateCardEditor(cardId)
       }
     },
-    [],
+    [handleActivateCardEditor],
   )
 
   const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
@@ -554,85 +559,29 @@ export function ReactFlowCanvas() {
     })
   }, [nodes, edges])
 
-  const emptyBoardSuggestionMode = boards.length > 0 && nodes.length === 0
-  const noBoardIntroMode = boards.length === 0
-  const lockCanvasMovement = noBoardIntroMode || emptyBoardSuggestionMode
+  const editingCardId = useViewStore(s => s.editingCardId)
 
-  // 建议卡片列表：取最近修改且不在当前画布上的卡片
-  const allCards = useCardStore(s => s.cards)
-  const suggestedCards = useMemo(() => {
-    const boardCardIds = new Set(nodes.map(n => (n.data as Record<string, unknown>)?.cardId).filter(Boolean))
-    const candidates = Object.values(allCards)
-      .filter(c => !c.deletedAt && !boardCardIds.has(c.id))
-      .sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))
-    if (candidates.length <= 3) return candidates
-    const start = (suggestionPage * 3) % candidates.length
-    return Array.from({ length: 3 }, (_, i) => candidates[(start + i) % candidates.length])
-  }, [nodes, allCards, suggestionPage])
-  const canShuffleSuggestions = useMemo(() => {
-    const boardCardIds = new Set(nodes.map(n => (n.data as Record<string, unknown>)?.cardId).filter(Boolean))
-    return Object.values(allCards).filter(c => !c.deletedAt && !boardCardIds.has(c.id)).length > 3
-  }, [nodes, allCards])
-
-  // 预生成建议卡片的 previewHTML（避免在 render 中调用触发 flushSync）
-  const suggestedCardIdsRef = useRef<string[]>([])
+  // 编辑中的卡片抬升 zIndex，使工具栏/悬浮 UI 不被其他卡片遮挡
+  const prevEditingCardIdRef = useRef<string | null>(null)
   useEffect(() => {
-    const ids = suggestedCards.map(c => c.id)
-    // 仅在集合变化时才触发预生成
-    if (ids.length === suggestedCardIdsRef.current.length && ids.every((id, i) => id === suggestedCardIdsRef.current[i])) return
-    suggestedCardIdsRef.current = ids
-    const missing = suggestedCards.filter(c => !c.previewHTML && c.content).map(c => c.id)
-    if (missing.length > 0) {
-      ;(requestIdleCallback || setTimeout)(() => {
-        useCardStore.getState().ensurePreviewHTMLBatch(missing)
-      })
-    }
-  }, [suggestedCards])
+    const prev = prevEditingCardIdRef.current
+    prevEditingCardIdRef.current = editingCardId ?? null
+    if (prev === (editingCardId ?? null)) return
+    setNodes(nds => nds.map(n => {
+      const cardId = (n.data as Record<string, unknown>)?.cardId as string | undefined
+      if (cardId === editingCardId) return { ...n, zIndex: 1000 }
+      if (cardId === prev && n.zIndex === 1000) return { ...n, zIndex: 10 }
+      return n
+    }))
+  }, [editingCardId, setNodes])
 
   return (
     <ErrorBoundary>
-	    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onMouseDown={handleDoubleClickMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
-	      <style>{`
-		        .suggested-card {
-		          will-change: transform, opacity;
-		          backface-visibility: hidden;
-		        }
-		        .suggested-card.is-dragging {
-		          opacity: 0.5;
-		          border-style: dashed !important;
-		          border-color: rgba(120,120,120,0.35) !important;
-		          border-width: 1.5px !important;
-		          box-shadow: none !important;
-		          background: transparent !important;
-		        }
-		        .suggested-card.is-dragging > * {
-		          opacity: 0.3;
-		          filter: grayscale(0.6);
-		        }
-		        @keyframes suggested-card-return {
-		          0% { opacity: 0.5; filter: brightness(0.88); }
-		          55% { opacity: 1; filter: brightness(1.08); }
-		          100% { opacity: 1; filter: brightness(1); }
-		        }
-		        .suggested-card.is-returning {
-		          animation: suggested-card-return 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-		        }
-		        .suggested-card:hover {
-		          z-index: 999 !important;
-		        }
-	        @keyframes card-land {
-	          0% { transform: scale(0.9); opacity: 0.6; filter: brightness(1.1); }
-	          60% { transform: scale(1.03); opacity: 1; filter: brightness(1.02); }
-	          100% { transform: scale(1); opacity: 1; filter: brightness(1); }
-	        }
-	        .card-node-landing .card-node-default {
-	          animation: card-land 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-	        }
-	      `}</style>
-      <ReactFlow
+		    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onMouseDown={handleDoubleClickMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
+	      <ReactFlow
         nodes={sortedNodes}
         edges={visibleEdges}
-        onlyRenderVisibleElements
+        onlyRenderVisibleElements={!editingCardId}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -655,26 +604,23 @@ export function ReactFlowCanvas() {
         connectionLineComponent={connectionLineComponent}
         isValidConnection={isValidConnection}
         autoPanOnNodeDrag={false}
-        panOnDrag={lockCanvasMovement ? false : (isLassoMode ? false : [2])}
-        selectionOnDrag={lockCanvasMovement ? false : !isLassoMode}
+        panOnDrag={isLassoMode ? false : [2]}
+        selectionOnDrag={!isLassoMode}
         selectionMode={SelectionMode.Partial}
         panActivationKeyCode="Space"
         onMove={onMove}
         elevateNodesOnSelect={false}
-        fitView
-        zoomOnScroll={!lockCanvasMovement}
-        zoomOnPinch={!lockCanvasMovement}
+        zoomOnScroll={true}
+        zoomOnPinch={true}
         zoomOnDoubleClick={false}
         minZoom={0.1}
         maxZoom={4}
         nodeDragThreshold={3}
       >
-        {!noBoardIntroMode && (
-          <AdaptiveBackground
-            color={isDarkMode ? '#ffffff' : '#18181b'}
-            pattern={gridPattern}
-          />
-        )}
+        <AdaptiveBackground
+          color={isDarkMode ? '#ffffff' : '#18181b'}
+          pattern={gridPattern}
+        />
         <AlignmentToolbar
           selectedNodes={alignableNodes}
           reactFlowInstance={reactFlowInstance}
@@ -683,206 +629,6 @@ export function ReactFlowCanvas() {
         />
       </ReactFlow>
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
-
-      {/* ── 无画布：引导创建首个画布 ── */}
-      {boards.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center select-none pointer-events-none" style={{ zIndex: 5 }}>
-          <div className="relative mb-8 h-44 w-80">
-            <div className="absolute left-2 top-10 w-28 rotate-[-8deg] rounded-2xl bg-surface-card p-3 shadow-lg">
-              <div className="mb-3 flex h-16 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400/25 to-cyan-400/20">
-                <ImageIcon size={30} className="text-blue-500" />
-              </div>
-              <div className="h-2 w-16 rounded-full bg-fg-tertiary/30" />
-              <div className="mt-2 h-1.5 w-20 rounded-full bg-fg-quaternary/30" />
-            </div>
-            <div className="absolute left-24 top-0 w-32 rounded-2xl bg-surface-card p-3 shadow-xl">
-              <div className="mb-3 flex items-center gap-2">
-                <StickyNote size={18} className="text-[var(--brand)]" />
-                <div className="h-2 w-14 rounded-full bg-fg-tertiary/35" />
-              </div>
-              <div className="space-y-2">
-                <div className="h-1.5 w-full rounded-full bg-fg-quaternary/35" />
-                <div className="h-1.5 w-4/5 rounded-full bg-fg-quaternary/30" />
-                <div className="h-1.5 w-3/5 rounded-full bg-fg-quaternary/25" />
-              </div>
-            </div>
-            <div className="absolute right-2 top-12 w-28 rotate-[9deg] rounded-2xl bg-surface-card p-3 shadow-lg">
-              <div className="mb-3 flex h-16 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400/25 to-orange-400/20">
-                <FileText size={30} className="text-rose-500" />
-              </div>
-              <div className="h-2 w-12 rounded-full bg-fg-tertiary/30" />
-              <div className="mt-2 h-1.5 w-20 rounded-full bg-fg-quaternary/30" />
-            </div>
-            <svg className="absolute inset-x-0 bottom-1 mx-auto h-20 w-64 opacity-40" viewBox="0 0 256 80" fill="none">
-              <path d="M62 40 C92 12, 122 12, 152 40 S206 70, 226 38" stroke="var(--line-default)" strokeWidth="2" strokeDasharray="5 5" />
-              <circle cx="62" cy="40" r="4" fill="var(--brand)" />
-              <circle cx="152" cy="40" r="4" fill="var(--brand)" />
-              <circle cx="226" cy="38" r="4" fill="var(--brand)" />
-            </svg>
-          </div>
-          <h3 className="text-base font-medium text-fg-secondary mb-1.5">开始你的知识探索</h3>
-          <p className="text-xs text-fg-tertiary mb-5 max-w-[280px] text-center leading-relaxed">
-            创建不同的画布来组织你的主题，<br/>在画布上建立卡片和连接
-          </p>
-          <button
-            className="pointer-events-auto px-4 py-2 rounded-lg text-sm font-medium bg-brand text-white hover:brightness-110 active:brightness-95 transition-all"
-            onClick={() => {
-              const boardStore = useBoardStore.getState()
-              const newBoard = {
-                id: crypto.randomUUID(),
-                name: '新画布',
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-              }
-              boardStore.addBoard(newBoard)
-              boardStore.saveBoardData(newBoard.id, { nodes: [], edges: [] })
-              emit('switch-board', { boardId: newBoard.id })
-            }}
-          >
-            + 新建画布
-          </button>
-        </div>
-      )}
-
-      {/* ── 空画布有卡片：扇形建议卡片 ── */}
-      {emptyBoardSuggestionMode && suggestedCards.length > 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
-          <p className="text-xs text-fg-tertiary mb-4 pointer-events-none">从卡片库拖入，或点击添加到画布</p>
-          <div className="flex items-end justify-center pointer-events-auto" style={{ perspective: '900px' }}>
-            {suggestedCards.map((sc, scIdx) => {
-              const total = suggestedCards.length
-              const centerIdx = (total - 1) / 2
-              const offset = scIdx - centerIdx
-              const rotation = offset * 8
-              const yOffset = Math.abs(offset) * 12
-              const xOverlap = scIdx === 0 ? 0 : -34
-              const zIdx = 10 - Math.abs(Math.round(offset))
-
-              const previewHTML = sc.previewHTML || useCardStore.getState().getPreviewHTML(sc.id) || ''
-              const sanitizedHTML = DOMPurify.sanitize(previewHTML, {
-                ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i
-              }).replace(/<img[^>]*>/gi, '')
-
-              return (
-                <div
-                  key={sc.id}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('application/json', JSON.stringify({
-                      type: 'card',
-                      cardId: sc.id,
-                      isNewInstance: e.altKey,
-                      dragOffset: { x: 65, y: 86 },
-                    }))
-                    e.dataTransfer.effectAllowed = 'copy'
-                    // 先 clone 再加虚线类
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement
-                    const PAD = 32
-                    const wrapper = document.createElement('div')
-                    wrapper.style.position = 'fixed'
-                    wrapper.style.left = `${rect.left - PAD}px`
-                    wrapper.style.top = `${rect.top - PAD}px`
-                    wrapper.style.width = `${rect.width + PAD * 2}px`
-                    wrapper.style.height = `${rect.height + PAD * 2}px`
-                    wrapper.style.padding = `${PAD}px`
-                    wrapper.style.margin = '0'
-                    wrapper.style.boxSizing = 'border-box'
-                    wrapper.style.pointerEvents = 'none'
-                    wrapper.style.background = 'transparent'
-                    ghost.style.position = 'relative'
-                    ghost.style.left = '0'
-                    ghost.style.top = '0'
-                    ghost.style.width = `${rect.width}px`
-                    ghost.style.height = `${rect.height}px`
-                    ghost.style.margin = '0'
-                    ghost.style.transform = 'none'
-                    ghost.style.transition = 'none'
-                    ghost.style.opacity = '1'
-                    ghost.style.borderStyle = 'solid'
-                    ghost.style.overflow = 'visible'
-                    ghost.style.boxShadow = '0 24px 60px rgba(0,0,0,0.08)'
-                    ghost.style.pointerEvents = 'none'
-                    wrapper.appendChild(ghost)
-                    document.body.appendChild(wrapper)
-                    const offsetX = Math.min(Math.max(e.clientX - rect.left, 0), rect.width) + PAD
-                    const offsetY = Math.min(Math.max(e.clientY - rect.top, 0), rect.height) + PAD
-                    e.dataTransfer.setDragImage(wrapper, offsetX, offsetY)
-                    requestAnimationFrame(() => document.body.removeChild(wrapper))
-                    e.currentTarget.classList.add('is-dragging')
-                  }}
-                  onDragEnd={(e) => {
-                    const el = e.currentTarget as HTMLElement
-                    el.classList.remove('is-dragging')
-                    el.classList.add('is-returning')
-                    el.addEventListener('animationend', () => el.classList.remove('is-returning'), { once: true })
-                  }}
-                  onClick={() => {
-                    const instance = reactFlowInstance.current
-                    if (!instance) return
-                    snapshotNow()
-                    const center = instance.screenToFlowPosition({
-                      x: window.innerWidth / 2,
-                      y: window.innerHeight / 2,
-                    })
-                    const fanOffset = (scIdx - (suggestedCards.length - 1) / 2) * 28
-                    setNodes((nds) => [
-                      ...nds,
-                      {
-                        id: crypto.randomUUID(),
-                        type: 'card',
-                        position: { x: center.x + fanOffset, y: center.y - 40 + Math.abs(fanOffset) * 0.18 },
-                        data: { cardId: sc.id, color: sc.color || 'white', width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
-                        zIndex: 10,
-                        className: 'card-node-landing',
-                      },
-                    ])
-                    setTimeout(() => recordCurrentState(), 0)
-                  }}
-                  className="suggested-card group flex flex-col bg-surface-card border border-line-default rounded-xl cursor-grab active:cursor-grabbing overflow-hidden transition-[transform,box-shadow,opacity] duration-200 ease-out hover:shadow-xl hover:z-[999]"
-                  style={{
-                    width: 130,
-                    aspectRatio: '3/4',
-                    transform: `translateY(${yOffset}px) rotate(${rotation}deg)`,
-                    transformOrigin: '50% 115%',
-                    marginLeft: xOverlap,
-                    zIndex: zIdx,
-                    boxShadow: 'var(--shadow-md)',
-                  }}
-                >
-                  {/* 内容：复用卡片库样式 */}
-                  <div className="p-2.5 flex flex-col h-full overflow-hidden transition-transform duration-200 ease-out group-hover:-translate-y-3">
-                    <div className="text-[11px] font-medium text-fg-primary truncate mb-1">
-                      {sc.title || '无标题'}
-                    </div>
-                    <div
-                      className="min-h-0 flex-1 overflow-hidden text-[10px] leading-relaxed text-fg-secondary"
-                      style={{
-                        WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)',
-                        maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)',
-                      }}
-                      dangerouslySetInnerHTML={{ __html: sanitizedHTML || '无内容' }}
-                    />
-                  </div>
-                  {/* Hover 提示 */}
-                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.03)' }}>
-                    <span className="text-[10px] text-fg-secondary bg-surface-panel/90 px-2 py-0.5 rounded shadow-sm">拖拽或点击放置</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          {canShuffleSuggestions && (
-            <button
-              className="pointer-events-auto mt-5 inline-flex items-center gap-1.5 rounded-full bg-surface-card px-3 py-1.5 text-xs text-fg-secondary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-card-hover hover:text-fg-primary hover:shadow-md"
-              onClick={() => setSuggestionPage(p => p + 1)}
-            >
-              <RefreshCw size={13} />
-              换一换
-            </button>
-          )}
-        </div>
-      )}
 
       {/* 框选矩形 */}
       {isLassoMode && lassoRect && lassoRect.width > 0 && lassoRect.height > 0 && (() => {

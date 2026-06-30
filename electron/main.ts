@@ -21,23 +21,24 @@ import { Md5 } from 'ts-md5'
 
 // Disable crashpad to prevent Windows crash on handler disconnect
 app.commandLine.appendSwitch('disable-breakpad')
-// Enable subpixel font antialiasing for clearer text on Windows
 app.commandLine.appendSwitch('enable-font-antialiasing', '1')
-// Use GPU for rasterization to improve text rendering
 app.commandLine.appendSwitch('enable-gpu-rasterization', '1')
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows', '1')
-// Prevent GPU shader disk cache permission errors in dev mode
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
-// Fix Network Service crash on Electron 42+ Windows
 app.commandLine.appendSwitch('disable-features', 'NetworkServiceSandbox')
+// Run network service in-process to prevent crash/restart loop on Windows (Electron 42+)
+app.commandLine.appendSwitch('force-network-service-in-process')
 
 const __t0 = Date.now()
 let __t1 = 0
 let __t2 = 0
 let dataReadyArrived = false
 
+
 function logInfo(message: string) {
-  if (!app.isPackaged) console.log(message)
+  try {
+    if (!app.isPackaged) console.log(message)
+  } catch { /* stdout pipe may be closed */ }
   startupLog(message)
 }
 

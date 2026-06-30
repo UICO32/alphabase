@@ -22,6 +22,22 @@ import type { CardColor } from '../types/card'
  */
 const previewHTMLCache = new Map<string, string>()
 
+function dropStoredPreviewHTML(card: GlobalCard): GlobalCard {
+  if (!card.previewHTML) return card
+  return { ...card, previewHTML: undefined }
+}
+
+function dropStoredPreviewHTMLBatch(cards: Record<string, GlobalCard>): Record<string, GlobalCard> {
+  let changed = false
+  const normalized: Record<string, GlobalCard> = {}
+  for (const [id, card] of Object.entries(cards)) {
+    const next = dropStoredPreviewHTML(card)
+    normalized[id] = next
+    if (next !== card) changed = true
+  }
+  return changed ? normalized : cards
+}
+
 export interface GlobalCard {
   id: string
   content: string
@@ -72,9 +88,9 @@ export const useCardStore = create<CardStore>()(
       useEditorHistoryStore.getState().consumeUndoFlag(id)
       const contentOrTitleChanged = 'content' in props || 'title' in props
       set((state) => {
-        const existing = state.cards[id]
-        if (!existing) return state
-        const updated = { ...existing, ...props, updatedAt: Date.now() }
+        const card = state.cards[id]
+        if (!card) return state
+        const updated = { ...card, ...props, updatedAt: Date.now() }
         if ('content' in props) {
           updated.previewHTML = undefined
         }
@@ -118,7 +134,7 @@ export const useCardStore = create<CardStore>()(
 
     importCards: (cards) => {
       set((state) => {
-        const merged = { ...state.cards, ...cards }
+        const merged = dropStoredPreviewHTMLBatch({ ...state.cards, ...cards })
         return { cards: merged }
       })
     },
@@ -126,8 +142,8 @@ export const useCardStore = create<CardStore>()(
     loadCardsFromDB: async (cards) => {
       if (get().isLoaded) return
       if (cards) {
-        // Store cards without previewHTML — generation is deferred
-        set({ cards, isLoaded: true })
+        // Drop stale generated previews; current previewHTML is regenerated lazily.
+        set({ cards: dropStoredPreviewHTMLBatch(cards), isLoaded: true })
       } else {
         set({ isLoaded: true })
       }
@@ -137,7 +153,7 @@ export const useCardStore = create<CardStore>()(
     // 用于合并/备份恢复后重新加载（此时 isLoaded 仍为 true，loadCardsFromDB 会提前返回）。
     reloadFromDB: async (cards) => {
       if (cards) {
-        set({ cards, isLoaded: true })
+        set({ cards: dropStoredPreviewHTMLBatch(cards), isLoaded: true })
       } else {
         set({ cards: {}, isLoaded: true })
       }
@@ -146,7 +162,7 @@ export const useCardStore = create<CardStore>()(
     getPreviewHTML: (cardId) => {
       const card = get().cards[cardId]
       if (!card) return undefined
-      // 1) card 上已持久化的 previewHTML 优先（来自 schedulePreviewHTMLGeneration 预生成）
+      // 1) card 上已持久化的 previewHTML 优先（来自本次运行的 schedulePreviewHTMLGeneration 预生成）
       if (card.previewHTML) return card.previewHTML
       if (!card.content) return undefined
       // 2) 模块级缓存：用 content 字符串做键，内容变化自动失效
