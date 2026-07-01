@@ -85,7 +85,13 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         />
 
       <div className="flex items-center justify-between px-3 py-3 border-b border-line-default transition-theme">
-	        <div className="segmented">
+	        <div
+	          className="segmented"
+	          style={{
+	            '--active-index': rightPanelActiveTab === 'library' ? 0 : rightPanelActiveTab === 'channels' ? 1 : 2,
+	            '--seg-count': editingCardId ? 3 : 2,
+	          } as React.CSSProperties}
+	        >
 	          <button
 	            onClick={() => setRightPanelActiveTab('library')}
 	            className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'library' ? 'segmented-item-active' : ''}`}
@@ -100,27 +106,15 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 	            <Compass size={14} />
 	            频道
 	          </button>
-	          {(() => {
-	            const editorVisible = !!editingCardId
-	            return (
-	              <div
-	                className="overflow-hidden transition-all duration-300 ease-out"
-	                style={{
-	                  maxWidth: editorVisible ? 88 : 0,
-	                  opacity: editorVisible ? 1 : 0,
-	                  marginLeft: editorVisible ? 0 : -2,
-	                }}
-	              >
-	                <button
-	                  onClick={() => setRightPanelActiveTab('editor')}
-	                  className={`segmented-item cursor-pointer whitespace-nowrap w-[84px] justify-center ${rightPanelActiveTab === 'editor' ? 'segmented-item-active' : ''}`}
-	                >
-	                  <FileText size={14} />
-	                  编辑
-	                </button>
-	              </div>
-	            )
-	          })()}
+	          {editingCardId && (
+	            <button
+	              onClick={() => setRightPanelActiveTab('editor')}
+	              className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'editor' ? 'segmented-item-active' : ''}`}
+	            >
+	              <FileText size={14} />
+	              编辑
+	            </button>
+	          )}
 	        </div>
 	        <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
 	      </div>
@@ -152,7 +146,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
     {rightPanelCollapsed && (
       <button
         onClick={() => setRightPanelCollapsed(false)}
-        className="fixed top-10 right-2 z-50 flex items-center justify-center w-10 h-10 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
+        className="action-icon-btn fixed top-10 right-2 z-50 w-10 h-10 rounded-lg shadow-md glass-panel border border-line-default"
       >
         <ArrowLeftToLine size={16} />
       </button>

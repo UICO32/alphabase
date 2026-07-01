@@ -410,6 +410,12 @@ export function ReactFlowCanvas() {
 
     editingNodeIdRef.current = null
     useViewStore.getState().setEditingCardId(null)
+
+    // Clicking canvas blank area should deselect left panel tabs (boardLibrary/cards → board)
+    const currentViewMode = useViewStore.getState().viewMode
+    if (currentViewMode !== 'board') {
+      useViewStore.getState().setViewMode('board')
+    }
   }, [setNodes, setEdges])
 
   const handleActivateCardEditor = useCallback((cardId: string) => {

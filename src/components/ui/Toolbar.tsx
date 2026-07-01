@@ -26,7 +26,8 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={onAddCard}
-                className="btn-base btn-primary p-2 rounded-full"
+                className="action-icon-btn p-2 rounded-full"
+                style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
               >
                 <Plus size={16} />
               </button>
@@ -38,7 +39,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={onClipUrl}
-                className="btn-base p-2 rounded-full text-fg-primary"
+                className="action-icon-btn p-2 rounded-full"
               >
                 <Scissors size={16} />
               </button>
@@ -53,7 +54,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 		                  usePanelStore.getState().setRightPanelActiveTab('channels')
 		                  usePanelStore.getState().setRightPanelCollapsed(false)
 		                }}
-		                className="btn-base p-2 rounded-full text-fg-primary"
+		                className="action-icon-btn p-2 rounded-full"
 	              >
 	                <Compass size={16} />
 	              </button>
@@ -65,7 +66,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={enterLassoMode}
-                className={`btn-base p-2 rounded-full transition-colors text-fg-primary ${isLassoMode ? 'bg-surface-panel-hover text-accent-blue' : ''}`}
+                className={`action-icon-btn p-2 rounded-full ${isLassoMode ? 'bg-surface-card-active text-accent-blue' : ''}`}
               >
                 <Frame size={16} />
               </button>
@@ -98,12 +99,12 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 
       {/* 缩放控件 - 右下角，3D模式下隐藏 */}
       {!showTopography && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-0.5 px-2 py-1.5 rounded-full z-40 bg-surface-card shadow-md border border-line-default">
+        <div className="fixed bottom-6 right-6 flex items-center gap-0.5 px-2 py-1.5 rounded-full z-40 glass-card border border-line-default">
 	          <Tooltip>
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('zoom-out', undefined)}
-	                className="btn-base p-1.5 rounded-full text-fg-primary"
+	                className="action-icon-btn p-1.5 rounded-full"
 	              >
 	                <ZoomOut size={14} />
 	              </button>
@@ -117,7 +118,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('zoom-in', undefined)}
-	                className="btn-base p-1.5 rounded-full text-fg-primary"
+	                className="action-icon-btn p-1.5 rounded-full"
 	              >
 	                <ZoomIn size={14} />
 	              </button>
@@ -129,7 +130,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('fit-view', undefined)}
-	                className="btn-base p-1.5 rounded-full text-fg-primary"
+	                className="action-icon-btn p-1.5 rounded-full"
 	              >
 	                <Maximize size={14} />
 	              </button>

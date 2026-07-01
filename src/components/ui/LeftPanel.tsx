@@ -52,13 +52,13 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
         style={{ width: SIDEBAR_WIDTH, transform: `translateX(${leftPanelCollapsed ? -SIDEBAR_WIDTH : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
       >
         <div
-          className={`flex flex-col overflow-hidden glass-panel-large h-full ${viewMode !== 'board' ? 'glass-panel-flat' : ''}`}
+          className={`flex flex-col overflow-hidden glass-panel-large h-full transition-theme ${viewMode !== 'board' ? 'glass-panel-flat' : ''}`}
           onWheel={handleWheel}
         >
           <div className="flex items-center justify-between px-4 py-4 border-b border-line-default transition-theme">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div
-                className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer transition-theme hover:opacity-80"
+                className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer rounded-md px-1 py-1 hover:bg-surface-card-hover"
                 onClick={onOpenWorkspacePicker}
               >
                 <Birdhouse size={18} className="text-fg-secondary" />
@@ -67,7 +67,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
                 </span>
               </div>
               <button
-                className="p-1.5 rounded-lg cursor-pointer transition-theme hover:opacity-80 text-fg-secondary"
+                className="action-icon-btn p-1.5"
                 onClick={onOpenSettings}
               >
                 <Bolt size={16} />
@@ -76,7 +76,14 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
             <CollapseButton direction="left" onClick={() => setLeftPanelCollapsed(true)} />
           </div>
 
-          <div className="segmented m-2">
+          <div
+            className="segmented m-2"
+            style={{
+              '--active-index': viewMode === 'cards' ? 1 : 0,
+              '--seg-count': 2,
+              '--seg-indicator-opacity': viewMode === 'board' ? 0 : 1,
+            } as React.CSSProperties}
+          >
             <ViewModeButton
               active={viewMode === 'boardLibrary'}
               onClick={() => setViewMode('boardLibrary')}
@@ -107,7 +114,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
 
           <div className="px-2 py-2">
             <button
-              className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-fg-secondary"
+              className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-fg-secondary hover:bg-surface-card-hover hover:text-fg-primary"
               onClick={onOpenTrash}
             >
               <Trash2 size={14} />
@@ -120,7 +127,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
       {leftPanelCollapsed && (
         <button
           onClick={() => setLeftPanelCollapsed(false)}
-          className="fixed top-10 left-2 z-50 flex items-center justify-center w-10 h-10 rounded-md cursor-pointer shadow-md glass-panel text-fg-secondary border border-line-default"
+          className="action-icon-btn fixed top-10 left-2 z-50 w-10 h-10 rounded-lg shadow-md glass-panel border border-line-default"
         >
           <ArrowRightToLine size={16} />
         </button>
@@ -138,7 +145,7 @@ function ViewModeButton({ active, onClick, icon, label }: {
   return (
     <button
       onClick={onClick}
-      className={`segmented-item flex-1 cursor-pointer ${active ? 'segmented-item-active' : ''}`}
+      className={`segmented-item flex-1 cursor-pointer w-[84px] justify-center whitespace-nowrap ${active ? 'segmented-item-active' : ''}`}
     >
       {icon}
       <span>{label}</span>

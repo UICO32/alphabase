@@ -52,7 +52,7 @@ export function CollapseButton({ direction, onClick }: {
         e.stopPropagation()
         onClick()
       }}
-      className="btn-base flex items-center justify-center w-6 h-6 rounded text-fg-secondary"
+      className="action-icon-btn w-7 h-7 rounded-md"
     >
       {direction === 'left' ? <ArrowLeftToLine size={14} /> : <ArrowRightToLine size={14} />}
     </button>
