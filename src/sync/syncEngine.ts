@@ -87,9 +87,13 @@ export class WorkspaceSyncEngine {
 
   isRunning() { return this.running }
 
+  private stringify(data: unknown, pretty = true) {
+    return JSON.stringify(data, null, pretty ? 2 : undefined)
+  }
+
   scheduleWriteCard(card: CardFile, debounceMs = 500) {
     const path = joinPath(this.cardsDir, `${card.id}.json`)
-    this.scheduleWrite(path, JSON.stringify(card, null, 2), debounceMs)
+    this.scheduleWrite(path, this.stringify(card), debounceMs)
   }
 
   // 提取共享的 scheduleDelete 方法，避免 scheduleDeleteCard 和 scheduleDeleteTrashFile 重复
@@ -112,22 +116,22 @@ export class WorkspaceSyncEngine {
   scheduleWriteBoard(boardId: string, snapshot: BoardSnapshot, debounceMs = 600) {
     if (this.isDragging) return
     const path = joinPath(this.boardsDir, `${boardId}.json`)
-    this.scheduleWrite(path, JSON.stringify(snapshot, null, 2), debounceMs)
+    this.scheduleWrite(path, this.stringify(snapshot, false), debounceMs)
   }
 
   scheduleWriteManifest(manifest: BoardManifest, debounceMs = 300) {
     const path = joinPath(this.boardsDir, '_manifest.json')
-    this.scheduleWrite(path, JSON.stringify(manifest, null, 2), debounceMs)
+    this.scheduleWrite(path, this.stringify(manifest), debounceMs)
   }
 
   scheduleWriteMetadata(metadata: WorkspaceMetadata, debounceMs = 300) {
     const path = joinPath(this.workspacePath, '_metadata.json')
-    this.scheduleWrite(path, JSON.stringify(metadata, null, 2), debounceMs)
+    this.scheduleWrite(path, this.stringify(metadata), debounceMs)
   }
 
   scheduleWriteTrash(item: TrashFile, debounceMs = 500) {
     const path = joinPath(this.trashDir, `${item.cardId}.trash.json`)
-    this.scheduleWrite(path, JSON.stringify(item, null, 2), debounceMs)
+    this.scheduleWrite(path, this.stringify(item), debounceMs)
   }
 
   scheduleDeleteTrashFile(cardId: string) {

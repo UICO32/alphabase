@@ -20,6 +20,9 @@ interface LibraryStore {
   zoom: number
   setZoom: (zoom: number) => void
 
+  isZoomPreviewVisible: boolean
+  setZoomPreviewVisible: (visible: boolean) => void
+
   transform: [number, number, number]
   setTransform: (transform: [number, number, number]) => void
 }
@@ -32,6 +35,7 @@ export const useLibraryStore = create<LibraryStore>()(
     webviewSourceCardId: null,
     tagFilter: null,
     zoom: 1,
+    isZoomPreviewVisible: false,
     transform: [0, 0, 1],
 
     setSortBy: (sortBy) => set({ sortBy }),
@@ -45,6 +49,9 @@ export const useLibraryStore = create<LibraryStore>()(
     setTagFilter: (tag) => set({ tagFilter: tag }),
 
     setZoom: (zoom) => set({ zoom }),
+    setZoomPreviewVisible: (visible) => set((state) => (
+      state.isZoomPreviewVisible === visible ? state : { isZoomPreviewVisible: visible }
+    )),
     setTransform: (transform) => set({ transform }),
   }),
 )

@@ -366,7 +366,7 @@ export function useWorkspaceDataLoader() {
     } catch { /* noop */ }
     setDataReady(true)
     notifyDataReady()
-    // Background: generate previewHTML for all cards (first 16 sync, then idle batches)
+    // Preview generation stays after dataReady so board mount wins the startup race.
     useCardStore.getState().schedulePreviewHTMLGeneration()
 
     // Auto-init embedding index — loadStore() inside EmbeddingService will restore vectors.json

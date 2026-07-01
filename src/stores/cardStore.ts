@@ -22,6 +22,14 @@ import type { CardColor } from '../types/card'
  */
 const previewHTMLCache = new Map<string, string>()
 
+function scheduleIdle(callback: () => void) {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(() => callback())
+    return
+  }
+  setTimeout(callback, 16)
+}
+
 function dropStoredPreviewHTML(card: GlobalCard): GlobalCard {
   if (!card.previewHTML) return card
   return { ...card, previewHTML: undefined }
@@ -196,7 +204,7 @@ export const useCardStore = create<CardStore>()(
     // Schedule background generation of all missing previewHTML
     // Generates first BATCH_SIZE immediately, then yields via requestIdleCallback
     schedulePreviewHTMLGeneration: () => {
-      const BATCH_SIZE = 16
+      const BATCH_SIZE = 4
       const state = get()
       const missingIds = Object.keys(state.cards).filter(
         id => !state.cards[id].previewHTML && state.cards[id].content
@@ -218,10 +226,10 @@ export const useCardStore = create<CardStore>()(
         idx += BATCH_SIZE
         get().ensurePreviewHTMLBatch(batch)
         if (idx < remaining.length) {
-          (requestIdleCallback || setTimeout)(generateNext)
+          scheduleIdle(generateNext)
         }
       }
-      (requestIdleCallback || setTimeout)(generateNext)
+      scheduleIdle(generateNext)
     },
   }),
 )

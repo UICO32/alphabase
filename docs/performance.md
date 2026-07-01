@@ -1,0 +1,30 @@
+# Performance Notes
+
+## Goals
+
+- Canvas opens quickly enough that board rendering wins over background work.
+- Drag, zoom, selection, and editing remain responsive with hundreds of cards.
+- Image-heavy cards do not block the main thread during paste or save.
+
+## Current Hot Paths
+
+- `src/components/canvas/ReactFlowCanvas.tsx`: ReactFlow orchestration, selection, connection, board sync bridge.
+- `src/components/canvas/CardNode.tsx`: per-card render, editor activation, resize, frame behavior.
+- `src/hooks/useCanvasDrag.ts`: drag snapping, frame entry/exit, kanban layout updates.
+- `src/hooks/useBoardSync.ts`: board snapshot persistence bridge.
+- `src/utils/fileUtils.ts`: image compression and data URL generation.
+
+## Rules
+
+- Continuous pointer and zoom updates should prefer refs, CSS variables, or external stores with coarse selectors.
+- Do not subscribe every card to continuously changing values unless the value changes only at thresholds.
+- Board persistence should be operation-driven where possible, not a full snapshot on every transient change.
+- Expensive card preview, embedding, backup, and metadata work must run after board readiness.
+- Image processing should move toward media files and worker/main-process compression rather than base64 in card JSON.
+
+## Next Architecture Split
+
+- Extract `CanvasPersistenceBridge` from `ReactFlowCanvas`.
+- Extract `CanvasSelectionLayer` and `CanvasConnectionLayer`.
+- Introduce a board model module with `nodesById`, `edgesById`, and explicit patch operations.
+- Introduce a media pipeline that stores image files under workspace media storage.

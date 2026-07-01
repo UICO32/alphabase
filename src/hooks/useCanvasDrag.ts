@@ -231,6 +231,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
   const onNodeDragStart = useCallback((_event: MouseEvent | React.MouseEvent, _node: Node) => {
     dragStartedRef.current = true
     snapLocksRef.current = { x: null, y: null }
+    getActiveSyncEngine()?.setDragging(true)
   }, [])
 
   const onNodeDragStop = useCallback((_event: MouseEvent | React.MouseEvent, node: Node) => {
@@ -240,8 +241,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
     kanbanDragPreview.clear()
     setDragOverFrameId(null)
     setEdges((eds) => [...eds])
-
-    console.log('[DRAG-STOP] fired, node.type:', node.type, 'node.id:', node.id, 'pos:', node.position)
 
     if (node.type !== 'card') return
 
@@ -282,19 +281,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
 
         const containingFrame = frameNodes.find(frame => cardOverlapsFrame(checkNode, frame))
 
-        // DEBUG
-        console.log('[DRAG-STOP]', n.id, {
-          latestPos,
-          callbackPos: { x: n.position.x, y: n.position.y },
-          cardWidth: nd.width,
-          cardHeight: nd.height,
-          oldFrameId: nd.frameId,
-          containingFrame: containingFrame?.id ?? null,
-          containingFrameLayout: containingFrame ? (containingFrame.data as Record<string, unknown>).layout : null,
-          freeSnap: nd.layoutSnapshots?.free,
-          kanbanSnap: nd.layoutSnapshots?.kanban,
-        })
-
         if (containingFrame && containingFrame.id !== nd.frameId) {
           const local = globalToLocal(posForCheck, containingFrame)
           const frameLayout = ((containingFrame.data as Record<string, unknown>).layout as FrameLayout) ?? 'free'
@@ -306,7 +292,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
           if (kanbanFrameIds.has(containingFrame.id)) {
             cardsEnteredKanbanIds.add(n.id)
           }
-          console.log('[DRAG-STOP] → ENTERING frame', containingFrame.id, 'layout:', frameLayout, 'saved freeSnap:', newSnapshots.free)
           return {
             ...n,
             position: posForCheck,
@@ -321,7 +306,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
           }
         } else if (!containingFrame && nd.frameId) {
           const freeSnap = nd.layoutSnapshots?.free
-          console.log('[DRAG-STOP] → LEAVING frame', nd.frameId, 'restoring to:', { w: freeSnap?.width ?? nd.width ?? DEFAULT_CARD_WIDTH, h: freeSnap?.height ?? nd.height ?? DEFAULT_CARD_HEIGHT })
           return {
             ...n,
             position: posForCheck,
@@ -473,13 +457,9 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
     })
 
     // 拖入看板 frame 的卡片，删除其连接线
-    console.log('[DRAG-STOP] cardsEnteredKanbanIds:', [...cardsEnteredKanbanIds])
     if (cardsEnteredKanbanIds.size > 0) {
       setEdges(eds => {
-        const before = eds.length
-        const filtered = eds.filter(e => !cardsEnteredKanbanIds.has(e.source) && !cardsEnteredKanbanIds.has(e.target))
-        console.log('[DRAG-STOP] edges:', before, '→', filtered.length)
-        return filtered
+        return eds.filter(e => !cardsEnteredKanbanIds.has(e.source) && !cardsEnteredKanbanIds.has(e.target))
       })
     }
   }, [setEdges, setNodes, reactFlowInstance])

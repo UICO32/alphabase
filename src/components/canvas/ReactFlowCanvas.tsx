@@ -374,8 +374,12 @@ export function ReactFlowCanvas() {
           lastZoom = viewport.zoom
           canvasRef.current.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
           canvasRef.current.style.setProperty('--rf-zoom', String(viewport.zoom))
-          // zoom 标量只驱动轻量订阅（ZoomPreview），即时更新
-          useLibraryStore.setState({ zoom: viewport.zoom })
+          const library = useLibraryStore.getState()
+          const previewVisible = viewport.zoom <= 0.55
+          library.setZoom(viewport.zoom)
+          if (library.isZoomPreviewVisible !== previewVisible) {
+            library.setZoomPreviewVisible(previewVisible)
+          }
         }
         // transform 三元组驱动较重的订阅（library、panels），100ms 节流
         const now = performance.now()

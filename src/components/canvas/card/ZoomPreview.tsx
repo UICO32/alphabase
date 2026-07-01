@@ -15,7 +15,7 @@ export const ZoomPreview = memo(function ZoomPreview({
   content,
   previewHTML,
 }: ZoomPreviewProps) {
-  const zoom = useLibraryStore(s => s.zoom)
+  const isVisible = useLibraryStore(s => s.isZoomPreviewVisible)
   const title = useMemo(() => extractTitleFromJSON(content), [content])
 
   const preview = useMemo(() => {
@@ -26,7 +26,7 @@ export const ZoomPreview = memo(function ZoomPreview({
   // zoom > 0.55: 用户在近距离查看卡片细节，不需要覆盖层。
   // 卸载 DOM 节省每张卡 2 个 absolute div 的合成层开销（100 卡 = 200 图层）。
   // 阈值略高于 CSS fade-out 点（0.5），确保退出时 opacity≈0，无视觉闪烁。
-  if (zoom > 0.55) return null
+  if (!isVisible) return null
 
   if (!title && !preview) return null
 

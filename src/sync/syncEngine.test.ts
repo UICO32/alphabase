@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkspaceSyncEngine } from './syncEngine'
 
 const {
@@ -47,7 +47,7 @@ describe('WorkspaceSyncEngine', () => {
   })
 
   describe('scheduleWriteCard', () => {
-    it('防抖后应调用 writeFile + rename（原子写入）', async () => {
+    it('writes cards via tmp file rename for atomic writes', async () => {
       engine.scheduleWriteCard({
         id: 'card-1',
         title: 'Test',
@@ -68,7 +68,7 @@ describe('WorkspaceSyncEngine', () => {
       )
     })
 
-    it('重复 scheduleWrite 应合并（后者覆盖）', async () => {
+    it('coalesces repeated writes so the last payload wins', async () => {
       engine.scheduleWriteCard({
         id: 'card-1', title: 'v1', color: 'white', content: '[]', createdAt: 1000,
       }, 100)
@@ -87,7 +87,7 @@ describe('WorkspaceSyncEngine', () => {
   })
 
   describe('scheduleDeleteCard', () => {
-    it('防抖后应调用 deleteFile', async () => {
+    it('deletes cards after debounce', async () => {
       engine.scheduleDeleteCard('card-1')
 
       await new Promise(r => setTimeout(r, 700))
@@ -98,8 +98,8 @@ describe('WorkspaceSyncEngine', () => {
     })
   })
 
-  describe('拖拽抑制', () => {
-    it('isDragging 时 board 不应写入', async () => {
+  describe('drag suppression', () => {
+    it('skips board writes while dragging', async () => {
       engine.setDragging(true)
       engine.scheduleWriteBoard('board-1', {
         version: 2, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 },
@@ -113,7 +113,33 @@ describe('WorkspaceSyncEngine', () => {
       expect(boardWrites.length).toBe(0)
     })
 
-    it('isDragging 时 card 仍应写入', async () => {
+    it('re-schedules skipped board writes after dragging stops', async () => {
+      engine.setDragging(true)
+      engine.scheduleWriteBoard('board-1', {
+        version: 2, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 },
+      }, 0)
+
+      await engine.flushAll()
+
+      let boardWrites = mockWriteFile.mock.calls.filter(
+        (c: string[]) => c[0].includes('board-1'),
+      )
+      expect(boardWrites.length).toBe(0)
+
+      engine.setDragging(false)
+      engine.scheduleWriteBoard('board-1', {
+        version: 2, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 },
+      }, 0)
+
+      await engine.flushAll()
+
+      boardWrites = mockWriteFile.mock.calls.filter(
+        (c: string[]) => c[0].includes('board-1'),
+      )
+      expect(boardWrites.length).toBe(1)
+    })
+
+    it('still writes cards while dragging', async () => {
       engine.setDragging(true)
       engine.scheduleWriteCard({
         id: 'card-1', title: 'Test', color: 'white', content: '[]', createdAt: 1000,
@@ -124,7 +150,7 @@ describe('WorkspaceSyncEngine', () => {
       expect(mockWriteFile).toHaveBeenCalled()
     })
 
-    it('拖拽结束后 board 应恢复写入', async () => {
+    it('restores board writes after dragging stops', async () => {
       engine.setDragging(true)
       engine.setDragging(false)
       engine.scheduleWriteBoard('board-1', {
@@ -141,7 +167,7 @@ describe('WorkspaceSyncEngine', () => {
   })
 
   describe('flushAll', () => {
-    it('应立即写入所有 pending', async () => {
+    it('flushes every pending write immediately', async () => {
       engine.scheduleWriteCard({
         id: 'c1', title: 'A', color: 'white', content: '[]', createdAt: 1000,
       }, 5000)
@@ -156,7 +182,7 @@ describe('WorkspaceSyncEngine', () => {
   })
 
   describe('stop', () => {
-    it('应调用 flushAll 并停止运行', async () => {
+    it('flushes pending writes and marks the engine as stopped', async () => {
       engine.scheduleWriteCard({
         id: 'c1', title: 'A', color: 'white', content: '[]', createdAt: 1000,
       }, 5000)
