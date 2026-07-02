@@ -2,8 +2,10 @@ export const SAVE_DEBOUNCE_MS = 400
 
 // Deprecated: import directly from '../utils/fileUtils' instead
 export { fileToDataUrl, isImageFile } from '../utils/fileUtils'
+import { isMediaUrl } from '../media/mediaUrl'
 
 export function isReadableImageUrl(url: string) {
+  if (isMediaUrl(url)) return true
   return url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')
 }
 

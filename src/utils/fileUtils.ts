@@ -1,8 +1,8 @@
-const COMPRESS_MAX_WIDTH = 1600
-const COMPRESS_QUALITY = 0.85
-const COMPRESS_SKIP_THRESHOLD = 300 * 1024
+export const COMPRESS_MAX_WIDTH = 1600
+export const COMPRESS_QUALITY = 0.85
+export const COMPRESS_SKIP_THRESHOLD = 300 * 1024
 
-function readAsDataUrl(file: File): Promise<string> {
+export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
@@ -15,9 +15,9 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 export async function fileToDataUrl(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) return readAsDataUrl(file)
-  if (file.type === 'image/svg+xml' || file.type === 'image/gif') return readAsDataUrl(file)
-  if (file.size < COMPRESS_SKIP_THRESHOLD) return readAsDataUrl(file)
+  if (!file.type.startsWith('image/')) return readFileAsDataUrl(file)
+  if (file.type === 'image/svg+xml' || file.type === 'image/gif') return readFileAsDataUrl(file)
+  if (file.size < COMPRESS_SKIP_THRESHOLD) return readFileAsDataUrl(file)
 
   return new Promise((resolve) => {
     const img = new Image()
@@ -25,7 +25,7 @@ export async function fileToDataUrl(file: File): Promise<string> {
       const { width, height } = img
       if (width <= COMPRESS_MAX_WIDTH) {
         URL.revokeObjectURL(img.src)
-        readAsDataUrl(file).then(resolve)
+        readFileAsDataUrl(file).then(resolve)
         return
       }
       const scale = COMPRESS_MAX_WIDTH / width
@@ -35,7 +35,7 @@ export async function fileToDataUrl(file: File): Promise<string> {
       const ctx = canvas.getContext('2d')
       if (!ctx) {
         URL.revokeObjectURL(img.src)
-        readAsDataUrl(file).then(resolve)
+        readFileAsDataUrl(file).then(resolve)
         return
       }
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
@@ -45,7 +45,7 @@ export async function fileToDataUrl(file: File): Promise<string> {
     }
     img.onerror = () => {
       URL.revokeObjectURL(img.src)
-      readAsDataUrl(file).then(resolve)
+      readFileAsDataUrl(file).then(resolve)
     }
     img.src = URL.createObjectURL(file)
   })

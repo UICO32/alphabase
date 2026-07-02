@@ -19,6 +19,7 @@ import { embeddingStore } from '../stores/embeddingStore'
 import type { CardColor } from '../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
+import { migrateInlineImagesForWorkspace } from '../media/migrateInlineImages'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
@@ -49,6 +50,14 @@ function stepTime(name: string) {
 
 function createDemoCardContent(title: string) {
   return `[{"type":"heading","props":{"level":2},"content":[{"type":"text","text":"${title}"}]}]`
+}
+
+function scheduleIdleTask(callback: () => void, timeout?: number) {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(() => callback(), timeout ? { timeout } : undefined)
+    return
+  }
+  globalThis.setTimeout(callback, timeout ?? 0)
 }
 
 function ensureGlobalDemoCards() {
@@ -368,6 +377,19 @@ export function useWorkspaceDataLoader() {
     notifyDataReady()
     // Preview generation stays after dataReady so board mount wins the startup race.
     useCardStore.getState().schedulePreviewHTMLGeneration()
+    scheduleIdleTask(() => {
+      const cards = useCardStore.getState().cards
+      for (const card of Object.values(cards)) {
+        if (!card.content) continue
+        void migrateInlineImagesForWorkspace(workspacePath, card.content)
+          .then((result) => {
+            if (result.changed) {
+              useCardStore.getState().updateCard(card.id, { content: result.content })
+            }
+          })
+          .catch(() => {})
+      }
+    }, 10000)
 
     // Auto-init embedding index — loadStore() inside EmbeddingService will restore vectors.json
     const wsPath = localStorage.getItem(LAST_WORKSPACE_KEY)

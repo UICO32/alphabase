@@ -18,7 +18,8 @@ import { useImageColumnDrop } from './useImageColumnDrop'
 import { usePosAtCoordsScalePatch } from './usePosAtCoordsScalePatch'
 import { useViewStore } from '../../stores/viewStore'
 import { useLibraryStore } from '../../stores/libraryStore'
-import { fileToDataUrl, isImageFile } from '../../utils/fileUtils'
+import { isImageFile } from '../../utils/fileUtils'
+import { storeImageFileForWorkspace } from '../../media/imagePipeline'
 import { isMarkdown } from './utils/markdownDetect'
 import { showToast } from '../../utils/toast'
 import {
@@ -84,11 +85,13 @@ const CardBlockNoteEditorInner = (
       isFirstRender.current = false
     }
 
+    const getWorkspacePath = () => localStorage.getItem('hepta-last-workspace-path')
+
     const uploadFile = useCallback(async (file: File) => {
       if (file.type && !isImageFile(file)) {
         throw new Error('Only image paste is supported inside cards for now.')
       }
-      return await fileToDataUrl(file)
+      return await storeImageFileForWorkspace(getWorkspacePath(), file)
     }, [])
 
     const editor = useCreateBlockNote({
@@ -114,7 +117,7 @@ const CardBlockNoteEditorInner = (
           const imageUrls: string[] = []
 
           for (const file of files) {
-            imageUrls.push(await fileToDataUrl(file))
+            imageUrls.push(await storeImageFileForWorkspace(getWorkspacePath(), file))
           }
 
           if (imageUrls.length === 0) {

@@ -42,3 +42,17 @@
 - Keep a long-lived spatial index updated by node changes instead of rebuilding from all nodes.
 - Move image compression and storage out of card JSON into a workspace media pipeline.
 - Split `ReactFlowCanvas` into focused layers after hot-path behavior is stable.
+
+## Round Three Media Pipeline
+
+- Large pasted images should be stored under workspace media storage instead of embedded as base64 in card JSON.
+- Card content should reference media with `hepta-media://<mediaId>/<fileName>`.
+- Existing inline `data:` images remain readable and are migrated during idle time.
+- Board readiness must not wait for image migration, embedding, backup, or preview generation.
+
+## Media Rules
+
+- Keep small images inline only as a fallback.
+- Do not call `canvas.toDataURL()` in interaction-critical paths when a worker or main-process path is available.
+- Prefer object URLs or workspace media URLs for display.
+- Keep media writes workspace-scoped through Electron's registered workspace path.

@@ -21,6 +21,10 @@ export function unregisterWorkspacePath(path: string): void {
   registeredWorkspaces.delete(normalize(path))
 }
 
+export function getRegisteredWorkspacePaths(): string[] {
+  return Array.from(registeredWorkspaces)
+}
+
 export function isPathWithinWorkspace(filePath: string): boolean {
   if (registeredWorkspaces.size === 0) return false
   const normalized = normalize(filePath)

@@ -3,6 +3,8 @@ import type { FC } from 'react'
 import type { BlockNoteEditor } from '@blocknote/core'
 import { isImageFile } from '../../utils/fileUtils'
 import { readClipboardImageFiles } from '../../converters/richTextUtils'
+import { storeImageFileForWorkspace } from '../../media/imagePipeline'
+import { resolveMediaUrlForDisplay } from '../../media/resolveMediaUrl'
 
 interface ImageRowBlockProps {
   urls: string[]
@@ -28,10 +30,10 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
     const imageFiles = files.filter(isImageFile)
     if (imageFiles.length === 0) return
 
-    const { fileToDataUrl } = await import('../../converters/richTextUtils')
+    const workspacePath = localStorage.getItem('hepta-last-workspace-path')
     const newUrls: string[] = []
     for (const file of imageFiles) {
-      newUrls.push(await fileToDataUrl(file))
+      newUrls.push(await storeImageFileForWorkspace(workspacePath, file))
     }
 
     const totalUrls = [...urls, ...newUrls].slice(0, 4)
@@ -45,7 +47,6 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
     onUpdate(newUrls, newCaptions)
   }, [urls, captions, onUpdate])
 
-  // Monitor paste events on the container
   useEffect(() => {
     if (!editable) return
     const el = containerRef.current
@@ -85,14 +86,12 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
     return () => el.removeEventListener('paste', handlePaste, true)
   }, [editable, urls.length, addImageFiles])
 
-  // Handle click on empty slot — focus container to receive paste, show active state
   const handleSlotClick = useCallback((slotIndex: number) => {
     const el = containerRef.current
     if (el) el.focus()
     setActiveSlot(slotIndex)
   }, [])
 
-  // Drag and drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (!Array.from(e.dataTransfer.types).includes('Files')) return
     e.preventDefault()
@@ -116,6 +115,7 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
 
   const totalSlots = Math.max(urls.length, 2)
   const emptySlots = totalSlots - urls.length
+  const workspacePath = localStorage.getItem('hepta-last-workspace-path')
 
   return (
     <div
@@ -126,34 +126,37 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
       onDragLeave={editable ? handleDragLeave : undefined}
       onDrop={editable ? handleDrop : undefined}
     >
-      {urls.map((url, index) => (
-        <div
-          key={index}
-          style={{ flex: 1, minWidth: 0, position: 'relative' }}
-          onMouseEnter={() => editable && setHoverIndex(index)}
-          onMouseLeave={() => setHoverIndex(null)}
-        >
-          <img
-            src={url}
-            alt=""
-            style={{ width: '100%', height: 'auto', borderRadius: '6px', display: 'block' }}
-          />
-          {editable && hoverIndex === index && urls.length > 1 && (
-            <button
-              onClick={() => handleRemoveImage(index)}
-              style={{
-                position: 'absolute', top: '4px', right: '4px',
-                width: '20px', height: '20px', borderRadius: '50%',
-                border: 'none', background: 'rgba(0,0,0,0.6)', color: 'white',
-                cursor: 'pointer', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '12px',
-              }}
-            >
-              ×
-            </button>
-          )}
-        </div>
-      ))}
+      {urls.map((url, index) => {
+        const displayUrl = resolveMediaUrlForDisplay(url, workspacePath)
+        return (
+          <div
+            key={index}
+            style={{ flex: 1, minWidth: 0, position: 'relative' }}
+            onMouseEnter={() => editable && setHoverIndex(index)}
+            onMouseLeave={() => setHoverIndex(null)}
+          >
+            <img
+              src={displayUrl}
+              alt=""
+              style={{ width: '100%', height: 'auto', borderRadius: '6px', display: 'block' }}
+            />
+            {editable && hoverIndex === index && urls.length > 1 && (
+              <button
+                onClick={() => handleRemoveImage(index)}
+                style={{
+                  position: 'absolute', top: '4px', right: '4px',
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  border: 'none', background: 'rgba(0,0,0,0.6)', color: 'white',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: '12px',
+                }}
+              >
+                脳
+              </button>
+            )}
+          </div>
+        )
+      })}
       {editable && emptySlots > 0 && Array.from({ length: Math.min(emptySlots, 4 - urls.length) }).map((_, i) => {
         const slotIndex = urls.length + i
         const isActive = activeSlot === slotIndex
@@ -184,7 +187,7 @@ export const ImageRowBlock: FC<ImageRowBlockProps> = ({
             }}
           >
             <span style={{ color: 'var(--fg-tertiary)', fontSize: '12px' }}>
-              {isActive ? '按 Ctrl+V 粘贴图片' : dragOver ? '释放以添加' : '点击后粘贴图片'}
+              {isActive ? 'Press Ctrl+V to paste' : dragOver ? 'Drop images here' : 'Click, then paste images'}
             </span>
           </div>
         )

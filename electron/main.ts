@@ -8,7 +8,7 @@ delete process.env.ELECTRON_RUN_AS_NODE
 import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
 import { startupLog } from './startupLog'
 import { join, dirname, resolve } from 'path'
-import { isPathWithinWorkspace, registerWorkspacePath, unregisterWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
+import { getRegisteredWorkspacePaths, isPathWithinWorkspace, registerWorkspacePath, unregisterWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
 import { fileURLToPath } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
 import { dirname as pathDirname } from 'path'
@@ -176,23 +176,43 @@ app.whenReady().then(() => {
     try {
       const url = new URL(request.url)
       const filename = url.pathname.replace(/^\/+/, '') || url.hostname
-      const workspacePath = (url.searchParams.get('workspace') || '').split('/').join('\\')
+      const requestedWorkspacePath = (url.searchParams.get('workspace') || '').split('/').join('\\')
 
       if (!isMediaFilenameSafe(filename)) {
         return new Response('Forbidden', { status: 403 })
       }
-      if (!workspacePath) {
-        return new Response('Forbidden', { status: 403 })
+
+      const candidateWorkspaces = requestedWorkspacePath
+        ? [requestedWorkspacePath]
+        : getRegisteredWorkspacePaths()
+
+      let resolvedFilePath: string | null = null
+      for (const workspacePath of candidateWorkspaces) {
+        const filePath = join(workspacePath, 'media', filename)
+        const resolvedMediaDir = resolve(join(workspacePath, 'media'))
+        const nextResolvedFilePath = resolve(filePath)
+        if (
+          nextResolvedFilePath !== resolvedMediaDir &&
+          !nextResolvedFilePath.startsWith(resolvedMediaDir + '/') &&
+          !nextResolvedFilePath.startsWith(resolvedMediaDir + '\\')
+        ) {
+          continue
+        }
+
+        try {
+          await access(nextResolvedFilePath)
+          resolvedFilePath = nextResolvedFilePath
+          break
+        } catch {
+          continue
+        }
       }
 
-      const filePath = join(workspacePath, 'media', filename)
-      const resolvedMediaDir = resolve(join(workspacePath, 'media'))
-      const resolvedFilePath = resolve(filePath)
-      if (resolvedFilePath !== resolvedMediaDir && !resolvedFilePath.startsWith(resolvedMediaDir + '/') && !resolvedFilePath.startsWith(resolvedMediaDir + '\\')) {
-        return new Response('Forbidden', { status: 403 })
+      if (!resolvedFilePath) {
+        return new Response('Not found', { status: 404 })
       }
 
-      const data = await readFile(filePath)
+      const data = await readFile(resolvedFilePath)
       const ext = filename.split('.').pop()?.toLowerCase() || 'jpg'
       const mimeMap: Record<string, string> = {
         jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
