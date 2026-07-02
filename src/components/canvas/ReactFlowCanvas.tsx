@@ -50,6 +50,7 @@ import { connectionMediator } from './utils/connectionMediator'
 import { kanbanDragPreview } from './utils/kanbanDragPreview'
 import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from './utils/frameInteraction'
 import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
+import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
 
 const nodeTypes = {
   card: CardNode,
@@ -76,11 +77,14 @@ export function ReactFlowCanvas() {
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
   const edgesRef = useRef<Edge[]>(edges)
+  const spatialIndex = useMemo(() => createCanvasSpatialIndex(nodes), [nodes])
+  const spatialIndexRef = useRef(spatialIndex)
 
   const { record, undo, redo, clear } = useHistory({ maxHistory: 20 })
 
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
+  useEffect(() => { spatialIndexRef.current = spatialIndex }, [spatialIndex])
   useEffect(() => { setNodesRef(nodes) }, [nodes])
 
   // 合并 RAF 清理到 nodesRef 的 effect 中，避免单独的 cleanup effect
@@ -241,17 +245,13 @@ export function ReactFlowCanvas() {
       const height = Math.abs(flowPos.y - start.y)
       setLassoRect({ x, y, width, height })
 
-      const allNodes = instance.getNodes()
       const selected = new Set<string>()
-      for (const node of allNodes) {
-        if (node.type !== 'card') continue
-        const nd = node.data as CardNodeData
-        const nw = nd.width ?? DEFAULT_CARD_WIDTH
-        const nh = nd.collapsed ? 44 : (nd.height ?? DEFAULT_CARD_HEIGHT)
-        const cx = node.position.x + nw / 2
-        const cy = node.position.y + nh / 2
-        if (cx >= x && cx <= x + width && cy >= y && cy <= y + height) {
-          selected.add(node.id)
+      const rect = { x, y, width, height }
+      const candidates = spatialIndexRef.current.queryRect(rect)
+      for (const item of candidates) {
+        if (item.type !== 'card') continue
+        if (isBoundsCenterInsideRect(item, rect)) {
+          selected.add(item.id)
         }
       }
       setLassoSelectedCardIds(selected)
@@ -476,12 +476,17 @@ export function ReactFlowCanvas() {
       if (!pending) return
       let closestId: string | null = null
       let closestDist = PROXIMITY_THRESHOLD
-      for (const node of nodesRef.current) {
-        if (node.id === pending.sourceNodeId) continue
-        if (node.type !== 'card') continue
+      const zoom = rf.getViewport().zoom
+      const flowPoint = rf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY })
+      const flowRadius = PROXIMITY_THRESHOLD / zoom
+      const candidates = spatialIndexRef.current
+        .queryPoint(flowPoint, flowRadius)
+        .filter(item => item.type === 'card' && item.id !== pending.sourceNodeId)
+
+      for (const item of candidates) {
+        const node = item.node
         const w = ((node.data as Record<string, unknown>).width as number) ?? 280
         const h = ((node.data as Record<string, unknown>).height as number) ?? 200
-        const zoom = rf.getViewport().zoom
         const screen = rf.flowToScreenPosition(node.position)
         const scaledW = w * zoom
         const scaledH = h * zoom

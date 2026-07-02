@@ -28,3 +28,17 @@
 - Extract `CanvasSelectionLayer` and `CanvasConnectionLayer`.
 - Introduce a board model module with `nodesById`, `edgesById`, and explicit patch operations.
 - Introduce a media pipeline that stores image files under workspace media storage.
+
+## Round Two Changes
+
+- Canvas interactions now have a pure spatial index for local candidate lookup.
+- Connection proximity and lasso selection should avoid scanning every node on every pointer move.
+- Drag snapping should query nearby candidates before running precise snap math.
+- Board sync has a dirty boundary that can evolve into patch-based persistence without changing disk snapshots.
+
+## Remaining Work
+
+- Move from conservative dirty checks to explicit board patches per operation.
+- Keep a long-lived spatial index updated by node changes instead of rebuilding from all nodes.
+- Move image compression and storage out of card JSON into a workspace media pipeline.
+- Split `ReactFlowCanvas` into focused layers after hot-path behavior is stable.

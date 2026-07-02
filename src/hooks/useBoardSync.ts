@@ -5,6 +5,15 @@ import { useEvent } from './useEvent'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
 import { serializeBoardData } from '../sync/boardSnapshot'
 
+function hasBoardDataChanged(
+  prev: ReturnType<typeof serializeBoardData> | null,
+  next: ReturnType<typeof serializeBoardData>,
+) {
+  if (!prev) return true
+  if (prev.nodes.length !== next.nodes.length || prev.edges.length !== next.edges.length) return true
+  return JSON.stringify(prev) !== JSON.stringify(next)
+}
+
 export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
   const activeBoardId = useBoardStore((s) => s.activeBoardId)
   const isLoaded = useBoardStore((s) => s.isLoaded)
@@ -13,6 +22,7 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
   const isLoadedRef = useRef(isLoaded)
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
+  const lastSerializedRef = useRef<ReturnType<typeof serializeBoardData> | null>(null)
 
   isLoadedRef.current = isLoaded
   nodesRef.current = nodes
@@ -22,6 +32,9 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
     if (!activeBoardId || !isLoadedRef.current) return
 
     const data = serializeBoardData(nodes, edges)
+    if (!hasBoardDataChanged(lastSerializedRef.current, data)) return
+    lastSerializedRef.current = data
+
     saveBoardData(activeBoardId, data)
 
     const syncEngine = getActiveSyncEngine()
@@ -34,6 +47,10 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
       })
     }
   }, [activeBoardId, nodes, edges, saveBoardData])
+
+  useEffect(() => {
+    lastSerializedRef.current = null
+  }, [activeBoardId])
 
   useEffect(() => {
     if (!isLoaded) return

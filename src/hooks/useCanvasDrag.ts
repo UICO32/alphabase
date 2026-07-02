@@ -10,6 +10,7 @@ import { computeLayout, updateSingleCardSnapshot, saveFrameSnapshot, type FrameL
 import type { FrameNodeData } from '../components/canvas/FrameNode'
 import { kanbanDragPreview } from '../components/canvas/utils/kanbanDragPreview'
 import { setDragOverFrameId } from '../components/canvas/utils/frameInteraction'
+import { createCanvasSpatialIndex } from '../components/canvas/utils/canvasSpatialIndex'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
 
 const SNAP_THRESHOLD_PX = 3
@@ -72,11 +73,17 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
           height: dragH,
         }
 
-        const otherNodes = allNodes.filter(n =>
-          !idsToNudge.has(n.id) &&
-          (n.type === 'card' || n.type === 'frame' || n.type === 'media')
-        )
-        const otherBoundsArray = getNodesBounds(otherNodes)
+        const searchPadding = Math.max(threshold * 8, 160 / zoom)
+        const spatialIndex = createCanvasSpatialIndex(allNodes)
+        const otherBounds = spatialIndex
+          .queryRect({
+            x: dragBounds.x - searchPadding,
+            y: dragBounds.y - searchPadding,
+            width: dragBounds.width + searchPadding * 2,
+            height: dragBounds.height + searchPadding * 2,
+          })
+          .filter(item => !idsToNudge.has(item.id))
+        const otherBoundsArray = getNodesBounds(otherBounds)
 
         const locks = snapLocksRef.current
         const freshNudge = calcSnapNudge(dragBounds, otherBoundsArray, threshold)
@@ -195,8 +202,14 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         }
 
         const allNodesForHover = instance.getNodes()
-        const frameNodesForHover = allNodesForHover.filter(n => n.type === 'frame')
-        const hoveredFrame = frameNodesForHover.find(f => cardOverlapsFrame(node, f))
+        const dragData = node.data as CardNodeData
+        const hoverWidth = dragData.width ?? DEFAULT_CARD_WIDTH
+        const hoverHeight = dragData.collapsed ? COLLAPSED_CARD_HEIGHT : (dragData.height ?? DEFAULT_CARD_HEIGHT)
+        const hoverCandidates = createCanvasSpatialIndex(allNodesForHover)
+          .queryRect({ x: node.position.x, y: node.position.y, width: hoverWidth, height: hoverHeight })
+          .map(item => item.node)
+          .filter(n => n.type === 'frame')
+        const hoveredFrame = hoverCandidates.find(f => cardOverlapsFrame(node, f))
         setDragOverFrameId(hoveredFrame ? hoveredFrame.id : null)
       }
 

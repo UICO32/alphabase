@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
-import type { BoardEdge, BoardNode } from '../utils/workspace/types'
+import type { SerializableBoardData } from './boardPatch'
 
-export function serializeBoardData(nodes: Node[], edges: Edge[]): { nodes: BoardNode[]; edges: BoardEdge[] } {
+export function serializeBoardData(nodes: Node[], edges: Edge[]): SerializableBoardData {
   return {
     nodes: nodes.map((n) => ({
       id: n.id,

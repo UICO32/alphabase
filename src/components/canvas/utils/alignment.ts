@@ -1,6 +1,7 @@
 import type { Node } from '@xyflow/react'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../../../types/card'
 import type { CardNodeData } from '../../../types/card'
+import type { IndexedNodeBounds } from './canvasSpatialIndex'
 
 export type AlignmentMode =
   | 'left' | 'centerH' | 'right'
@@ -119,8 +120,18 @@ export interface SnapBounds {
   height: number
 }
 
-export function getNodesBounds(nodes: Node[]): SnapBounds[] {
-  return nodes.map(node => {
+export function getNodesBounds(nodes: Array<Node | IndexedNodeBounds>): SnapBounds[] {
+  return nodes.map(item => {
+    if ('node' in item) {
+      return {
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+      }
+    }
+
+    const node = item
     const data = node.data as CardNodeData
     const width = data.width ?? DEFAULT_CARD_WIDTH
     const height = data.collapsed ? COLLAPSED_CARD_HEIGHT : (data.height ?? DEFAULT_CARD_HEIGHT)
