@@ -62,6 +62,7 @@ export interface GlobalCard {
   flomoSlug?: string
   sourceUrl?: string
   viewMode?: 'editor' | 'web'
+  variant?: string
 }
 
 interface CardStore {

@@ -8,7 +8,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('electronAPI', {
   fs: {
     readFile: (path: string) => ipcRenderer.invoke('fs:readFile', path),
-    writeFile: (path: string, data: string) => ipcRenderer.invoke('fs:writeFile', path, data),
+    writeFile: (path: string, data: Uint8Array | string) => ipcRenderer.invoke('fs:writeFile', path, data),
     deleteFile: (path: string) => ipcRenderer.invoke('fs:deleteFile', path),
     readdir: (path: string) => ipcRenderer.invoke('fs:readdir', path),
     readDirFiles: (dirPath: string) => ipcRenderer.invoke('fs:readDirFiles', dirPath),

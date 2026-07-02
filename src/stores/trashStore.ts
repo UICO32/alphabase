@@ -9,6 +9,7 @@ export interface TrashItem {
   expiresAt: number
   content: string
   color: CardColor
+  variant?: string
   createdAt: number
   enforceInitialHeading?: boolean
   fixedHeight?: boolean

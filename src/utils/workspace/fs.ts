@@ -35,7 +35,7 @@ export async function readFile(path: string): Promise<string> {
   return new TextDecoder().decode(data)
 }
 
-export async function writeFile(path: string, data: string): Promise<void> {
+export async function writeFile(path: string, data: Uint8Array | string): Promise<void> {
   await getFSAdapter().writeFile(path, data)
 }
 

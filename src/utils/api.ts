@@ -3,10 +3,12 @@ import { useCardStore } from '../stores/cardStore'
 import { useTrashStore } from '../stores/trashStore'
 import type { TrashItem } from '../stores/trashStore'
 import type { CardColor } from '../types/card'
+import { flushActiveSyncEngine } from '../sync/syncEngineRef'
 
 interface CreateCardOptions {
   content?: string
   color?: CardColor
+  variant?: string
   title?: string
   x?: number
   y?: number
@@ -53,6 +55,7 @@ export const heptabaseAPI = {
           id,
           content: options.content || '',
           color: options.color || 'white',
+          ...(options.variant ? { variant: options.variant } : {}),
           createdAt: Date.now(),
           ...(options.title ? { title: options.title } : {}),
         }
@@ -118,6 +121,7 @@ export const heptabaseAPI = {
           title: card.title || '无标题',
           content: card.content,
           color: card.color,
+          variant: card.variant,
           createdAt: card.createdAt,
           enforceInitialHeading: card.enforceInitialHeading,
           fixedHeight: card.fixedHeight,
@@ -137,6 +141,7 @@ export const heptabaseAPI = {
         }
         store.restoreCard(id)
         useTrashStore.getState().removeItem(id)
+        void flushActiveSyncEngine()
         return { success: true }
       } catch (e) {
         return { success: false, error: String(e) }

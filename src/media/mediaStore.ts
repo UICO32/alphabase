@@ -30,6 +30,25 @@ export function createMediaId() {
   return `media-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+export function dataUrlToBytes(dataUrl: string) {
+  const match = /^data:[^,]*,(.*)$/.exec(dataUrl)
+  if (!match) {
+    return new TextEncoder().encode(dataUrl)
+  }
+
+  const payload = match[1]
+  if (dataUrl.slice(0, match.index + match[0].length - payload.length).includes(';base64')) {
+    const binary = atob(payload)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return bytes
+  }
+
+  return new TextEncoder().encode(decodeURIComponent(payload))
+}
+
 export async function ensureMediaDir(workspacePath: string) {
   const dir = `${normalizeWorkspacePath(workspacePath)}/media`
   if (!(await exists(dir))) {
@@ -42,15 +61,16 @@ export async function storeMediaDataUrl(workspacePath: string, dataUrl: string, 
   const normalizedMimeType = mimeType || 'application/octet-stream'
   const mediaId = createMediaId()
   const fileName = getMediaFileName(mediaId, normalizedMimeType)
+  const bytes = dataUrlToBytes(dataUrl)
 
   await ensureMediaDir(workspacePath)
-  await writeFile(getMediaPath(workspacePath, fileName), dataUrl)
+  await writeFile(getMediaPath(workspacePath, fileName), bytes)
 
   const file: StoredMediaFile = {
     id: mediaId,
     fileName,
     mimeType: normalizedMimeType,
-    size: dataUrl.length,
+    size: bytes.byteLength,
     createdAt: Date.now(),
   }
 

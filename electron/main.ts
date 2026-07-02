@@ -322,9 +322,9 @@ ipcMain.handle('fs:readFile', async (_event, path: string) => {
   return await readFile(path)
 })
 
-ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: string) => {
+ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: Uint8Array | number[] | string) => {
   if (!isPathWithinWorkspace(filePath)) throw new Error(`Path outside workspace: ${filePath}`)
-  await fsWriteFile(filePath, data)
+  await fsWriteFile(filePath, typeof data === 'string' ? data : Buffer.from(data))
 })
 
 ipcMain.handle('fs:deleteFile', async (_event, path: string) => {

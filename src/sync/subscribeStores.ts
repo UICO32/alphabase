@@ -79,6 +79,7 @@ export function subscribeTrashStore(syncEngine: WorkspaceSyncEngine) {
           expiresAt: item.expiresAt,
           content: item.content,
           color: item.color,
+          variant: item.variant,
           createdAt: item.createdAt,
         })
       }

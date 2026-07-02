@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -164,7 +164,13 @@ function seedWorkspace(tmpDir: string) {
       title: 'Media Paste Card',
       color: 'blue',
       createdAt: Date.now(),
-      content: JSON.stringify([{ type: 'paragraph' }]),
+      content: JSON.stringify([
+        {
+          type: 'heading',
+          props: { level: 2 },
+          content: [{ type: 'text', text: 'Media Paste Card' }],
+        },
+      ]),
     }, null, 2),
     'utf-8',
   )
@@ -183,15 +189,21 @@ test.describe('media paste smoke', () => {
     cleanupTmpWorkspace(tmpDir)
   })
 
+  async function openSideEditor(page: Page) {
+    const node = page.locator('.react-flow__node').first()
+    await node.hover()
+    await page.getByRole('heading', { name: 'Media Paste Card' }).first().click({ force: true })
+    await node.locator('button.action-icon-btn').nth(3).click({ force: true })
+    await page.waitForSelector('.card-blocknote-editor--editable', { timeout: 10000 })
+  }
+
   test('image paste keeps editor responsive and persists after reload', async ({ page }) => {
     await page.goto('/')
     await page.waitForSelector('.react-flow__node', { timeout: 30000 })
 
-    const firstNode = page.locator('.react-flow__node').first()
-    await firstNode.dblclick({ force: true })
-    await page.waitForSelector('.card-blocknote-editor--editable', { timeout: 10000 })
+    await openSideEditor(page)
 
-    const editable = page.locator('.card-blocknote-editor--editable').first()
+    const editable = page.locator('.card-blocknote-editor--editable .ProseMirror').first()
     await editable.click()
 
     const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='
@@ -204,14 +216,22 @@ test.describe('media paste smoke', () => {
       const file = new File([blob], 'tiny.png', { type: 'image/png' })
       const dataTransfer = new DataTransfer()
       dataTransfer.items.add(file)
-      const event = new ClipboardEvent('paste', { clipboardData: dataTransfer })
+      const event = new ClipboardEvent('paste', {
+        clipboardData: dataTransfer,
+        bubbles: true,
+        cancelable: true,
+      })
       target.dispatchEvent(event)
-    }, { selector: '.card-blocknote-editor--editable', url: dataUrl })
-
+    }, { selector: '.card-blocknote-editor--editable .ProseMirror', url: dataUrl })
     await expect(page.locator('.card-blocknote-editor--editable img').first()).toBeVisible({ timeout: 10000 })
+    await expect.poll(() => {
+      const cardFile = path.join(tmpDir, 'cards', 'card-media-test.json')
+      return fs.existsSync(cardFile) ? fs.readFileSync(cardFile, 'utf-8') : ''
+    }, { timeout: 5000 }).toContain('data:image/png')
+
     await page.reload()
     await page.waitForSelector('.react-flow__node', { timeout: 30000 })
-    await page.locator('.react-flow__node').first().dblclick({ force: true })
+    await openSideEditor(page)
     await expect(page.locator('.card-blocknote-editor--editable img').first()).toBeVisible({ timeout: 10000 })
   })
 })

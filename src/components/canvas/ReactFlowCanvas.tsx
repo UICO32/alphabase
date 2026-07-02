@@ -532,22 +532,29 @@ export function ReactFlowCanvas() {
   }, [nodes, isDraggingNode])
 
   const onApplyAlignment = useCallback((updates: Map<string, { x: number; y: number }>) => {
+    if (recordTimerRef.current) {
+      clearTimeout(recordTimerRef.current)
+      recordTimerRef.current = null
+    }
     const currentNodes = nodesRef.current.map(n => ({ ...n }))
     const currentEdges = edgesRef.current.map(e => ({ ...e }))
-    setNodes((nds) =>
-      nds.map((n) => {
-        const pos = updates.get(n.id)
-        if (!pos) return n
-        return { ...n, position: { x: pos.x, y: pos.y } }
-      }),
-    )
+    const nextNodes = currentNodes.map((n) => {
+      const pos = updates.get(n.id)
+      if (!pos) return n
+      return { ...n, position: { x: pos.x, y: pos.y } }
+    })
+
+    setNodes(nextNodes)
     // Record the pre-alignment state for undo
     record({
       nodes: currentNodes,
       edges: currentEdges,
     })
-    recordCurrentState()
-  }, [setNodes, record, recordCurrentState])
+    record({
+      nodes: nextNodes,
+      edges: currentEdges,
+    })
+  }, [setNodes, record])
 
   // 看板 Frame 内的卡片之间隐藏连接线
   const visibleEdges = useMemo(() => {
