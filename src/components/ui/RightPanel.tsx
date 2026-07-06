@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, lazy, Suspense } from 'react'
+import { useCallback, useRef, lazy, Suspense } from 'react'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
 import { useLibraryStore } from '../../stores/libraryStore'
@@ -61,14 +61,10 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
     e.stopPropagation()
   }, [])
 
-  useEffect(() => {
-    if (rightPanelActiveTab === 'editor' && !editingCardId) {
-      setRightPanelActiveTab('library')
-    }
-  }, [rightPanelActiveTab, editingCardId, setRightPanelActiveTab])
 
   if (viewMode !== 'board') return null
 
+  const showEditorTab = rightPanelActiveTab === 'editor' || !!editingCardId
   const showEditorContent = !rightPanelCollapsed && rightPanelActiveTab === 'editor' && editingCardId
 
   return (
@@ -89,7 +85,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 	          className="segmented"
 	          style={{
 	            '--active-index': rightPanelActiveTab === 'library' ? 0 : rightPanelActiveTab === 'channels' ? 1 : 2,
-	            '--seg-count': editingCardId ? 3 : 2,
+	            '--seg-count': showEditorTab ? 3 : 2,
 	          } as React.CSSProperties}
 	        >
 	          <button
@@ -106,7 +102,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
 	            <Compass size={14} />
 	            频道
 	          </button>
-	          {editingCardId && (
+	          {showEditorTab && (
 	            <button
 	              onClick={() => setRightPanelActiveTab('editor')}
 	              className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'editor' ? 'segmented-item-active' : ''}`}
@@ -123,7 +119,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
         {rightPanelActiveTab === 'channels' ? (
           <AgentReachPanel />
         ) : rightPanelActiveTab === 'library' ? (
-          !rightPanelCollapsed && <CardLibraryView onOpenSettings={onOpenSettings} />
+          !rightPanelCollapsed && <CardLibraryView onOpenSettings={onOpenSettings} compact />
         ) : showEditorContent ? (
 	          <div key={editingCardId} className="h-full animate-fadeIn">
 	            <ClipAwareEditorView

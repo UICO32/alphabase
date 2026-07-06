@@ -130,7 +130,6 @@ function BoardMiniMap({
                 height={size.height}
                 rx="16"
                 fill={fill}
-                filter="drop-shadow(0 10px 18px rgba(0,0,0,0.10))"
               />
               <rect x="18" y="18" width={Math.min(size.width - 36, Math.max(60, title.length * 10))} height="10" rx="5" fill={text} opacity="0.58" />
               <rect x="18" y="42" width={size.width * 0.64} height="7" rx="3.5" fill={line} opacity="0.45" />
@@ -214,7 +213,7 @@ export function BoardLibraryView() {
                 <div
                   key={board.id}
                   onClick={() => handleBoardClick(board.id)}
-                  className={`group relative cursor-pointer rounded-xl bg-surface-card border border-line-default p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover hover:shadow-md ${isActive ? 'ring-2 ring-brand/40 border-line-hover' : ''}`}
+                  className={`group relative cursor-pointer rounded-xl bg-surface-card border border-line-default p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover ${isActive ? 'border-line-hover bg-surface-card-active' : ''}`}
                 >
                   <div className="aspect-[4/3] w-full overflow-hidden rounded-lg">
                     <BoardMiniMap

@@ -26,8 +26,16 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={onAddCard}
-                className="action-icon-btn p-2 rounded-full"
-                style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
+                className="action-icon-btn"
+                style={{
+                  width: 34,
+                  height: 34,
+                  padding: 0,
+                  borderRadius: 999,
+                  backgroundColor: '#000',
+                  color: '#fff',
+                  flexShrink: 0,
+                }}
               >
                 <Plus size={16} />
               </button>

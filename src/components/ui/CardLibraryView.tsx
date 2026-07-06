@@ -14,7 +14,10 @@ import { GalleryVerticalEnd, RefreshCw, Loader2, ChevronDown, X } from 'lucide-r
 
 interface CardLibraryViewProps {
   onOpenSettings?: () => void
+  compact?: boolean
 }
+
+const COMPACT_CARD_RENDER_LIMIT = 80
 
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'updatedAt', label: '最近修改' },
@@ -124,7 +127,7 @@ const CardItem = memo(function CardItem({
         el.addEventListener('animationend', () => el.classList.remove('card-item-returning'), { once: true })
       }}
       onClick={onClick}
-      className="group relative p-2.5 rounded-xl cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover hover:shadow-md active:scale-[0.98]"
+      className="group relative p-2.5 rounded-xl cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover active:scale-[0.98]"
       style={{ aspectRatio: '1/1' }}
     >
       {/* Title row — truncate with ellipsis, time right */}
@@ -169,7 +172,6 @@ const CardItem = memo(function CardItem({
 	                aspectRatio: '1/1',
 	                objectFit: 'cover',
 	                transform: `rotate(${IMAGE_ROTATIONS[i % 3]}deg)`,
-	                boxShadow: 'var(--shadow-sm)',
 	                marginLeft: i === 0 ? 0 : -5,
 	                zIndex: 3 - i,
 	                backfaceVisibility: 'hidden',
@@ -191,7 +193,7 @@ const CardItem = memo(function CardItem({
   )
 })
 
-export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
+export function CardLibraryView({ onOpenSettings, compact = false }: CardLibraryViewProps) {
   const cards = useCardStore(s => s.cards)
   const syncing = useFlomoSyncStore(s => s.syncing)
   const accessToken = useFlomoSyncStore(s => s.accessToken)
@@ -215,6 +217,7 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
   const [sourceRect, setSourceRect] = useState<DOMRect | null>(null)
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const [tagMenuOpen, setTagMenuOpen] = useState(false)
   const lastRelatedId = useRef<string | null>(null)
   const pendingRelatedSort = useRef(false)
 
@@ -250,6 +253,16 @@ export function CardLibraryView({ onOpenSettings }: CardLibraryViewProps) {
   const sortClick = useClick(sortFloating.context)
   const sortDismiss = useDismiss(sortFloating.context)
   const sortInteractions = useInteractions([sortClick, sortDismiss])
+
+  const tagFloating = useFloating({
+    open: tagMenuOpen,
+    onOpenChange: setTagMenuOpen,
+    placement: 'bottom-start',
+    middleware: [offset(4), flip()],
+  })
+  const tagClick = useClick(tagFloating.context)
+  const tagDismiss = useDismiss(tagFloating.context)
+  const tagInteractions = useInteractions([tagClick, tagDismiss])
 
   useEffect(() => {
     if (sortBy === 'related') {
@@ -334,9 +347,15 @@ if (searchQuery.trim()) {
     }
   }, [cards, searchQuery, sortBy, searchScores, searchMode, tagFilter])
 
+  const renderedCards = useMemo(
+    () => compact ? visibleCards.slice(0, COMPACT_CARD_RENDER_LIMIT) : visibleCards,
+    [compact, visibleCards]
+  )
+  const hiddenCardCount = Math.max(0, visibleCards.length - renderedCards.length)
+
   // 可见卡片变化时，预生成缺少 previewHTML 的卡片 HTML（避免在 render 中调 getPreviewHTML 触发 flushSync 警告）
   useEffect(() => {
-    const missing = visibleCards.filter(c => !c.previewHTML && c.content).map(c => c.id)
+    const missing = renderedCards.filter(c => !c.previewHTML && c.content).map(c => c.id)
     if (missing.length > 0) {
       // 使用 requestIdleCallback 或 setTimeout 延迟到 render 完成后执行
       const id = requestIdleCallback(() => {
@@ -344,14 +363,13 @@ if (searchQuery.trim()) {
       })
       return () => cancelIdleCallback(id)
     }
-  }, [visibleCards])
+  }, [renderedCards])
 
   const tagCloud = useMemo(() => {
     void tagStoreTags
-    return getTagsSortedByUsage()
-      .filter(t => t.count > 0)
-      .slice(0, 30)
-  }, [getTagsSortedByUsage, tagStoreTags, cards])
+    const tags = getTagsSortedByUsage().filter(t => t.count > 0)
+    return compact ? tags.slice(0, 30) : tags
+  }, [getTagsSortedByUsage, tagStoreTags, cards, compact])
 
   const handleDragStart = useCallback((e: React.DragEvent, cardId: string) => {
     const isAltPressed = e.altKey
@@ -459,8 +477,7 @@ if (searchQuery.trim()) {
           />
           </div>
 
-        {/* Tag cloud */}
-        {tagCloud.length > 0 && (
+        {tagCloud.length > 0 && !compact && (
           <div className="mb-3 flex flex-wrap gap-1.5">
             {tagCloud.map((t) => {
               const active = tagFilter === t.name
@@ -487,23 +504,6 @@ if (searchQuery.trim()) {
                 </button>
               )
             })}
-          </div>
-        )}
-
-        {/* Active tag filter banner */}
-        {tagFilter && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 bg-surface-card text-fg-secondary border border-brand/30">
-            <span className="flex items-center gap-1.5">
-              按标签过滤：<span className="font-medium text-brand">#{tagFilter}</span>
-              <span className="text-fg-tertiary">· {visibleCards.length} 条结果</span>
-            </span>
-            <button
-              onClick={() => setTagFilter(null)}
-              className="p-0.5 rounded hover:bg-surface-panel text-fg-tertiary hover:text-fg-primary"
-              title="清除标签过滤"
-            >
-              <X size={14} />
-            </button>
           </div>
         )}
 
@@ -542,6 +542,51 @@ if (searchQuery.trim()) {
             )}
           </div>
 
+          {tagCloud.length > 0 && compact && (
+            <div className="relative mr-auto">
+              <button
+                ref={tagFloating.refs.setReference}
+                {...tagInteractions.getReferenceProps()}
+                className="flex max-w-[120px] items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-panel"
+                title="筛选标签"
+              >
+                <span className="truncate">{tagFilter ? `#${tagFilter}` : '全部标签'}</span>
+                <ChevronDown size={10} className="shrink-0" />
+              </button>
+              {tagMenuOpen && (
+                <div
+                  ref={tagFloating.refs.setFloating}
+                  {...tagInteractions.getFloatingProps()}
+                  className="floating-menu z-50 max-h-72 overflow-y-auto"
+                  style={tagFloating.floatingStyles}
+                >
+                  <button
+                    onClick={() => {
+                      setTagFilter(null)
+                      setTagMenuOpen(false)
+                    }}
+                    className={`floating-menu-item ${!tagFilter ? 'floating-menu-item-active' : ''}`}
+                  >
+                    全部标签
+                  </button>
+                  {tagCloud.map((t) => (
+                    <button
+                      key={t.name}
+                      onClick={() => {
+                        setTagFilter(t.name)
+                        setTagMenuOpen(false)
+                      }}
+                      className={`floating-menu-item ${tagFilter === t.name ? 'floating-menu-item-active' : ''}`}
+                    >
+                      #{t.name}
+                      <span className="ml-1 text-fg-tertiary">{t.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={handleSyncClick}
             disabled={syncing}
@@ -552,6 +597,22 @@ if (searchQuery.trim()) {
             同步 Flomo
           </button>
         </div>
+
+        {tagFilter && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 bg-surface-card text-fg-secondary border border-brand/30">
+            <span className="flex items-center gap-1.5">
+              按标签过滤：<span className="font-medium text-brand">#{tagFilter}</span>
+              <span className="text-fg-tertiary">· {visibleCards.length} 条结果</span>
+            </span>
+            <button
+              onClick={() => setTagFilter(null)}
+              className="p-0.5 rounded hover:bg-surface-panel text-fg-tertiary hover:text-fg-primary"
+              title="清除标签过滤"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Info bars */}
         {sortBy === 'related' && editingCardId && (
@@ -591,7 +652,7 @@ if (searchQuery.trim()) {
           />
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
-            {visibleCards.map((card) => (
+            {renderedCards.map((card) => (
               <CardItem
                 key={card.id}
                 card={card}
@@ -600,6 +661,12 @@ if (searchQuery.trim()) {
                 onClick={(e) => handleClick(e, card.id)}
               />
             ))}
+          </div>
+        )}
+
+        {hiddenCardCount > 0 && (
+          <div className="mt-3 px-3 py-2 text-[10px] text-center text-fg-secondary">
+            已显示 {renderedCards.length} / {visibleCards.length}，继续搜索或筛选可缩小范围
           </div>
         )}
 
