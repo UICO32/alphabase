@@ -41,9 +41,12 @@ export const useLibraryStore = create<LibraryStore>()(
     setSortBy: (sortBy) => set({ sortBy }),
     setSearchMode: (mode) => set({ searchMode: mode }),
 
-    setWebviewUrl: (url, cardId) => set({
-      webviewUrl: url,
-      webviewSourceCardId: cardId ?? null,
+    setWebviewUrl: (url, cardId) => set((state) => {
+      const webviewSourceCardId = cardId ?? null
+      if (state.webviewUrl === url && state.webviewSourceCardId === webviewSourceCardId) {
+        return state
+      }
+      return { webviewUrl: url, webviewSourceCardId }
     }),
 
     setTagFilter: (tag) => set({ tagFilter: tag }),

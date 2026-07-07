@@ -30,13 +30,19 @@ export const usePanelStore = create<PanelStore>()(
     rightPanelActiveTab: 'library',
     userSwitchedTab: false,
 
-    setLeftPanelCollapsed: (collapsed) => set({ leftPanelCollapsed: collapsed }),
-    setRightPanelCollapsed: (collapsed) => set({ rightPanelCollapsed: collapsed }),
+    setLeftPanelCollapsed: (collapsed) => set((state) => (
+      state.leftPanelCollapsed === collapsed ? state : { leftPanelCollapsed: collapsed }
+    )),
+    setRightPanelCollapsed: (collapsed) => set((state) => (
+      state.rightPanelCollapsed === collapsed ? state : { rightPanelCollapsed: collapsed }
+    )),
     setRightPanelWidth: (width) => {
       const clamped = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width))
       set({ rightPanelWidth: clamped })
     },
-    setRightPanelActiveTab: (tab) => set({ rightPanelActiveTab: tab }),
+    setRightPanelActiveTab: (tab) => set((state) => (
+      state.rightPanelActiveTab === tab ? state : { rightPanelActiveTab: tab }
+    )),
 
     markUserSwitchedTab: () => set({ userSwitchedTab: true }),
     resetUserSwitchedTab: () => set({ userSwitchedTab: false }),

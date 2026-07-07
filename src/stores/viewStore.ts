@@ -33,7 +33,9 @@ export const useViewStore = create<ViewStore>()(
 
     openCardEditor: (cardId) => set({ editingCardId: cardId }),
     closeCardEditor: () => set({ editingCardId: null }),
-    setEditingCardId: (cardId) => set({ editingCardId: cardId }),
+    setEditingCardId: (cardId) => set((state) => (
+      state.editingCardId === cardId ? state : { editingCardId: cardId }
+    )),
     setAutoEditCardId: (cardId) => set({ autoEditCardId: cardId }),
 
     openKanbanEditDialog: (cardId, sourceRect) =>

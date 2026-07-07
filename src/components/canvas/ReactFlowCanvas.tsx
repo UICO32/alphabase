@@ -21,7 +21,6 @@ import { MediaNode } from './MediaNode'
 import { FrameNode, type FrameNodeData } from './FrameNode'
 import { CardEditDialog } from '../ui/CardEditDialog'
 import { useViewStore } from '../../stores/viewStore'
-import { usePanelStore } from '../../stores/panelStore'
 import { useThemeStore } from '../../stores/themeStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore } from '../../stores/cardStore'
@@ -428,13 +427,6 @@ export function ReactFlowCanvas() {
       viewState.setEditingCardId(cardId)
     }
 
-    const libraryState = useLibraryStore.getState()
-    if (libraryState.sortBy !== 'related') {
-      const panelState = usePanelStore.getState()
-      if (panelState.rightPanelActiveTab !== 'editor') {
-        panelState.setRightPanelActiveTab('editor')
-      }
-    }
   }, [])
 
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
@@ -603,7 +595,7 @@ export function ReactFlowCanvas() {
 	      <ReactFlow
         nodes={sortedNodes}
         edges={visibleEdges}
-        onlyRenderVisibleElements={!editingCardId}
+        onlyRenderVisibleElements
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
