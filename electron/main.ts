@@ -19,6 +19,9 @@ import { registerAISummaryIPC } from './ai'
 import { createTray, setIsQuitting, getIsQuitting, destroyTray } from './tray'
 import { Md5 } from 'ts-md5'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const isDev = !app.isPackaged
+
 // Disable crashpad to prevent Windows crash on handler disconnect
 app.commandLine.appendSwitch('disable-breakpad')
 app.commandLine.appendSwitch('enable-font-antialiasing', '1')
@@ -28,6 +31,15 @@ app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
 app.commandLine.appendSwitch('disable-features', 'NetworkServiceSandbox')
 // Run network service in-process to prevent crash/restart loop on Windows (Electron 42+)
 app.commandLine.appendSwitch('force-network-service-in-process')
+
+if (isDev) {
+  app.setPath('userData', join(__dirname, '..', '.tmp', 'electron-dev-user-data'))
+}
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
 
 const __t0 = Date.now()
 let __t1 = 0
@@ -44,8 +56,6 @@ function logInfo(message: string) {
 
 logInfo(`[startup] main process loaded: ${__t0}`)
 startupLog(`main process loaded: ${__t0}, ELECTRON_RUN_AS_NODE=${process.env.ELECTRON_RUN_AS_NODE ?? 'unset'}, app.isPackaged=${app.isPackaged}`)
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 let mainWindow: BrowserWindow | null = null
 
@@ -168,7 +178,8 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+if (gotSingleInstanceLock) {
+  app.whenReady().then(() => {
   __t1 = Date.now()
   logInfo(`[startup] app.whenReady: ${__t1 - __t0}ms`)
   startupLog(`app.whenReady: ${__t1 - __t0}ms, userData=${app.getPath('userData')}`)
@@ -251,6 +262,15 @@ app.whenReady().then(() => {
     registerEmbeddingIPC()
     registerAISummaryIPC()
   }, 0)
+  })
+}
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  }
 })
 
 app.on('window-all-closed', () => {

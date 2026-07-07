@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "electron:dev": "vite --mode electron",
+    "electron:dev": "node scripts/clean-electron-dev.mjs && vite --mode electron",
     "electron:build": "node scripts/protect-index.mjs && tsc && vite build --mode electron",
     "electron:start": "node scripts/electron-start.mjs",
     "electron:all": "vite --mode electron",
