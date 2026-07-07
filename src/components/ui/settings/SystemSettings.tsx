@@ -1,9 +1,11 @@
 import { useThemeStore } from '../../../stores/themeStore'
+import { useLibraryStore } from '../../../stores/libraryStore'
 import { useWorkspaceStore } from '../../../stores/workspaceStore'
 import { Moon, Sun, Monitor, FolderOpen } from 'lucide-react'
 import { VectorIndexSettings } from './VectorIndexSettings'
 import { ToggleGroup, ToggleGroupItem } from '../shadcn/toggle-group'
 import { Switch } from '../shadcn/switch'
+import { Slider } from '../shadcn/slider'
 import { Button } from '../shadcn/button'
 import { SettingGroup, SettingRow } from './SettingPrimitives'
 import { setAccentColor, getAccentColor } from '../../../theme'
@@ -33,6 +35,8 @@ export function SystemSettings() {
   const setThemeMode = useThemeStore(s => s.setThemeMode)
   const gridPattern = useThemeStore(s => s.gridPattern)
   const setGridPattern = useThemeStore(s => s.setGridPattern)
+  const previewZoomThreshold = useLibraryStore(s => s.previewZoomThreshold)
+  const setPreviewZoomThreshold = useLibraryStore(s => s.setPreviewZoomThreshold)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
   const settings = useWorkspaceStore(s => s.settings)
   const updateSettings = useWorkspaceStore(s => s.updateSettings)
@@ -57,13 +61,13 @@ export function SystemSettings() {
             type="single"
             value={themeMode}
             onValueChange={(v) => { if (v) setThemeMode(v as typeof themeMode) }}
-            className="w-[260px]"
+            className="w-[300px]"
           >
             {THEME_MODES.map((m) => {
               const Icon = m.icon
               return (
-                <ToggleGroupItem key={m.value} value={m.value}>
-                  <Icon size={14} /><span>{m.label}</span>
+                <ToggleGroupItem key={m.value} value={m.value} className="whitespace-nowrap px-3">
+                  <Icon size={14} className="shrink-0" /><span>{m.label}</span>
                 </ToggleGroupItem>
               )
             })}
@@ -103,14 +107,28 @@ export function SystemSettings() {
             type="single"
             value={gridPattern}
             onValueChange={(v) => { if (v) setGridPattern(v as GridPattern) }}
-            className="w-[200px]"
+            className="w-[240px]"
           >
             {GRID_PATTERNS.map((p) => (
-              <ToggleGroupItem key={p.value} value={p.value}>
+              <ToggleGroupItem key={p.value} value={p.value} className="whitespace-nowrap">
                 {p.label}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+        </SettingRow>
+        <SettingRow label="缩放预览阈值" description={`画布缩放小于 ${previewZoomThreshold.toFixed(2)} 时显示卡片预览`}>
+          <div className="flex w-[240px] items-center gap-3">
+            <Slider
+              value={[previewZoomThreshold]}
+              min={0.25}
+              max={0.9}
+              step={0.05}
+              onValueChange={(value) => setPreviewZoomThreshold(value[0] ?? 0.55)}
+            />
+            <span className="w-9 text-right text-xs tabular-nums text-fg-secondary">
+              {previewZoomThreshold.toFixed(2)}
+            </span>
+          </div>
         </SettingRow>
         <SettingRow label="删除前确认">
           <Switch

@@ -3,6 +3,7 @@ import {
   extractTitleFromJSON,
   extractTitleFromHTML,
   extractFirstTextFromHTML,
+  extractPreviewTextFromHTML,
   extractImagesFromHTML,
 } from '../components/canvas/utils/cardPreview'
 
@@ -125,6 +126,18 @@ describe('extractFirstTextFromHTML — legacy 回退', () => {
 
   it('legacy 无内容 → ""', () => {
     expect(extractFirstTextFromHTML('<h1>Only heading</h1>')).toBe('')
+  })
+})
+
+describe('extractPreviewTextFromHTML', () => {
+  it('合并多个正文块用于缩放预览', () => {
+    const html = nativeParaHTML('第一段文本') + nativeParaHTML('第二段文本')
+    expect(extractPreviewTextFromHTML(html)).toBe('第一段文本 第二段文本')
+  })
+
+  it('跳过 heading 并截断长正文', () => {
+    const html = nativeHeadingHTML('标题', 1) + nativeParaHTML('abcdefghijklmnopqrstuvwxyz')
+    expect(extractPreviewTextFromHTML(html, 10)).toBe('abcdefghi…')
   })
 })
 

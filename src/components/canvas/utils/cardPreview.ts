@@ -53,6 +53,42 @@ export function extractFirstTextFromHTML(html: string): string {
   }
 }
 
+export function extractPreviewTextFromHTML(html: string, maxLength = 120): string {
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+    const parts: string[] = []
+
+    const collect = (el: Element) => {
+      const text = el.textContent?.replace(/\s+/g, ' ').trim() || ''
+      if (text) parts.push(text)
+    }
+
+    const nativeBlocks = doc.querySelectorAll('.bn-block-content')
+    if (nativeBlocks.length > 0) {
+      for (const block of nativeBlocks) {
+        const contentType = (block as HTMLElement).dataset.contentType
+        if (contentType === 'heading' || contentType === 'image') continue
+        const inline = block.querySelector('.bn-inline-content')
+        collect(inline || block)
+        if (parts.join(' ').length >= maxLength) break
+      }
+    } else {
+      for (const el of Array.from(doc.body.children)) {
+        if ((el as HTMLElement).matches('h1, h2, h3, img')) continue
+        collect(el)
+        if (parts.join(' ').length >= maxLength) break
+      }
+    }
+
+    const text = parts.join(' ').replace(/\s+/g, ' ').trim()
+    if (text.length <= maxLength) return text
+    return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}…`
+  } catch {
+    return ''
+  }
+}
+
 export function extractImagesFromHTML(html: string): string[] {
   try {
     const parser = new DOMParser()

@@ -127,7 +127,7 @@ const CardItem = memo(function CardItem({
         el.addEventListener('animationend', () => el.classList.remove('card-item-returning'), { once: true })
       }}
       onClick={onClick}
-      className="group relative p-2.5 rounded-xl cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover active:scale-[0.98]"
+      className="group relative p-2.5 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover active:scale-[0.98]"
       style={{ aspectRatio: '1/1' }}
     >
       {/* Title row — truncate with ellipsis, time right */}
@@ -163,7 +163,7 @@ const CardItem = memo(function CardItem({
               width={200}
               height={200}
               loading="lazy"
-              className="rounded"
+              className="rounded-sm"
               onLoad={() => {}}
               onError={() => setFailedImages(prev => new Set(prev).add(i))}
 	              style={{
@@ -184,7 +184,7 @@ const CardItem = memo(function CardItem({
       {/* Score badge */}
       {score !== undefined && (
         <div className="absolute top-2 right-2">
-          <span className="px-1.5 py-0.5 rounded text-[10px] bg-surface-panel">
+          <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-surface-panel">
             {(score * 100).toFixed(0)}%
           </span>
         </div>
@@ -424,11 +424,11 @@ if (searchQuery.trim()) {
           animation: card-return-bounce 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
         }
       `}</style>
-      <div className="max-w-3xl mx-auto p-6">
-        <h1 className="text-xl font-semibold text-fg-primary mb-3">卡片库</h1>
+      <div className={`max-w-3xl mx-auto ${compact ? 'px-3 pb-3 pt-1' : 'p-6'}`}>
+        <h1 className={`${compact ? 'text-lg mb-2' : 'text-xl mb-3'} font-semibold text-fg-primary`}>卡片库</h1>
         {/* Search bar with mode switch */}
         <div
-          className="flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 mb-4"
+          className={`flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 ${compact ? 'mb-3' : 'mb-4'}`}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && searchMode !== 'keyword') {
               handleSearchSubmit()
@@ -508,7 +508,7 @@ if (searchQuery.trim()) {
         )}
 
         {/* Sort + Flomo sync */}
-        <div className="mb-4 flex items-center justify-between gap-2">
+        <div className={`${compact ? 'mb-3' : 'mb-4'} flex items-center justify-between gap-2`}>
           <div className="relative">
             <button
               ref={sortFloating.refs.setReference}

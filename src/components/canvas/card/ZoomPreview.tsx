@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react'
 import { useCardStore } from '../../../stores/cardStore'
 import { useLibraryStore } from '../../../stores/libraryStore'
-import { extractTitleFromJSON, extractFirstTextFromHTML } from '../utils/cardPreview'
+import { extractTitleFromJSON, extractPreviewTextFromHTML } from '../utils/cardPreview'
 import './zoomPreview.css'
 
 interface ZoomPreviewProps {
@@ -20,7 +20,7 @@ export const ZoomPreview = memo(function ZoomPreview({
 
   const preview = useMemo(() => {
     const html = previewHTML || useCardStore.getState().getPreviewHTML(cardId) || ''
-    return extractFirstTextFromHTML(html)
+    return extractPreviewTextFromHTML(html)
   }, [previewHTML, cardId])
 
   // zoom > 0.55: 用户在近距离查看卡片细节，不需要覆盖层。
@@ -37,7 +37,7 @@ export const ZoomPreview = memo(function ZoomPreview({
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: 'clamp(0, calc((0.5 - var(--rf-zoom, 1)) * 1000), 1)',
+          opacity: 'clamp(0, calc((var(--zoom-preview-threshold, 0.55) - var(--rf-zoom, 1)) * 1000), 1)',
           transition: 'opacity 0.2s ease',
           backgroundColor: 'inherit',
           pointerEvents: 'none',
@@ -51,7 +51,7 @@ export const ZoomPreview = memo(function ZoomPreview({
           position: 'absolute',
           inset: 0,
           overflow: 'hidden',
-          opacity: 'clamp(0, calc((0.5 - var(--rf-zoom, 1)) * 1000), 1)',
+          opacity: 'clamp(0, calc((var(--zoom-preview-threshold, 0.55) - var(--rf-zoom, 1)) * 1000), 1)',
           transition: 'opacity 0.2s ease',
           pointerEvents: 'none',
           zIndex: 6,
@@ -88,15 +88,21 @@ export const ZoomPreview = memo(function ZoomPreview({
           {preview && (
             <div
               style={{
-                fontSize: 'min(calc(14px * var(--rf-inv-zoom, 1)), 30px)',
-                lineHeight: 1.4,
-                minHeight: 'min(calc(19.6px * var(--rf-inv-zoom, 1)), 42px)',
+                fontSize: title
+                  ? 'min(calc(16px * var(--rf-inv-zoom, 1)), 36px)'
+                  : 'min(calc(18px * var(--rf-inv-zoom, 1)), 48px)',
+                lineHeight: 1.45,
+                minHeight: title
+                  ? 'min(calc(46px * var(--rf-inv-zoom, 1)), 104px)'
+                  : 'min(calc(56px * var(--rf-inv-zoom, 1)), 124px)',
                 textAlign: 'center',
-                opacity: 'calc(0.55 * clamp(0, calc((var(--rf-zoom, 1) - 0.25) * 1000), 1))',
+                opacity: 0.72,
                 transition: 'opacity 0.15s ease',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                display: '-webkit-box',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 2,
               }}
             >
               {preview}

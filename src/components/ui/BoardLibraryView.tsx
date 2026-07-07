@@ -77,7 +77,7 @@ function BoardMiniMap({
 
   if (!layout) {
     return (
-      <div className="flex h-full items-center justify-center rounded-xl bg-surface-panel/60 text-[11px] text-fg-tertiary">
+      <div className="flex h-full items-center justify-center rounded-md bg-surface-panel/60 text-[11px] text-fg-tertiary">
         空画板
       </div>
     )
@@ -86,7 +86,7 @@ function BoardMiniMap({
   const nodeById = new Map(cardNodes.map(n => [n.id, n]))
 
   return (
-    <div className="relative h-full overflow-hidden rounded-xl bg-surface-panel/60">
+    <div className="relative h-full overflow-hidden rounded-md bg-surface-panel/60">
       <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${layout.viewW} ${layout.viewH}`} preserveAspectRatio="xMidYMid meet">
         {edges.map(edge => {
           const source = nodeById.get(edge.source)
@@ -213,9 +213,9 @@ export function BoardLibraryView() {
                 <div
                   key={board.id}
                   onClick={() => handleBoardClick(board.id)}
-                  className={`group relative cursor-pointer rounded-xl bg-surface-card border border-line-default p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover ${isActive ? 'border-line-hover bg-surface-card-active' : ''}`}
+                  className={`group relative cursor-pointer rounded-lg bg-surface-card border border-line-default p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover ${isActive ? 'border-line-hover bg-surface-card-active' : ''}`}
                 >
-                  <div className="aspect-[4/3] w-full overflow-hidden rounded-lg">
+                  <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
                     <BoardMiniMap
                       nodes={preview.nodes}
                       edges={preview.edges}

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export type SortBy = 'updatedAt' | 'createdAt' | 'title' | 'related'
 export type SearchMode = 'hybrid' | 'keyword' | 'semantic'
@@ -23,12 +24,15 @@ interface LibraryStore {
   isZoomPreviewVisible: boolean
   setZoomPreviewVisible: (visible: boolean) => void
 
+  previewZoomThreshold: number
+  setPreviewZoomThreshold: (threshold: number) => void
+
   transform: [number, number, number]
   setTransform: (transform: [number, number, number]) => void
 }
 
 export const useLibraryStore = create<LibraryStore>()(
-  (set) => ({
+  persist((set) => ({
     sortBy: 'updatedAt',
     searchMode: 'hybrid',
     webviewUrl: null,
@@ -36,6 +40,7 @@ export const useLibraryStore = create<LibraryStore>()(
     tagFilter: null,
     zoom: 1,
     isZoomPreviewVisible: false,
+    previewZoomThreshold: 0.55,
     transform: [0, 0, 1],
 
     setSortBy: (sortBy) => set({ sortBy }),
@@ -55,6 +60,14 @@ export const useLibraryStore = create<LibraryStore>()(
     setZoomPreviewVisible: (visible) => set((state) => (
       state.isZoomPreviewVisible === visible ? state : { isZoomPreviewVisible: visible }
     )),
+    setPreviewZoomThreshold: (threshold) => set({
+      previewZoomThreshold: Math.min(0.9, Math.max(0.25, threshold)),
+    }),
     setTransform: (transform) => set({ transform }),
+  }), {
+    name: 'hepta-library-ui-prefs',
+    partialize: (state) => ({
+      previewZoomThreshold: state.previewZoomThreshold,
+    }),
   }),
 )

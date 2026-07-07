@@ -72,6 +72,7 @@ export function ReactFlowCanvas() {
   const kanbanEditDialogSourceRect = useViewStore((s) => s.kanbanEditDialogSourceRect)
   const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
   const gridPattern = useThemeStore((s) => s.gridPattern)
+  const previewZoomThreshold = useLibraryStore(s => s.previewZoomThreshold)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
@@ -350,6 +351,14 @@ export function ReactFlowCanvas() {
     reactFlowInstance.current = instance
   }, [])
 
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el) return
+    el.style.setProperty('--zoom-preview-threshold', String(previewZoomThreshold))
+    const zoom = useLibraryStore.getState().zoom
+    useLibraryStore.getState().setZoomPreviewVisible(zoom <= previewZoomThreshold)
+  }, [previewZoomThreshold])
+
   // 初始节点加载后立即 snap-fit（duration:0 → 无动画过渡，避免 fitView 动画与 card-enter 并发造成的卡顿）
   const initialFitDoneRef = useRef(false)
   useEffect(() => {
@@ -374,7 +383,7 @@ export function ReactFlowCanvas() {
           canvasRef.current.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
           canvasRef.current.style.setProperty('--rf-zoom', String(viewport.zoom))
           const library = useLibraryStore.getState()
-          const previewVisible = viewport.zoom <= 0.55
+          const previewVisible = viewport.zoom <= previewZoomThreshold
           library.setZoom(viewport.zoom)
           if (library.isZoomPreviewVisible !== previewVisible) {
             library.setZoomPreviewVisible(previewVisible)
@@ -387,7 +396,7 @@ export function ReactFlowCanvas() {
         useLibraryStore.setState({ transform: [viewport.x, viewport.y, viewport.zoom] })
       }
     })(),
-    [],
+    [previewZoomThreshold],
   )
 
   const onPaneClick = useCallback((event: React.MouseEvent) => {
@@ -426,7 +435,6 @@ export function ReactFlowCanvas() {
     if (viewState.editingCardId !== cardId) {
       viewState.setEditingCardId(cardId)
     }
-
   }, [])
 
   const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
