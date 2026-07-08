@@ -437,13 +437,20 @@ export function ReactFlowCanvas() {
     }
   }, [])
 
-  const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[] }) => {
+  const onSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: { nodes: Node[]; edges: Edge[] }) => {
+    if (selectedNodes.length > 0 && selectedEdges.length > 0) {
+      const selectedEdgeIds = new Set(selectedEdges.map(e => e.id))
+      setEdges(eds => eds.map(e => (
+        selectedEdgeIds.has(e.id) ? { ...e, selected: false } : e
+      )))
+    }
+
     const card = selectedNodes.find(n => n.type === 'card')
     if (card) {
       const cardId = (card.data as Record<string, unknown>)?.cardId as string | undefined
       if (cardId) handleActivateCardEditor(cardId)
     }
-  }, [handleActivateCardEditor])
+  }, [handleActivateCardEditor, setEdges])
 
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -526,10 +533,14 @@ export function ReactFlowCanvas() {
   }, [nodes])
 
   const [isDraggingNode, setIsDraggingNode] = useState(false)
-  const alignableNodes = useMemo(() => {
+  const selectedNodesForAlignment = useMemo(() => {
     if (isDraggingNode) return []
-    return nodes.filter(n => n.selected && (n.type === 'card' || n.type === 'media'))
+    return nodes.filter(n => n.selected)
   }, [nodes, isDraggingNode])
+  const selectedEdgesForAlignment = useMemo(() => {
+    if (isDraggingNode) return []
+    return edges.filter(e => e.selected)
+  }, [edges, isDraggingNode])
 
   const onApplyAlignment = useCallback((updates: Map<string, { x: number; y: number }>) => {
     if (recordTimerRef.current) {
@@ -644,7 +655,8 @@ export function ReactFlowCanvas() {
           pattern={gridPattern}
         />
         <AlignmentToolbar
-          selectedNodes={alignableNodes}
+          selectedNodes={selectedNodesForAlignment}
+          selectedEdges={selectedEdgesForAlignment}
           reactFlowInstance={reactFlowInstance}
           onApplyAlignment={onApplyAlignment}
           isDraggingNode={isDraggingNode}

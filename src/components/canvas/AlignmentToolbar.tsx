@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import type { Node, ReactFlowInstance } from '@xyflow/react'
+import type { Edge, Node, ReactFlowInstance } from '@xyflow/react'
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -15,6 +15,7 @@ import { computeAlignment, computeBoundingBox, type AlignmentMode } from './util
 
 interface AlignmentToolbarProps {
   selectedNodes: Node[]
+  selectedEdges?: Edge[]
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   onApplyAlignment: (updates: Map<string, { x: number; y: number }>) => void
   isDraggingNode?: boolean
@@ -31,14 +32,28 @@ const ALIGN_ITEMS: { mode: AlignmentMode; Icon: typeof AlignStartHorizontal; tit
   { mode: 'distributeV', Icon: AlignVerticalDistributeCenter, title: '垂直等间距', group: 'distribute' },
 ]
 
-export function AlignmentToolbar({ selectedNodes, reactFlowInstance, onApplyAlignment, isDraggingNode = false }: AlignmentToolbarProps) {
-  const canDistribute = selectedNodes.length >= 3
+function isAlignableNode(node: Node) {
+  return node.type === 'card' || node.type === 'media'
+}
 
+export function AlignmentToolbar({
+  selectedNodes,
+  selectedEdges = [],
+  reactFlowInstance,
+  onApplyAlignment,
+  isDraggingNode = false,
+}: AlignmentToolbarProps) {
+  const alignableNodes = useMemo(() => {
+    if (selectedEdges.length > 0) return []
+    if (selectedNodes.length < 2) return []
+    if (!selectedNodes.every(isAlignableNode)) return []
+    return selectedNodes
+  }, [selectedEdges.length, selectedNodes])
   const position = useMemo(() => {
     const rf = reactFlowInstance.current
-    if (!rf || isDraggingNode || selectedNodes.length < 2) return null
+    if (!rf || isDraggingNode || alignableNodes.length < 2) return null
 
-    const box = computeBoundingBox(selectedNodes)
+    const box = computeBoundingBox(alignableNodes)
     const topLeft = rf.flowToScreenPosition({ x: box.minX, y: box.minY })
     const bottomRight = rf.flowToScreenPosition({ x: box.maxX, y: box.maxY })
 
@@ -48,14 +63,16 @@ export function AlignmentToolbar({ selectedNodes, reactFlowInstance, onApplyAlig
     const y = aboveY >= 48 ? aboveY : belowY
 
     return { x: centerX, y, placeAbove: aboveY >= 48 }
-  }, [isDraggingNode, reactFlowInstance, selectedNodes])
+  }, [alignableNodes, isDraggingNode, reactFlowInstance])
 
   const handleClick = useCallback((mode: AlignmentMode) => {
-    const updates = computeAlignment(selectedNodes, mode)
+    const updates = computeAlignment(alignableNodes, mode)
     onApplyAlignment(updates)
-  }, [onApplyAlignment, selectedNodes])
+  }, [alignableNodes, onApplyAlignment])
 
   if (!position) return null
+
+  const canDistribute = alignableNodes.length >= 3
 
   return createPortal(
     <div
