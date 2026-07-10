@@ -1,6 +1,5 @@
 import { getBezierPath, BaseEdge, type Node, type ConnectionLineComponentProps, Position } from '@xyflow/react'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
-import type { CardNodeData } from '../../types/card'
 
 const SNAP_THRESHOLD = 50
 
@@ -8,6 +7,14 @@ let nodesRef: Node[] = []
 
 export function setNodesRef(nodes: Node[]) {
   nodesRef = nodes
+}
+
+// 读取节点尺寸（card / media / text 通用，统一从 data.width/height 取，缺省回退默认值）
+function getNodeSize(node: Node): { w: number; h: number } {
+  const d = node.data as Record<string, unknown>
+  const w = (d.width as number) ?? (node.width as number) ?? DEFAULT_CARD_WIDTH
+  const h = (d.height as number) ?? (node.height as number) ?? DEFAULT_CARD_HEIGHT
+  return { w, h }
 }
 
 function getNearestEdgePoint(
@@ -47,9 +54,7 @@ export function CustomConnectionLine({
 }: ConnectionLineComponentProps<Node>) {
   if (!fromNode) return null
 
-  const data = fromNode.data as CardNodeData
-  const w = data.width ?? DEFAULT_CARD_WIDTH
-  const h = data.height ?? DEFAULT_CARD_HEIGHT
+  const { w, h } = getNodeSize(fromNode)
 
   const sourcePoint = getNearestEdgePoint(
     fromNode.position.x,
@@ -66,19 +71,17 @@ export function CustomConnectionLine({
 
   for (const node of nodesRef) {
     if (node.id === fromNode.id) continue
-    const nd = node.data as CardNodeData
-    const nw = nd.width ?? DEFAULT_CARD_WIDTH
-    const nh = nd.height ?? DEFAULT_CARD_HEIGHT
+    const size = getNodeSize(node)
     const nx = node.position.x
     const ny = node.position.y
 
     if (
       toX >= nx - SNAP_THRESHOLD &&
-      toX <= nx + nw + SNAP_THRESHOLD &&
+      toX <= nx + size.w + SNAP_THRESHOLD &&
       toY >= ny - SNAP_THRESHOLD &&
-      toY <= ny + nh + SNAP_THRESHOLD
+      toY <= ny + size.h + SNAP_THRESHOLD
     ) {
-      const snap = getNearestEdgePoint(nx, ny, nw, nh, fromX, fromY)
+      const snap = getNearestEdgePoint(nx, ny, size.w, size.h, fromX, fromY)
       targetX = snap.x
       targetY = snap.y
       targetPosition = snap.position

@@ -76,6 +76,11 @@ html, body, #root {
   cursor: crosshair !important;
 }
 
+/* 文本注释工具模式：点击空白处放置注释 */
+.text-tool-mode .react-flow__pane {
+  cursor: text !important;
+}
+
 /* 框选中的卡片高亮 */
 .card-node-lasso-selected {
   outline: 2px solid var(--color-accent-blue) !important;
@@ -131,4 +136,140 @@ html, body, #root {
 .action-icon-btn:active {
   background: color-mix(in srgb, var(--fg-primary) 12%, transparent);
 }
-  
+
+.workspace-chrome-piece,
+.workspace-chrome-strip {
+  -webkit-backdrop-filter: var(--blur-panel);
+  backdrop-filter: var(--blur-panel);
+  background-color: var(--surface-panel);
+}
+
+.workspace-chrome-surface {
+  --workspace-chrome-radius: 14px;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.workspace-chrome-strip {
+  position: absolute;
+  transition:
+    top 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    right 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.workspace-chrome-corner {
+  position: absolute;
+  width: var(--workspace-chrome-radius);
+  height: var(--workspace-chrome-radius);
+  -webkit-backdrop-filter: var(--blur-panel);
+  backdrop-filter: var(--blur-panel);
+  background-color: var(--surface-panel);
+  transition:
+    top 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    right 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.workspace-chrome-corner-top-left {
+  top: var(--workspace-chrome-top);
+  left: var(--workspace-chrome-left);
+  -webkit-mask: radial-gradient(circle at 100% 100%, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+  mask: radial-gradient(circle at 100% 100%, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+}
+
+.workspace-chrome-corner-top-right {
+  top: var(--workspace-chrome-top);
+  right: var(--workspace-chrome-right);
+  -webkit-mask: radial-gradient(circle at 0 100%, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+  mask: radial-gradient(circle at 0 100%, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+}
+
+.workspace-chrome-corner-bottom-left {
+  bottom: var(--workspace-chrome-bottom);
+  left: var(--workspace-chrome-left);
+  -webkit-mask: radial-gradient(circle at 100% 0, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+  mask: radial-gradient(circle at 100% 0, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+}
+
+.workspace-chrome-corner-bottom-right {
+  right: var(--workspace-chrome-right);
+  bottom: var(--workspace-chrome-bottom);
+  -webkit-mask: radial-gradient(circle at 0 0, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+  mask: radial-gradient(circle at 0 0, transparent 0 var(--workspace-chrome-radius), #000 calc(var(--workspace-chrome-radius) + 1px));
+}
+
+.workspace-chrome-strip-top {
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--workspace-chrome-top);
+}
+
+.workspace-chrome-strip-left {
+  top: var(--workspace-chrome-top);
+  bottom: 0;
+  left: 0;
+  width: var(--workspace-chrome-left);
+}
+
+.workspace-chrome-strip-right {
+  top: var(--workspace-chrome-top);
+  right: 0;
+  bottom: 0;
+  width: var(--workspace-chrome-right);
+}
+
+.workspace-chrome-strip-bottom {
+  right: var(--workspace-chrome-right);
+  bottom: 0;
+  left: var(--workspace-chrome-left);
+  height: var(--workspace-chrome-bottom);
+}
+
+.workspace-canvas-aperture {
+  position: absolute;
+  top: var(--workspace-chrome-top);
+  right: var(--workspace-chrome-right);
+  bottom: var(--workspace-chrome-bottom);
+  left: var(--workspace-chrome-left);
+  border-radius: var(--workspace-chrome-radius);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg-primary) 7%, transparent);
+  transition:
+    top 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    right 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    bottom 0.16s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.workspace-integrated-panel {
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.workspace-panel-expand-button {
+  width: 34px;
+  height: 34px;
+  color: var(--fg-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  opacity: 0.82;
+}
+
+.workspace-panel-expand-button:hover {
+  color: var(--fg-primary);
+  background: color-mix(in srgb, var(--surface-panel) 72%, transparent);
+  border-color: color-mix(in srgb, var(--fg-primary) 8%, transparent);
+  -webkit-backdrop-filter: var(--blur-panel);
+  backdrop-filter: var(--blur-panel);
+  opacity: 1;
+}

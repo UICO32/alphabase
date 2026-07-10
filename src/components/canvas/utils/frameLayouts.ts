@@ -18,10 +18,13 @@ export interface LayoutResult {
 const HEADER_HEIGHT = 8
 const PADDING = 16
 const GAP = 12
-const KANBAN_COL_HEADER_H = 32
+export const KANBAN_COL_HEADER_H = 32
 export const KANBAN_CARD_HEIGHT = 140
-const KANBAN_CARD_GAP = 10
-const KANBAN_COL_GAP = 16
+export const KANBAN_CARD_GAP = 10
+export const KANBAN_COL_GAP = 16
+const BENTO_CARD_WIDTH = 260
+const BENTO_CARD_MIN_HEIGHT = 160
+const BENTO_CARD_MAX_HEIGHT = 260
 
 export const DEFAULT_KANBAN_COLUMNS: KanbanColumn[] = [
   { id: 'col-0', title: 'To Do', color: '#6366f1' },
@@ -45,14 +48,17 @@ export function computeLayout(
   }
 }
 
-function computeFreeLayout(_frame: Node, childNodes: Node[]): LayoutResult {
+function computeFreeLayout(frame: Node, childNodes: Node[]): LayoutResult {
   const positions: Record<string, { x: number; y: number }> = {}
   for (const node of childNodes) {
     const data = node.data as CardNodeData
     if (data.localX !== undefined && data.localY !== undefined) {
       positions[node.id] = { x: data.localX, y: data.localY }
     } else {
-      positions[node.id] = { x: node.position.x, y: node.position.y }
+      positions[node.id] = {
+        x: node.position.x - frame.position.x,
+        y: node.position.y - frame.position.y,
+      }
     }
   }
   return { positions }
@@ -63,41 +69,24 @@ function computeBentoLayout(frame: Node, childNodes: Node[]): LayoutResult {
   if (childNodes.length === 0) return { positions }
 
   const frameW = (frame.data.width as number) ?? frame.width ?? 600
-  const frameH = (frame.data.height as number) ?? frame.height ?? 400
   const contentW = frameW - PADDING * 2
-  const contentH = frameH - HEADER_HEIGHT - PADDING * 2
+  const columnCount = Math.max(1, Math.floor((contentW + GAP) / (BENTO_CARD_WIDTH + GAP)))
+  const cardWidth = Math.min(BENTO_CARD_WIDTH, Math.floor((contentW - (columnCount - 1) * GAP) / columnCount))
+  const columnHeights = Array.from({ length: columnCount }, () => HEADER_HEIGHT + PADDING)
 
-  const colW = Math.floor((contentW - GAP) / 2)
-
-  if (childNodes.length === 1) {
-    positions[childNodes[0].id] = { x: PADDING, y: HEADER_HEIGHT + PADDING, width: contentW, height: contentH }
-  } else if (childNodes.length === 2) {
-    positions[childNodes[0].id] = { x: PADDING, y: HEADER_HEIGHT + PADDING, width: colW, height: contentH }
-    positions[childNodes[1].id] = { x: PADDING + colW + GAP, y: HEADER_HEIGHT + PADDING, width: colW, height: contentH }
-  } else if (childNodes.length === 3) {
-    const topH = Math.floor(contentH * 0.45)
-    const bottomH = contentH - topH - GAP
-    positions[childNodes[0].id] = { x: PADDING, y: HEADER_HEIGHT + PADDING, width: contentW, height: topH }
-    positions[childNodes[1].id] = { x: PADDING, y: HEADER_HEIGHT + PADDING + topH + GAP, width: colW, height: bottomH }
-    positions[childNodes[2].id] = { x: PADDING + colW + GAP, y: HEADER_HEIGHT + PADDING + topH + GAP, width: colW, height: bottomH }
-  } else {
-    const rows = Math.ceil(childNodes.length / 2)
-    const rowH = Math.floor((contentH - (rows - 1) * GAP) / rows)
-
-    childNodes.forEach((node, index) => {
-      const col = index % 2
-      const row = Math.floor(index / 2)
-      const isLastRow = row === rows - 1
-      const itemsInLastRow = childNodes.length - (rows - 1) * 2
-      const w = isLastRow && itemsInLastRow === 1 ? contentW : colW
-      positions[node.id] = {
-        x: PADDING + col * (colW + GAP),
-        y: HEADER_HEIGHT + PADDING + row * (rowH + GAP),
-        width: w,
-        height: rowH,
-      }
-    })
-  }
+  childNodes.forEach((node) => {
+    const data = node.data as CardNodeData
+    const measuredHeight = data.height ?? BENTO_CARD_MIN_HEIGHT
+    const cardHeight = Math.max(BENTO_CARD_MIN_HEIGHT, Math.min(BENTO_CARD_MAX_HEIGHT, measuredHeight))
+    const col = columnHeights.indexOf(Math.min(...columnHeights))
+    positions[node.id] = {
+      x: PADDING + col * (cardWidth + GAP),
+      y: columnHeights[col],
+      width: cardWidth,
+      height: cardHeight,
+    }
+    columnHeights[col] += cardHeight + GAP
+  })
 
   return { positions }
 }
@@ -113,18 +102,24 @@ function computeKanbanLayout(frame: Node, childNodes: Node[]): LayoutResult {
   // 列宽：填满 Frame，列间用分隔线而非 gap，所以列宽 = (总宽 - 内边距) / 列数
   const colWidth = Math.floor((frameW - PADDING * 2 - (numCols - 1) * KANBAN_COL_GAP) / numCols)
 
-  // 将卡片分配到各列
+  const childById = new Map(childNodes.map(node => [node.id, node]))
+  const assigned = new Set<string>()
   const columnsWithCards: { cards: Node[] }[] = columns.map(() => ({ cards: [] }))
 
   const hasCardIds = columns.some(c => c.cardIds && c.cardIds.length > 0)
   if (hasCardIds) {
-    for (const node of childNodes) {
-      const colIdx = columns.findIndex(c => c.cardIds?.includes(node.id))
-      if (colIdx >= 0) {
+    columns.forEach((col, colIdx) => {
+      for (const cardId of col.cardIds ?? []) {
+        const node = childById.get(cardId)
+        if (!node || assigned.has(cardId)) continue
         columnsWithCards[colIdx].cards.push(node)
-      } else {
-        columnsWithCards[columnsWithCards.length - 1].cards.push(node)
+        assigned.add(cardId)
       }
+    })
+    for (const node of childNodes) {
+      if (assigned.has(node.id)) continue
+      columnsWithCards[columnsWithCards.length - 1].cards.push(node)
+      assigned.add(node.id)
     }
   } else {
     childNodes.forEach((node, index) => {
@@ -142,7 +137,7 @@ function computeKanbanLayout(frame: Node, childNodes: Node[]): LayoutResult {
     cards.forEach((node) => {
       const data = node.data as CardNodeData
       const h = data.height ?? KANBAN_CARD_HEIGHT
-      positions[node.id] = { x, y, width: colWidth }
+      positions[node.id] = { x, y, width: colWidth, height: h }
       y += h + KANBAN_CARD_GAP
     })
   })
@@ -198,7 +193,7 @@ export function restoreOrComputePositions(
   currentVersion?: number,
 ): LayoutResult {
   const computed = computeLayout(frame, childNodes, targetLayout)
-  const ver = currentVersion ?? 0
+  void currentVersion
   // bento 始终重新计算（自动排列型布局）
   if (targetLayout === 'bento') {
     return computed
@@ -224,25 +219,8 @@ export function restoreOrComputePositions(
     }
     return { positions }
   }
-  // kanban: 如果 Frame 快照版本落后，重新排列卡片
-  const frameSnapshot = (frame.data as FrameNodeData).layoutSnapshots?.[targetLayout]
-  const frameVersion = frameSnapshot?.version ?? 0
-  const stale = ver > 0 && frameVersion < ver
-  const positions: Record<string, { x: number; y: number; width?: number; height?: number }> = {}
-  for (const node of childNodes) {
-    if (stale) {
-      positions[node.id] = computed.positions[node.id]
-    } else {
-      const updatedData = cardDataUpdates.get(node.id)
-      const snapshot = updatedData?.layoutSnapshots?.[targetLayout]
-      if (snapshot) {
-        positions[node.id] = { x: snapshot.localX, y: snapshot.localY, width: snapshot.width, height: snapshot.height }
-      } else {
-        positions[node.id] = computed.positions[node.id]
-      }
-    }
-  }
-  return { positions }
+  // Kanban is order-driven: recompute from columns so stale snapshots cannot keep old widths or gaps.
+  return computed
 }
 
 export function restoreFrameDimensions(

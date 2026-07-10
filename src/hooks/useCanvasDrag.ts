@@ -6,7 +6,17 @@ import { calcSnapNudge, getNodesBounds, type SnapBounds } from '../components/ca
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, COLLAPSED_CARD_HEIGHT } from '../types/card'
 import type { CardNodeData } from '../types/card'
 import { globalToLocal, cardOverlapsFrame } from './useFrameSync'
-import { computeLayout, updateSingleCardSnapshot, saveFrameSnapshot, type FrameLayout, type KanbanColumn } from '../components/canvas/utils/frameLayouts'
+import {
+  computeLayout,
+  updateSingleCardSnapshot,
+  saveFrameSnapshot,
+  KANBAN_CARD_GAP,
+  KANBAN_CARD_HEIGHT,
+  KANBAN_COL_GAP,
+  KANBAN_COL_HEADER_H,
+  type FrameLayout,
+  type KanbanColumn,
+} from '../components/canvas/utils/frameLayouts'
 import type { FrameNodeData } from '../components/canvas/FrameNode'
 import { kanbanDragPreview } from '../components/canvas/utils/kanbanDragPreview'
 import { setDragOverFrameId } from '../components/canvas/utils/frameInteraction'
@@ -14,6 +24,8 @@ import { createCanvasSpatialIndex } from '../components/canvas/utils/canvasSpati
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
 
 const SNAP_THRESHOLD_PX = 3
+const FRAME_PADDING = 16
+const FRAME_HEADER_HEIGHT = 8
 
 interface SnapLock {
   targetValue: number
@@ -51,7 +63,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
       if (!instance) return
 
       // 隐形边缘吸附：Alt 按下时跳过
-      if (!altPressedRef.current && (node.type === 'card' || node.type === 'frame')) {
+      if (!altPressedRef.current && (node.type === 'card' || node.type === 'frame' || node.type === 'text')) {
         const zoom = instance.getViewport().zoom
         const threshold = SNAP_THRESHOLD_PX / zoom
 
@@ -150,14 +162,14 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
               { id: 'col-2', title: 'Done', color: '#10b981' },
             ]
             const numCols = columns.length
-            const colWidth = (frameW - 16 * 2 - (numCols - 1) * 16) / numCols
+            const colWidth = Math.floor((frameW - FRAME_PADDING * 2 - (numCols - 1) * KANBAN_COL_GAP) / numCols)
             const localX = node.position.x - frameNode.position.x
-            const colIdx = Math.min(Math.max(0, Math.floor(localX / (colWidth + 16))), numCols - 1)
-            const colX = 16 + colIdx * (colWidth + 16)
-            const HEADER_H = 8
-            const COL_HEADER_H = 32
-            const CARD_GAP = 10
-            const startY = HEADER_H + 16 + COL_HEADER_H + 4
+            const colIdx = Math.min(
+              Math.max(0, Math.floor((localX - FRAME_PADDING) / (colWidth + KANBAN_COL_GAP))),
+              numCols - 1,
+            )
+            const colX = FRAME_PADDING + colIdx * (colWidth + KANBAN_COL_GAP)
+            const startY = FRAME_HEADER_HEIGHT + FRAME_PADDING + KANBAN_COL_HEADER_H + 4
 
             const allNodes = instance.getNodes()
             const siblings = allNodes.filter(n => {
@@ -166,17 +178,26 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
               return d.frameId === frameId && n.type === 'card'
             })
             const colCardIds = new Set(columns[colIdx]?.cardIds ?? [])
-            const colSiblings = siblings.filter(n => colCardIds.has(n.id))
+            const colSiblings = colCardIds.size > 0
+              ? siblings.filter(n => colCardIds.has(n.id))
+              : siblings.filter(n => {
+                  const lx = n.position.x - frameNode.position.x
+                  const siblingColIdx = Math.min(
+                    Math.max(0, Math.floor((lx - FRAME_PADDING) / (colWidth + KANBAN_COL_GAP))),
+                    numCols - 1,
+                  )
+                  return siblingColIdx === colIdx
+                })
             const sortedByY = [...colSiblings].sort((a, b) => a.position.y - b.position.y)
 
             const dragData = node.data as CardNodeData
-            const dragCardH = dragData.height ?? 140
+            const dragCardH = dragData.height ?? KANBAN_CARD_HEIGHT
 
             let previewY = startY
             let insertIdx = sortedByY.length
             for (let i = 0; i < sortedByY.length; i++) {
               const sibData = sortedByY[i].data as CardNodeData
-              const sibH = sibData.height ?? 140
+              const sibH = sibData.height ?? KANBAN_CARD_HEIGHT
               const sibMid = sortedByY[i].position.y - frameNode.position.y + sibH / 2
               if (node.position.y - frameNode.position.y < sibMid) {
                 insertIdx = i
@@ -186,7 +207,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
 
             for (let i = 0; i < insertIdx; i++) {
               const sibData = sortedByY[i].data as CardNodeData
-              previewY += (sibData.height ?? 140) + CARD_GAP
+              previewY += (sibData.height ?? KANBAN_CARD_HEIGHT) + KANBAN_CARD_GAP
             }
 
             kanbanDragPreview.set({
@@ -373,7 +394,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
 
         const frameW = ((kf.data as Record<string, unknown>).width as number) ?? kf.width ?? 600
         const numCols = columns.length
-        const colWidth = (frameW - 16 * 2 - (numCols - 1) * 16) / numCols
+        const colWidth = Math.floor((frameW - FRAME_PADDING * 2 - (numCols - 1) * KANBAN_COL_GAP) / numCols)
 
         const newColumns: KanbanColumn[] = columns.map(col => ({
           ...col,
@@ -385,7 +406,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         for (const child of sortedChildren) {
           const localX = child.position.x - kf.position.x
           const colIdx = Math.min(
-            Math.max(0, Math.floor(localX / (colWidth + 16))),
+            Math.max(0, Math.floor((localX - FRAME_PADDING) / (colWidth + KANBAN_COL_GAP))),
             numCols - 1,
           )
           newColumns[colIdx].cardIds!.push(child.id)

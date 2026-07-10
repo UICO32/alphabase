@@ -19,6 +19,7 @@ import { ErrorBoundary } from '../ErrorBoundary'
 import { CardNode } from './CardNode'
 import { MediaNode } from './MediaNode'
 import { FrameNode, type FrameNodeData } from './FrameNode'
+import { TextAnnotationNode } from './TextAnnotationNode'
 import { CardEditDialog } from '../ui/CardEditDialog'
 import { useViewStore } from '../../stores/viewStore'
 import { useThemeStore } from '../../stores/themeStore'
@@ -47,14 +48,15 @@ import { useCanvasDoubleClick } from '../../hooks/useCanvasDoubleClick'
 import { type GlobalCard } from '../../stores/cardStore'
 import { connectionMediator } from './utils/connectionMediator'
 import { kanbanDragPreview } from './utils/kanbanDragPreview'
-import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds } from './utils/frameInteraction'
-import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
+import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds, exitTextToolMode, setAutoEditAnnoId } from './utils/frameInteraction'
+import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT, DEFAULT_ANNOTATION_CONTENT } from '../../types/card'
 import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
 
 const nodeTypes = {
   card: CardNode,
   frame: FrameNode,
   media: MediaNode,
+  text: TextAnnotationNode,
 }
 
 const edgeTypes = {
@@ -64,10 +66,12 @@ const edgeTypes = {
 export function ReactFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [selectionForAlignment, setSelectionForAlignment] = useState<{ nodes: Node[]; edges: Edge[] }>({ nodes: [], edges: [] })
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
   const lassoRect = useFrameInteraction((s) => s.lassoRect)
+  const isTextToolMode = useFrameInteraction((s) => s.textToolMode)
   const kanbanEditDialogCardId = useViewStore((s) => s.kanbanEditDialogCardId)
   const kanbanEditDialogSourceRect = useViewStore((s) => s.kanbanEditDialogSourceRect)
   const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
@@ -402,8 +406,43 @@ export function ReactFlowCanvas() {
   const onPaneClick = useCallback((event: React.MouseEvent) => {
     if (event.button !== 0) return
 
+    // 文本注释工具：点击空白处放置一个文本注释节点并自动进入编辑
+    if (isTextToolMode) {
+      const instance = reactFlowInstance.current
+      if (!instance) return
+      snapshotNow()
+      const position = instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      const annoId = crypto.randomUUID()
+      setNodes((nds) => [
+        ...nds,
+        {
+          id: annoId,
+          type: 'text',
+          position,
+          data: {
+            content: DEFAULT_ANNOTATION_CONTENT,
+            fontSize: 'md',
+            align: 'left',
+            color: 'white',
+            width: DEFAULT_ANNOTATION_WIDTH,
+            height: DEFAULT_ANNOTATION_HEIGHT,
+          },
+          style: {
+            width: DEFAULT_ANNOTATION_WIDTH,
+            minWidth: DEFAULT_ANNOTATION_WIDTH,
+          },
+          zIndex: 10,
+        },
+      ])
+      exitTextToolMode()
+      setAutoEditAnnoId(annoId)
+      setTimeout(() => recordCurrentState(), 0)
+      return
+    }
+
     connectionMediator.clear()
     kanbanDragPreview.clear()
+    setSelectionForAlignment({ nodes: [], edges: [] })
 
     // Auto-delete empty autoEdit card when clicking blank area
     const { autoEditCardId } = useViewStore.getState()
@@ -428,7 +467,7 @@ export function ReactFlowCanvas() {
     if (currentViewMode !== 'board') {
       useViewStore.getState().setViewMode('board')
     }
-  }, [setNodes, setEdges])
+  }, [setNodes, setEdges, isTextToolMode, snapshotNow, recordCurrentState])
 
   const handleActivateCardEditor = useCallback((cardId: string) => {
     const viewState = useViewStore.getState()
@@ -443,6 +482,9 @@ export function ReactFlowCanvas() {
       setEdges(eds => eds.map(e => (
         selectedEdgeIds.has(e.id) ? { ...e, selected: false } : e
       )))
+      setSelectionForAlignment({ nodes: selectedNodes, edges: [] })
+    } else {
+      setSelectionForAlignment({ nodes: selectedNodes, edges: selectedEdges })
     }
 
     const card = selectedNodes.find(n => n.type === 'card')
@@ -488,7 +530,7 @@ export function ReactFlowCanvas() {
       const flowRadius = PROXIMITY_THRESHOLD / zoom
       const candidates = spatialIndexRef.current
         .queryPoint(flowPoint, flowRadius)
-        .filter(item => item.type === 'card' && item.id !== pending.sourceNodeId)
+        .filter(item => (item.type === 'card' || item.type === 'text') && item.id !== pending.sourceNodeId)
 
       for (const item of candidates) {
         const node = item.node
@@ -535,12 +577,14 @@ export function ReactFlowCanvas() {
   const [isDraggingNode, setIsDraggingNode] = useState(false)
   const selectedNodesForAlignment = useMemo(() => {
     if (isDraggingNode) return []
-    return nodes.filter(n => n.selected)
-  }, [nodes, isDraggingNode])
+    const nodeIds = new Set(nodes.map(n => n.id))
+    return selectionForAlignment.nodes.filter(n => nodeIds.has(n.id))
+  }, [isDraggingNode, nodes, selectionForAlignment.nodes])
   const selectedEdgesForAlignment = useMemo(() => {
     if (isDraggingNode) return []
-    return edges.filter(e => e.selected)
-  }, [edges, isDraggingNode])
+    const edgeIds = new Set(edges.map(e => e.id))
+    return selectionForAlignment.edges.filter(e => edgeIds.has(e.id))
+  }, [edges, isDraggingNode, selectionForAlignment.edges])
 
   const onApplyAlignment = useCallback((updates: Map<string, { x: number; y: number }>) => {
     if (recordTimerRef.current) {
@@ -610,7 +654,7 @@ export function ReactFlowCanvas() {
 
   return (
     <ErrorBoundary>
-		    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''}`} ref={canvasRef} onMouseDown={handleDoubleClickMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
+		    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''} ${isTextToolMode ? 'text-tool-mode' : ''}`} ref={canvasRef} onMouseDown={handleDoubleClickMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
 	      <ReactFlow
         nodes={sortedNodes}
         edges={visibleEdges}

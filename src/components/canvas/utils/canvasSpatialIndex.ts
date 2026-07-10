@@ -1,5 +1,5 @@
 import type { Node } from '@xyflow/react'
-import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_HEIGHT, DEFAULT_CARD_WIDTH } from '../../../types/card'
+import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT } from '../../../types/card'
 
 export interface IndexedNodeBounds {
   id: string
@@ -22,6 +22,8 @@ const DEFAULT_FRAME_WIDTH = 600
 const DEFAULT_FRAME_HEIGHT = 400
 const DEFAULT_MEDIA_WIDTH = 320
 const DEFAULT_MEDIA_HEIGHT = 220
+const DEFAULT_TEXT_WIDTH = DEFAULT_ANNOTATION_WIDTH
+const DEFAULT_TEXT_HEIGHT = DEFAULT_ANNOTATION_HEIGHT
 const DEFAULT_CELL_SIZE = 512
 
 export function getNodeBoundsForIndex(node: Node): IndexedNodeBounds {
@@ -32,11 +34,11 @@ export function getNodeBoundsForIndex(node: Node): IndexedNodeBounds {
   let height = Number(data.height ?? node.height)
 
   if (!Number.isFinite(width) || width <= 0) {
-    width = type === 'frame' ? DEFAULT_FRAME_WIDTH : type === 'media' ? DEFAULT_MEDIA_WIDTH : DEFAULT_CARD_WIDTH
+    width = type === 'frame' ? DEFAULT_FRAME_WIDTH : type === 'media' ? DEFAULT_MEDIA_WIDTH : type === 'text' ? DEFAULT_TEXT_WIDTH : DEFAULT_CARD_WIDTH
   }
 
   if (!Number.isFinite(height) || height <= 0) {
-    height = type === 'frame' ? DEFAULT_FRAME_HEIGHT : type === 'media' ? DEFAULT_MEDIA_HEIGHT : DEFAULT_CARD_HEIGHT
+    height = type === 'frame' ? DEFAULT_FRAME_HEIGHT : type === 'media' ? DEFAULT_MEDIA_HEIGHT : type === 'text' ? DEFAULT_TEXT_HEIGHT : DEFAULT_CARD_HEIGHT
   }
 
   if (type === 'card' && data.collapsed === true) {
@@ -83,7 +85,7 @@ function cellRange(rect: RectLike, cellSize: number) {
 export function createCanvasSpatialIndex(nodes: Node[], cellSize = DEFAULT_CELL_SIZE) {
   const cells = new Map<string, IndexedNodeBounds[]>()
   const bounds = nodes
-    .filter((node) => node.type === 'card' || node.type === 'frame' || node.type === 'media')
+    .filter((node) => node.type === 'card' || node.type === 'frame' || node.type === 'media' || node.type === 'text')
     .map(getNodeBoundsForIndex)
 
   for (const item of bounds) {

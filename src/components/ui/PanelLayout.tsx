@@ -2,7 +2,7 @@ import { ArrowLeftToLine, ArrowRightToLine } from 'lucide-react'
 
 export function PanelSeparator() {
   return (
-    <div className="h-px my-2 bg-border-default" />
+    <div className="h-1" />
   )
 }
 

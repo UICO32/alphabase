@@ -13,33 +13,43 @@
   pointer-events: none;
 }
 
-/* Card reference inline content */
-.card-blocknote-editor [data-card-id] {
-  background-color: var(--card-ref-bg);
+/* Inline chips share one box model in preview and edit modes. */
+.card-blocknote-editor [data-card-id],
+.card-blocknote-editor [data-tag-name],
+.card-preview-native [data-card-id],
+.card-preview-native [data-tag-name] {
   border-radius: 3px;
-  padding: 0 3px;
-  color: var(--card-ref-color);
-  font-weight: 500;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  box-sizing: border-box;
   cursor: pointer;
+  display: inline;
+  font-weight: 500;
+  line-height: inherit;
+  padding: 0 3px;
   text-decoration: none;
   transition: background-color 0.15s;
 }
-.card-blocknote-editor [data-card-id]:hover {
+
+.card-blocknote-editor [data-card-id],
+.card-preview-native [data-card-id] {
+  background-color: var(--card-ref-bg);
+  color: var(--card-ref-color);
+}
+
+.card-blocknote-editor [data-card-id]:hover,
+.card-preview-native [data-card-id]:hover {
   background-color: var(--card-ref-bg-hover);
 }
 
-/* Tag inline content */
-.card-blocknote-editor [data-tag-name] {
+.card-blocknote-editor [data-tag-name],
+.card-preview-native [data-tag-name] {
   background-color: var(--tag-bg);
-  border-radius: 3px;
-  padding: 0 3px;
   color: var(--tag-color);
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background-color 0.15s;
 }
-.card-blocknote-editor [data-tag-name]:hover {
+
+.card-blocknote-editor [data-tag-name]:hover,
+.card-preview-native [data-tag-name]:hover {
   background-color: var(--tag-bg-hover);
 }
 
@@ -52,10 +62,13 @@
 /* Inline editor: transparent background to let card fill color show through */
 .card-blocknote-editor .bn-container {
   --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: currentColor;
+  color: inherit;
 }
 .card-blocknote-editor .bn-editor,
 .card-blocknote-editor .ProseMirror {
   background-color: transparent !important;
+  color: inherit !important;
   padding-inline: 0 !important;
   padding: 0 !important;
 }
@@ -63,13 +76,18 @@
 /* Override BlockNote default font-size (16px) to inherit parent's 13px,
    so em-based heading sizes match between edit and preview modes */
 .card-blocknote-editor .bn-default-styles {
+  color: inherit !important;
   font-size: inherit !important;
+}
+
+.card-blocknote-editor .bn-inline-content:not([data-card-id]):not([data-tag-name]) {
+  color: inherit;
 }
 
 /* ─── Preview mode: reuse BlockNote native CSS ─── */
 
 .card-preview-native.bn-editor { padding-inline: 0 !important; --N800: #172b4d; --N40: #dfe1e6; }
-.card-preview-native.bn-default-styles { font-size: inherit !important; background-color: transparent !important; }
+.card-preview-native.bn-default-styles { color: inherit !important; font-size: inherit !important; background-color: transparent !important; }
 .card-preview-native .bn-container { --bn-colors-editor-background: transparent; }
 .card-preview-native .bn-editor,
 .card-preview-native .ProseMirror { background-color: transparent !important; padding-inline: 0 !important; padding: 0 !important; }
@@ -78,24 +96,6 @@
 .card-preview-native .ProseMirror-selectednode > * { outline: none !important; }
 .card-preview-native .column-resize-handle,
 .card-preview-native .prosemirror-dropcursor-* { display: none !important; }
-
-/* Tag & cardReference inline content in preview mode */
-.card-preview-native [data-tag-name] {
-  background-color: var(--tag-bg);
-  border-radius: 3px;
-  padding: 0 3px;
-  color: var(--tag-color);
-  font-weight: 500;
-  text-decoration: none;
-}
-.card-preview-native [data-card-id] {
-  background-color: var(--card-ref-bg);
-  border-radius: 3px;
-  padding: 0 3px;
-  color: var(--card-ref-color);
-  font-weight: 500;
-  text-decoration: none;
-}
 
 /* Formatting toolbar z-index — editing cards are raised at React Flow node level,
    so this only needs to win inside the active card. */
@@ -112,3 +112,56 @@
 .card-library-preview .bn-inline-content { display: inline !important; }
 .card-library-preview .bn-block-group { margin-left: 0 !important; }
 .card-library-preview .bn-block-outer { margin: 0 !important; }
+
+/* ─── 文本注释编辑器 (annotation-editor) 专用样式 ───
+   单段落、透明背景、紧凑 padding，与卡片编辑器区分 */
+
+.annotation-editor .bn-editor,
+.annotation-editor .ProseMirror {
+  background-color: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+}
+
+.annotation-editor .bn-block-outer {
+  margin: 0 !important;
+  min-height: 0 !important;
+}
+
+.annotation-editor .bn-block-content {
+  padding: 0 !important;
+  min-height: 0 !important;
+}
+
+.annotation-editor .bn-block-group {
+  margin: 0 !important;
+}
+
+.annotation-editor .bn-inline-content {
+  display: block;
+  line-height: inherit;
+  min-height: 0 !important;
+}
+
+/* 空段落 placeholder：缩短为 "Enter text"，颜色更克制 */
+.annotation-editor .bn-inline-content:has(>.ProseMirror-trailingBreak:only-child):before {
+  color: var(--fg-tertiary, #9ca3af);
+  opacity: 0.7;
+}
+
+.annotation-editor .bn-inline-content:not(:has(>.ProseMirror-trailingBreak:only-child)):before {
+  content: none !important;
+  display: none !important;
+}
+
+/* 编辑态允许文本选区光标穿透；非编辑态禁用交互 */
+.annotation-editor .ProseMirror {
+  cursor: text;
+  user-select: text;
+}
+.annotation-editor:not(.card-blocknote-editor--editable) .ProseMirror {
+  pointer-events: none;
+  cursor: default;
+  user-select: none;
+}

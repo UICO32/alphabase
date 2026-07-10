@@ -12,6 +12,10 @@ interface FrameInteractionState {
   lassoRect: LassoRect | null
   lassoSelectedCardIds: Set<string>
   dragOverFrameId: string | null
+  /** 文本注释工具激活态：点击画布空白处放置一个文本注释节点 */
+  textToolMode: boolean
+  /** 刚创建的文本注释节点 id，用于自动进入编辑态（消费后清空） */
+  autoEditAnnoId: string | null
 }
 
 export const useFrameInteraction = create<FrameInteractionState>(() => ({
@@ -19,6 +23,8 @@ export const useFrameInteraction = create<FrameInteractionState>(() => ({
   lassoRect: null,
   lassoSelectedCardIds: new Set<string>(),
   dragOverFrameId: null,
+  textToolMode: false,
+  autoEditAnnoId: null,
 }))
 
 export function enterLassoMode() {
@@ -39,4 +45,16 @@ export function setLassoSelectedCardIds(ids: Set<string>) {
 
 export function setDragOverFrameId(id: string | null) {
   useFrameInteraction.setState({ dragOverFrameId: id })
+}
+
+export function enterTextToolMode() {
+  useFrameInteraction.setState({ textToolMode: true })
+}
+
+export function exitTextToolMode() {
+  useFrameInteraction.setState({ textToolMode: false })
+}
+
+export function setAutoEditAnnoId(id: string | null) {
+  useFrameInteraction.setState({ autoEditAnnoId: id })
 }

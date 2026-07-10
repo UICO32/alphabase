@@ -17,12 +17,13 @@ import {
 const SIDEBAR_WIDTH = 260
 
 interface LeftPanelProps {
+  integratedSurface?: boolean
   onOpenSettings?: () => void
   onOpenTrash?: () => void
   onOpenWorkspacePicker?: () => void
 }
 
-export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }: LeftPanelProps) {
+export function LeftPanel({ integratedSurface = false, onOpenSettings, onOpenTrash, onOpenWorkspacePicker }: LeftPanelProps) {
   const leftPanelCollapsed = usePanelStore(s => s.leftPanelCollapsed)
   const viewMode = useViewStore(s => s.viewMode)
   const setLeftPanelCollapsed = usePanelStore(s => s.setLeftPanelCollapsed)
@@ -44,6 +45,9 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
     switchBoard,
     openInExplorer,
   } = useBoardActions()
+  const panelSurfaceClass = integratedSurface
+    ? 'workspace-integrated-panel'
+    : `glass-panel-large ${viewMode !== 'board' ? 'glass-panel-flat' : ''}`
 
   return (
     <>
@@ -52,10 +56,10 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
         style={{ width: SIDEBAR_WIDTH, transform: `translateX(${leftPanelCollapsed ? -SIDEBAR_WIDTH : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
       >
         <div
-          className={`flex flex-col overflow-hidden glass-panel-large h-full transition-theme ${viewMode !== 'board' ? 'glass-panel-flat' : ''}`}
+          className={`flex flex-col overflow-hidden h-full transition-theme ${panelSurfaceClass}`}
           onWheel={handleWheel}
         >
-          <div className="flex items-center justify-between px-4 py-4 border-b border-line-default transition-theme">
+          <div className="flex items-center justify-between px-3 py-2.5 transition-theme">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div
                 className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer rounded-md px-1 py-1 hover:bg-surface-card-hover"
@@ -77,7 +81,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
           </div>
 
           <div
-            className="segmented m-2"
+            className="segmented mx-2 mb-1 mt-0.5"
             style={{
               '--active-index': viewMode === 'cards' ? 1 : 0,
               '--seg-count': 2,
@@ -112,7 +116,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
             onOpenInExplorer={openInExplorer}
           />
 
-          <div className="px-2 py-2">
+          <div className="px-2 pb-2 pt-1">
             <button
               className="btn-base flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer w-full text-fg-secondary hover:bg-surface-card-hover hover:text-fg-primary"
               onClick={onOpenTrash}
@@ -127,7 +131,7 @@ export function LeftPanel({ onOpenSettings, onOpenTrash, onOpenWorkspacePicker }
       {leftPanelCollapsed && (
         <button
           onClick={() => setLeftPanelCollapsed(false)}
-          className="action-icon-btn fixed top-10 left-2 z-50 w-10 h-10 rounded-lg shadow-md glass-panel border border-line-default"
+          className="action-icon-btn workspace-panel-expand-button fixed top-9 left-3 z-50 rounded-lg"
         >
           <ArrowRightToLine size={16} />
         </button>

@@ -72,7 +72,7 @@ describe('computeLayout', () => {
       expect.objectContaining({ width: expect.any(Number) }),
     )
     // computeKanbanLayout 只返回 {x, y, width}，height 来自卡片 data
-    expect(result.positions['c1'].height).toBeUndefined()
+    expect(result.positions['c1'].height).toBe(150)
   })
 
   it('layout=undefined 走 free 分支', () => {
@@ -90,9 +90,7 @@ describe('computeBentoLayout', () => {
   const PADDING = 16
   const HEADER_HEIGHT = 8
   const GAP = 12
-  const contentW = 600 - PADDING * 2
-  const contentH = 400 - HEADER_HEIGHT - PADDING * 2
-  const colW = Math.floor((contentW - GAP) / 2)
+  const fixedCardW = 260
 
   it('0 张卡片 → 空 positions', () => {
     const result = computeLayout(frame, [], 'bento')
@@ -105,8 +103,8 @@ describe('computeBentoLayout', () => {
     expect(result.positions['c1']).toEqual({
       x: PADDING,
       y: HEADER_HEIGHT + PADDING,
-      width: contentW,
-      height: contentH,
+      width: fixedCardW,
+      height: 160,
     })
   })
 
@@ -116,69 +114,63 @@ describe('computeBentoLayout', () => {
     expect(result.positions['c1']).toEqual({
       x: PADDING,
       y: HEADER_HEIGHT + PADDING,
-      width: colW,
-      height: contentH,
+      width: fixedCardW,
+      height: 160,
     })
     expect(result.positions['c2']).toEqual({
-      x: PADDING + colW + GAP,
+      x: PADDING + fixedCardW + GAP,
       y: HEADER_HEIGHT + PADDING,
-      width: colW,
-      height: contentH,
+      width: fixedCardW,
+      height: 160,
     })
   })
 
   it('3 张卡片 → 顶部 1 张占满，底部 2 张各半', () => {
     const children = [makeCardNode('c1'), makeCardNode('c2'), makeCardNode('c3')]
     const result = computeLayout(frame, children, 'bento')
-    const topH = Math.floor(contentH * 0.45)
-    const bottomH = contentH - topH - GAP
-
     expect(result.positions['c1']).toEqual({
       x: PADDING,
       y: HEADER_HEIGHT + PADDING,
-      width: contentW,
-      height: topH,
+      width: fixedCardW,
+      height: 160,
     })
     expect(result.positions['c2']).toEqual({
-      x: PADDING,
-      y: HEADER_HEIGHT + PADDING + topH + GAP,
-      width: colW,
-      height: bottomH,
+      x: PADDING + fixedCardW + GAP,
+      y: HEADER_HEIGHT + PADDING,
+      width: fixedCardW,
+      height: 160,
     })
     expect(result.positions['c3']).toEqual({
-      x: PADDING + colW + GAP,
-      y: HEADER_HEIGHT + PADDING + topH + GAP,
-      width: colW,
-      height: bottomH,
+      x: PADDING,
+      y: HEADER_HEIGHT + PADDING + 160 + GAP,
+      width: fixedCardW,
+      height: 160,
     })
   })
 
   it('4+ 张卡片 → 2 列网格，最后一行奇数时单张占满', () => {
     const children = [makeCardNode('c1'), makeCardNode('c2'), makeCardNode('c3'), makeCardNode('c4'), makeCardNode('c5')]
     const result = computeLayout(frame, children, 'bento')
-    const rows = Math.ceil(5 / 2)
-    const rowH = Math.floor((contentH - (rows - 1) * GAP) / rows)
-
     // c1 row 0 col 0
     expect(result.positions['c1']).toEqual({
       x: PADDING,
       y: HEADER_HEIGHT + PADDING,
-      width: colW,
-      height: rowH,
+      width: fixedCardW,
+      height: 160,
     })
     // c4 row 1 col 1
     expect(result.positions['c4']).toEqual({
-      x: PADDING + colW + GAP,
-      y: HEADER_HEIGHT + PADDING + (rowH + GAP),
-      width: colW,
-      height: rowH,
+      x: PADDING + fixedCardW + GAP,
+      y: HEADER_HEIGHT + PADDING + 160 + GAP,
+      width: fixedCardW,
+      height: 160,
     })
     // c5 最后一行奇数 → 占满整行
     expect(result.positions['c5']).toEqual({
       x: PADDING,
-      y: HEADER_HEIGHT + PADDING + 2 * (rowH + GAP),
-      width: contentW,
-      height: rowH,
+      y: HEADER_HEIGHT + PADDING + 2 * (160 + GAP),
+      width: fixedCardW,
+      height: 160,
     })
   })
 
@@ -250,7 +242,7 @@ describe('computeFreeLayout', () => {
     const frame = makeFrameNode()
     const children = [makeCardNode('c1', { position: { x: 200, y: 300 }, data: { cardId: 'c1', color: 'white' } })]
     const result = computeLayout(frame, children, 'free')
-    expect(result.positions['c1']).toEqual({ x: 200, y: 300 })
+    expect(result.positions['c1']).toEqual({ x: 100, y: 200 })
   })
 })
 
@@ -403,7 +395,7 @@ describe('restoreOrComputePositions', () => {
       layoutSnapshots: { kanban: { localX: 50, localY: 100, width: 170, height: 140 } },
     })
     const result = restoreOrComputePositions(frame, children, 'kanban', cardDataUpdates, 3)
-    expect(result.positions['c1']).toEqual({ x: 50, y: 100, width: 170, height: 140 })
+    expect(result.positions['c1']).toEqual(computeLayout(frame, children, 'kanban').positions['c1'])
   })
 
   it('kanban + 版本未过期 + 无快照 → 用计算值', () => {

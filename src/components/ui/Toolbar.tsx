@@ -1,8 +1,8 @@
 import { useLibraryStore } from '../../stores/libraryStore'
 import { usePanelStore } from '../../stores/panelStore'
-import { useFrameInteraction, enterLassoMode } from '../canvas/utils/frameInteraction'
+import { useFrameInteraction, enterLassoMode, enterTextToolMode } from '../canvas/utils/frameInteraction'
 import { emit } from '../../stores/eventBus'
-import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Axis3d, GalleryVerticalEnd, Compass } from 'lucide-react'
+import { Plus, ZoomIn, ZoomOut, Maximize, Scissors, Frame, Axis3d, GalleryVerticalEnd, Compass, Type } from 'lucide-react'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/shadcn/tooltip'
 
 interface ToolbarProps {
@@ -15,6 +15,7 @@ interface ToolbarProps {
 export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopography }: ToolbarProps) {
   const zoom = useLibraryStore(s => s.zoom)
   const isLassoMode = useFrameInteraction(s => s.lassoMode)
+  const isTextToolMode = useFrameInteraction(s => s.textToolMode)
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -80,6 +81,18 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">框选创建 Frame</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={enterTextToolMode}
+                className={`action-icon-btn p-2 rounded-full ${isTextToolMode ? 'bg-surface-card-active text-accent-blue' : ''}`}
+              >
+                <Type size={16} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">文本注释（点击画布放置）</TooltipContent>
           </Tooltip>
         </div>
 

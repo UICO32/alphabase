@@ -23,7 +23,7 @@ export interface BoardManifest {
 
 export interface BoardNode {
   id: string
-  type: 'card' | 'frame' | 'media'
+  type: 'card' | 'frame' | 'media' | 'text'
   position: { x: number; y: number }
   data: Record<string, unknown>
   width?: number

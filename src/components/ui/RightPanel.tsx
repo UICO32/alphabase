@@ -15,10 +15,11 @@ const LazyCardBlockNoteEditor = lazy(() =>
 )
 
 interface RightPanelProps {
+  integratedSurface?: boolean
   onOpenSettings?: () => void
 }
 
-export function RightPanel({ onOpenSettings }: RightPanelProps) {
+export function RightPanel({ integratedSurface = false, onOpenSettings }: RightPanelProps) {
   const rightPanelCollapsed = usePanelStore(s => s.rightPanelCollapsed)
   const setRightPanelCollapsed = usePanelStore(s => s.setRightPanelCollapsed)
   const rightPanelActiveTab = usePanelStore(s => s.rightPanelActiveTab)
@@ -61,7 +62,6 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
     e.stopPropagation()
   }, [])
 
-
   if (viewMode !== 'board') return null
 
   const showEditorTab = rightPanelActiveTab === 'editor' || !!editingCardId
@@ -70,7 +70,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
   return (
     <>
       <div
-        className="absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden glass-panel-large"
+        className={`absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden ${integratedSurface ? 'workspace-integrated-panel' : 'glass-panel-large'}`}
         style={{ width: rightPanelWidth, transform: `translateX(${rightPanelCollapsed ? rightPanelWidth : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
         onWheel={handleWheel}
       >
@@ -80,7 +80,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
           onPointerDown={handleResizeStart}
         />
 
-      <div className="flex items-center justify-between px-3 py-3 border-b border-line-default transition-theme">
+      <div className="flex items-center justify-between px-2.5 py-2 transition-theme">
 	        <div
 	          className="segmented"
 	          style={{
@@ -142,7 +142,7 @@ export function RightPanel({ onOpenSettings }: RightPanelProps) {
     {rightPanelCollapsed && (
       <button
         onClick={() => setRightPanelCollapsed(false)}
-        className="action-icon-btn fixed top-10 right-2 z-50 w-10 h-10 rounded-lg shadow-md glass-panel border border-line-default"
+        className="action-icon-btn workspace-panel-expand-button fixed top-9 right-3 z-50 rounded-lg"
       >
         <ArrowLeftToLine size={16} />
       </button>

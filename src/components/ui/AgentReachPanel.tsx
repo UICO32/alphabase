@@ -191,7 +191,7 @@ export function AgentReachPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Platform tabs */}
-      <div className="flex gap-1 px-3 py-2 border-b border-line-default">
+      <div className="flex gap-1 px-3 pt-1 pb-1.5">
         {(Object.entries(PLATFORM_CONFIG) as [Platform, typeof config][]).map(([p, c]) => (
           <button
             key={p}
@@ -204,7 +204,7 @@ export function AgentReachPanel() {
       </div>
 
       {/* Action bar */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-line-default">
+      <div className="flex items-center gap-1.5 px-3 pb-2">
         {config.actions.filter(a => a !== 'search').map((a) => {
           const ac = ACTION_CONFIG[a]
           const Icon = ac.icon
@@ -262,7 +262,7 @@ export function AgentReachPanel() {
           <div
             key={item.id}
             onClick={() => handleClip(item)}
-            className="flex items-start gap-2 px-3 py-2 border-b border-line-default hover:bg-surface-card-hover transition-colors cursor-pointer"
+            className="flex items-start gap-2 mx-2 rounded-lg px-2 py-2 hover:bg-surface-card-hover transition-colors cursor-pointer"
           >
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium text-fg-primary truncate">{item.title}</div>

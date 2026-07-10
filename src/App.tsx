@@ -6,6 +6,7 @@ import { RightPanel } from './components/ui/RightPanel'
 import { Toolbar } from './components/ui/Toolbar'
 import { ClipUrlBar } from './components/ui/ClipUrlBar'
 import { TitleBar } from './components/ui/TitleBar'
+import { WorkspaceChromeSurface } from './components/ui/WorkspaceChromeSurface'
 import { useViewStore } from './stores/viewStore'
 import { usePanelStore } from './stores/panelStore'
 import { useCardStore } from './stores/cardStore'
@@ -22,6 +23,10 @@ import { useAppEvents } from './hooks/useAppEvents'
 import { preloadCardEditor } from './components/canvas/card/CardContent'
 import { setupAIListeners } from './stores/aiStore'
 import { Toaster } from '@/components/ui/shadcn/sonner'
+
+const LEFT_PANEL_WIDTH = 260
+const TITLE_BAR_HEIGHT = 24
+const CANVAS_CHROME_GAP = 8
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
 const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
@@ -154,8 +159,21 @@ function App() {
 
   const isBoardView = viewMode === 'board'
   const leftPanelCollapsed = usePanelStore(s => s.leftPanelCollapsed)
+  const rightPanelCollapsed = usePanelStore(s => s.rightPanelCollapsed)
+  const rightPanelWidth = usePanelStore(s => s.rightPanelWidth)
   // 非画板视图下，左侧面板展开时主内容向右平移 260px，与 LeftPanel translateX 同步动画
-  const mainPaddingLeft = (!isBoardView && !leftPanelCollapsed) ? 260 : 0
+  const mainPaddingLeft = (!isBoardView && !leftPanelCollapsed) ? LEFT_PANEL_WIDTH : 0
+  const immersiveCanvas = isBoardView && leftPanelCollapsed && rightPanelCollapsed
+  const embeddedCanvas = isBoardView && !immersiveCanvas
+  const titleBarVisible = !isBoardView || embeddedCanvas
+  const contentTop = titleBarVisible ? TITLE_BAR_HEIGHT : 0
+  const mainTop = isBoardView ? -contentTop : 0
+  const chromeInsets = {
+    top: CANVAS_CHROME_GAP,
+    right: rightPanelCollapsed ? CANVAS_CHROME_GAP : rightPanelWidth + CANVAS_CHROME_GAP,
+    bottom: CANVAS_CHROME_GAP,
+    left: leftPanelCollapsed ? CANVAS_CHROME_GAP : LEFT_PANEL_WIDTH + CANVAS_CHROME_GAP,
+  }
 
   useEffect(() => {
     if (!dataReady) return
@@ -168,29 +186,46 @@ function App() {
 
   return (
     <ErrorBoundary>
-    <div className="w-full h-full flex flex-col" style={{ backgroundColor: 'var(--surface-panel)' }}>
+    <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--surface-panel)' }}>
       <Toaster position="bottom-center" richColors />
-      <TitleBar />
-      <div className="flex-1 min-h-0" style={{ position: 'relative' }}>
+      <div
+        className={`group absolute left-0 right-0 top-0 z-50 overflow-visible transition-[height] duration-150 ${immersiveCanvas ? 'h-1.5 hover:h-6' : 'h-6 workspace-chrome-piece'}`}
+      >
+        <div className={`transition-opacity duration-150 ${immersiveCanvas ? 'workspace-chrome-piece opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+          <TitleBar />
+        </div>
+      </div>
+      <div
+        className="absolute left-0 right-0 bottom-0"
+        style={{
+          top: contentTop,
+          transition: 'top 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
         <LeftPanel
+          integratedSurface={embeddedCanvas}
           onOpenSettings={() => setShowSettings(true)}
           onOpenTrash={() => setShowTrash(true)}
           onOpenWorkspacePicker={() => setShowWorkspacePicker(true)}
         />
 
         <main
-          className="absolute inset-0 overflow-hidden"
+          className="absolute left-0 right-0 bottom-0 overflow-hidden"
           style={{
+            top: mainTop,
             backgroundColor: (isBoardView && showTopography) ? '#0a0f2e' : 'var(--surface-app)',
-            transition: 'background-color 0.4s ease, padding-left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            borderRadius: 0,
+            transition: 'top 0.16s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease, padding-left 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
             paddingLeft: mainPaddingLeft,
           }}
         >
           {renderMainContent()}
         </main>
 
-        {isBoardView && <RightPanel onOpenSettings={() => setShowSettings(true)} />}
+        {embeddedCanvas && (
+          <WorkspaceChromeSurface {...chromeInsets} />
+        )}
+
+        {isBoardView && <RightPanel integratedSurface={embeddedCanvas} onOpenSettings={() => setShowSettings(true)} />}
       </div>
 
       {isBoardView && (

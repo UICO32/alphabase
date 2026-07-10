@@ -5,7 +5,7 @@ export function serializeBoardData(nodes: Node[], edges: Edge[]): SerializableBo
   return {
     nodes: nodes.map((n) => ({
       id: n.id,
-      type: (n.type === 'card' || n.type === 'frame' || n.type === 'media') ? n.type : 'card',
+      type: (n.type === 'card' || n.type === 'frame' || n.type === 'media' || n.type === 'text') ? n.type : 'card',
       position: { x: n.position.x, y: n.position.y },
       data: { ...n.data },
       width: n.width as number | undefined,

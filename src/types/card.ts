@@ -31,6 +31,23 @@ export const DEFAULT_CARD_CONTENT = '[{"type":"heading","props":{"level":2},"con
 export const COLLAPSED_CARD_HEIGHT = 80
 export const PROXIMITY_THRESHOLD = 60
 
+// ─── 文本注释节点 (Text Annotation Node) ───
+// 画布级文字标注，不进入卡片库，内容内联存储在节点 data 中。
+export type AnnotationFontSize = 'sm' | 'md' | 'lg' | 'xl'
+export type AnnotationAlign = 'left' | 'center' | 'right'
+
+export const ANNOTATION_FONT_SIZES: Record<AnnotationFontSize, number> = {
+  sm: 12,
+  md: 14,
+  lg: 18,
+  xl: 24,
+}
+
+export const DEFAULT_ANNOTATION_WIDTH = 200
+export const DEFAULT_ANNOTATION_HEIGHT = 28
+// 单段落 BlockNote 文档（空段落）
+export const DEFAULT_ANNOTATION_CONTENT = '[{"type":"paragraph","content":[]}]'
+
 import type { FrameLayout } from '../components/canvas/utils/frameLayouts'
 
 export interface LayoutSnapshot {
@@ -44,6 +61,16 @@ export interface MediaNodeData extends Record<string, unknown> {
   url: string
   type: 'image' | 'video' | 'embed'
   name?: string
+}
+
+export interface TextAnnotationNodeData extends Record<string, unknown> {
+  /** 单段落 BlockNote 文档 JSON 字符串 */
+  content: string
+  fontSize: AnnotationFontSize
+  align: AnnotationAlign
+  color: CardColor
+  width?: number
+  height?: number
 }
 
 export interface CardNodeData extends Record<string, unknown> {

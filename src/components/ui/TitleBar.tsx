@@ -21,7 +21,7 @@ export function TitleBar() {
 
   return (
     <div
-      className="flex items-center h-7 shrink-0 select-none glass-panel"
+      className="flex items-center h-6 shrink-0 select-none bg-transparent"
       style={{
         WebkitAppRegion: 'drag',
       } as React.CSSProperties}
@@ -36,7 +36,7 @@ export function TitleBar() {
       <div className="flex h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <button
           onClick={handleMinimize}
-          className="window-btn flex items-center justify-center h-full px-3 text-fg-secondary hover:bg-surface-panel-hover transition-colors"
+          className="window-btn flex items-center justify-center h-full px-2.5 text-fg-secondary hover:bg-surface-panel-hover transition-colors"
         >
           <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
             <rect width="10" height="1" />
@@ -44,7 +44,7 @@ export function TitleBar() {
         </button>
         <button
           onClick={handleMaximize}
-          className="window-btn flex items-center justify-center h-full px-3 text-fg-secondary hover:bg-surface-panel-hover transition-colors"
+          className="window-btn flex items-center justify-center h-full px-2.5 text-fg-secondary hover:bg-surface-panel-hover transition-colors"
         >
           {isMaximized ? (
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
@@ -60,7 +60,7 @@ export function TitleBar() {
         </button>
         <button
           onClick={handleClose}
-          className="window-btn window-btn-close flex items-center justify-center h-full px-3 text-fg-secondary transition-colors"
+          className="window-btn window-btn-close flex items-center justify-center h-full px-2.5 text-fg-secondary transition-colors"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
             <line x1="0" y1="0" x2="10" y2="10" />

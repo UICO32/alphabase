@@ -33,7 +33,7 @@ const ALIGN_ITEMS: { mode: AlignmentMode; Icon: typeof AlignStartHorizontal; tit
 ]
 
 function isAlignableNode(node: Node) {
-  return node.type === 'card' || node.type === 'media'
+  return node.type === 'card' || node.type === 'media' || node.type === 'text'
 }
 
 export function AlignmentToolbar({
