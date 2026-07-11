@@ -95,7 +95,8 @@
 /* Remove interactive states (selection highlight, drag cursor, etc.) */
 .card-preview-native .ProseMirror-selectednode > * { outline: none !important; }
 .card-preview-native .column-resize-handle,
-.card-preview-native .prosemirror-dropcursor-* { display: none !important; }
+.card-preview-native [class^="prosemirror-dropcursor-"],
+.card-preview-native [class*=" prosemirror-dropcursor-"] { display: none !important; }
 
 /* Formatting toolbar z-index — editing cards are raised at React Flow node level,
    so this only needs to win inside the active card. */

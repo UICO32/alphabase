@@ -20,6 +20,7 @@ import type { CardColor } from '../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 import { migrateInlineImagesForWorkspace } from '../media/migrateInlineImages'
+import { preloadCardEditor } from '../components/editor/preloadCardEditor'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
@@ -120,16 +121,6 @@ export function useWorkspaceDataLoader() {
     stepTime('loadWorkspaceData-enter')
     const service = new WorkspaceService()
     service.setWorkspacePath(workspacePath)
-
-    // 注册工作区路径到主进程白名单，解锁 fs:* IPC。workspace:registerPath
-    // handler 早就存在，但前端从未调用 → registeredPaths 永远为空 →
-    // isPathWithinWorkspace 永远返回 false → 所有 fs 读写被拒（"Path outside
-    // workspace"），embedding 等子系统无法工作。
-    try {
-      await (window as any).electronAPI?.workspace?.registerPath(workspacePath)
-    } catch (err) {
-      console.warn('[workspace] registerPath failed:', err)
-    }
 
     emitStartupProgress('加载数据...', 0, 4)
 
@@ -511,7 +502,7 @@ if (!workspacePath) {
 
         // 预加载编辑器 chunk，不等 dataReady
         preloadTimer = setTimeout(() => {
-          import('../components/canvas/card/CardContent').then(m => m.preloadCardEditor()).catch(() => {})
+          preloadCardEditor()
         }, 2000)
 
         if (!cancelled) {

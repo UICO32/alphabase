@@ -6,10 +6,12 @@
  * path traversal outside allowed workspaces.
  */
 
+import { isAbsolute, relative, resolve } from 'node:path'
+
 const registeredWorkspaces = new Set<string>()
 
 function normalize(p: string): string {
-  const resolved = p.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
+  const resolved = resolve(p).replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved
 }
 
@@ -29,7 +31,8 @@ export function isPathWithinWorkspace(filePath: string): boolean {
   if (registeredWorkspaces.size === 0) return false
   const normalized = normalize(filePath)
   for (const ws of registeredWorkspaces) {
-    if (normalized === ws || normalized.startsWith(ws + '/')) {
+    const pathFromWorkspace = relative(ws, normalized)
+    if (pathFromWorkspace === '' || (!pathFromWorkspace.startsWith('..') && !isAbsolute(pathFromWorkspace))) {
       return true
     }
   }

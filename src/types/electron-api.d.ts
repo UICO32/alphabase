@@ -119,10 +119,6 @@ declare global {
       app: {
         readChangelog: () => Promise<string>
       }
-      workspace: {
-        registerPath: (path: string) => Promise<void>
-        unregisterPath: (path: string) => Promise<void>
-      }
     }
   }
 }

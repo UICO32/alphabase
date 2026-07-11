@@ -8,7 +8,8 @@ delete process.env.ELECTRON_RUN_AS_NODE
 import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
 import { startupLog } from './startupLog'
 import { join, dirname, resolve } from 'path'
-import { getRegisteredWorkspacePaths, isPathWithinWorkspace, registerWorkspacePath, unregisterWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
+import { getRegisteredWorkspacePaths, isPathWithinWorkspace, registerWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
+import { isAllowedMainFrameNavigation, isAllowedWebviewUrl } from './navigationSecurity'
 import { fileURLToPath } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
 import { dirname as pathDirname } from 'path'
@@ -59,6 +60,34 @@ startupLog(`main process loaded: ${__t0}, ELECTRON_RUN_AS_NODE=${process.env.ELE
 
 let mainWindow: BrowserWindow | null = null
 
+function authorizedWorkspacesFile() {
+  return join(app.getPath('userData'), 'authorized-workspaces.json')
+}
+
+async function restoreAuthorizedWorkspaces() {
+  try {
+    const raw = await readFile(authorizedWorkspacesFile(), 'utf8')
+    const paths: unknown = JSON.parse(raw)
+    if (!Array.isArray(paths)) return
+    for (const workspacePath of paths) {
+      if (typeof workspacePath === 'string') registerWorkspacePath(workspacePath)
+    }
+  } catch {
+    // No saved workspace authorization yet is expected on a first launch.
+  }
+}
+
+async function authorizeWorkspacePath(workspacePath: string) {
+  registerWorkspacePath(workspacePath)
+  await fsWriteFile(authorizedWorkspacesFile(), JSON.stringify(getRegisteredWorkspacePaths()))
+}
+
+function assertMainWindowSender(event: Electron.IpcMainInvokeEvent) {
+  if (!mainWindow || event.sender !== mainWindow.webContents) {
+    throw new Error('IPC sender is not the application window')
+  }
+}
+
 function createWindow() {
   const winOptions: Electron.BrowserWindowConstructorOptions = {
     width: 1200,
@@ -72,6 +101,7 @@ function createWindow() {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       webviewTag: true,
       backgroundThrottling: false,
     },
@@ -138,12 +168,21 @@ function createWindow() {
   })
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowed = url.startsWith('hepta-media://')
-      || (process.env.VITE_DEV_SERVER_URL && url.startsWith(process.env.VITE_DEV_SERVER_URL))
-      || url.includes('localhost')
-    if (!allowed) {
+    if (!isAllowedMainFrameNavigation(url, process.env.VITE_DEV_SERVER_URL)) {
       event.preventDefault()
     }
+  })
+
+  mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    delete webPreferences.preload
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
+    if (!isAllowedWebviewUrl(params.src)) event.preventDefault()
+  })
+
+  mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false)
   })
 
   // On window close: flush pending writes, then allow close
@@ -179,10 +218,11 @@ function createWindow() {
 }
 
 if (gotSingleInstanceLock) {
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
   __t1 = Date.now()
   logInfo(`[startup] app.whenReady: ${__t1 - __t0}ms`)
   startupLog(`app.whenReady: ${__t1 - __t0}ms, userData=${app.getPath('userData')}`)
+  await restoreAuthorizedWorkspaces()
   protocol.handle('hepta-media', async (request) => {
     try {
       const url = new URL(request.url)
@@ -329,35 +369,32 @@ ipcMain.handle('startup:log', async (_event, data: { totalMs: number; steps: { n
   return true
 })
 
-ipcMain.handle('workspace:registerPath', (_event, path: string) => {
-  registerWorkspacePath(path)
-})
-
-ipcMain.handle('workspace:unregisterPath', (_event, path: string) => {
-  unregisterWorkspacePath(path)
-})
-
-ipcMain.handle('fs:readFile', async (_event, path: string) => {
+ipcMain.handle('fs:readFile', async (event, path: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   return await readFile(path)
 })
 
-ipcMain.handle('fs:writeFile', async (_event, filePath: string, data: Uint8Array | number[] | string) => {
+ipcMain.handle('fs:writeFile', async (event, filePath: string, data: Uint8Array | number[] | string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(filePath)) throw new Error(`Path outside workspace: ${filePath}`)
   await fsWriteFile(filePath, typeof data === 'string' ? data : Buffer.from(data))
 })
 
-ipcMain.handle('fs:deleteFile', async (_event, path: string) => {
+ipcMain.handle('fs:deleteFile', async (event, path: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   await unlink(path)
 })
 
-ipcMain.handle('fs:readdir', async (_event, path: string) => {
+ipcMain.handle('fs:readdir', async (event, path: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   return await fsReaddir(path)
 })
 
-ipcMain.handle('fs:readDirFiles', async (_event, dirPath: string) => {
+ipcMain.handle('fs:readDirFiles', async (event, dirPath: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(dirPath)) throw new Error(`Path outside workspace: ${dirPath}`)
   try {
     const files = await fsReaddir(dirPath)
@@ -375,18 +412,21 @@ ipcMain.handle('fs:readDirFiles', async (_event, dirPath: string) => {
   }
 })
 
-ipcMain.handle('fs:mkdir', async (_event, path: string) => {
+ipcMain.handle('fs:mkdir', async (event, path: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   await fsMkdirDir(path, { recursive: true })
 })
 
-ipcMain.handle('fs:stat', async (_event, path: string) => {
+ipcMain.handle('fs:stat', async (event, path: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   const st = await fsStat(path)
   return { isDirectory: st.isDirectory(), size: st.size, mtimeMs: st.mtimeMs }
 })
 
-ipcMain.handle('fs:exists', async (_event, filePath: string) => {
+ipcMain.handle('fs:exists', async (event, filePath: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(filePath)) {
     logInfo(`[security] fs:exists rejected path: ${filePath}`)
     throw new Error(`Path outside workspace: ${filePath}`)
@@ -399,22 +439,28 @@ ipcMain.handle('fs:exists', async (_event, filePath: string) => {
   }
 })
 
-ipcMain.handle('fs:rename', async (_event, oldPath: string, newPath: string) => {
+ipcMain.handle('fs:rename', async (event, oldPath: string, newPath: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(oldPath) || !isPathWithinWorkspace(newPath)) throw new Error(`Path outside workspace: old=${oldPath} new=${newPath}`)
   await fsRename(oldPath, newPath)
 })
 
-ipcMain.handle('fs:rmdir', async (_event, path: string) => {
+ipcMain.handle('fs:rmdir', async (event, path: string) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   await rm(path, { recursive: true, force: true })
 })
 
-ipcMain.handle('dialog:openDirectory', async () => {
+ipcMain.handle('dialog:openDirectory', async (event) => {
+  assertMainWindowSender(event)
   if (!mainWindow) return null
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
   })
-  return result.canceled ? null : result.filePaths[0]
+  if (result.canceled) return null
+  const workspacePath = result.filePaths[0]
+  await authorizeWorkspacePath(workspacePath)
+  return workspacePath
 })
 
 ipcMain.handle('shell:openExternal', async (_event, url: string) => {

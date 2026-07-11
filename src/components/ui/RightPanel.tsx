@@ -5,13 +5,16 @@ import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { CollapseButton } from './SharedUI'
-import { CardLibraryView } from './CardLibraryView'
 import { GalleryVerticalEnd, FileText, ArrowLeftToLine, Globe, Compass } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
 import { AgentReachPanel } from './AgentReachPanel'
 
 const LazyCardBlockNoteEditor = lazy(() =>
   import('../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
+)
+
+const CardLibraryView = lazy(() =>
+  import('./CardLibraryView').then(m => ({ default: m.CardLibraryView }))
 )
 
 interface RightPanelProps {
@@ -119,7 +122,7 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
         {rightPanelActiveTab === 'channels' ? (
           <AgentReachPanel />
         ) : rightPanelActiveTab === 'library' ? (
-          !rightPanelCollapsed && <CardLibraryView onOpenSettings={onOpenSettings} compact />
+          !rightPanelCollapsed && <Suspense fallback={null}><CardLibraryView onOpenSettings={onOpenSettings} compact /></Suspense>
         ) : showEditorContent ? (
 	          <div key={editingCardId} className="h-full animate-fadeIn">
 	            <ClipAwareEditorView

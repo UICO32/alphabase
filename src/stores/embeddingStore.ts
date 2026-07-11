@@ -284,9 +284,12 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   },
 
   removeVector: async (cardId: string) => {
+    const embedding = window.electronAPI?.embedding
+    if (!embedding) return
+
     try {
-      await window.electronAPI.embedding.removeVector(cardId)
-      const status = await window.electronAPI.embedding.getStatus()
+      await embedding.removeVector(cardId)
+      const status = await embedding.getStatus()
       if (status.docCount > 0 || status.initialized) {
         await get().cluster()
       }

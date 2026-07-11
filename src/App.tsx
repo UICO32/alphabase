@@ -20,7 +20,7 @@ import { cleanupSubscriptions } from './sync/subscriptionManager'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
-import { preloadCardEditor } from './components/canvas/card/CardContent'
+import { preloadCardEditor } from './components/editor/preloadCardEditor'
 import { setupAIListeners } from './stores/aiStore'
 import { Toaster } from '@/components/ui/shadcn/sonner'
 
