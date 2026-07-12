@@ -3,20 +3,15 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useContourScene } from './useContourScene'
 import { useClusterData } from './useClusterData'
-import { useEmbeddingStore } from '../../stores/embeddingStore'
-import { useCardStore } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
+import { useCardStore } from '../../stores/cardStore'
+import { TopographyControls } from './TopographyControls'
+import { buildHouses, updateSilhouette } from './houseGeometry'
 import type { TopicPeak } from './types'
-
-
 
 const DARK_BG = 0x00000f
 const LIGHT_BG = 0xf5f5f0
-
-// DIN family: DIN Alternate (macOS), DIN 1451 (some installs), Oswald as the
-// Google Fonts geometric fallback so Windows/Linux don't drop to plain Helvetica.
-const DIN_FONT = "'DIN Alternate', 'DIN 1451', DIN, Oswald, 'Helvetica Neue', sans-serif"
 
 const DARK_COLORS = {
   bg: DARK_BG, fog: 0x00000f, fogDensity: 0.018,
@@ -36,326 +31,6 @@ const LIGHT_COLORS = {
   compassColor: 0xb8860b,
   labelBg: 'rgba(0,0,0,.72)', labelColor: 'rgba(255,255,255,.9)',
   textColor: 'rgba(120,80,0,0.7)', errorColor: 'rgba(200,60,60,0.8)',
-}
-
-// Deterministic hash from string for reproducible scatter
-function hashStr(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
-  return h
-}
-
-// Low-poly house: solid white fill + dynamic black silhouette edges
-// Silhouette = edges shared by two faces whose normals point to opposite sides of the view
-interface HouseData {
-  fillMesh: THREE.Mesh
-  outlineMesh: THREE.LineSegments
-  hitMesh: THREE.Mesh
-  // Precomputed face normals (unit) in local space
-  faceNormals: THREE.Vector3[]
-  // Edge-face adjacency: each edge knows which two faces share it
-  // edgeFaces[i] = [faceA, faceB] or [faceA, -1] for boundary edges
-  edgeFaces: number[][]
-  // All edge vertex positions (pairs) in local space
-  edgeVerts: Float32Array
-}
-
-function buildHouseTemplate(): {
-  fillGeo: Float32Array
-  faceNormals: THREE.Vector3[]
-  edgeVerts: Float32Array
-  edgeFaces: number[][]
-} {
-  const bw = 0.09, bh = 0.08, bd = 0.07
-  const hw = bw / 2, hd = bd / 2
-  const by = 0
-  const rh = 0.07, ry = by + bh
-  const rw = hw, rd = hd
-
-  // Vertices
-  const V = {
-    bfl: [-hw, by, -hd], bfr: [hw, by, -hd], bbr: [hw, by, hd], bbl: [-hw, by, hd],
-    tfl: [-hw, by + bh, -hd], tfr: [hw, by + bh, -hd], tbr: [hw, by + bh, hd], tbl: [-hw, by + bh, hd],
-    rfl: [-rw, ry, -rd], rfr: [rw, ry, -rd], rbr: [rw, ry, rd], rbl: [-rw, ry, rd],
-    pk: [0, ry + rh, 0],
-  }
-
-  // Faces (triangles) — each face = [v0, v1, v2]
-  const faces: number[][] = [
-    // Box: front (-z)
-    [...V.bfl, ...V.bfr, ...V.tfr], [...V.bfl, ...V.tfr, ...V.tfl],
-    // Box: back (+z)
-    [...V.bbr, ...V.bbl, ...V.tbl], [...V.bbr, ...V.tbl, ...V.tbr],
-    // Box: right (+x)
-    [...V.bfr, ...V.bbr, ...V.tbr], [...V.bfr, ...V.tbr, ...V.tfr],
-    // Box: left (-x)
-    [...V.bbl, ...V.bfl, ...V.tfl], [...V.bbl, ...V.tfl, ...V.tbl],
-    // Box: top
-    [...V.tfl, ...V.tfr, ...V.tbr], [...V.tfl, ...V.tbr, ...V.tbl],
-    // Box: bottom
-    [...V.bbl, ...V.bbr, ...V.bfr], [...V.bbl, ...V.bfr, ...V.bfl],
-    // Roof: front
-    [...V.rfl, ...V.rfr, ...V.pk],
-    // Roof: back
-    [...V.rbr, ...V.rbl, ...V.pk],
-    // Roof: right
-    [...V.rfr, ...V.rbr, ...V.pk],
-    // Roof: left
-    [...V.rbl, ...V.rfl, ...V.pk],
-  ]
-
-  // Compute face normals
-  const faceNormals: THREE.Vector3[] = []
-  for (const f of faces) {
-    const a = new THREE.Vector3(f[0], f[1], f[2])
-    const b = new THREE.Vector3(f[3], f[4], f[5])
-    const c = new THREE.Vector3(f[6], f[7], f[8])
-    const n = new THREE.Vector3().crossVectors(
-      new THREE.Vector3().subVectors(b, a),
-      new THREE.Vector3().subVectors(c, a),
-    ).normalize()
-    faceNormals.push(n)
-  }
-
-  // Fill geometry
-  const fillVerts: number[] = []
-  for (const f of faces) fillVerts.push(...f)
-
-  // All unique edges (as vertex pairs) and their face adjacency
-  // Key = sorted vertex key for dedup
-  const vk = (v: number[]) => v.map(c => Math.round(c * 1e5)).join(',')
-  const edgeMap = new Map<string, { v0: number[]; v1: number[]; faces: number[] }>()
-
-  // Each face (pair of triangles) shares edges — we define faces as quads for box + tris for roof
-  const quads: number[][][] = [
-    // Box faces as quads [v0,v1,v2,v3]
-    [V.bfl, V.bfr, V.tfr, V.tfl], // front
-    [V.bbr, V.bbl, V.tbl, V.tbr], // back
-    [V.bfr, V.bbr, V.tbr, V.tfr], // right
-    [V.bbl, V.bfl, V.tfl, V.tbl], // left
-    [V.tfl, V.tfr, V.tbr, V.tbl], // top
-    [V.bbl, V.bbr, V.bfr, V.bfl], // bottom
-  ]
-  // Roof faces as triangles [v0,v1,v2]
-  const roofTris: number[][][] = [
-    [V.rfl, V.rfr, V.pk], // front
-    [V.rbr, V.rbl, V.pk], // back
-    [V.rfr, V.rbr, V.pk], // right
-    [V.rbl, V.rfl, V.pk], // left
-  ]
-
-  // Map quad/poly face index → list of triangle face indices in `faces` array
-  // Box quads: each quad = 2 triangles → face indices 0-1, 2-3, 4-5, 6-7, 8-9, 10-11
-  // Roof tris: each tri = 1 triangle → face indices 12, 13, 14, 15
-  function addEdge(v0: number[], v1: number[], polyIdx: number) {
-    const k0 = vk(v0), k1 = vk(v1)
-    const key = k0 < k1 ? k0 + '|' + k1 : k1 + '|' + k0
-    let entry = edgeMap.get(key)
-    if (!entry) {
-      entry = { v0: k0 < k1 ? v0 : v1, v1: k0 < k1 ? v1 : v0, faces: [] }
-      edgeMap.set(key, entry)
-    }
-    if (!entry.faces.includes(polyIdx)) entry.faces.push(polyIdx)
-  }
-
-  // Add edges from quads
-  for (let qi = 0; qi < quads.length; qi++) {
-    const q = quads[qi]
-    for (let j = 0; j < q.length; j++) {
-      addEdge(q[j], q[(j + 1) % q.length], qi)
-    }
-  }
-  // Add edges from roof triangles
-  for (let ti = 0; ti < roofTris.length; ti++) {
-    const t = roofTris[ti]
-    const polyIdx = quads.length + ti
-    for (let j = 0; j < t.length; j++) {
-      addEdge(t[j], t[(j + 1) % t.length], polyIdx)
-    }
-  }
-
-  // Build edge vertex buffer and adjacency
-  const edges = [...edgeMap.values()]
-  const edgeVerts = new Float32Array(edges.length * 6)
-  const edgeFaces: number[][] = []
-  for (let i = 0; i < edges.length; i++) {
-    const e = edges[i]
-    edgeVerts[i * 6] = e.v0[0]; edgeVerts[i * 6 + 1] = e.v0[1]; edgeVerts[i * 6 + 2] = e.v0[2]
-    edgeVerts[i * 6 + 3] = e.v1[0]; edgeVerts[i * 6 + 4] = e.v1[1]; edgeVerts[i * 6 + 5] = e.v1[2]
-    edgeFaces.push(e.faces)
-  }
-
-  return {
-    fillGeo: new Float32Array(fillVerts),
-    faceNormals,
-    edgeVerts,
-    edgeFaces,
-  }
-}
-
-// Precompute poly-face average normals (for silhouette detection)
-// Each poly-face has an average normal from its constituent triangles
-function buildPolyNormals(faceNormals: THREE.Vector3[], polyFaceIndices: number[][]): THREE.Vector3[] {
-  return polyFaceIndices.map(indices => {
-    const avg = new THREE.Vector3()
-    for (const idx of indices) avg.add(faceNormals[idx])
-    return avg.normalize()
-  })
-}
-
-const POLY_FACE_INDICES: number[][] = [
-  [0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11],
-  [12], [13], [14], [15],
-]
-
-function buildHouses(
-  peaks: TopicPeak[],
-  cardTitles: Record<string, string>,
-  H: (x: number, z: number) => number,
-  yOff: number,
-  contourLevels: number[],
-): { houses: HouseData[]; houseWorldPositions: Array<{ x: number; y: number; z: number; cardId: string; title: string }> } {
-  const template = buildHouseTemplate()
-  const polyNormals = buildPolyNormals(template.faceNormals, POLY_FACE_INDICES)
-  const houses: HouseData[] = []
-  const houseWorldPositions: Array<{ x: number; y: number; z: number; cardId: string; title: string }> = []
-
-  for (const peak of peaks) {
-    const n = peak.cardIds.length
-    for (let i = 0; i < n; i++) {
-      const cardId = peak.cardIds[i]
-      const h = hashStr(cardId)
-
-      const angle = ((h & 0xffff) / 0xffff) * Math.PI * 2
-      const radius = 0.3 + ((h >>> 16 & 0xff) / 0xff) * 1.2
-      const x = peak.x + Math.cos(angle) * radius
-      const z = peak.z + Math.sin(angle) * radius
-
-      // Snap house height to nearest contour level so it sits ON a slice
-      const terrainH = Math.max(0, H(x, z))
-      let snappedH = terrainH
-      if (contourLevels.length > 0) {
-        let best = contourLevels[0]
-        let bestDiff = Math.abs(contourLevels[0] - terrainH)
-        for (let li = 1; li < contourLevels.length; li++) {
-          const diff = Math.abs(contourLevels[li] - terrainH)
-          if (diff < bestDiff) { bestDiff = diff; best = contourLevels[li] }
-        }
-        snappedH = best
-      }
-      const y = snappedH + yOff
-      const scale = 0.8 + Math.min(n / 10, 0.6)
-
-      // White fill mesh
-      const fGeo = new THREE.BufferGeometry()
-      fGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(template.fillGeo), 3))
-      const fillMesh = new THREE.Mesh(fGeo, new THREE.MeshBasicMaterial({
-        color: 0xffffff, side: THREE.DoubleSide, depthWrite: true,
-      }))
-      fillMesh.position.set(x, y, z)
-      fillMesh.scale.setScalar(scale)
-
-      // Invisible hit box — 2x larger for easier hover/click
-      const hitMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(0.30, 0.30, 0.26),
-        new THREE.MeshBasicMaterial({ visible: false }),
-      )
-      hitMesh.position.set(x, y + 0.07 * scale, z)
-      hitMesh.scale.setScalar(scale)
-      hitMesh.userData.fillIndex = -1 // set later
-
-      // Outline LineSegments — buffer sized for all edges, updated each frame
-      const maxSegs = template.edgeFaces.length
-      const oGeo = new THREE.BufferGeometry()
-      const posAttr = new THREE.BufferAttribute(new Float32Array(maxSegs * 6), 3)
-      posAttr.setUsage(THREE.DynamicDrawUsage)
-      oGeo.setAttribute('position', posAttr)
-      oGeo.setDrawRange(0, 0)
-      const outlineMesh = new THREE.LineSegments(oGeo, new THREE.LineBasicMaterial({
-        color: 0x000000, transparent: true, opacity: 0.55,
-      }))
-      outlineMesh.position.set(x, y, z)
-      outlineMesh.scale.setScalar(scale)
-
-      houses.push({
-        fillMesh,
-        outlineMesh,
-        hitMesh,
-        faceNormals: polyNormals,
-        edgeFaces: template.edgeFaces,
-        edgeVerts: template.edgeVerts,
-      })
-
-      houseWorldPositions.push({
-        x, y: y + (0.08 + 0.07) * scale, z,
-        cardId,
-        title: cardTitles[cardId] || '未命名',
-      })
-    }
-  }
-
-  return { houses, houseWorldPositions }
-}
-
-// Update silhouette edges for a single house based on camera direction
-function updateSilhouette(house: HouseData, camDir: THREE.Vector3) {
-  const { edgeFaces, edgeVerts } = house
-  const posAttr = house.outlineMesh.geometry.getAttribute('position') as THREE.BufferAttribute
-  const arr = posAttr.array as Float32Array
-
-  // Compute which poly-faces are front-facing
-  const isFront = new Uint8Array(house.faceNormals.length)
-  for (let i = 0; i < house.faceNormals.length; i++) {
-    isFront[i] = house.faceNormals[i].dot(camDir) > 0 ? 1 : 0
-  }
-
-  let segCount = 0
-  const edgeCount = edgeFaces.length
-  for (let ei = 0; ei < edgeCount; ei++) {
-    const faces = edgeFaces[ei]
-    // Silhouette if adjacent faces have different facing
-    let isSilhouette = false
-    if (faces.length === 2) {
-      isSilhouette = isFront[faces[0]] !== isFront[faces[1]]
-    } else if (faces.length === 1) {
-      // Boundary edge — always draw
-      isSilhouette = true
-    }
-    if (isSilhouette) {
-      const srcOff = ei * 6
-      const dstOff = segCount * 6
-      arr[dstOff] = edgeVerts[srcOff]
-      arr[dstOff + 1] = edgeVerts[srcOff + 1]
-      arr[dstOff + 2] = edgeVerts[srcOff + 2]
-      arr[dstOff + 3] = edgeVerts[srcOff + 3]
-      arr[dstOff + 4] = edgeVerts[srcOff + 4]
-      arr[dstOff + 5] = edgeVerts[srcOff + 5]
-      segCount++
-    }
-  }
-
-  posAttr.needsUpdate = true
-  house.outlineMesh.geometry.setDrawRange(0, segCount * 2)
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <span style={{
-        fontFamily: DIN_FONT, fontSize: 52, fontWeight: 200,
-        color: '#000', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-        letterSpacing: -1,
-      }}>{value}</span>
-      <span style={{
-        fontFamily: DIN_FONT, fontSize: 13, fontWeight: 200,
-        color: 'rgba(0,0,0,0.5)', lineHeight: 1, letterSpacing: 1,
-      }}>{label}</span>
-    </div>
-  )
-}
-
-function Sep() {
-  return <div style={{ width: 1, height: 48, background: 'rgba(0,0,0,0.1)', marginBottom: 16 }} />
 }
 
 export function TopographyView() {
@@ -880,8 +555,6 @@ export function TopographyView() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
   const C = isDark ? DARK_COLORS : LIGHT_COLORS
 
-  const { downloading, downloadProgress, downloadModel, indexing, startIndexing, progress, total } = useEmbeddingStore()
-
   const cardsObj = useCardStore(s => s.cards)
   const stats = useMemo(() => {
     const cardIds = Object.keys(cardsObj)
@@ -895,16 +568,8 @@ export function TopographyView() {
       }
       days = Math.max(1, Math.ceil((now - earliest) / 86400000))
     }
-    return { cardCount: cardIds.length, topicCount: peaks.length, days }
-  }, [cardsObj, peaks])
-
-  const handleRefresh = () => {
-    if (indexing || downloading) return
-    void startIndexing()
-  }
-
-  const indexPct = total > 0 ? Math.min(Math.round((progress / total) * 100), 100) : 0
-  const indexIndeterminate = indexing && total === 0
+    return { cardCount: cardIds.length, days }
+  }, [cardsObj])
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: `#${C.bg.toString(16).padStart(6, '0')}` }}>
@@ -912,82 +577,14 @@ export function TopographyView() {
         @keyframes topography-spin { to { transform: rotate(360deg); } }
         @keyframes topography-pulse { 0%,100% { opacity: 0.4; transform: translateX(0); } 50% { opacity: 1; transform: translateX(270%); } }
       `}</style>
-      {/* Top-center data dashboard + manual index button */}
-      {(!needModel && !downloading) && (
-      <div style={{
-        position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)',
-        zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        pointerEvents: 'none',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28 }}>
-          <Stat value={stats.cardCount} label="张卡片" />
-          <Sep />
-          <Stat value={stats.topicCount} label="个主题" />
-          <Sep />
-          <Stat value={stats.days} label="天记录" />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
-          <button onClick={handleRefresh} disabled={indexing || downloading}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: indexing ? 'rgba(20,20,20,0.5)' : '#0a0a0a',
-              color: '#fff', border: 'none', borderRadius: 999, padding: '8px 16px',
-              cursor: indexing ? 'wait' : 'pointer',
-              fontFamily: DIN_FONT, fontSize: 11, fontWeight: 400,
-            }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-              style={{ animation: indexing ? 'topography-spin 0.9s linear infinite' : 'none' }}>
-              <path d="M21 12a9 9 0 1 1-3-6.7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
-              <path d="M21 3v5h-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            {indexing ? '索引中' : '索引卡片'}
-          </button>
-          {indexing && (
-            <div style={{ width: 180, height: 3, background: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden' }}>
-              {indexIndeterminate ? (
-                <div style={{ width: '40%', height: '100%', background: C.compassColor,
-                  animation: 'topography-pulse 1.2s ease-in-out infinite' }} />
-              ) : (
-                <div style={{ width: `${indexPct}%`, height: '100%', background: C.compassColor,
-                  transition: 'width .3s ease' }} />
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-      )}
-      {/* Model download overlay */}
-      {(needModel || downloading) && (
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-          background: isDark ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.85)',
-          borderRadius: 16, padding: '32px 40px', maxWidth: 340, textAlign: 'center',
-          backdropFilter: 'blur(12px)',
-        }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: C.textColor, fontFamily: DIN_FONT }}>
-            向量模型未就绪
-          </div>
-          <div style={{ fontSize: 12, lineHeight: 1.6, color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>
-            3D 地形图需要本地向量模型来聚类卡片。下载模型（约 120MB）后即可自动索引。
-          </div>
-          <button onClick={() => void downloadModel()} disabled={downloading}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: downloading ? 'rgba(20,20,20,0.5)' : '#0a0a0a',
-              color: '#fff', border: 'none', borderRadius: 999, padding: '10px 20px',
-              cursor: downloading ? 'wait' : 'pointer',
-              fontFamily: DIN_FONT, fontSize: 12, fontWeight: 500,
-            }}>
-            {downloading ? `下载中 ${Math.round(downloadProgress || 0)}%` : '下载模型'}
-          </button>
-          {downloading && (
-            <div style={{ width: 220, height: 4, background: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.round(downloadProgress || 0)}%`, height: '100%', background: C.compassColor, transition: 'width .3s ease' }} />
-            </div>
-          )}
-        </div>
-      )}
+      <TopographyControls
+        peaks={peaks}
+        cardCount={stats.cardCount}
+        days={stats.days}
+        needModel={needModel}
+        isDark={!!isDark}
+        colors={C}
+      />
       {loading && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
