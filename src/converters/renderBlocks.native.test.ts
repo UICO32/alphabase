@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderBlocksToHTML } from './renderBlocks'
 
 /**
@@ -165,10 +165,16 @@ describe('renderBlocksToHTML — native 输出', () => {
   })
 
   it('非法 JSON — 走 legacy 回退', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const html = renderBlocksToHTML('not json at all')
     // legacy: escape & 回退到纯文本
     expect(typeof html).toBe('string')
     expect(html.length).toBeGreaterThan(0)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('原生 HTML 生成失败'),
+      expect.any(SyntaxError),
+    )
+    warnSpy.mockRestore()
   })
 
   it('混合块类型', () => {
