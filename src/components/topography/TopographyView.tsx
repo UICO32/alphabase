@@ -342,12 +342,12 @@ function Stat({ value, label }: { value: number; label: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
       <span style={{
-        fontFamily: DIN_FONT, fontSize: 52, fontWeight: 100,
+        fontFamily: DIN_FONT, fontSize: 52, fontWeight: 200,
         color: '#000', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
         letterSpacing: -1,
       }}>{value}</span>
       <span style={{
-        fontFamily: DIN_FONT, fontSize: 13, fontWeight: 100,
+        fontFamily: DIN_FONT, fontSize: 13, fontWeight: 200,
         color: 'rgba(0,0,0,0.5)', lineHeight: 1, letterSpacing: 1,
       }}>{label}</span>
     </div>
