@@ -20,7 +20,7 @@ import type { CardColor } from '../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 import { migrateInlineImagesForWorkspace } from '../media/migrateInlineImages'
-import { preloadCardEditor } from '../components/editor/preloadCardEditor'
+import { preloadCardEditor } from '../components/editor/cardEditorLoader'
 import { getStartupCapabilities } from '../platform/electronCapabilities'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'

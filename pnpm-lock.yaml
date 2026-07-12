@@ -98,6 +98,9 @@ importers:
       onnxruntime-node:
         specifier: ^1.26.0
         version: 1.26.0
+      prosemirror-history:
+        specifier: ^1.5.0
+        version: 1.5.0
       react:
         specifier: ^18.3.0
         version: 18.3.1

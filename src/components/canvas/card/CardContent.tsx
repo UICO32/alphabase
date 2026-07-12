@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify'
-import { memo, lazy, Suspense, useMemo, useState } from 'react'
+import { memo, Suspense, useMemo, useState } from 'react'
 import { ExternalLink, Play } from 'lucide-react'
 import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { useCardStore } from '../../../stores/cardStore'
@@ -7,10 +7,7 @@ import { useViewStore } from '../../../stores/viewStore'
 import { useLibraryStore } from '../../../stores/libraryStore'
 import { usePanelStore } from '../../../stores/panelStore'
 import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
-
-const LazyCardBlockNoteEditor = lazy(() =>
-  import('../../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
-)
+import { LazyCardBlockNoteEditor } from '../../editor/cardEditorLoader'
 
 interface CardContentProps {
   isEditing: boolean

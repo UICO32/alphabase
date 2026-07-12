@@ -116,13 +116,19 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      manifest: true,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom'],
-            'xyflow': ['@xyflow/react'],
-            'blocknote': ['@blocknote/core', '@blocknote/react', '@blocknote/mantine'],
-            'framer': ['framer-motion'],
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return
+            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-core'
+            if (id.includes('@blocknote/') || id.includes('@mantine/tiptap/') || id.includes('@tiptap/') || id.includes('prosemirror-')) {
+              return 'editor-core'
+            }
+            if (id.includes('@mantine/')) return 'mantine'
+            if (id.includes('@react-three/') || id.includes('/three/')) return 'topography'
+            if (id.includes('@xyflow/')) return 'canvas'
+            if (id.includes('/motion/')) return 'motion'
           },
         },
       },
