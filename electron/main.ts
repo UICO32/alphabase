@@ -608,7 +608,8 @@ ipcMain.handle('flomo:fetchMemos', async (_event, { accessToken, lastSyncTime }:
   return { memos: allMemos }
 })
 
-ipcMain.handle('flomo:downloadImg', async (_event, { url, destPath }: { url: string; destPath: string }) => {
+ipcMain.handle('flomo:downloadImg', async (event, { url, destPath }: { url: string; destPath: string }) => {
+  assertMainWindowSender(event)
   if (!isPathWithinWorkspace(destPath)) return { success: false, error: 'Destination path outside workspace' }
   try {
     const resp = await fetch(url)
