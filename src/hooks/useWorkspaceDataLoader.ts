@@ -21,24 +21,19 @@ import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 import { migrateInlineImagesForWorkspace } from '../media/migrateInlineImages'
 import { preloadCardEditor } from '../components/editor/preloadCardEditor'
+import { getStartupCapabilities } from '../platform/electronCapabilities'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
 function emitStartupProgress(step: string, progress: number, total: number) {
   console.log(`[renderer] emitStartupProgress: step="${step}" progress=${progress} total=${total}`)
-  const electronAPI = (window as any).electronAPI
-  if (electronAPI?.startup?.notifyProgress) {
-    electronAPI.startup.notifyProgress({ step, progress, total })
-  } else {
-    console.warn('[renderer] electronAPI.startup.notifyProgress not available')
-  }
+  const capabilities = getStartupCapabilities()
+  if (capabilities.ok) capabilities.value.notifyProgress({ step, progress, total })
 }
 
 function notifyDataReady() {
-  const electronAPI = (window as any).electronAPI
-  if (electronAPI?.startup?.notifyDataReady) {
-    electronAPI.startup.notifyDataReady()
-  }
+  const capabilities = getStartupCapabilities()
+  if (capabilities.ok) capabilities.value.notifyDataReady()
 }
 
 const __t = { start: 0, steps: [] as { name: string; ms: number }[] }
@@ -362,7 +357,8 @@ export function useWorkspaceDataLoader() {
       sessionStorage.setItem('hepta-startup-log', JSON.stringify({ totalMs, steps: __t.steps }))
     } catch { /* noop */ }
     try {
-      await (window as any).electronAPI?.startup?.log?.({ totalMs, steps: __t.steps })
+      const capabilities = getStartupCapabilities()
+      if (capabilities.ok) await capabilities.value.log({ totalMs, steps: __t.steps })
     } catch { /* noop */ }
     setDataReady(true)
     notifyDataReady()
@@ -492,7 +488,8 @@ if (!workspacePath) {
 	          const ms = Math.round(performance.now())
 	          console.log(`[startup-renderer] empty workspace ready: ${ms}ms`)
 	          try {
-	            await (window as any).electronAPI?.startup?.log?.({ totalMs: ms, steps: [{ name: 'empty-ready', ms }] })
+	            const capabilities = getStartupCapabilities()
+	            if (capabilities.ok) await capabilities.value.log({ totalMs: ms, steps: [{ name: 'empty-ready', ms }] })
 	          } catch { /* noop */ }
 	          if (!cancelled) { setDataReady(true); notifyDataReady() }
 	          return
