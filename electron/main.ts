@@ -10,7 +10,7 @@ import { startupLog } from './startupLog'
 import { join, dirname, resolve } from 'path'
 import { getRegisteredWorkspacePaths, isPathWithinWorkspace, registerWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
 import { isAllowedMainFrameNavigation, isAllowedWebviewUrl } from './navigationSecurity'
-import { fileURLToPath } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
 import { dirname as pathDirname } from 'path'
 import { createMenu } from './menu'
@@ -89,6 +89,8 @@ function assertMainWindowSender(event: Electron.IpcMainInvokeEvent) {
 }
 
 function createWindow() {
+  const applicationEntryPath = join(__dirname, '../dist/index.html')
+  const applicationEntryUrl = pathToFileURL(applicationEntryPath).href
   const winOptions: Electron.BrowserWindowConstructorOptions = {
     width: 1200,
     height: 800,
@@ -168,7 +170,7 @@ function createWindow() {
   })
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!isAllowedMainFrameNavigation(url, process.env.VITE_DEV_SERVER_URL)) {
+    if (!isAllowedMainFrameNavigation(url, process.env.VITE_DEV_SERVER_URL, applicationEntryUrl)) {
       event.preventDefault()
     }
   })
@@ -176,8 +178,10 @@ function createWindow() {
   mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
     delete webPreferences.preload
     webPreferences.nodeIntegration = false
+    webPreferences.nodeIntegrationInSubFrames = false
     webPreferences.contextIsolation = true
     webPreferences.sandbox = true
+    webPreferences.webSecurity = true
     if (!isAllowedWebviewUrl(params.src)) event.preventDefault()
   })
 
@@ -213,7 +217,7 @@ function createWindow() {
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
-    mainWindow.loadFile(join(__dirname, '../dist/index.html'))
+    mainWindow.loadFile(applicationEntryPath)
   }
 }
 

@@ -27,10 +27,11 @@ export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
 
   const handleOpenExternal = useCallback(async () => {
     const currentUrl = webviewRef.current?.src || url
+    if (!isSafeWebviewUrl(currentUrl)) return
     try {
       await window.electronAPI.shell.openExternal(currentUrl)
     } catch {
-      window.open(currentUrl, '_blank')
+      // The main process is the sole authority for opening external URLs.
     }
   }, [url])
 
@@ -92,7 +93,6 @@ export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
             src={url}
             style={{ width: '100%', height: '100%' }}
             partition="persist:webview"
-            preload={undefined}
             httpreferrer=""
             useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
           />
