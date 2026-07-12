@@ -9,7 +9,6 @@ export async function extractXiaoyuzhou(url: string): Promise<ClipResult | null>
 
   let title = '播客节目'
   let podcastName = ''
-  let metaHtml = ''
 
   // 获取页面元数据（小宇宙是 SSR，HTML 中有完整信息）
   try {
@@ -22,7 +21,7 @@ export async function extractXiaoyuzhou(url: string): Promise<ClipResult | null>
       redirect: 'follow',
     })
     if (response.ok) {
-      metaHtml = await response.text()
+      const metaHtml = await response.text()
       const titleMatch = metaHtml.match(/<title[^>]*>([^<]+)<\/title>/i)
       if (titleMatch) title = titleMatch[1].trim()
       const podcastMatch = metaHtml.match(/"podcast":\s*\{[^}]*"title"\s*:\s*"([^"]+)"/)

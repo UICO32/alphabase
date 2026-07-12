@@ -6,7 +6,7 @@ function prefix(level: string) {
 
 export const log = {
   info(msg: string) { console.log(`${prefix('info')} ${msg}`) },
-  debug(msg: string) { DEBUG && console.log(`${prefix('debug')} ${msg}`) },
+  debug(msg: string) { if (DEBUG) console.log(`${prefix('debug')} ${msg}`) },
   warn(msg: string) { console.warn(`${prefix('warn')} ${msg}`) },
   error(msg: string) { console.error(`${prefix('error')} ${msg}`) },
 }

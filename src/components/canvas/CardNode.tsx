@@ -77,7 +77,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
             const fd = frameNode.data as FrameNodeData
             if (fd.layout !== 'kanban') return nds
 
-            let updated = nds.map(n =>
+            const updated = nds.map(n =>
               n.id === data.cardId
                 ? { ...n, data: { ...n.data, height: measuredH } }
                 : n

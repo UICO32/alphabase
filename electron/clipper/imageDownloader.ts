@@ -22,7 +22,7 @@ function getExtFromUrl(url: string): string {
     const pathname = new URL(url).pathname
     const ext = extname(pathname).toLowerCase().replace('.', '')
     if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif'].includes(ext)) return ext === 'svg' ? 'svg' : ext
-  } catch {}
+  } catch { /* malformed URL - fall through to default */ }
   return 'jpg'
 }
 
@@ -63,7 +63,7 @@ async function downloadOne(
     return { originalUrl: url, localFilename, originalSize, compressedSize: originalSize }
   }
 
-  let pipeline = sharp(buffer).resize({ width: MAX_WIDTH, withoutEnlargement: true })
+  const pipeline = sharp(buffer).resize({ width: MAX_WIDTH, withoutEnlargement: true })
   let compressed: Buffer
   if (ext === 'png') compressed = await pipeline.png({ quality: JPEG_QUALITY }).toBuffer()
   else if (ext === 'webp') compressed = await pipeline.webp({ quality: JPEG_QUALITY }).toBuffer()

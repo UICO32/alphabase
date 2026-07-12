@@ -264,7 +264,7 @@ async function runTests() {
   log('  PASS')
 
   log('\n=== 测试 5: 删除操作 ===')
-  const beforeCount5 = engine.writeCount
+  const _beforeCount5 = engine.writeCount
   engine.scheduleDeleteCard('test-card-001')
   await sleep(300)
   const card1Gone = !(await nodeFsAdapter.exists(cardPath))

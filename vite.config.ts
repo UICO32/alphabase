@@ -58,7 +58,7 @@ function cleanElectronEnv(): Plugin {
     // Note: this only helps in dev mode. In packaged mode, ELECTRON_RUN_AS_NODE
     // decides the process mode before any JS runs, so self-reexec is impossible.
     // Users must clear the env var before launching the packaged exe.
-    renderChunk(code, chunk) {
+    renderChunk(code, _chunk) {
       if (code.includes('require("electron")') || code.includes("require('electron')")) {
         const injected = 'delete process.env.ELECTRON_RUN_AS_NODE;\n'
         if (code.startsWith('"use strict"')) {

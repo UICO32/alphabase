@@ -5,7 +5,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  // CI runs against a fresh server; locally reuse a running dev server.
+  workers: process.env.CI ? 2 : 1,
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:5173',
@@ -21,6 +22,6 @@ export default defineConfig({
   webServer: {
     command: 'pnpm dev',
     url: 'http://localhost:5173',
-    reuseExistingServer: true,
+    reuseExistingServer: !process.env.CI,
   },
 })

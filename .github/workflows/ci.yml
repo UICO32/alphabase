@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'codex/**', 'feature/**']
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same ref so force-pushes don't queue up.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Quality + build (fast, runs first) ───
+  quality:
+    name: Lint, Typecheck, Unit, Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Build
+        run: pnpm build
+
+      - name: Bundle budget
+        run: node scripts/check-bundle-budget.mjs
+
+  # ─── Browser E2E (separate job, fresh server) ───
+  browser-e2e:
+    name: Browser E2E (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser E2E
+        # CI=true forces reuseExistingServer:false and 2 workers.
+        run: pnpm test:e2e --project=chromium
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-browser-traces
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # ─── Electron E2E (Windows, platform-specific) ───
+  electron-e2e:
+    name: Electron E2E (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Electron security & persistence E2E
+        env:
+          CI: 'true'
+        run: pnpm exec playwright test tests/e2e/electron-security.spec.ts tests/e2e/electron-persistence.spec.ts
+
+      - name: Upload Electron E2E artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-electron-traces
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
