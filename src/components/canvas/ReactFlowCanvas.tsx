@@ -18,7 +18,7 @@ import { ErrorBoundary } from '../ErrorBoundary'
 
 import { CardNode } from './CardNode'
 import { MediaNode } from './MediaNode'
-import { FrameNode, type FrameNodeData } from './FrameNode'
+import { FrameNode } from './FrameNode'
 import { TextAnnotationNode } from './TextAnnotationNode'
 import { CardEditDialog } from '../ui/CardEditDialog'
 import { useViewStore } from '../../stores/viewStore'
@@ -51,6 +51,7 @@ import { kanbanDragPreview } from './utils/kanbanDragPreview'
 import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds, exitTextToolMode, setAutoEditAnnoId } from './utils/frameInteraction'
 import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT, DEFAULT_ANNOTATION_CONTENT } from '../../types/card'
 import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
+import { getVisibleCanvasEdges } from './utils/visibleCanvasEdges'
 
 const nodeTypes = {
   card: CardNode,
@@ -612,29 +613,7 @@ export function ReactFlowCanvas() {
   }, [setNodes, record])
 
   // 看板 Frame 内的卡片之间隐藏连接线
-  const visibleEdges = useMemo(() => {
-    const kanbanFrameIds = new Set(
-      nodes
-        .filter(n => n.type === 'frame' && (n.data as FrameNodeData).layout === 'kanban')
-        .map(n => n.id),
-    )
-    if (kanbanFrameIds.size === 0) return edges
-
-    const nodeFrameMap = new Map<string, string>()
-    for (const n of nodes) {
-      const nd = n.data as Record<string, unknown>
-      if (nd.frameId && kanbanFrameIds.has(nd.frameId as string)) {
-        nodeFrameMap.set(n.id, nd.frameId as string)
-      }
-    }
-
-    return edges.filter(e => {
-      const sFrame = nodeFrameMap.get(e.source)
-      const tFrame = nodeFrameMap.get(e.target)
-      if (sFrame && tFrame && sFrame === tFrame) return false
-      return true
-    })
-  }, [nodes, edges])
+  const visibleEdges = useMemo(() => getVisibleCanvasEdges(nodes, edges), [nodes, edges])
 
   const editingCardId = useViewStore(s => s.editingCardId)
 
