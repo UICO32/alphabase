@@ -2,11 +2,10 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { useCardStore } from '../../stores/cardStore'
-import { usePanelStore } from '../../stores/panelStore'
-import { useViewStore } from '../../stores/viewStore'
 import { buildHouses, updateSilhouette } from './houseGeometry'
 import type { TopicPeak } from './types'
 import type { useContourScene } from './useContourScene'
+import { useTopographyInteraction } from './useTopographyInteraction'
 
 type TopographyColors = {
   bg: number
@@ -34,6 +33,7 @@ export function TopographyScene({ peaks, sceneData, colors: C }: TopographyScene
   const labelElsRef = useRef<HTMLDivElement[]>([])
   const tooltipElRef = useRef<HTMLDivElement | null>(null)
   const peaksRef = useRef<TopicPeak[]>([])
+  const { attach, updateFrame } = useTopographyInteraction()
 
   peaksRef.current = peaks
 
@@ -274,77 +274,14 @@ export function TopographyScene({ peaks, sceneData, colors: C }: TopographyScene
       tooltipElRef.current = tooltipEl
     }
 
-    const raycaster = new THREE.Raycaster()
-    const mouse = new THREE.Vector2()
-    let hoveredIdx = -1
-    let selectedHouseIdx = -1
-    let hoverPauseTimer: ReturnType<typeof setTimeout> | null = null
-    let isHoverPaused = false
-
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
-    }
-    container.addEventListener('mousemove', onMouseMove)
-
-    const onClick = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect()
-      const clickMouse = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1,
-      )
-      raycaster.setFromCamera(clickMouse, camera)
-      const clickHitMeshes = houses.map(h => h.hitMesh)
-      const intersects = raycaster.intersectObjects(clickHitMeshes, false)
-      if (intersects.length > 0) {
-        const hitIdx = clickHitMeshes.indexOf(intersects[0].object as THREE.Mesh)
-        const hd = houseWorldPositions[hitIdx]
-        if (!hd) return
-
-        useViewStore.getState().setEditingCardId(hd.cardId)
-        usePanelStore.getState().setRightPanelActiveTab('editor')
-        usePanelStore.getState().setRightPanelCollapsed(false)
-
-        const dir = new THREE.Vector3(hd.x, 0, hd.z).normalize()
-        const targetPos = new THREE.Vector3(
-          hd.x + dir.x * 8,
-          hd.y + 5,
-          hd.z + dir.z * 8,
-        )
-        const startPos = camera.position.clone()
-        const startTarget = controls.target.clone()
-        const endTarget = new THREE.Vector3(hd.x, hd.y, hd.z)
-        const zoomDuration = 1200
-        const zoomStart = performance.now()
-        function animateZoom() {
-          const now = performance.now()
-          const p = Math.min((now - zoomStart) / zoomDuration, 1)
-          const ease = 1 - Math.pow(1 - p, 3)
-          camera.position.lerpVectors(startPos, targetPos, ease)
-          controls.target.lerpVectors(startTarget, endTarget, ease)
-          controls.update()
-          if (p < 1) requestAnimationFrame(animateZoom)
-        }
-        animateZoom()
-
-        selectedHouseIdx = hitIdx
-        for (let i = 0; i < houses.length; i++) {
-          const mat = houses[i].outlineMesh.material as THREE.LineBasicMaterial
-          mat.color.set(i === hitIdx ? 0x2266dd : 0x000000)
-          mat.opacity = i === hitIdx ? 1.0 : 0.3
-        }
-
-        for (const c of sceneData.contours) {
-          if (!c.fill) continue
-          const fillPos = c.fill.position
-          const dist = Math.sqrt((fillPos.x - hd.x) ** 2 + (fillPos.z - hd.z) ** 2)
-          const mat = c.fill.material as THREE.MeshBasicMaterial
-          mat.opacity = dist < 3.0 ? 0.12 : 0.58
-        }
-      }
-    }
-    container.addEventListener('click', onClick)
+    const detachInteraction = attach({
+      container,
+      camera,
+      controls,
+      houses,
+      houseWorldPositions,
+      contours: sceneData.contours,
+    })
 
     const ENTRY_START = 400, LAYER_STAGGER = 45, LAYER_FADE_MS = 380, RISE_AMOUNT = 0.35
     const sortedContours = [...sceneData.contours].sort((a, b) => a.level - b.level)
@@ -420,52 +357,15 @@ export function TopographyScene({ peaks, sceneData, colors: C }: TopographyScene
         updateSilhouette(house, camDir)
       }
 
-      raycaster.setFromCamera(mouse, camera)
-      const hitMeshes = houses.map(h => h.hitMesh)
-      const intersects = raycaster.intersectObjects(hitMeshes, false)
-
-      if (intersects.length > 0) {
-        const hitIdx = hitMeshes.indexOf(intersects[0].object as THREE.Mesh)
-        if (hitIdx !== hoveredIdx) {
-          hoveredIdx = hitIdx
-        }
-        if (!isHoverPaused) {
-          isHoverPaused = true
-          controls.autoRotate = false
-          if (hoverPauseTimer) { clearTimeout(hoverPauseTimer); hoverPauseTimer = null }
-        }
-        if (hoveredIdx >= 0 && hoveredIdx < houseWorldPositions.length) {
-          const hd = houseWorldPositions[hoveredIdx]
-          _v.set(hd.x, hd.y, hd.z).project(camera)
-          tooltipEl!.style.opacity = '1'
-          const tx = (_v.x * 0.5 + 0.5) * cw()
-          const ty = Math.max(16, (-_v.y * 0.5 + 0.5) * ch())
-          tooltipEl!.style.left = tx + 'px'
-          tooltipEl!.style.top = ty + 'px'
-          tooltipEl!.textContent = hd.title
-        }
-      } else {
-        if (hoveredIdx !== -1) {
-          if (hoverPauseTimer) clearTimeout(hoverPauseTimer)
-          hoverPauseTimer = setTimeout(() => {
-            isHoverPaused = false
-            controls.autoRotate = true
-          }, 1500)
-        }
-        hoveredIdx = -1
-        tooltipEl!.style.opacity = '0'
-      }
-
-      for (let i = 0; i < houses.length; i++) {
-        const mat = houses[i].fillMesh.material as THREE.MeshBasicMaterial
-        if (i === selectedHouseIdx) {
-          mat.color.setHex(0x4488ff)
-        } else if (i === hoveredIdx) {
-          mat.color.setHex(0x88bbff)
-        } else {
-          mat.color.setHex(0xffffff)
-        }
-      }
+      controls.autoRotate = !updateFrame({
+        camera,
+        houses,
+        houseWorldPositions,
+        tooltipEl: tooltipEl!,
+        projectVector: _v,
+        width: cw(),
+        height: ch(),
+      })
 
       const t = elapsed * 0.0001
       cloudGroup.children.forEach((cloud, i) => {
@@ -502,9 +402,7 @@ export function TopographyScene({ peaks, sceneData, colors: C }: TopographyScene
     return () => {
       cancelAnimationFrame(animIdRef.current)
       window.removeEventListener('resize', onResize)
-      container.removeEventListener('mousemove', onMouseMove)
-      container.removeEventListener('click', onClick)
-      if (hoverPauseTimer) clearTimeout(hoverPauseTimer)
+      detachInteraction()
       controls.dispose()
       renderer.dispose()
       renderer.domElement.remove()
@@ -515,7 +413,7 @@ export function TopographyScene({ peaks, sceneData, colors: C }: TopographyScene
         tooltipElRef.current = null
       }
     }
-  }, [C, sceneData])
+  }, [C, attach, sceneData, updateFrame])
 
   return <div ref={containerRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }} />
 }
