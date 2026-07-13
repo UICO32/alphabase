@@ -1,18 +1,17 @@
 import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
-import { useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
+import { useReactFlow, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { useLibraryStore } from '../../stores/libraryStore'
-import { getCardFill, getCardStroke, getCardTextColor } from './utils/cardStyles'
+import { getCardTextColor } from './utils/cardStyles'
 import { connectionMediator } from './utils/connectionMediator'
 import type { CardNodeData } from '../../types/card'
 import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useFrameInteraction } from './utils/frameInteraction'
 import { useAIStore } from '../../stores/aiStore'
-import { CardHandles } from './card/CardHandles'
-import { CardActionBar } from './card/CardActionBar'
+import { CardNodeChrome } from './card/CardNodeChrome'
 import { CardContent } from './card/CardContent'
 import { CollapsedContent } from './card/CollapsedContent'
 import { MiniCard } from './card/MiniCard'
@@ -152,6 +151,21 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
+  const handleResize = useCallback((params: { width: number; height: number }) => {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === data.cardId
+          ? {
+              ...n,
+              data: { ...n.data, width: params.width, height: params.height },
+              width: params.width,
+              height: params.height,
+            }
+          : n,
+      ),
+    )
+  }, [data.cardId, setNodes])
+
   const handleNavigateToCard = useCallback((targetCardId: string) => {
     useViewStore.getState().openCardEditor(targetCardId)
   }, [])
@@ -245,131 +259,37 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     )
   }
 
-  const borderWidth = 1
-  const activeBorderColor = selected
-    ? 'var(--card-selected-border)'
-    : isEditing
-      ? 'var(--line-active)'
-      : getCardStroke(data.color)
-
-  const cardBg = getCardFill(data.color, isDarkMode)
   const textColor = getCardTextColor(data.color, isDarkMode)
-
-  const hoverOutline = isHovered
-    ? `0 0 0 3px ${getCardStroke(data.color)}33`
-    : ''
-
-  const selectedShadow = '0 0 0 1px var(--card-selected-border), 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent)'
-  const editingShadow = '0 0 0 1px var(--line-active), 0 0 0 2px color-mix(in srgb, var(--line-active) 18%, transparent)'
-  const activeShadow = selected ? selectedShadow : isEditing ? editingShadow : ''
-
-  const cursor = isCollapsed ? 'grab'
-    : isEditing ? 'text'
-    : (isConnectionTarget || isNearbyTarget) ? 'crosshair'
-    : 'default'
-
-  const cardClasses = [
-    'card-node-default',
-    'relative',
-    'rounded-xl',
-    (isEditing || selected || isHovered || hasSummaryBubble) ? 'overflow-visible' : 'overflow-hidden',
-    isConnectingSource ? 'card-node-connecting-source' : '',
-    isNearbyTarget ? 'card-node-nearby-target' : '',
-    isLassoSelected ? 'card-node-lasso-selected' : '',
-  ].filter(Boolean).join(' ')
-
   const nodeHeight = isCollapsed ? COLLAPSED_CARD_HEIGHT : (data.height ?? DEFAULT_CARD_HEIGHT) as number
 
   return (
-    <div
-      className={cardClasses}
-      style={{
-        width: (data.width ?? DEFAULT_CARD_WIDTH) as number,
-        height: nodeHeight,
-        backgroundColor: cardBg,
-        border: `${borderWidth}px solid ${activeBorderColor}`,
-        boxShadow: isConnectingSource
-          ? 'var(--shadow-glow-accent)'
-          : isNearbyTarget
-            ? 'var(--shadow-glow-green)'
-          : isConnectionTarget && isHovered
-            ? 'var(--shadow-glow-green)'
-          : isHovered && activeShadow
-            ? `${activeShadow}, ${hoverOutline}`
-          : isHovered
-            ? `${hoverOutline}, var(--shadow-lg)`
-          : activeShadow
-            ? activeShadow
-            : 'var(--shadow-sm)',
-        cursor,
-      }}
+    <CardNodeChrome
+      cardId={data.cardId}
+      color={data.color}
+      collapsed={isCollapsed}
+      selected={!!selected}
+      editing={isEditing}
+      hovered={isHovered}
+      hasSummaryBubble={hasSummaryBubble}
+      connecting={isConnecting}
+      connectingSource={isConnectingSource}
+      connectionTarget={isConnectionTarget}
+      nearbyTarget={isNearbyTarget}
+      lassoSelected={isLassoSelected}
+      darkMode={isDarkMode}
+      width={(data.width ?? DEFAULT_CARD_WIDTH) as number}
+      height={nodeHeight}
+      cardTitle={card.title}
+      cardPreviewHTML={card.previewHTML}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleCardClick}
-      onContextMenu={(e) => e.preventDefault()}
+      onResize={handleResize}
+      onToggleCollapse={handleToggleCollapse}
+      onRemoveFromBoard={handleRemoveFromBoard}
+      onMoveToBoard={handleMoveToBoard}
+      onColorChange={handleColorChange}
     >
-      {selected && !isCollapsed && (
-        <NodeResizer
-          minWidth={200}
-          minHeight={120}
-          isVisible={selected}
-          handleClassName="!w-8 !h-8 !bg-transparent !border-0"
-          lineClassName="!bg-transparent !border-0 !w-8"
-          onResize={(_, params) => {
-            setNodes((nds) =>
-              nds.map((n) =>
-                n.id === data.cardId
-                  ? {
-                      ...n,
-                      data: { ...n.data, width: params.width, height: params.height },
-                      width: params.width,
-                      height: params.height,
-                    }
-                  : n,
-              ),
-            )
-          }}
-        />
-      )}
-
-      <CardHandles />
-
-      {/*
-        AI 按钮悬停热区：覆盖卡片右上角外部（AI 按钮所在区域），
-        作为卡片的子元素，鼠标进入此区域不会触发卡片的 mouseleave，
-        从而在移向 AI 按钮时保持 hover 态。
-        仅在可交互时渲染，避免遮挡相邻卡片。
-      */}
-      {(isHovered || selected || hasSummaryBubble) && (
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            top: -32,
-            right: -44,
-            width: 56,
-            height: 40,
-            zIndex: 199,
-            pointerEvents: 'auto',
-          }}
-        />
-      )}
-
-      <CardActionBar
-        cardId={data.cardId}
-        color={data.color}
-        collapsed={isCollapsed}
-        isHovered={isHovered}
-        selected={!!selected}
-        isConnecting={isConnecting}
-        onToggleCollapse={handleToggleCollapse}
-        onRemoveFromBoard={handleRemoveFromBoard}
-        onMoveToBoard={handleMoveToBoard}
-        onColorChange={handleColorChange}
-        cardTitle={card.title}
-        cardPreviewHTML={card.previewHTML}
-      />
-
       {isCollapsed ? (
         <CollapsedContent
           cardId={data.cardId}
@@ -401,6 +321,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           />
         </>
       )}
-    </div>
+    </CardNodeChrome>
   )
 })
