@@ -23,6 +23,7 @@ import { MiniCard } from './card/MiniCard'
 import { ZoomPreview } from './card/ZoomPreview'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
+import { getCardNodeSize } from './utils/cardNodeSize'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
@@ -167,13 +168,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     useViewStore.getState().setViewMode('cards')
   }, [])
 
-  const getNodeSize = useCallback((node: Node) => {
-    const d = node.data as CardNodeData
-    const w = d.width ?? DEFAULT_CARD_WIDTH
-    const h = d.collapsed ? COLLAPSED_CARD_HEIGHT : (d.height ?? DEFAULT_CARD_HEIGHT)
-    return { w, h }
-  }, [])
-
   const handleCardClick = useCallback(
     (e: React.MouseEvent) => {
       if (isConnectionTarget || isNearbyTarget) {
@@ -182,8 +176,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         const sourceNode = pending ? getNode(pending.sourceNodeId) : undefined
         const targetNode = getNode(data.cardId)
         if (sourceNode && targetNode) {
-          const ss = getNodeSize(sourceNode)
-          const ts = getNodeSize(targetNode)
+          const ss = getCardNodeSize(sourceNode)
+          const ts = getCardNodeSize(targetNode)
           connectionMediator.complete(
             data.cardId,
             '',
@@ -213,7 +207,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         setIsEditing(true)
       }
     },
-    [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, getNode, getNodeSize],
+    [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, getNode],
   )
 
   const handleContentChange = useCallback(
