@@ -122,10 +122,10 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) return
             if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-core'
+            if (id.includes('@blocknote/mantine') || id.includes('@mantine/')) return 'mantine'
             if (id.includes('@blocknote/') || id.includes('@mantine/tiptap/') || id.includes('@tiptap/') || id.includes('prosemirror-')) {
               return 'editor-core'
             }
-            if (id.includes('@mantine/')) return 'mantine'
             if (id.includes('@react-three/') || id.includes('/three/')) return 'topography'
             if (id.includes('@xyflow/')) return 'canvas'
             if (id.includes('/motion/')) return 'motion'
@@ -147,15 +147,14 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: [
         'use-sync-external-store/shim/with-selector.js',
-        'zustand/esm/traditional.mjs',
-        'zustand/esm/vanilla.mjs',
+        'zustand/traditional',
+        'zustand/vanilla',
         'react', 'react-dom',
         '@xyflow/react',
         '@blocknote/core', '@blocknote/react', '@blocknote/mantine',
-        'framer-motion',
+        'motion/react',
         'lucide-react',
         'dompurify',
-        'idb',
         'ts-md5',
       ],
       exclude: [

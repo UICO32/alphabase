@@ -13,6 +13,7 @@
     "electron:all": "vite --mode electron",
     "electron:pack": "pnpm electron:build && node scripts/electron-pack.mjs --dir",
     "electron:dist": "pnpm electron:build && node scripts/electron-pack.mjs",
+    "check:bundle": "node scripts/check-bundle-budget.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "playwright test",
