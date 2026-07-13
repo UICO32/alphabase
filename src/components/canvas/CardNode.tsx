@@ -2,12 +2,10 @@ import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } 
 import { useReactFlow, NodeResizer, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { useCardStore, useCard } from '../../stores/cardStore'
-import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
 import { useViewStore } from '../../stores/viewStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { getCardFill, getCardStroke, getCardTextColor } from './utils/cardStyles'
 import { connectionMediator } from './utils/connectionMediator'
-import { registerEditorHandle, clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
 import type { CardNodeData } from '../../types/card'
 import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
@@ -23,6 +21,7 @@ import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
 import { getCardNodeSize } from './utils/cardNodeSize'
 import { useCardNodeActions } from './useCardNodeActions'
+import { useCardNodeEditing } from './useCardNodeEditing'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
@@ -31,25 +30,24 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const isInFrame = !!data.frameId
   const isLassoSelected = useFrameInteraction(s => s.lassoSelectedCardIds.has(data.cardId))
 
-  const [isEditing, setIsEditing] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const editorRef = useRef<import('../editor/BlockNoteEditor').BlockNoteEditorHandle>(null)
-  const clickCoordsRef = useRef<{ x: number; y: number } | null>(null)
   const { setNodes, setEdges, getNode } = useReactFlow()
   const isDarkMode = useIsDarkMode()
-
-  // autoEdit: 双击创建的卡片自动进入编辑态
-  const isAutoEdit = useViewStore((s) => s.autoEditCardId === data.cardId)
-
-  useEffect(() => {
-    if (isAutoEdit) setIsEditing(true)
-  }, [isAutoEdit])
-
-  // 注册/注销编辑器 handle，供 useCanvasKeyboard 查询 canUndo
-  useEffect(() => {
-    registerEditorHandle(data.cardId, editorRef.current ?? null)
-    return () => registerEditorHandle(data.cardId, null)
-  }, [data.cardId, isEditing, selected])
+  const card = useCard(data.cardId)
+  const updateCard = useCardStore((s) => s.updateCard)
+  const hasSummaryBubble = useAIStore(s => s.streamingCardId === data.cardId && (s.isStreaming || !!s.streamingText))
+  const {
+    isEditing,
+    editorRef,
+    beginEditingAt,
+    handleContentChange,
+    handleEditorFocus,
+    handleEditorBlur,
+  } = useCardNodeEditing({
+    cardId: data.cardId,
+    selected: !!selected,
+    updateCard,
+  })
 
   // 直接读取下沉到 card data 的 frameLayout，避免每次 render 调用 getNode(frameId)
   // —— useReactFlow().getNode 订阅整个 nodes store，会让所有卡片在任何节点变化时重渲染。
@@ -137,10 +135,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     })
   }, [isEditing, isCollapsed, data.cardId, setNodes])
 
-  const card = useCard(data.cardId)
-  const updateCard = useCardStore((s) => s.updateCard)
-  const hasSummaryBubble = useAIStore(s => s.streamingCardId === data.cardId && (s.isStreaming || !!s.streamingText))
-
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
     connectionMediator.isConnecting.bind(connectionMediator),
@@ -202,65 +196,11 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         return
       }
       if (card) {
-        clickCoordsRef.current = { x: e.clientX, y: e.clientY }
-        setIsEditing(true)
+        beginEditingAt({ x: e.clientX, y: e.clientY })
       }
     },
-    [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, getNode],
+    [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, getNode, beginEditingAt, editorRef],
   )
-
-  const handleContentChange = useCallback(
-    (content: string) => {
-      clearProseMirrorSuppression(data.cardId)
-      updateCard(data.cardId, { content })
-      // User typed something — this autoEdit card is now confirmed, won't be auto-deleted
-      if (useViewStore.getState().autoEditCardId === data.cardId) {
-        useViewStore.getState().setAutoEditCardId(null)
-      }
-    },
-    [data.cardId, updateCard],
-  )
-
-  const handleEditorFocus = useCallback(() => {
-    const content = useCardStore.getState().cards[data.cardId]?.content
-    if (content) useEditorHistoryStore.getState().recordSnapshot(data.cardId, content)
-    useViewStore.getState().setEditingCardId(data.cardId)
-  }, [data.cardId])
-
-  const handleEditorBlur = useCallback(() => {
-    const content = useCardStore.getState().cards[data.cardId]?.content
-    if (content) useEditorHistoryStore.getState().recordSnapshot(data.cardId, content)
-    setIsEditing(false)
-  }, [data.cardId])
-
-  useEffect(() => {
-    if (!isEditing) return
-
-    const coords = clickCoordsRef.current
-    let cancelled = false
-    let rafId = 0
-
-    const tryFocus = () => {
-      if (cancelled) return
-      if (!editorRef.current) {
-        rafId = requestAnimationFrame(tryFocus)
-        return
-      }
-      clickCoordsRef.current = null
-      if (coords) {
-        editorRef.current.focusAtCoords(coords)
-      } else {
-        editorRef.current.focus()
-      }
-    }
-
-    tryFocus()
-
-    return () => {
-      cancelled = true
-      if (rafId) cancelAnimationFrame(rafId)
-    }
-  }, [isEditing])
 
   const {
     handleToggleCollapse,
