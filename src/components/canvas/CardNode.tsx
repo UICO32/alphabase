@@ -8,12 +8,10 @@ import { useLibraryStore } from '../../stores/libraryStore'
 import { getCardFill, getCardStroke, getCardTextColor } from './utils/cardStyles'
 import { connectionMediator } from './utils/connectionMediator'
 import { registerEditorHandle, clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
-import type { CardColor, CardNodeData } from '../../types/card'
+import type { CardNodeData } from '../../types/card'
 import { COLLAPSED_CARD_HEIGHT, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useFrameInteraction } from './utils/frameInteraction'
-import { useBoardStore } from '../../stores/boardStore'
-import { emit } from '../../stores/eventBus'
 import { useAIStore } from '../../stores/aiStore'
 import { CardHandles } from './card/CardHandles'
 import { CardActionBar } from './card/CardActionBar'
@@ -24,6 +22,7 @@ import { ZoomPreview } from './card/ZoomPreview'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
 import { getCardNodeSize } from './utils/cardNodeSize'
+import { useCardNodeActions } from './useCardNodeActions'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
@@ -263,86 +262,19 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     }
   }, [isEditing])
 
-  const handleToggleCollapse = useCallback(() => {
-    const newCollapsed = !isCollapsed
-    updateCard(data.cardId, { collapsed: newCollapsed })
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id !== data.cardId) return n
-        if (newCollapsed) {
-          const prevHeight = n.height ?? n.measured?.height ?? DEFAULT_CARD_HEIGHT
-          return {
-            ...n,
-            data: { ...n.data, collapsed: true, prevHeight },
-            height: COLLAPSED_CARD_HEIGHT,
-          }
-        }
-        const prevHeight = (n.data as CardNodeData).prevHeight as number | undefined
-        return {
-          ...n,
-          data: { ...n.data, collapsed: false },
-          height: prevHeight ?? DEFAULT_CARD_HEIGHT,
-        }
-      }),
-    )
-  }, [data.cardId, isCollapsed, updateCard, setNodes])
-
-  const handleColorChange = useCallback((newColor: CardColor) => {
-    updateCard(data.cardId, { color: newColor })
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.id === data.cardId
-          ? { ...n, data: { ...n.data, color: newColor } }
-          : n,
-      ),
-    )
-  }, [data.cardId, updateCard, setNodes])
-
-  const handleRemoveFromBoard = useCallback(() => {
-    const cardData = useCardStore.getState().cards[data.cardId]
-    if (cardData) {
-      emit('remove-card-from-board', { cardId: data.cardId, cardContent: cardData })
-    }
-    setNodes((nds) => nds.filter((n) => n.id !== data.cardId))
-    setEdges((eds) => eds.filter((e) => e.source !== data.cardId && e.target !== data.cardId))
-  }, [data.cardId, setNodes, setEdges, emit])
-
-  const handleMoveToBoard = useCallback((boardId: string) => {
-    const node = getNode(data.cardId)
-    if (!node) return
-
-    const nodeData = node.data as CardNodeData
-    const nodeWidth = nodeData.width
-    const nodeHeight = nodeData.height
-
-    setNodes((nds) => nds.filter((n) => n.id !== data.cardId))
-    setEdges((eds) => {
-      const relatedEdges = eds.filter((e) => e.source === data.cardId || e.target === data.cardId)
-      const remainingEdges = eds.filter((e) => e.source !== data.cardId && e.target !== data.cardId)
-
-      const boardStore = useBoardStore.getState()
-      const targetData = boardStore.getBoardData(boardId) || { nodes: [], edges: [] }
-      targetData.nodes.push({
-        id: node.id,
-        type: (node.type || 'card') as 'card' | 'frame' | 'media',
-        position: { x: node.position.x, y: node.position.y },
-        data: { ...node.data },
-        width: nodeWidth,
-        height: nodeHeight,
-      })
-      targetData.edges.push(...relatedEdges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle ?? undefined,
-        targetHandle: e.targetHandle ?? undefined,
-        type: e.type,
-      })))
-      boardStore.saveBoardData(boardId, targetData)
-
-      return remainingEdges
-    })
-  }, [data.cardId, getNode, setNodes, setEdges])
+  const {
+    handleToggleCollapse,
+    handleColorChange,
+    handleRemoveFromBoard,
+    handleMoveToBoard,
+  } = useCardNodeActions({
+    cardId: data.cardId,
+    isCollapsed,
+    updateCard,
+    setNodes,
+    setEdges,
+    getNode,
+  })
 
   // SummaryButton/SummaryBubble 通过 zustand selector 直接读 cardStore，
   // 不需要全局缓存。之前残留的 __cardDataCache 全局对象已废弃。
