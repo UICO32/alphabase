@@ -1,18 +1,16 @@
-import { useCallback, useRef, lazy, Suspense } from 'react'
+import { useCallback, useRef, Suspense } from 'react'
 import { useViewStore } from '../../stores/viewStore'
 import { usePanelStore } from '../../stores/panelStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { CollapseButton } from './SharedUI'
-import { CardLibraryView } from './CardLibraryView'
 import { GalleryVerticalEnd, FileText, ArrowLeftToLine, Globe, Compass } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
 import { AgentReachPanel } from './AgentReachPanel'
+import { LazyCardBlockNoteEditor } from '../editor/cardEditorLoader'
+import { LazyCardLibraryView } from './lazyCardLibraryView'
 
-const LazyCardBlockNoteEditor = lazy(() =>
-  import('../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
-)
 
 interface RightPanelProps {
   integratedSurface?: boolean
@@ -119,7 +117,7 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
         {rightPanelActiveTab === 'channels' ? (
           <AgentReachPanel />
         ) : rightPanelActiveTab === 'library' ? (
-          !rightPanelCollapsed && <CardLibraryView onOpenSettings={onOpenSettings} compact />
+          !rightPanelCollapsed && <Suspense fallback={null}><LazyCardLibraryView onOpenSettings={onOpenSettings} compact /></Suspense>
         ) : showEditorContent ? (
 	          <div key={editingCardId} className="h-full animate-fadeIn">
 	            <ClipAwareEditorView

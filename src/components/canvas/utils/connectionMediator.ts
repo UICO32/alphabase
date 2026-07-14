@@ -17,9 +17,9 @@ type CompleteHandler = (request: ConnectionRequest) => void
 
 let pending: PendingConnection | null = null
 // Global listeners for isConnecting state changes (start/clear/complete)
-let globalListeners = new Set<Listener>()
+const globalListeners = new Set<Listener>()
 // Per-card listeners for nearby target changes
-let cardListeners = new Map<string, Set<Listener>>()
+const cardListeners = new Map<string, Set<Listener>>()
 let completeHandler: CompleteHandler | null = null
 let _nearbyTargetId: string | null = null
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useCardStore } from './cardStore'
 import type { GlobalCard } from './cardStore'
 import { flushActiveSyncEngine } from '../sync/syncEngineRef'
+import { embeddingStore } from './embeddingStore'
 
 vi.mock('../sync/syncEngineRef', () => ({
   flushActiveSyncEngine: vi.fn(),
@@ -19,6 +20,11 @@ function makeCard(overrides: Partial<GlobalCard> = {}): GlobalCard {
     createdAt: 1000,
     ...overrides,
   }
+}
+
+function restoreElectronAPI(descriptor: PropertyDescriptor | undefined) {
+  if (descriptor) Object.defineProperty(window, 'electronAPI', descriptor)
+  else Reflect.deleteProperty(window, 'electronAPI')
 }
 
 describe('CardStore', () => {
@@ -75,6 +81,28 @@ describe('CardStore', () => {
       useCardStore.getState().deleteCard('card-1')
       expect(useCardStore.getState().cards['card-1']).toBeUndefined()
     })
+
+    it('does not report an error when Electron capabilities are unavailable', async () => {
+      const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      Reflect.deleteProperty(window, 'electronAPI')
+
+      try {
+        useCardStore.getState().addCard(makeCard())
+        useCardStore.getState().deleteCard('card-1')
+        await expect(embeddingStore.getState().removeVector('card-1')).resolves.toEqual({
+          ok: false,
+          reason: 'unavailable',
+        })
+        expect(errorSpy).not.toHaveBeenCalled()
+        expect(warnSpy).not.toHaveBeenCalled()
+      } finally {
+        restoreElectronAPI(originalElectronAPI)
+        errorSpy.mockRestore()
+        warnSpy.mockRestore()
+      }
+    })
   })
 
   describe('softDeleteCard', () => {
@@ -84,6 +112,25 @@ describe('CardStore', () => {
       const card = useCardStore.getState().cards['card-1']
       expect(card).toBeDefined()
       expect(card.deletedAt).toBeDefined()
+    })
+
+    it('does not report an error when Electron capabilities are unavailable', async () => {
+      const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      Reflect.deleteProperty(window, 'electronAPI')
+
+      try {
+        useCardStore.getState().addCard(makeCard())
+        useCardStore.getState().softDeleteCard('card-1')
+        await Promise.resolve()
+        expect(errorSpy).not.toHaveBeenCalled()
+        expect(warnSpy).not.toHaveBeenCalled()
+      } finally {
+        restoreElectronAPI(originalElectronAPI)
+        errorSpy.mockRestore()
+        warnSpy.mockRestore()
+      }
     })
 
     it('软删除不存在的卡片不应报错', () => {
@@ -161,5 +208,147 @@ describe('CardStore', () => {
     })
   })
 
+})
+
+describe('EmbeddingStore browser fallback', () => {
+  it('returns unavailable without throwing or writing stderr when indexing a card', async () => {
+    const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    Reflect.deleteProperty(window, 'electronAPI')
+
+    try {
+      await expect(embeddingStore.getState().indexCard('card-1')).resolves.toEqual({
+        ok: false,
+        reason: 'unavailable',
+      })
+      expect(errorSpy).not.toHaveBeenCalled()
+      expect(warnSpy).not.toHaveBeenCalled()
+    } finally {
+      restoreElectronAPI(originalElectronAPI)
+      errorSpy.mockRestore()
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('returns ipc-error without writing stderr when card indexing rejects', async () => {
+    const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
+    const error = new Error('ipc failed')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    window.electronAPI = {
+      embedding: { indexCard: vi.fn().mockRejectedValue(error) },
+    } as unknown as Window['electronAPI']
+
+    try {
+      await expect(embeddingStore.getState().indexCard('card-1')).resolves.toEqual({
+        ok: false,
+        reason: 'ipc-error',
+        error,
+      })
+      expect(errorSpy).not.toHaveBeenCalled()
+      expect(warnSpy).not.toHaveBeenCalled()
+    } finally {
+      restoreElectronAPI(originalElectronAPI)
+      errorSpy.mockRestore()
+      warnSpy.mockRestore()
+    }
+  })
+
+
+  it('recovers indexing state and subscriptions when indexAll rejects', async () => {
+    const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
+    const error = new Error('index failed')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const offProgress = vi.fn()
+    const offComplete = vi.fn()
+    const offError = vi.fn()
+    window.electronAPI = {
+      embedding: {
+        onProgress: vi.fn(() => offProgress),
+        onComplete: vi.fn(() => offComplete),
+        onError: vi.fn(() => offError),
+        indexAll: vi.fn().mockRejectedValue(error),
+      },
+    } as unknown as Window['electronAPI']
+
+    try {
+      await expect(embeddingStore.getState().startIndexing()).resolves.toBeUndefined()
+      expect(embeddingStore.getState().indexing).toBe(false)
+      expect(offProgress).toHaveBeenCalledOnce()
+      expect(offComplete).toHaveBeenCalledOnce()
+      expect(offError).toHaveBeenCalledOnce()
+      expect(errorSpy).toHaveBeenCalledWith('[embeddingStore] indexAll failed:', error)
+    } finally {
+      restoreElectronAPI(originalElectronAPI)
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('recovers download state and subscriptions when downloadModel rejects', async () => {
+    const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
+    const error = new Error('download failed')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const offProgress = vi.fn()
+    const offComplete = vi.fn()
+    const offError = vi.fn()
+    window.electronAPI = {
+      embedding: {
+        onDownloadProgress: vi.fn(() => offProgress),
+        onDownloadComplete: vi.fn(() => offComplete),
+        onDownloadError: vi.fn(() => offError),
+        downloadModel: vi.fn().mockRejectedValue(error),
+      },
+    } as unknown as Window['electronAPI']
+
+    try {
+      await expect(embeddingStore.getState().downloadModel()).resolves.toBeUndefined()
+      expect(embeddingStore.getState().downloading).toBe(false)
+      expect(embeddingStore.getState().downloadProgress).toBe(0)
+      expect(offProgress).toHaveBeenCalledOnce()
+      expect(offComplete).toHaveBeenCalledOnce()
+      expect(offError).toHaveBeenCalledOnce()
+      expect(errorSpy).toHaveBeenCalledWith('[embeddingStore] downloadModel failed:', error)
+    } finally {
+      restoreElectronAPI(originalElectronAPI)
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('reports business errors returned by indexing and download requests', async () => {
+    const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const unsubscribe = () => vi.fn()
+
+    try {
+      window.electronAPI = {
+        embedding: {
+          onProgress: vi.fn(unsubscribe),
+          onComplete: vi.fn(unsubscribe),
+          onError: vi.fn(unsubscribe),
+          indexAll: vi.fn().mockResolvedValue({ error: 'index business error' }),
+        },
+      } as unknown as Window['electronAPI']
+      await embeddingStore.getState().startIndexing()
+
+      window.electronAPI = {
+        embedding: {
+          onDownloadProgress: vi.fn(unsubscribe),
+          onDownloadComplete: vi.fn(unsubscribe),
+          onDownloadError: vi.fn(unsubscribe),
+          downloadModel: vi.fn().mockResolvedValue({ error: 'download business error' }),
+        },
+      } as unknown as Window['electronAPI']
+      await embeddingStore.getState().downloadModel()
+
+      expect(errorSpy).toHaveBeenCalledWith('[embeddingStore] indexAll error:', 'index business error')
+      expect(errorSpy).toHaveBeenCalledWith('[embeddingStore] downloadModel error:', 'download business error')
+      expect(embeddingStore.getState().indexing).toBe(false)
+      expect(embeddingStore.getState().downloading).toBe(false)
+    } finally {
+      restoreElectronAPI(originalElectronAPI)
+      errorSpy.mockRestore()
+    }
+  })
 })
 

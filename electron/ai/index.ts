@@ -20,7 +20,7 @@ function aiLogPath(): string {
 function aiLog(msg: string) {
   const line = `[${new Date().toISOString()}] ${msg}\n`
   console.log(line.trimEnd())
-  try { appendFileSync(aiLogPath(), line) } catch {}
+  try { appendFileSync(aiLogPath(), line) } catch { /* best-effort log; ignore write failures */ }
 }
 
 interface AIConfig {

@@ -58,7 +58,7 @@ function cleanElectronEnv(): Plugin {
     // Note: this only helps in dev mode. In packaged mode, ELECTRON_RUN_AS_NODE
     // decides the process mode before any JS runs, so self-reexec is impossible.
     // Users must clear the env var before launching the packaged exe.
-    renderChunk(code, chunk) {
+    renderChunk(code, _chunk) {
       if (code.includes('require("electron")') || code.includes("require('electron')")) {
         const injected = 'delete process.env.ELECTRON_RUN_AS_NODE;\n'
         if (code.startsWith('"use strict"')) {
@@ -116,13 +116,19 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      manifest: true,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'react-vendor': ['react', 'react-dom'],
-            'xyflow': ['@xyflow/react'],
-            'blocknote': ['@blocknote/core', '@blocknote/react', '@blocknote/mantine'],
-            'framer': ['framer-motion'],
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return
+            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-core'
+            if (id.includes('@blocknote/mantine') || id.includes('@mantine/')) return 'mantine'
+            if (id.includes('@blocknote/') || id.includes('@mantine/tiptap/') || id.includes('@tiptap/') || id.includes('prosemirror-')) {
+              return 'editor-core'
+            }
+            if (id.includes('@react-three/') || id.includes('/three/')) return 'topography'
+            if (id.includes('@xyflow/')) return 'canvas'
+            if (id.includes('/motion/')) return 'motion'
           },
         },
       },
@@ -141,15 +147,14 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: [
         'use-sync-external-store/shim/with-selector.js',
-        'zustand/esm/traditional.mjs',
-        'zustand/esm/vanilla.mjs',
+        'zustand/traditional',
+        'zustand/vanilla',
         'react', 'react-dom',
         '@xyflow/react',
         '@blocknote/core', '@blocknote/react', '@blocknote/mantine',
-        'framer-motion',
+        'motion/react',
         'lucide-react',
         'dompurify',
-        'idb',
         'ts-md5',
       ],
       exclude: [

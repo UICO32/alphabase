@@ -3,6 +3,7 @@ import { type NodeProps, type Node, useReactFlow, useStore } from '@xyflow/react
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { computeLayout, saveCardSnapshots, saveFrameSnapshot, restoreOrComputePositions, restoreFrameDimensions, updateSingleCardSnapshot, type FrameLayout, type KanbanColumn, KANBAN_CARD_HEIGHT } from './utils/frameLayouts'
+import { computeResize, type ResizeDir } from './utils/frameResize'
 import type { CardNodeData } from '../../types/card'
 import { kanbanDragPreview } from './utils/kanbanDragPreview'
 import { useFrameInteraction } from './utils/frameInteraction'
@@ -47,8 +48,6 @@ const EDGE_SIZE = 8
 const CORNER_SIZE = 16
 const TITLE_MIN_CHARS = 8
 const TITLE_MAX_WIDTH = 480
-
-type ResizeDir = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
 const LAYOUT_OPTIONS: { value: FrameLayout; label: string }[] = [
   { value: 'free', label: '自由画布' },
@@ -275,12 +274,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         ev.preventDefault()
         const dx = (ev.clientX - startX) / currentZoom
         const dy = (ev.clientY - startY) / currentZoom
-        let newW = startW
-        let newH = startH
-        if (dir.includes('e')) newW = Math.max(300, startW + dx)
-        if (dir.includes('s')) newH = Math.max(200, startH + dy)
-        if (dir.includes('w')) newW = Math.max(300, startW - dx)
-        if (dir.includes('n')) newH = Math.max(200, startH - dy)
+        const { width: newW, height: newH } = computeResize(dir, dx, dy, startW, startH)
         setSize({ width: newW, height: newH })
         setNodes((nds) => {
           const frameIdx = nds.findIndex((n) => n.id === id)

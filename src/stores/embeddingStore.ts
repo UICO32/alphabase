@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla'
 import { useStore } from 'zustand'
+import { getElectronCapabilities, type ElectronCapabilitiesResult } from '../platform/electronCapabilities'
 
 export interface SearchResult {
   cardId: string
@@ -55,9 +56,9 @@ export interface EmbeddingState {
   init: (workspacePath: string) => Promise<void>
   startIndexing: () => Promise<void>
   cancelIndexing: () => Promise<void>
-  indexCard: (cardId: string) => Promise<boolean>
+  indexCard: (cardId: string) => Promise<ElectronCapabilitiesResult<boolean>>
   indexCardDebounced: (cardId: string, delay?: number) => void
-  removeVector: (cardId: string) => Promise<void>
+  removeVector: (cardId: string) => Promise<ElectronCapabilitiesResult<void>>
   cluster: (minClusterSize?: number, clusterThreshold?: number) => Promise<ClusterResult | null>
   searchRelated: (cardId: string, topK?: number) => Promise<void>
   searchByText: (query: string, topK?: number) => Promise<void>
@@ -77,6 +78,10 @@ const pendingIndexCardIds = new Set<string>()
 let isFlushing = false
 
 export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
+  const getEmbedding = () => {
+    const capabilities = getElectronCapabilities()
+    return capabilities.ok ? capabilities.value.embedding : null
+  }
   // Flush all pending incremental index cards, then re-cluster so the 3D
   // view picks up the new vectors. If the model isn't ready yet, the ids
   // are put back into pending for the next flush to retry.
@@ -89,7 +94,12 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
     if (ids.length === 0) { isFlushing = false; return }
 
     try {
-      const status = await window.electronAPI.embedding.getStatus()
+      const embedding = getEmbedding()
+      if (!embedding) {
+        for (const id of ids) pendingIndexCardIds.add(id)
+        return
+      }
+      const status = await embedding.getStatus()
       if (!status.initialized) {
         // Model not ready yet — put ids back so the next flush retries
         for (const id of ids) pendingIndexCardIds.add(id)
@@ -99,7 +109,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       let anySuccess = false
       for (const id of ids) {
         try {
-          const result = await window.electronAPI.embedding.indexCard(id)
+          const result = await embedding.indexCard(id)
           if (result.success) anySuccess = true
         } catch {
           // A single card failing shouldn't abort the rest
@@ -138,8 +148,10 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   downloadCurrentFile: '',
 
   init: async (workspacePath: string) => {
+    const embedding = getEmbedding()
+    if (!embedding) return
     try {
-      const result = await window.electronAPI.embedding.init(workspacePath)
+      const result = await embedding.init(workspacePath)
       set({
         initialized: result.storeLoaded,
         modelLoaded: result.modelLoaded,
@@ -156,9 +168,11 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   },
 
   startIndexing: async () => {
+    const embedding = getEmbedding()
+    if (!embedding) return
     set({ indexing: true, progress: 0, total: 0 })
 
-    const offProgress = window.electronAPI.embedding.onProgress((data) => {
+    const offProgress = embedding.onProgress((data) => {
       set({ progress: data.current, total: data.total })
     })
 
@@ -171,7 +185,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       offError()
     }
 
-    const offComplete = window.electronAPI.embedding.onComplete((data) => {
+    const offComplete = embedding.onComplete((data) => {
       set({
         indexing: false,
         indexed: true,
@@ -181,37 +195,47 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       cleanup()
     })
 
-    const offError = window.electronAPI.embedding.onError((data) => {
+    const offError = embedding.onError((data) => {
       console.error('[embeddingStore] error:', data.message)
       set({ indexing: false })
       cleanup()
     })
 
-    const result = await window.electronAPI.embedding.indexAll()
-    if (result.error) {
+    try {
+      const result = await embedding.indexAll()
+      if (!result.error) return
       console.error('[embeddingStore] indexAll error:', result.error)
+      set({ indexing: false })
+      cleanup()
+    } catch (error) {
+      console.error('[embeddingStore] indexAll failed:', error)
       set({ indexing: false })
       cleanup()
     }
   },
 
   cancelIndexing: async () => {
-    await window.electronAPI.embedding.cancel()
+    const embedding = getEmbedding()
+    if (embedding) await embedding.cancel()
     set({ indexing: false })
   },
 
   indexCard: async (cardId: string) => {
+    const capabilities = getElectronCapabilities()
+    if (!capabilities.ok) return capabilities
     try {
-      const result = await window.electronAPI.embedding.indexCard(cardId)
-      return result.success
-    } catch {
-      return false
+      const result = await capabilities.value.embedding.indexCard(cardId)
+      return { ok: true, value: result.success }
+    } catch (error) {
+      return { ok: false, reason: 'ipc-error', error }
     }
   },
 
   cluster: async (minClusterSize = 2, clusterThreshold?: number) => {
+    const embedding = getEmbedding()
+    if (!embedding) return null
     try {
-      const result = await window.electronAPI.embedding.cluster(minClusterSize, clusterThreshold)
+      const result = await embedding.cluster(minClusterSize, clusterThreshold)
       if (result.error) {
         console.error('[embeddingStore] cluster error:', result.error)
         return null
@@ -227,7 +251,9 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   searchRelated: async (cardId: string, topK = 20) => {
     set({ searching: true, searchResults: [], searchScores: {} })
     try {
-      const { results } = await window.electronAPI.embedding.search(cardId, topK)
+      const embedding = getEmbedding()
+      if (!embedding) throw new Error('unavailable')
+      const { results } = await embedding.search(cardId, topK)
       const scores: Record<string, number> = {}
       for (const r of (results || [])) {
         scores[r.cardId] = r.score
@@ -241,7 +267,9 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   searchByText: async (query: string, topK = 20) => {
     set({ searching: true, searchResults: [], searchScores: {} })
     try {
-      const { results } = await window.electronAPI.embedding.searchByText(query, topK)
+      const embedding = getEmbedding()
+      if (!embedding) throw new Error('unavailable')
+      const { results } = await embedding.searchByText(query, topK)
       const scores: Record<string, number> = {}
       for (const r of (results || [])) {
         scores[r.cardId] = r.score
@@ -256,12 +284,15 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
 
   setThreshold: async (value: number) => {
     set({ threshold: value })
-    await window.electronAPI.embedding.setThreshold(value)
+    const embedding = getEmbedding()
+    if (embedding) await embedding.setThreshold(value)
   },
 
   checkStatus: async () => {
     try {
-      const status = await window.electronAPI.embedding.getStatus()
+      const embedding = getEmbedding()
+      if (!embedding) return
+      const status = await embedding.getStatus()
       set({
         initialized: status.initialized,
         modelLoaded: status.initialized,
@@ -284,14 +315,19 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   },
 
   removeVector: async (cardId: string) => {
+    const capabilities = getElectronCapabilities()
+    if (!capabilities.ok) return capabilities
+    const embedding = capabilities.value.embedding
+
     try {
-      await window.electronAPI.embedding.removeVector(cardId)
-      const status = await window.electronAPI.embedding.getStatus()
+      await embedding.removeVector(cardId)
+      const status = await embedding.getStatus()
       if (status.docCount > 0 || status.initialized) {
         await get().cluster()
       }
+      return { ok: true, value: undefined }
     } catch (err) {
-      console.warn('[embeddingStore] removeVector failed:', err)
+      return { ok: false, reason: 'ipc-error', error: err }
     }
   },
 
@@ -300,8 +336,10 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
     if (store.indexing) return
 
     const deadline = Date.now() + timeoutMs
+    const embedding = getEmbedding()
+    if (!embedding) return
     while (Date.now() < deadline) {
-      const status = await window.electronAPI.embedding.getStatus()
+      const status = await embedding.getStatus()
       if (status.initialized) break
       await new Promise(r => setTimeout(r, 500))
     }
@@ -317,9 +355,11 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   },
 
   downloadModel: async () => {
+    const embedding = getEmbedding()
+    if (!embedding) return
     set({ downloading: true, downloadProgress: 0, downloadCurrentFile: '' })
 
-    const offProgress = window.electronAPI.embedding.onDownloadProgress((data) => {
+    const offProgress = embedding.onDownloadProgress((data) => {
       set({ downloadProgress: data.progress, downloadCurrentFile: data.currentFile })
     })
 
@@ -332,31 +372,41 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       offError()
     }
 
-    const offComplete = window.electronAPI.embedding.onDownloadComplete((data) => {
+    const offComplete = embedding.onDownloadComplete((data) => {
       set({ downloading: false, modelAvailable: data.success, downloadProgress: 100 })
       cleanup()
     })
 
-    const offError = window.electronAPI.embedding.onDownloadError((data) => {
+    const offError = embedding.onDownloadError((data) => {
       console.error('[embeddingStore] download error:', data.message)
       set({ downloading: false, downloadProgress: 0 })
       cleanup()
     })
 
-    const result = await window.electronAPI.embedding.downloadModel()
-    if (result.error) {
+    try {
+      const result = await embedding.downloadModel()
+      if (!result.error) return
+      console.error('[embeddingStore] downloadModel error:', result.error)
+      set({ downloading: false, downloadProgress: 0 })
+      cleanup()
+    } catch (error) {
+      console.error('[embeddingStore] downloadModel failed:', error)
       set({ downloading: false, downloadProgress: 0 })
       cleanup()
     }
   },
 
   cancelDownload: async () => {
-    await window.electronAPI.embedding.cancelDownload()
+    const embedding = getEmbedding()
+    if (embedding) await embedding.cancelDownload()
     set({ downloading: false, downloadProgress: 0 })
   },
 
   checkDownloadConfig: async () => {
-    return await window.electronAPI.embedding.getDownloadConfig()
+    const embedding = getEmbedding()
+    return embedding
+      ? await embedding.getDownloadConfig()
+      : { configured: false, modelDir: '' }
   },
   }
 })

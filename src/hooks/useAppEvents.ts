@@ -20,7 +20,7 @@ export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEvents
     if (appStart) {
       const totalMs = Math.round(performance.now() - appStart)
       console.log(`[startup] total render→ready: ${totalMs}ms`)
-      try { sessionStorage.setItem('hepta-startup-total', String(totalMs)) } catch {}
+      try { sessionStorage.setItem('hepta-startup-total', String(totalMs)) } catch { /* sessionStorage may be unavailable */ }
     }
   }, [dataReady])
 

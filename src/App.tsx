@@ -20,7 +20,8 @@ import { cleanupSubscriptions } from './sync/subscriptionManager'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
-import { preloadCardEditor } from './components/canvas/card/CardContent'
+import { preloadCardEditor } from './components/editor/cardEditorLoader'
+import { LazyCardLibraryView } from './components/ui/lazyCardLibraryView'
 import { setupAIListeners } from './stores/aiStore'
 import { Toaster } from '@/components/ui/shadcn/sonner'
 
@@ -29,7 +30,6 @@ const TITLE_BAR_HEIGHT = 24
 const CANVAS_CHROME_GAP = 8
 
 const BoardLibraryView = lazy(() => import('./components/ui/BoardLibraryView').then(m => ({ default: m.BoardLibraryView })))
-const CardLibraryView = lazy(() => import('./components/ui/CardLibraryView').then(m => ({ default: m.CardLibraryView })))
 const TrashBinPanel = lazy(() => import('./components/ui/TrashBinPanel').then(m => ({ default: m.TrashBinPanel })))
 const SettingsDialog = lazy(() => import('./components/ui/SettingsDialog').then(m => ({ default: m.SettingsDialog })))
 const WorkspacePicker = lazy(() => import('./components/ui/WorkspacePicker').then(m => ({ default: m.WorkspacePicker })))
@@ -147,7 +147,7 @@ function App() {
       case 'boardLibrary':
         return <Suspense fallback={null}><BoardLibraryView /></Suspense>
       case 'cards':
-        return <Suspense fallback={null}><CardLibraryView onOpenSettings={() => setShowSettings(true)} /></Suspense>
+        return <Suspense fallback={null}><LazyCardLibraryView onOpenSettings={() => setShowSettings(true)} /></Suspense>
       case 'board':
       default:
         if (showTopography) {

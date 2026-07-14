@@ -7,6 +7,15 @@ interface WebviewPanelProps {
   embedded?: boolean
 }
 
+function isSafeWebviewUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
   const webviewRef = useRef<Electron.WebviewTag>(null)
   const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
@@ -18,10 +27,11 @@ export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
 
   const handleOpenExternal = useCallback(async () => {
     const currentUrl = webviewRef.current?.src || url
+    if (!isSafeWebviewUrl(currentUrl)) return
     try {
       await window.electronAPI.shell.openExternal(currentUrl)
     } catch {
-      window.open(currentUrl, '_blank')
+      // The main process is the sole authority for opening external URLs.
     }
   }, [url])
 
@@ -77,15 +87,18 @@ export function WebviewPanel({ url, embedded = false }: WebviewPanelProps) {
             <Loader2 size={24} className="animate-spin text-fg-secondary" />
           </div>
         )}
-        <webview
-          ref={webviewRef as any}
-          src={url}
-          style={{ width: '100%', height: '100%' }}
-          partition="persist:webview"
-          preload={undefined}
-          httpreferrer=""
-          useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
-        />
+        {isSafeWebviewUrl(url) ? (
+          <webview
+            ref={webviewRef as any}
+            src={url}
+            style={{ width: '100%', height: '100%' }}
+            partition="persist:webview"
+            httpreferrer=""
+            useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+          />
+        ) : (
+          <div className="p-3 text-sm text-fg-secondary">不支持打开此链接</div>
+        )}
       </div>
     </div>
   )
