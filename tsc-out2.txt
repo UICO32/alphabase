@@ -1,9 +1,0 @@
-npm warn Unknown project config "node-linker". This will stop working in the next major version of npm.
-electron/clipper/cliExecutor.ts(3,1): error TS6133: 'log' is declared but its value is never read.
-src/components/canvas/card/BoardSubmenu.tsx(5,26): error TS2307: Cannot find module './MenuItem' or its corresponding type declarations.
-src/components/editor/image-toolbar/CropOverlay.tsx(25,3): error TS6133: 'surface' is declared but its value is never read.
-src/components/editor/image-toolbar/ToolbarActions.tsx(23,3): error TS6133: 'surface' is declared but its value is never read.
-src/stores/backupStore.test.ts(19,7): error TS6133: 'mockReaddir' is declared but its value is never read.
-src/stores/backupStore.test.ts(20,7): error TS6133: 'mockMkdir' is declared but its value is never read.
-src/stores/backupStore.test.ts(21,7): error TS6133: 'mockDeleteFile' is declared but its value is never read.
-src/stores/backupStore.test.ts(22,7): error TS6133: 'mockWriteFile' is declared but its value is never read.
