@@ -70,6 +70,36 @@ export async function listFileSystemBackups(workspacePath: string): Promise<{ ti
     .sort((a, b) => b.createdAt - a.createdAt)
 }
 
+export async function getFileSystemBackupSummary(
+  timestamp: string,
+  workspacePath: string,
+): Promise<{ timestamp: string; createdAt: number; cardCount: number; boardCount: number } | null> {
+  const backupBase = getBackupBasePath(workspacePath)
+  const backupDir = `${backupBase}/${timestamp}`
+  if (!(await exists(backupDir))) return null
+
+  const cardsDir = `${backupDir}/cards`
+  const boardsDir = `${backupDir}/boards`
+  const cardCount = (await exists(cardsDir))
+    ? (await readdir(cardsDir)).filter(file => file.endsWith('.json')).length
+    : 0
+
+  let boardCount = 0
+  const manifestPath = `${boardsDir}/_manifest.json`
+  if (await exists(manifestPath)) {
+    try {
+      const manifest = await readJSON<{ boards?: unknown[] }>(manifestPath)
+      boardCount = Array.isArray(manifest.boards) ? manifest.boards.length : 0
+    } catch {
+      boardCount = 0
+    }
+  } else if (await exists(boardsDir)) {
+    boardCount = (await readdir(boardsDir)).filter(file => file.endsWith('.json') && file !== '_manifest.json').length
+  }
+
+  return { timestamp, createdAt: Number(timestamp), cardCount, boardCount }
+}
+
 export async function restoreFromBackup(
   timestamp: string,
   workspacePath: string,
