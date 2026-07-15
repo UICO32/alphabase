@@ -48,7 +48,7 @@ function App() {
     showWorkspacePicker, setShowWorkspacePicker,
     showClipUrlBar, setShowClipUrlBar,
   } = useAppDialogs()
-  const { dataReady, conflict, hasBackup, handleConflictChoice } = useWorkspaceDataLoader()
+  const { dataReady, conflict, hasBackup, latestBackupSummary, handleConflictChoice } = useWorkspaceDataLoader()
 
   useAppEvents({ dataReady, setShowWorkspacePicker })
 
@@ -251,6 +251,7 @@ function App() {
           <WorkspaceConflictDialog
             conflict={conflict}
             hasBackup={hasBackup}
+            latestBackup={latestBackupSummary}
             onChoice={handleConflictChoice}
           />
         </Suspense>

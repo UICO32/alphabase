@@ -1,5 +1,12 @@
-import { AlertTriangle, Database, Merge } from 'lucide-react'
+import { AlertTriangle, Database, HardDrive } from 'lucide-react'
 import type { ConflictDiffItem } from '../../utils/workspace/types'
+
+export interface BackupSummary {
+  timestamp: string
+  createdAt: number
+  cardCount: number
+  boardCount: number
+}
 
 export interface ConflictData {
   expectedCards: number
@@ -7,34 +14,30 @@ export interface ConflictData {
   expectedBoards: number
   actualBoards: number
   diffItems: ConflictDiffItem[]
+  latestBackup?: BackupSummary | null
 }
 
 interface WorkspaceConflictDialogProps {
   conflict: ConflictData
   hasBackup: boolean
-  onChoice: (choice: 'backup' | 'continue' | 'merge' | 'cancel') => void
+  latestBackup?: BackupSummary | null
+  onChoice: (choice: 'backup' | 'continue' | 'cancel') => void
 }
 
-function formatRelativeTime(timestamp?: number): string {
-  if (!timestamp) return ''
-  const diff = Date.now() - timestamp
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}天前`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `${months}个月前`
-  return `${Math.floor(months / 12)}年前`
+function formatDate(timestamp?: number): string {
+  if (!timestamp) return '未知时间'
+  return new Date(timestamp).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: WorkspaceConflictDialogProps) {
-  const cardMismatch = conflict.expectedCards !== conflict.actualCards
-  const boardMismatch = conflict.expectedBoards !== conflict.actualBoards
-  const extraItems = conflict.diffItems.filter(i => i.diffType === 'extra')
-  const missingItems = conflict.diffItems.filter(i => i.diffType === 'missing')
+export function WorkspaceConflictDialog({ conflict, hasBackup, latestBackup, onChoice }: WorkspaceConflictDialogProps) {
+  const missingCards = Math.max(conflict.expectedCards - conflict.actualCards, 0)
+  const missingBoards = Math.max(conflict.expectedBoards - conflict.actualBoards, 0)
+  const backup = latestBackup ?? conflict.latestBackup ?? null
 
   return (
     <div
@@ -42,167 +45,93 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, onChoice }: Works
       style={{ backgroundColor: 'var(--surface-overlay)' }}
     >
       <div
-        className="w-[520px] rounded-xl flex flex-col animate-scaleIn overflow-hidden glass-panel"
-        style={{
-          boxShadow: 'var(--shadow-xl)',
-        }}
+        className="w-[560px] rounded-xl flex flex-col animate-scaleIn overflow-hidden glass-panel"
+        style={{ boxShadow: 'var(--shadow-xl)' }}
       >
-        {/* Header */}
         <div
-          className="flex items-center gap-3 px-6 py-4 border-b border-line-default"
-          style={{ backgroundColor: 'hsla(220, 60%, 50%, 0.08)' }}
+          className="flex items-start gap-3 px-6 py-4 border-b border-line-default"
+          style={{ backgroundColor: 'hsla(0, 75%, 50%, 0.08)' }}
         >
-          <AlertTriangle size={24} style={{ color: 'var(--fg-danger)' }} />
+          <AlertTriangle size={24} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-danger)' }} />
           <div>
-            <h3 className="font-semibold text-base text-fg-primary">
-              工作区数据不一致
-            </h3>
-            <p className="text-sm text-fg-secondary">
-              检测到数据可能丢失或损坏
+            <h3 className="font-semibold text-base text-fg-primary">检测到工作区数据不完整</h3>
+            <p className="text-sm text-fg-secondary mt-1">
+              元数据记录的数量和磁盘上的文件数量不一致。为了避免误删数据，请先选择如何处理。
             </p>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="px-6 py-5 space-y-4 max-h-[400px] overflow-y-auto">
-          <p className="text-sm text-fg-primary">
-            磁盘上的实际数据与元数据记录不匹配：
-          </p>
-
-          <div className="space-y-3">
-            {cardMismatch && (
-              <div
-                className="flex items-center justify-between p-3 rounded-lg bg-surface-card"
-              >
-                <span className="text-sm text-fg-primary">
-                  卡片数量
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--fg-danger)' }}>
-                    磁盘有 {conflict.actualCards} 张卡片
-                  </span>
-                  <span className="text-sm text-fg-secondary">·</span>
-                  <span className="text-sm font-medium text-fg-secondary">
-                    元数据记录 {conflict.expectedCards} 张
-                  </span>
-                </div>
+        <div className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg bg-surface-card p-3">
+              <div className="text-xs text-fg-secondary">元数据记录</div>
+              <div className="text-sm text-fg-primary mt-1">
+                {conflict.expectedCards} 张卡片 · {conflict.expectedBoards} 个画板
               </div>
-            )}
-
-            {boardMismatch && (
-              <div
-                className="flex items-center justify-between p-3 rounded-lg bg-surface-card"
-              >
-                <span className="text-sm text-fg-primary">
-                  画板数量
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--fg-danger)' }}>
-                    磁盘有 {conflict.actualBoards} 个画板
-                  </span>
-                  <span className="text-sm text-fg-secondary">·</span>
-                  <span className="text-sm font-medium text-fg-secondary">
-                    元数据记录 {conflict.expectedBoards} 个
-                  </span>
-                </div>
+            </div>
+            <div className="rounded-lg bg-surface-card p-3">
+              <div className="text-xs text-fg-secondary">当前磁盘文件</div>
+              <div className="text-sm mt-1" style={{ color: missingCards || missingBoards ? 'var(--fg-danger)' : 'var(--fg-primary)' }}>
+                {conflict.actualCards} 张卡片 · {conflict.actualBoards} 个画板
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Diff items */}
-          {conflict.diffItems.length > 0 && (
-            <div className="space-y-2">
-              {extraItems.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-fg-secondary mb-1.5">
-                    磁盘多出（{extraItems.length}）
-                  </p>
-                  <div className="space-y-1">
-                    {extraItems.slice(0, 5).map(item => (
-                      <div key={item.id} className="flex items-center justify-between px-2.5 py-1.5 rounded bg-surface-card text-xs">
-                        <span className="text-fg-primary truncate max-w-[280px]">
-                          {item.type === 'board' ? '📋 ' : ''}{item.title || item.id}
-                        </span>
-                        {item.updatedAt && (
-                          <span className="text-fg-secondary shrink-0 ml-2">{formatRelativeTime(item.updatedAt)}</span>
-                        )}
-                      </div>
-                    ))}
-                    {extraItems.length > 5 && (
-                      <p className="text-xs text-fg-secondary px-2.5">...还有 {extraItems.length - 5} 项</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {missingItems.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--fg-danger)' }}>
-                    磁盘缺失（{missingItems.length}）
-                  </p>
-                  <div className="space-y-1">
-                    {missingItems.slice(0, 5).map(item => (
-                      <div key={item.id} className="flex items-center justify-between px-2.5 py-1.5 rounded bg-surface-card text-xs">
-                        <span className="text-fg-primary truncate max-w-[280px]">
-                          {item.type === 'board' ? '📋 ' : ''}{item.title || item.id}
-                        </span>
-                        {item.updatedAt && (
-                          <span className="text-fg-secondary shrink-0 ml-2">{formatRelativeTime(item.updatedAt)}</span>
-                        )}
-                      </div>
-                    ))}
-                    {missingItems.length > 5 && (
-                      <p className="text-xs text-fg-secondary px-2.5">...还有 {missingItems.length - 5} 项</p>
-                    )}
-                  </div>
-                </div>
-              )}
+          {(missingCards > 0 || missingBoards > 0) && (
+            <div className="rounded-lg p-3 text-sm" style={{ backgroundColor: 'hsla(0, 75%, 50%, 0.08)', color: 'var(--fg-danger)' }}>
+              当前磁盘比记录少了 {missingCards} 张卡片、{missingBoards} 个画板。这个状态看起来像数据目录被清空或重建过。
             </div>
           )}
 
-          <div
-            className="p-3 rounded-lg text-sm"
-            style={{ backgroundColor: 'hsla(220, 80%, 50%, 0.08)', color: 'var(--color-blue-400)' }}
-          >
-            可能原因：数据文件被意外删除、同步失败、或程序异常退出导致数据未完整保存。
+          <div className="space-y-3">
+            {hasBackup && backup && (
+              <button
+                onClick={() => onChoice('backup')}
+                className="w-full rounded-lg border border-line-focus bg-surface-card px-4 py-3 text-left transition-colors hover:bg-surface-card-active"
+              >
+                <div className="flex items-start gap-3">
+                  <Database size={18} className="mt-0.5 shrink-0 text-brand" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-fg-primary">恢复最近备份（推荐）</div>
+                    <div className="text-xs text-fg-secondary mt-1 leading-5">
+                      恢复 {backup.cardCount} 张卡片、{backup.boardCount} 个画板。恢复前会先保存当前磁盘状态，所以这一步可回退。
+                    </div>
+                    <div className="text-xs text-fg-tertiary mt-1">备份时间：{formatDate(backup.createdAt)}</div>
+                  </div>
+                </div>
+              </button>
+            )}
+
+            <button
+              onClick={() => onChoice('continue')}
+              className="w-full rounded-lg border border-line-default bg-transparent px-4 py-3 text-left transition-colors hover:bg-surface-card"
+            >
+              <div className="flex items-start gap-3">
+                <HardDrive size={18} className="mt-0.5 shrink-0 text-fg-secondary" />
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-fg-primary">继续使用当前磁盘数据</div>
+                  <div className="text-xs text-fg-secondary mt-1 leading-5">
+                    保留当前的 {conflict.actualCards} 张卡片、{conflict.actualBoards} 个画板。不恢复缺失文件，后续自动备份可能会保存这个状态。
+                  </div>
+                </div>
+              </div>
+            </button>
           </div>
+
+          {!hasBackup && (
+            <div className="rounded-lg bg-surface-card p-3 text-sm text-fg-secondary">
+              没有找到可用备份。建议先不要继续操作，检查工作区目录是否被移动、清空或同步软件覆盖。
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div
-          className="flex items-center justify-end gap-3 px-6 py-4 border-t border-line-default"
-        >
+        <div className="flex items-center justify-end px-6 py-4 border-t border-line-default">
           <button
             onClick={() => onChoice('cancel')}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-fg-secondary hover:bg-surface-card"
           >
-            取消加载
+            先不加载
           </button>
-
-          <button
-            onClick={() => onChoice('merge')}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 text-fg-primary bg-surface-card border border-line-default hover:bg-border-default"
-          >
-            <Merge size={14} />
-            自动合并
-          </button>
-
-          <button
-            onClick={() => onChoice('continue')}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-[var(--fg-inverse)] bg-[var(--color-blue-500)] hover:bg-[var(--color-blue-600)]"
-          >
-            保留磁盘数据
-          </button>
-
-          {hasBackup && (
-            <button
-              onClick={() => onChoice('backup')}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 text-fg-primary bg-surface-card border border-line-default hover:bg-border-default"
-            >
-              <Database size={14} />
-              使用备份恢复
-            </button>
-          )}
         </div>
       </div>
     </div>

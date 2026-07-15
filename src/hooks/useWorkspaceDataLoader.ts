@@ -12,7 +12,7 @@ import { WorkspaceSyncEngine } from '../sync/syncEngine'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
 import type { ConflictDiffItem } from '../utils/workspace/types'
-import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup } from '../stores/backupStore'
+import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup, getFileSystemBackupSummary } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import { setupSubscriptions } from '../sync/subscriptionManager'
 import { embeddingStore } from '../stores/embeddingStore'
@@ -110,6 +110,7 @@ export function useWorkspaceDataLoader() {
   const [conflict, setConflict] = useState<ConflictData | null>(null)
   const [pendingWorkspacePath, setPendingWorkspacePath] = useState<string | null>(null)
   const [hasBackup, setHasBackup] = useState(false)
+  const [latestBackupSummary, setLatestBackupSummary] = useState<ConflictData['latestBackup']>(null)
 
   const loadWorkspaceData = useCallback(async (workspacePath: string, skipValidation: boolean = false) => {
     __t.start = 0; __t.steps = []
@@ -264,7 +265,20 @@ export function useWorkspaceDataLoader() {
           diffItems,
         })
         setPendingWorkspacePath(workspacePath)
-        listFileSystemBackups(workspacePath).then(b => setHasBackup(b.length > 0)).catch(() => setHasBackup(false))
+        listFileSystemBackups(workspacePath)
+          .then(async (backups) => {
+            setHasBackup(backups.length > 0)
+            const newest = backups[0]
+            if (!newest) {
+              setLatestBackupSummary(null)
+              return
+            }
+            setLatestBackupSummary(await getFileSystemBackupSummary(newest.timestamp, workspacePath))
+          })
+          .catch(() => {
+            setHasBackup(false)
+            setLatestBackupSummary(null)
+          })
         setDataReady(true)
         notifyDataReady()
         return
@@ -426,18 +440,9 @@ export function useWorkspaceDataLoader() {
       }
     }
 
-    if (choice === 'merge' && pendingWorkspacePath) {
-      const service = new WorkspaceService()
-      service.setWorkspacePath(pendingWorkspacePath)
-      service.repairConsistency().then(() => {
-        loadWorkspaceData(pendingWorkspacePath!, true).catch((err) => {
-          console.error('[workspace] loadWorkspaceData after merge failed:', err)
-          ensureGlobalDemoCards()
-          ensureDefaultBoard()
-          setDataReady(true)
-          notifyDataReady()
-        })
-      })
+    if (choice === 'merge') {
+      console.warn('[workspace] ignored deprecated merge conflict choice')
+      setPendingWorkspacePath(null)
       return
     }
 
@@ -458,6 +463,7 @@ export function useWorkspaceDataLoader() {
     setDataReady(false)
     setConflict(null)
     setPendingWorkspacePath(null)
+    setLatestBackupSummary(null)
   })
 
   useEffect(() => {
@@ -520,5 +526,5 @@ if (!workspacePath) {
     }
   }, [initKey, loadWorkspaceData])
 
-  return { dataReady, conflict, hasBackup, handleConflictChoice }
+  return { dataReady, conflict, hasBackup, latestBackupSummary, handleConflictChoice }
 }
