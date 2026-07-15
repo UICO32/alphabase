@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import DOMPurify from 'dompurify'
 import {
   ReactFlow,
   ConnectionMode,
@@ -25,6 +26,7 @@ import { useViewStore } from '../../stores/viewStore'
 import { useThemeStore } from '../../stores/themeStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore } from '../../stores/cardStore'
+import { useBoardStore } from '../../stores/boardStore'
 import { emit } from '../../stores/eventBus'
 import { MemoizedConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
@@ -78,6 +80,8 @@ export function ReactFlowCanvas() {
   const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
   const gridPattern = useThemeStore((s) => s.gridPattern)
   const previewZoomThreshold = useLibraryStore(s => s.previewZoomThreshold)
+  const boards = useBoardStore((s) => s.boards)
+  const allCards = useCardStore((s) => s.cards)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
@@ -615,6 +619,48 @@ export function ReactFlowCanvas() {
   // 看板 Frame 内的卡片之间隐藏连接线
   const visibleEdges = useMemo(() => getVisibleCanvasEdges(nodes, edges), [nodes, edges])
 
+  const suggestedCards = useMemo(() => {
+    const boardCardIds = new Set(
+      nodes
+        .map(node => (node.data as Record<string, unknown>)?.cardId)
+        .filter((cardId): cardId is string => typeof cardId === 'string'),
+    )
+
+    return Object.values(allCards)
+      .filter(card => !card.deletedAt && !boardCardIds.has(card.id))
+      .sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))
+      .slice(0, 6)
+  }, [nodes, allCards])
+
+  const suggestedCardIdsRef = useRef<string[]>([])
+  useEffect(() => {
+    const ids = suggestedCards.map(card => card.id)
+    if (
+      ids.length === suggestedCardIdsRef.current.length &&
+      ids.every((id, index) => id === suggestedCardIdsRef.current[index])
+    ) {
+      return
+    }
+
+    suggestedCardIdsRef.current = ids
+    const missing = suggestedCards
+      .filter(card => !card.previewHTML && card.content)
+      .map(card => card.id)
+
+    if (missing.length === 0) return
+
+    const scheduleIdle = window.requestIdleCallback ?? ((callback: IdleRequestCallback) => {
+      const id = window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 1)
+      return id as unknown as number
+    })
+    const cancelIdle = window.cancelIdleCallback ?? window.clearTimeout
+    const idleId = scheduleIdle(() => {
+      useCardStore.getState().ensurePreviewHTMLBatch(missing)
+    })
+
+    return () => cancelIdle(idleId)
+  }, [suggestedCards])
+
   const editingCardId = useViewStore(s => s.editingCardId)
 
   // 编辑中的卡片抬升 zIndex，使工具栏/悬浮 UI 不被其他卡片遮挡
@@ -686,6 +732,128 @@ export function ReactFlowCanvas() {
         />
       </ReactFlow>
       <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
+
+      {boards.length === 0 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center select-none pointer-events-none" style={{ zIndex: 5 }}>
+          <svg width="320" height="200" viewBox="0 0 320 200" fill="none" className="mb-6 opacity-40" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.06))' }} aria-hidden>
+            <rect x="20" y="50" width="100" height="80" rx="10" fill="var(--surface-card)" stroke="var(--line-default)" strokeWidth="1.5" />
+            <rect x="34" y="64" width="48" height="6" rx="3" fill="var(--fg-tertiary)" opacity="0.4" />
+            <rect x="34" y="78" width="72" height="4" rx="2" fill="var(--fg-quaternary)" opacity="0.25" />
+            <rect x="34" y="88" width="56" height="4" rx="2" fill="var(--fg-quaternary)" opacity="0.25" />
+            <path d="M120 90 C145 70, 155 70, 180 90" stroke="var(--line-default)" strokeWidth="1.5" fill="none" strokeDasharray="4 3" opacity="0.5" />
+            <circle cx="180" cy="90" r="3" fill="var(--brand)" opacity="0.5" />
+            <rect x="185" y="50" width="100" height="80" rx="10" fill="var(--surface-card)" stroke="var(--line-default)" strokeWidth="1.5" />
+            <rect x="199" y="64" width="60" height="6" rx="3" fill="var(--fg-tertiary)" opacity="0.4" />
+            <rect x="199" y="78" width="72" height="4" rx="2" fill="var(--fg-quaternary)" opacity="0.25" />
+            <path d="M285 90 C300 120, 70 140, 55 160" stroke="var(--line-default)" strokeWidth="1.5" fill="none" strokeDasharray="4 3" opacity="0.5" />
+            <circle cx="55" cy="160" r="3" fill="var(--brand)" opacity="0.5" />
+            <rect x="10" y="145" width="90" height="50" rx="10" fill="var(--surface-card)" stroke="var(--line-default)" strokeWidth="1.5" />
+            <rect x="24" y="159" width="40" height="5" rx="2.5" fill="var(--fg-tertiary)" opacity="0.4" />
+          </svg>
+          <h3 className="text-base font-medium text-fg-secondary mb-1.5">开始你的知识探索</h3>
+          <p className="text-xs text-fg-tertiary mb-5 max-w-[280px] text-center leading-relaxed">
+            创建不同的画布来组织你的主题，<br />在画布上建立卡片和连接
+          </p>
+          <button
+            className="pointer-events-auto px-4 py-2 rounded-lg text-sm font-medium bg-brand text-white hover:brightness-110 active:brightness-95 transition-all"
+            onClick={() => {
+              const boardStore = useBoardStore.getState()
+              const newBoard = {
+                id: crypto.randomUUID(),
+                name: '新画布',
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+              }
+              boardStore.addBoard(newBoard)
+              boardStore.saveBoardData(newBoard.id, { nodes: [], edges: [] })
+              emit('switch-board', { boardId: newBoard.id })
+            }}
+          >
+            + 新建画布
+          </button>
+        </div>
+      )}
+
+      {boards.length > 0 && nodes.length === 0 && suggestedCards.length > 0 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
+          <p className="text-xs text-fg-tertiary mb-4">从卡片库拖入，或点击添加到画布</p>
+          <div className="flex items-end justify-center pointer-events-auto" style={{ perspective: '800px' }}>
+            {suggestedCards.map((card, index) => {
+              const total = suggestedCards.length
+              const offset = index - (total - 1) / 2
+              const previewHTML = card.previewHTML || useCardStore.getState().getPreviewHTML(card.id) || ''
+              const sanitizedHTML = DOMPurify.sanitize(previewHTML, {
+                ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i,
+              }).replace(/<img[^>]*>/gi, '')
+
+              return (
+                <div
+                  key={card.id}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('application/json', JSON.stringify({
+                      type: 'card',
+                      cardId: card.id,
+                      isNewInstance: event.altKey,
+                    }))
+                    event.dataTransfer.effectAllowed = 'copy'
+                    event.currentTarget.classList.add('suggested-card-floating')
+                  }}
+                  onDragEnd={(event) => event.currentTarget.classList.remove('suggested-card-floating')}
+                  onClick={() => {
+                    const instance = reactFlowInstance.current
+                    if (!instance) return
+                    snapshotNow()
+                    const center = instance.screenToFlowPosition({
+                      x: window.innerWidth / 2,
+                      y: window.innerHeight / 2,
+                    })
+                    setNodes(currentNodes => [
+                      ...currentNodes,
+                      {
+                        id: crypto.randomUUID(),
+                        type: 'card',
+                        position: { x: center.x + index * 20, y: center.y + index * 20 },
+                        data: {
+                          cardId: card.id,
+                          color: card.color || 'white',
+                          width: DEFAULT_CARD_WIDTH,
+                          height: DEFAULT_CARD_HEIGHT,
+                        },
+                        zIndex: 10,
+                        className: 'card-node-landing',
+                      },
+                    ])
+                    setTimeout(() => recordCurrentState(), 0)
+                  }}
+                  className="suggested-card group flex flex-col bg-surface-card border border-line-default rounded-xl cursor-pointer overflow-hidden transition-all duration-300 ease-out hover:z-[999]"
+                  style={{
+                    width: 130,
+                    aspectRatio: '3/4',
+                    transform: `rotate(${offset * (total <= 4 ? 5 : 4)}deg) translateY(${Math.abs(offset) * 10 * (offset > 0 ? 1 : -1)}px)`,
+                    transformOrigin: 'bottom center',
+                    marginLeft: index === 0 ? 0 : -(130 * 0.06),
+                    zIndex: total - Math.abs(Math.round(offset)),
+                    boxShadow: 'var(--shadow-md)',
+                  }}
+                >
+                  <div className="p-2.5 flex flex-col h-full overflow-hidden">
+                    <div className="text-[11px] font-medium text-fg-primary truncate mb-1">{card.title || '无标题'}</div>
+                    <div
+                      className="min-h-0 flex-1 overflow-hidden text-[10px] leading-relaxed text-fg-secondary"
+                      style={{ WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%)' }}
+                      dangerouslySetInnerHTML={{ __html: sanitizedHTML || '无内容' }}
+                    />
+                  </div>
+                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                    <span className="text-[10px] text-fg-secondary bg-surface-panel/90 px-2 py-0.5 rounded shadow-sm">拖拽或点击放置</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 框选矩形 */}
       {isLassoMode && lassoRect && lassoRect.width > 0 && lassoRect.height > 0 && (() => {
