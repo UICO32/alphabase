@@ -119,6 +119,17 @@ declare global {
       app: {
         readChangelog: () => Promise<string>
       }
+      workspace: {
+        auditEvent: (payload: {
+          level?: 'info' | 'warn' | 'error'
+          action: string
+          workspacePath?: string
+          path?: string
+          ok?: boolean
+          details?: Record<string, unknown>
+          error?: string
+        }) => Promise<void>
+      }
     }
   }
 }

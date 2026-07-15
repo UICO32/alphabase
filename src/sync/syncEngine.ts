@@ -1,6 +1,7 @@
 import { writeFile, deleteFile, exists, mkdir, rename } from '../utils/workspace/fs'
 import type { CardFile, BoardSnapshot, BoardManifest, TrashFile, WorkspaceMetadata } from '../utils/workspace/types'
 import { useEventBus } from '../stores/eventBus'
+import { auditWorkspaceEvent, auditWorkspaceHealth } from '../utils/workspace/audit'
 
 export class WorkspaceSyncEngine {
   private cardsDir: string = ''
@@ -23,11 +24,18 @@ export class WorkspaceSyncEngine {
     this.boardsDir = joinPath(workspacePath, 'boards')
     this.trashDir = joinPath(workspacePath, 'trash')
 
+    await auditWorkspaceHealth(workspacePath, 'sync-init-before-directory-check')
     for (const dir of [this.cardsDir, this.boardsDir, this.trashDir]) {
       if (!(await exists(dir))) {
+        auditWorkspaceEvent({
+          action: 'sync-init-create-missing-directory',
+          workspacePath,
+          path: dir,
+        })
         await mkdir(dir)
       }
     }
+    await auditWorkspaceHealth(workspacePath, 'sync-init-after-directory-check')
 
     this.running = true
   }

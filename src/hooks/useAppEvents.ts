@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { emit, on } from '../stores/eventBus'
+import { auditWorkspaceHealth } from '../utils/workspace/audit'
 
 interface UseAppEventsOptions {
   dataReady: boolean
@@ -82,14 +83,19 @@ export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEvents
   // Flush sync engine before window closes to prevent data loss
   useEffect(() => {
     const syncFlush = async () => {
+      const workspacePath = localStorage.getItem('hepta-last-workspace-path')
+      if (workspacePath) await auditWorkspaceHealth(workspacePath, 'flush-before-close-before')
       const engine = (window as any).__activeSyncEngine
       if (engine?.flushAll) {
         await engine.flushAll()
       }
+      if (workspacePath) await auditWorkspaceHealth(workspacePath, 'flush-before-close-after')
     }
 
     // Quick flush for beforeunload/pagehide (may not complete)
     const quickFlush = () => {
+      const workspacePath = localStorage.getItem('hepta-last-workspace-path')
+      if (workspacePath) void auditWorkspaceHealth(workspacePath, 'quick-flush-before-unload')
       const engine = (window as any).__activeSyncEngine
       if (engine?.flushNow) {
         engine.flushNow()

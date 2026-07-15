@@ -18,6 +18,7 @@ import { registerClipperHandlers } from './clipper/handler'
 import { registerEmbeddingIPC, disposeEmbeddingService } from './embedding'
 import { registerAISummaryIPC } from './ai'
 import { createTray, setIsQuitting, getIsQuitting, destroyTray } from './tray'
+import { auditWorkspaceEvent } from './workspaceAuditLog'
 import { Md5 } from 'ts-md5'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -80,12 +81,63 @@ async function restoreAuthorizedWorkspaces() {
 async function authorizeWorkspacePath(workspacePath: string) {
   registerWorkspacePath(workspacePath)
   await fsWriteFile(authorizedWorkspacesFile(), JSON.stringify(getRegisteredWorkspacePaths()))
+  auditWorkspaceEvent({
+    source: 'main',
+    action: 'workspace-authorized',
+    workspacePath,
+    details: { registeredCount: getRegisteredWorkspacePaths().length },
+  })
 }
 
 function assertMainWindowSender(event: Electron.IpcMainInvokeEvent) {
   if (!mainWindow || event.sender !== mainWindow.webContents) {
     throw new Error('IPC sender is not the application window')
   }
+}
+
+function getIpcCaller(event: Electron.IpcMainInvokeEvent): string {
+  try {
+    return event.senderFrame?.url || event.sender.getURL()
+  } catch {
+    return 'unknown'
+  }
+}
+
+function workspaceForPath(filePath: string): string | undefined {
+  const normalizedPath = resolve(filePath)
+  return getRegisteredWorkspacePaths()
+    .map(workspacePath => resolve(workspacePath))
+    .sort((a, b) => b.length - a.length)
+    .find(workspacePath =>
+      normalizedPath === workspacePath
+      || normalizedPath.startsWith(workspacePath + '/')
+      || normalizedPath.startsWith(workspacePath + '\\')
+    )
+}
+
+function auditFsIntent(event: Electron.IpcMainInvokeEvent, action: string, path: string, details?: Record<string, unknown>) {
+  auditWorkspaceEvent({
+    source: 'main',
+    action,
+    path,
+    workspacePath: workspaceForPath(path),
+    caller: getIpcCaller(event),
+    details,
+  })
+}
+
+function auditFsResult(event: Electron.IpcMainInvokeEvent, action: string, path: string, ok: boolean, error?: unknown, details?: Record<string, unknown>) {
+  auditWorkspaceEvent({
+    level: ok ? 'info' : 'error',
+    source: 'main',
+    action,
+    path,
+    workspacePath: workspaceForPath(path),
+    caller: getIpcCaller(event),
+    ok,
+    error: error instanceof Error ? error.message : error ? String(error) : undefined,
+    details,
+  })
 }
 
 function createWindow() {
@@ -388,7 +440,14 @@ ipcMain.handle('fs:writeFile', async (event, filePath: string, data: Uint8Array 
 ipcMain.handle('fs:deleteFile', async (event, path: string) => {
   assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
-  await unlink(path)
+  auditFsIntent(event, 'fs-deleteFile-start', path)
+  try {
+    await unlink(path)
+    auditFsResult(event, 'fs-deleteFile-end', path, true)
+  } catch (err) {
+    auditFsResult(event, 'fs-deleteFile-end', path, false, err)
+    throw err
+  }
 })
 
 ipcMain.handle('fs:readdir', async (event, path: string) => {
@@ -403,6 +462,7 @@ ipcMain.handle('fs:readDirFiles', async (event, dirPath: string) => {
   try {
     const files = await fsReaddir(dirPath)
     const jsonFiles = files.filter(f => f.endsWith('.json'))
+    auditFsResult(event, 'fs-readDirFiles', dirPath, true, undefined, { fileCount: files.length, jsonFileCount: jsonFiles.length })
     const results: Record<string, string> = {}
     await Promise.all(jsonFiles.map(async file => {
       try {
@@ -411,7 +471,8 @@ ipcMain.handle('fs:readDirFiles', async (event, dirPath: string) => {
       } catch { /* skip unreadable files */ }
     }))
     return results
-  } catch {
+  } catch (err) {
+    auditFsResult(event, 'fs-readDirFiles', dirPath, false, err)
     return null
   }
 })
@@ -419,7 +480,14 @@ ipcMain.handle('fs:readDirFiles', async (event, dirPath: string) => {
 ipcMain.handle('fs:mkdir', async (event, path: string) => {
   assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
-  await fsMkdirDir(path, { recursive: true })
+  auditFsIntent(event, 'fs-mkdir-start', path)
+  try {
+    await fsMkdirDir(path, { recursive: true })
+    auditFsResult(event, 'fs-mkdir-end', path, true)
+  } catch (err) {
+    auditFsResult(event, 'fs-mkdir-end', path, false, err)
+    throw err
+  }
 })
 
 ipcMain.handle('fs:stat', async (event, path: string) => {
@@ -446,13 +514,52 @@ ipcMain.handle('fs:exists', async (event, filePath: string) => {
 ipcMain.handle('fs:rename', async (event, oldPath: string, newPath: string) => {
   assertMainWindowSender(event)
   if (!isPathWithinWorkspace(oldPath) || !isPathWithinWorkspace(newPath)) throw new Error(`Path outside workspace: old=${oldPath} new=${newPath}`)
-  await fsRename(oldPath, newPath)
+  auditWorkspaceEvent({
+    source: 'main',
+    action: 'fs-rename-start',
+    oldPath,
+    newPath,
+    workspacePath: workspaceForPath(oldPath) ?? workspaceForPath(newPath),
+    caller: getIpcCaller(event),
+  })
+  try {
+    await fsRename(oldPath, newPath)
+    auditWorkspaceEvent({
+      source: 'main',
+      action: 'fs-rename-end',
+      oldPath,
+      newPath,
+      workspacePath: workspaceForPath(oldPath) ?? workspaceForPath(newPath),
+      caller: getIpcCaller(event),
+      ok: true,
+    })
+  } catch (err) {
+    auditWorkspaceEvent({
+      level: 'error',
+      source: 'main',
+      action: 'fs-rename-end',
+      oldPath,
+      newPath,
+      workspacePath: workspaceForPath(oldPath) ?? workspaceForPath(newPath),
+      caller: getIpcCaller(event),
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    throw err
+  }
 })
 
 ipcMain.handle('fs:rmdir', async (event, path: string) => {
   assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
-  await rm(path, { recursive: true, force: true })
+  auditFsIntent(event, 'fs-rmdir-start', path, { recursive: true, force: true })
+  try {
+    await rm(path, { recursive: true, force: true })
+    auditFsResult(event, 'fs-rmdir-end', path, true, undefined, { recursive: true, force: true })
+  } catch (err) {
+    auditFsResult(event, 'fs-rmdir-end', path, false, err, { recursive: true, force: true })
+    throw err
+  }
 })
 
 ipcMain.handle('dialog:openDirectory', async (event) => {
@@ -465,6 +572,23 @@ ipcMain.handle('dialog:openDirectory', async (event) => {
   const workspacePath = result.filePaths[0]
   await authorizeWorkspacePath(workspacePath)
   return workspacePath
+})
+
+ipcMain.handle('workspace:auditEvent', async (event, payload: unknown) => {
+  assertMainWindowSender(event)
+  if (!payload || typeof payload !== 'object') return
+  const data = payload as Record<string, unknown>
+  auditWorkspaceEvent({
+    level: data.level === 'warn' || data.level === 'error' ? data.level : 'info',
+    source: 'renderer',
+    action: typeof data.action === 'string' ? data.action : 'renderer-event',
+    workspacePath: typeof data.workspacePath === 'string' ? data.workspacePath : undefined,
+    path: typeof data.path === 'string' ? data.path : undefined,
+    caller: getIpcCaller(event),
+    ok: typeof data.ok === 'boolean' ? data.ok : undefined,
+    details: data.details && typeof data.details === 'object' ? data.details as Record<string, unknown> : undefined,
+    error: typeof data.error === 'string' ? data.error : undefined,
+  })
 })
 
 ipcMain.handle('shell:openExternal', async (_event, url: string) => {

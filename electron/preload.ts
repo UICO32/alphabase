@@ -119,6 +119,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   app: {
     readChangelog: () => ipcRenderer.invoke('app:readChangelog'),
   },
+  workspace: {
+    auditEvent: (payload: any) => ipcRenderer.invoke('workspace:auditEvent', payload),
+  },
   onFlushBeforeClose: (callback: () => Promise<void>) => {
     ipcRenderer.on('flush-before-close', async () => {
       await callback()

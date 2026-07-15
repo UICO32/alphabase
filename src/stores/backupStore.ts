@@ -1,5 +1,6 @@
 import { mkdir, exists, readdir, writeFile, readFile, deleteFile, rmdir, readJSON } from '../utils/workspace/fs'
 import type { TrashFile } from '../utils/workspace/types'
+import { auditWorkspaceEvent, auditWorkspaceHealth } from '../utils/workspace/audit'
 
 const MAX_FILE_BACKUPS = 10
 const AUTO_BACKUP_INTERVAL_MS = 30 * 60 * 1000 // 30 minutes
@@ -30,6 +31,7 @@ async function removeDir(dirPath: string): Promise<void> {
 
 export async function createFileSystemBackup(workspacePath: string): Promise<string | null> {
   try {
+    await auditWorkspaceHealth(workspacePath, 'backup-create-before')
     const timestamp = Date.now().toString()
     const backupBase = getBackupBasePath(workspacePath)
     const backupDir = `${backupBase}/${timestamp}`
@@ -54,8 +56,20 @@ export async function createFileSystemBackup(workspacePath: string): Promise<str
       await rmdir(oldDir).catch(() => {})
     }
 
+    await auditWorkspaceHealth(workspacePath, 'backup-create-after', { backupDir })
+    auditWorkspaceEvent({
+      action: 'backup-create-success',
+      workspacePath,
+      path: backupDir,
+    })
     return backupDir
-  } catch {
+  } catch (err) {
+    auditWorkspaceEvent({
+      level: 'error',
+      action: 'backup-create-failed',
+      workspacePath,
+      error: err instanceof Error ? err.message : String(err),
+    })
     return null
   }
 }
@@ -105,11 +119,19 @@ export async function restoreFromBackup(
   workspacePath: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await auditWorkspaceHealth(workspacePath, 'backup-restore-before', { timestamp })
     const backupBase = getBackupBasePath(workspacePath)
     const backupDir = `${backupBase}/${timestamp}`
 
     // Verify backup exists
     if (!(await exists(backupDir))) {
+      auditWorkspaceEvent({
+        level: 'error',
+        action: 'backup-restore-missing-backup',
+        workspacePath,
+        path: backupDir,
+        details: { timestamp },
+      })
       return { success: false, error: `Backup not found: ${timestamp}` }
     }
 
@@ -129,6 +151,12 @@ export async function restoreFromBackup(
         const existingFiles = await readdir(destDir)
         for (const file of existingFiles) {
           if (file.endsWith('.json')) {
+            auditWorkspaceEvent({
+              action: 'backup-restore-delete-existing-file',
+              workspacePath,
+              path: `${destDir}/${file}`,
+              details: { timestamp, subdir },
+            })
             await deleteFile(`${destDir}/${file}`)
           }
         }
@@ -140,9 +168,23 @@ export async function restoreFromBackup(
       await copyDir(srcDir, destDir)
     }
 
+    await auditWorkspaceHealth(workspacePath, 'backup-restore-after', { timestamp, backupDir })
+    auditWorkspaceEvent({
+      action: 'backup-restore-success',
+      workspacePath,
+      path: backupDir,
+      details: { timestamp },
+    })
     return { success: true }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    auditWorkspaceEvent({
+      level: 'error',
+      action: 'backup-restore-failed',
+      workspacePath,
+      error: message,
+      details: { timestamp },
+    })
     return { success: false, error: message }
   }
 }

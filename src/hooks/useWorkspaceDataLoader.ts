@@ -22,6 +22,7 @@ import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 import { migrateInlineImagesForWorkspace } from '../media/migrateInlineImages'
 import { preloadCardEditor } from '../components/editor/cardEditorLoader'
 import { getStartupCapabilities } from '../platform/electronCapabilities'
+import { auditWorkspaceEvent, auditWorkspaceHealth } from '../utils/workspace/audit'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
@@ -117,6 +118,7 @@ export function useWorkspaceDataLoader() {
     stepTime('loadWorkspaceData-enter')
     const service = new WorkspaceService()
     service.setWorkspacePath(workspacePath)
+    await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-enter')
 
     emitStartupProgress('加载数据...', 0, 4)
 
@@ -125,11 +127,18 @@ export function useWorkspaceDataLoader() {
     // 并行执行在首次加载（目录不存在）时必然竞态，init 必须先于读完成。
     const syncEngine = new WorkspaceSyncEngine()
     await syncEngine.init(workspacePath)
+    await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-after-sync-init')
     const [manifest, cardFiles, metadata] = await Promise.all([
       service.loadManifest(),
       service.loadAllCards(),
       service.loadMetadata(),
     ])
+    await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-after-read', {
+      loadedCards: cardFiles.length,
+      manifestBoards: manifest.boards.length,
+      metadataCards: metadata?.cardCount ?? null,
+      metadataBoards: metadata?.boardCount ?? null,
+    })
     setActiveSyncEngine(syncEngine)
     stepTime('data-loaded')
 
@@ -257,6 +266,20 @@ export function useWorkspaceDataLoader() {
           })
         }
 
+        auditWorkspaceEvent({
+          level: 'warn',
+          action: 'workspace-conflict-detected',
+          workspacePath,
+          details: {
+            expectedCards: metadata.cardCount,
+            actualCards: cardFiles.length,
+            expectedBoards: metadata.boardCount,
+            actualBoards: manifest.boards.length,
+            missingBoards,
+            cardCountMismatch,
+            boardCountMismatch,
+          },
+        })
         setConflict({
           expectedCards: metadata.cardCount,
           actualCards: cardFiles.length,
@@ -376,6 +399,7 @@ export function useWorkspaceDataLoader() {
     } catch { /* noop */ }
     setDataReady(true)
     notifyDataReady()
+    await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-ready')
     // Preview generation stays after dataReady so board mount wins the startup race.
     useCardStore.getState().schedulePreviewHTMLGeneration()
     scheduleIdleTask(() => {
@@ -403,6 +427,14 @@ export function useWorkspaceDataLoader() {
 
   const handleConflictChoice = useCallback(async (choice: 'backup' | 'continue' | 'merge' | 'cancel') => {
     setConflict(null)
+    if (pendingWorkspacePath) {
+      auditWorkspaceEvent({
+        action: 'workspace-conflict-choice',
+        workspacePath: pendingWorkspacePath,
+        details: { choice },
+      })
+      await auditWorkspaceHealth(pendingWorkspacePath, 'conflict-choice-before', { choice })
+    }
 
     if (choice === 'cancel') {
       setPendingWorkspacePath(null)
@@ -419,6 +451,7 @@ export function useWorkspaceDataLoader() {
         const latestBackup = backups[0] // sorted newest-first by listFileSystemBackups
         const result = await restoreFromBackup(latestBackup.timestamp, pendingWorkspacePath)
         if (result.success) {
+          await auditWorkspaceHealth(pendingWorkspacePath, 'conflict-choice-backup-restored', { timestamp: latestBackup.timestamp })
           loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
             console.error('[workspace] loadWorkspaceData after backup restore failed:', err)
             ensureGlobalDemoCards()
