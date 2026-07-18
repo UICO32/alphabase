@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify'
-import { memo, Suspense, useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { ExternalLink, Play } from 'lucide-react'
 import type { BlockNoteEditorHandle } from '../../editor/BlockNoteEditor'
 import { useCardStore } from '../../../stores/cardStore'
@@ -7,7 +7,7 @@ import { useViewStore } from '../../../stores/viewStore'
 import { useLibraryStore } from '../../../stores/libraryStore'
 import { usePanelStore } from '../../../stores/panelStore'
 import { useIsDarkMode } from '../../../hooks/useIsDarkMode'
-import { LazyCardBlockNoteEditor } from '../../editor/cardEditorLoader'
+import { CardEditorEntry } from '../../editor/CardEditorEntry'
 
 interface CardContentProps {
   isEditing: boolean
@@ -19,6 +19,7 @@ interface CardContentProps {
   onChange: (content: string) => void
   onFocus?: () => void
   onBlur: () => void
+  onBeforeEditorReveal?: () => void
   editorRef: React.Ref<BlockNoteEditorHandle>
   textColor: string
   onNavigateToCard?: (cardId: string) => void
@@ -35,6 +36,7 @@ export const CardContent = memo(function CardContent({
   onChange,
   onFocus,
   onBlur,
+  onBeforeEditorReveal,
   editorRef,
   textColor,
   onNavigateToCard,
@@ -67,21 +69,22 @@ export const CardContent = memo(function CardContent({
           className="h-full overflow-y-auto px-6"
           style={{ fontSize: '13px', lineHeight: '1.5' }}
         >
-          <Suspense fallback={null}>
-            <LazyCardBlockNoteEditor
-              ref={editorRef}
-              content={content}
-              onChange={onChange}
-              onFocus={onFocus}
-              onBlur={onBlur}
-              theme={isDarkMode ? 'dark' : 'light'}
-              editable={true}
-              enforceInitialHeading={enforceInitialHeading}
-              onNavigateToCard={onNavigateToCard}
-              onTagClick={onTagClick}
-              cardId={cardId}
-            />
-          </Suspense>
+          <CardEditorEntry
+            entryKey={cardId}
+            cardId={cardId}
+            content={content}
+            previewHTML={previewHTML}
+            editorRef={editorRef}
+            onBeforeReveal={onBeforeEditorReveal}
+            onChange={onChange}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            theme={isDarkMode ? 'dark' : 'light'}
+            editable
+            enforceInitialHeading={enforceInitialHeading}
+            onNavigateToCard={onNavigateToCard}
+            onTagClick={onTagClick}
+          />
         </div>
       ) : isWebMode && card?.sourceUrl ? (
         <CardWebPreview cardId={cardId} sourceUrl={card.sourceUrl} />

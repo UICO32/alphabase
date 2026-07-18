@@ -8,7 +8,7 @@ import { CollapseButton } from './SharedUI'
 import { GalleryVerticalEnd, FileText, ArrowLeftToLine, Globe, Compass } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
 import { AgentReachPanel } from './AgentReachPanel'
-import { LazyCardBlockNoteEditor } from '../editor/cardEditorLoader'
+import { CardEditorEntry } from '../editor/CardEditorEntry'
 import { LazyCardLibraryView } from './lazyCardLibraryView'
 
 
@@ -119,7 +119,7 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
         ) : rightPanelActiveTab === 'library' ? (
           !rightPanelCollapsed && <Suspense fallback={null}><LazyCardLibraryView onOpenSettings={onOpenSettings} compact /></Suspense>
         ) : showEditorContent ? (
-	          <div key={editingCardId} className="h-full animate-fadeIn">
+	          <div key={editingCardId} className="h-full">
 	            <ClipAwareEditorView
 	              cardId={editingCardId!}
 	              isClipCard={isClipCard}
@@ -198,16 +198,16 @@ function ClipAwareEditorView({ cardId, isClipCard, sourceUrl, webviewUrl, setWeb
         {webviewUrl ? (
           <WebviewPanel url={webviewUrl} embedded />
         ) : (
-          <Suspense fallback={null}>
-            <LazyCardBlockNoteEditor
-              key={cardId}
-              content={card.content}
-              onChange={handleChange}
-              editable={true}
-              cardId={cardId}
-              theme={isDarkMode ? 'dark' : 'light'}
-            />
-          </Suspense>
+          <CardEditorEntry
+            key={cardId}
+            entryKey={cardId}
+            cardId={cardId}
+            content={card.content}
+            previewHTML={card.previewHTML}
+            onChange={handleChange}
+            editable
+            theme={isDarkMode ? 'dark' : 'light'}
+          />
         )}
       </div>
     </div>

@@ -35,7 +35,7 @@ export interface BlockNoteEditorHandle {
   focus: () => void
   blur: () => void
   setEditable: (editable: boolean) => void
-  focusAtCoords: (point: { x: number; y: number }) => void
+  focusAtCoords: (point: { x: number; y: number; textOffset?: number }) => void
   canUndo: () => boolean
   canRedo: () => boolean
   setContent: (contentJson: string) => void
@@ -44,6 +44,7 @@ export interface BlockNoteEditorHandle {
 export interface BlockNoteEditorProps {
   content: string
   onChange: (content: string) => void
+  onReady?: () => void
   onFocus?: () => void
   onBlur?: () => void
   theme?: 'light' | 'dark'
@@ -53,6 +54,47 @@ export interface BlockNoteEditorProps {
   onNavigateToCard?: (cardId: string) => void
   onTagClick?: (tagName: string) => void
   cardId?: string
+}
+
+export type CardSelectAllStage = 0 | 1
+
+type CardSelectAllShortcutLike = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey'>
+
+export function isCardSelectAllShortcut(event: CardSelectAllShortcutLike) {
+  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a'
+}
+
+export function getCardSelectAllDecision(currentBlockText: string, stage: CardSelectAllStage) {
+  if (currentBlockText.trim().length === 0 || stage === 1) {
+    return { selection: 'card' as const, nextStage: 0 as const }
+  }
+
+  return { selection: 'block' as const, nextStage: 1 as const }
+}
+
+export function resetCardSelectAllStage(_stage: CardSelectAllStage): CardSelectAllStage {
+  return 0
+}
+
+type RequestFrame = (callback: FrameRequestCallback) => number
+type CancelFrame = (handle: number) => void
+
+export function scheduleEditorReadyAfterLayout(
+  requestFrame: RequestFrame,
+  cancelFrame: CancelFrame,
+  onReady: () => void,
+) {
+  let active = true
+  const frameId = requestFrame(() => {
+    if (!active) return
+    active = false
+    onReady()
+  })
+
+  return () => {
+    if (active) cancelFrame(frameId)
+    active = false
+  }
 }
 
 function getProseMirrorView(editor: unknown) {
@@ -67,7 +109,7 @@ function getProseMirrorView(editor: unknown) {
 }
 
 const CardBlockNoteEditorInner = (
-  { content, onChange, onFocus, onBlur, theme = 'light', editable = true, enforceInitialHeading = false, scrollRestorePosition, onNavigateToCard, onTagClick, cardId }: BlockNoteEditorProps,
+  { content, onChange, onReady, onFocus, onBlur, theme = 'light', editable = true, enforceInitialHeading = false, scrollRestorePosition, onNavigateToCard, onTagClick, cardId }: BlockNoteEditorProps,
   ref: ForwardedRef<BlockNoteEditorHandle>
 ) => {
     const initialContent = useRef<unknown[] | undefined>(undefined)
@@ -77,7 +119,10 @@ const CardBlockNoteEditorInner = (
     const dirtyRef = useRef(false)
     const onChangeRef = useRef(onChange)
     onChangeRef.current = onChange
-    const selectAllStepRef = useRef(0)
+    const onReadyRef = useRef(onReady)
+    onReadyRef.current = onReady
+    const didNotifyReadyRef = useRef(false)
+    const selectAllStepRef = useRef<CardSelectAllStage>(0)
     const isSelfUpdateRef = useRef(false)
 
     if (isFirstRender.current) {
@@ -211,7 +256,7 @@ const CardBlockNoteEditorInner = (
       setEditable: (nextEditable: boolean) => {
         editor.isEditable = nextEditable
       },
-      focusAtCoords: ({ x, y }: { x: number; y: number }) => {
+      focusAtCoords: ({ x, y, textOffset }: { x: number; y: number; textOffset?: number }) => {
         editor.isEditable = true
         requestAnimationFrame(() => {
           const pm = getProseMirrorView(editor)
@@ -219,23 +264,101 @@ const CardBlockNoteEditorInner = (
 
           let pos: number | null = null
 
-          // Method 1: Browser caretFromPoint APIs — precise when they work,
-          // but unreliable under CSS transform: scale() (React Flow zoom).
-          try {
-            const range = (document as any).caretPositionFromPoint?.(x, y)
-              ?? (document as any).caretRangeFromPoint?.(x, y)
-            if (range) {
-              const node = range.offsetNode ?? range.startContainer
-              const offset = range.offset ?? range.startOffset
-              if (node && pm.dom.contains(node)) {
-                pos = pm.posAtDOM(node, offset)
+          if (textOffset != null) {
+            try {
+              let consumedText = 0
+              const walker = document.createTreeWalker(pm.dom, NodeFilter.SHOW_TEXT)
+              let textNode: Text | null
+              while ((textNode = walker.nextNode() as Text | null)) {
+                const len = textNode.textContent?.length ?? 0
+                if (textOffset <= consumedText + len) {
+                  pos = pm.posAtDOM(textNode, textOffset - consumedText)
+                  break
+                }
+                consumedText += len
               }
-            }
-          } catch { /* fall through */ }
+            } catch { /* fall through */ }
+          }
+
+          // While the editor is hidden, point-based browser APIs hit the preview
+          // layered above the same coordinates. Only trust them once the editor
+          // itself is the interactive surface.
+          const entrySurface = pm.dom.closest<HTMLElement>('.card-editor-entry')
+          const canUsePointCaret = !entrySurface
+            || entrySurface.dataset.editorEntryPhase === 'interactive'
+
+          // During the entry swap, preview and editor can have different inline
+          // wrappers or font metrics. Resolve the clicked boundary on the visible
+          // preview first, then transfer its plain-text offset to ProseMirror.
+          // This preserves the user's semantic insertion point without assuming
+          // that both layers are pixel-identical.
+          const preview = entrySurface?.querySelector<HTMLElement>('.card-editor-entry__preview')
+          if (pos == null && !canUsePointCaret && preview) {
+            try {
+              let previewTextOffset = 0
+              let consumedPreviewText = 0
+              let bestPreviewScore = Infinity
+              const previewWalker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT)
+              let previewTextNode: Text | null
+              while ((previewTextNode = previewWalker.nextNode() as Text | null)) {
+                const parent = previewTextNode.parentElement
+                if (!parent) continue
+                const parentRect = parent.getBoundingClientRect()
+                const len = previewTextNode.textContent?.length ?? 0
+                const range = document.createRange()
+                for (let offset = 0; offset <= len; offset += 1) {
+                  const charStart = offset === 0 ? 0 : offset - 1
+                  const charEnd = offset === 0 ? Math.min(1, len) : offset
+                  range.setStart(previewTextNode, charStart)
+                  range.setEnd(previewTextNode, charEnd)
+                  const caretRect = range.getClientRects()[0] ?? range.getBoundingClientRect()
+                  const caretY = caretRect.height > 0
+                    ? (caretRect.top + caretRect.bottom) / 2
+                    : (parentRect.top + parentRect.bottom) / 2
+                  const caretX = offset === 0 ? caretRect.left : caretRect.right
+                  const score = Math.abs(y - caretY) * 10_000
+                    + Math.abs(x - caretX)
+                  if (score < bestPreviewScore) {
+                    bestPreviewScore = score
+                    previewTextOffset = consumedPreviewText + offset
+                  }
+                }
+                consumedPreviewText += len
+              }
+
+              let consumedEditorText = 0
+              const editorWalker = document.createTreeWalker(pm.dom, NodeFilter.SHOW_TEXT)
+              let editorTextNode: Text | null
+              while ((editorTextNode = editorWalker.nextNode() as Text | null)) {
+                const len = editorTextNode.textContent?.length ?? 0
+                if (previewTextOffset <= consumedEditorText + len) {
+                  pos = pm.posAtDOM(editorTextNode, previewTextOffset - consumedEditorText)
+                  break
+                }
+                consumedEditorText += len
+              }
+            } catch { /* fall through */ }
+          }
+
+          // Method 1: Browser caretFromPoint APIs — precise when they target the
+          // interactive editor, but unreliable while it is hidden or transformed.
+          if (pos == null && canUsePointCaret) {
+            try {
+              const range = (document as any).caretPositionFromPoint?.(x, y)
+                ?? (document as any).caretRangeFromPoint?.(x, y)
+              if (range) {
+                const node = range.offsetNode ?? range.startContainer
+                const offset = range.offset ?? range.startOffset
+                if (node && pm.dom.contains(node)) {
+                  pos = pm.posAtDOM(node, offset)
+                }
+              }
+            } catch { /* fall through */ }
+          }
 
           // Method 2: When caretFromPoint fails (common under scale()),
-          // walk the DOM to find the text node closest to the click y,
-          // then use posAtDOM for an exact position — this avoids the
+          // inspect actual character boundaries and choose the closest one.
+          // This handles multiple inline nodes and wrapped text, and avoids the
           // posAtCoords fallback which, when monkey-patched by
           // usePosAtCoordsScalePatch, only returns block-boundary positions
           // (start/end of paragraph) instead of in-line positions.
@@ -245,43 +368,40 @@ const CardBlockNoteEditorInner = (
               const clickX = x
               let bestNode: Text | null = null
               let bestOffset = 0
-              let bestDist = Infinity
+              let bestScore = Infinity
 
               const walker = document.createTreeWalker(pm.dom, NodeFilter.SHOW_TEXT)
               let textNode: Text | null
               while ((textNode = walker.nextNode() as Text | null)) {
                 const parent = textNode.parentElement
                 if (!parent) continue
-                const rect = parent.getBoundingClientRect()
+                const parentRect = parent.getBoundingClientRect()
                 // Use a generous y tolerance (half a line) so clicks between
                 // lines still land on the nearest text node rather than falling
                 // through to the coarse block-boundary fallback (Method 3).
-                if (clickY < rect.top - rect.height / 2 || clickY > rect.bottom + rect.height / 2) continue
-                const midY = (rect.top + rect.bottom) / 2
-                const dist = Math.abs(clickY - midY)
-                if (dist < bestDist) {
-                  bestDist = dist
-                  bestNode = textNode
-                  // Approximate offset: use Range to measure the actual text
-                  // bounds for better x-position accuracy than simple rect ratio.
-                  const len = textNode.textContent?.length ?? 0
-                  if (len === 0) {
-                    bestOffset = 0
-                  } else {
-                    // Binary-search: find the character offset whose Range end
-                    // is closest to clickX.
-                    let lo = 0
-                    let hi = len
-                    const range = document.createRange()
-                    while (lo < hi) {
-                      const mid = (lo + hi) >>> 1
-                      range.setStart(textNode, mid)
-                      range.setEnd(textNode, mid)
-                      const cx = range.getBoundingClientRect().left + 1 // +1 for >0 width
-                      if (cx <= clickX) lo = mid + 1
-                      else hi = mid
-                    }
-                    bestOffset = Math.max(0, Math.min(lo, len))
+                if (clickY < parentRect.top - parentRect.height / 2
+                  || clickY > parentRect.bottom + parentRect.height / 2) continue
+
+                const len = textNode.textContent?.length ?? 0
+                const range = document.createRange()
+                for (let offset = 0; offset <= len; offset += 1) {
+                  const charStart = offset === 0 ? 0 : offset - 1
+                  const charEnd = offset === 0 ? Math.min(1, len) : offset
+                  range.setStart(textNode, charStart)
+                  range.setEnd(textNode, charEnd)
+                  const caretRect = range.getClientRects()[0] ?? range.getBoundingClientRect()
+                  const caretY = caretRect.height > 0
+                    ? (caretRect.top + caretRect.bottom) / 2
+                    : (parentRect.top + parentRect.bottom) / 2
+                  const caretX = offset === 0 ? caretRect.left : caretRect.right
+                  // Line proximity dominates; x then selects the nearest real
+                  // character boundary on that line instead of the next one.
+                  const score = Math.abs(clickY - caretY) * 10_000
+                    + Math.abs(clickX - caretX)
+                  if (score < bestScore) {
+                    bestScore = score
+                    bestNode = textNode
+                    bestOffset = offset
                   }
                 }
               }
@@ -350,6 +470,19 @@ const CardBlockNoteEditorInner = (
         dirtyRef.current = false
         onChangeRef.current(JSON.stringify(editor.document))
       }
+    }, [editor])
+
+    useEffect(() => {
+      if (didNotifyReadyRef.current) return
+      return scheduleEditorReadyAfterLayout(
+        requestAnimationFrame,
+        cancelAnimationFrame,
+        () => {
+          if (didNotifyReadyRef.current) return
+          didNotifyReadyRef.current = true
+          onReadyRef.current?.()
+        },
+      )
     }, [editor])
 
     const handleChange = useCallback(() => {
@@ -457,7 +590,7 @@ const CardBlockNoteEditorInner = (
       if (!el || !editable) return
 
       const handleCtrlA = (event: KeyboardEvent) => {
-        if (!(event.ctrlKey || event.metaKey) || event.key !== 'a') return
+        if (!isCardSelectAllShortcut(event)) return
         const target = event.target
         if (!(target instanceof Node) || !el.contains(target)) return
 
@@ -468,12 +601,14 @@ const CardBlockNoteEditorInner = (
         const cursorPos = st.selection.$head.pos
         let currentBlockFrom = -1
         let currentBlockTo = -1
+        let currentBlockText = ''
         st.doc.descendants((node, pos) => {
           if (!node.isTextblock) return true
           const blockEnd = pos + node.nodeSize
           if (cursorPos > pos && cursorPos < blockEnd) {
             currentBlockFrom = pos + 1
             currentBlockTo = blockEnd - 1
+            currentBlockText = node.textContent
             return false
           }
           return true
@@ -494,8 +629,10 @@ const CardBlockNoteEditorInner = (
         const isCurrentBlock = st.selection.from === currentBlockFrom && st.selection.to === currentBlockTo
         const isAllBlocks = st.selection.from === allFrom && st.selection.to === allTo
 
-        if (selectAllStepRef.current === 1) {
-          selectAllStepRef.current = 0
+        const decision = getCardSelectAllDecision(currentBlockText, selectAllStepRef.current)
+        selectAllStepRef.current = decision.nextStage
+
+        if (decision.selection === 'card') {
           event.preventDefault()
           event.stopImmediatePropagation()
           if (currentBlockFrom === allFrom && currentBlockTo === allTo) {
@@ -508,7 +645,6 @@ const CardBlockNoteEditorInner = (
           return
         }
 
-        selectAllStepRef.current = 1
         event.preventDefault()
         event.stopImmediatePropagation()
         if (!isCurrentBlock) {
@@ -517,9 +653,11 @@ const CardBlockNoteEditorInner = (
         }
       }
 
-      const resetStep = () => { selectAllStepRef.current = 0 }
+      const resetStep = () => {
+        selectAllStepRef.current = resetCardSelectAllStage(selectAllStepRef.current)
+      }
       const resetStepOnKey = (e: KeyboardEvent) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'a') return
+        if (isCardSelectAllShortcut(e)) return
         resetStep()
       }
       el.addEventListener('click', resetStep, true)

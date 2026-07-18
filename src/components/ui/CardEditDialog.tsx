@@ -1,4 +1,4 @@
-import { useCallback, lazy, Suspense, useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../stores/cardStore'
@@ -7,10 +7,7 @@ import { useTrashStore } from '../../stores/trashStore'
 import { X, Trash2 } from 'lucide-react'
 import { clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
 import { CARD_COLORS, type CardColor } from '../../types/card'
-
-const LazyCardBlockNoteEditor = lazy(() =>
-  import('../editor/BlockNoteEditor').then(m => ({ default: m.CardBlockNoteEditor }))
-)
+import { CardEditorEntry } from '../editor/CardEditorEntry'
 
 const MORPH_TRANSITION = {
   duration: 0.5,
@@ -178,15 +175,16 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
           </div>
 
           <div className="flex-1 overflow-auto p-4">
-            <Suspense fallback={null}>
-              <LazyCardBlockNoteEditor
-                content={card.content}
-                onChange={handleChange}
-                onFocus={handleEditorFocus}
-                editable={true}
-                theme={isDarkMode ? 'dark' : 'light'}
-              />
-            </Suspense>
+            <CardEditorEntry
+              entryKey={cardId}
+              cardId={cardId}
+              content={card.content}
+              previewHTML={card.previewHTML}
+              onChange={handleChange}
+              onFocus={handleEditorFocus}
+              editable
+              theme={isDarkMode ? 'dark' : 'light'}
+            />
           </div>
         </motion.div>
       </div>

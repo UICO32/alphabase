@@ -170,6 +170,10 @@ function seedWorkspace(tmpDir: string) {
           props: { level: 2 },
           content: [{ type: 'text', text: 'Media Paste Card' }],
         },
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Editor continuity sentinel' }],
+        },
       ]),
     }, null, 2),
     'utf-8',
@@ -196,6 +200,124 @@ test.describe('media paste smoke', () => {
     await node.locator('button.action-icon-btn').nth(3).click({ force: true })
     await page.waitForSelector('.card-blocknote-editor--editable', { timeout: 10000 })
   }
+
+  async function startEntryContinuityProbe(page: Page) {
+    await page.evaluate(() => {
+      const sentinel = 'Editor continuity sentinel'
+      const samples: Array<{ phase: string | null; hasSentinel: boolean }> = []
+      const inspect = () => {
+        document.querySelectorAll<HTMLElement>('.card-editor-entry').forEach((entry) => {
+          samples.push({
+            phase: entry.dataset.editorEntryPhase ?? null,
+            hasSentinel: entry.textContent?.includes(sentinel) ?? false,
+          })
+        })
+      }
+      const observer = new MutationObserver(inspect)
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true })
+      ;(window as any).__stopEditorEntryProbe = () => {
+        inspect()
+        observer.disconnect()
+        return samples
+      }
+    })
+  }
+
+  async function stopEntryContinuityProbe(page: Page) {
+    return page.evaluate(() => (window as any).__stopEditorEntryProbe() as Array<{
+      phase: string | null
+      hasSentinel: boolean
+    }>)
+  }
+
+  async function expectContinuousEntry(page: Page) {
+    await expect(page.locator('.card-editor-entry[data-editor-entry-phase="interactive"]')).toBeVisible({ timeout: 10000 })
+    const samples = await stopEntryContinuityProbe(page)
+    expect(samples.length).toBeGreaterThan(0)
+    expect(samples.filter((sample) => !sample.hasSentinel)).toEqual([])
+  }
+
+  test('canvas editor preserves content until the focused editor is interactive', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.react-flow__node', { timeout: 30000 })
+    await startEntryContinuityProbe(page)
+
+    await page.locator('.react-flow__node').first().getByText('Editor continuity sentinel', { exact: true }).click()
+    await expectContinuousEntry(page)
+    await expect(page.locator('.card-blocknote-editor--editable .ProseMirror')).toBeFocused()
+  })
+
+  test('canvas editor keeps the insertion point at the clicked character boundary', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.react-flow__node', { timeout: 30000 })
+    const expectedOffsetWithinText = 11
+    const canvasNode = page.locator('.react-flow__node').first()
+    const clickPoint = await canvasNode.evaluate((node, offset) => {
+      const preview = node.querySelector('.card-preview-native')
+      if (!preview) throw new Error('card preview not found')
+      const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT)
+      let consumedText = 0
+      let textNode: Text | null
+      while ((textNode = walker.nextNode() as Text | null)) {
+        if (textNode.textContent === 'Editor continuity sentinel') {
+          const range = document.createRange()
+          range.setStart(textNode, offset - 1)
+          range.setEnd(textNode, offset)
+          const rect = range.getBoundingClientRect()
+          return {
+            x: rect.right,
+            y: (rect.top + rect.bottom) / 2,
+            expectedDocumentOffset: consumedText + offset,
+          }
+        }
+        consumedText += textNode.textContent?.length ?? 0
+      }
+      throw new Error('sentinel text node not found')
+    }, expectedOffsetWithinText)
+
+    await canvasNode.getByText('Editor continuity sentinel', { exact: true }).dispatchEvent('click', {
+      bubbles: true,
+      button: 0,
+      clientX: clickPoint.x,
+      clientY: clickPoint.y,
+    })
+    await expect(page.locator('.card-editor-entry[data-editor-entry-phase="interactive"]')).toBeVisible({ timeout: 10000 })
+    const actualOffset = await page.evaluate(() => {
+      const selection = window.getSelection()
+      const anchorNode = selection?.anchorNode
+      if (!selection || !anchorNode) return -1
+      const editorRoot = (anchorNode.nodeType === Node.ELEMENT_NODE
+        ? anchorNode as Element
+        : anchorNode.parentElement)?.closest('.ProseMirror')
+      if (!editorRoot) return -1
+      const prefix = document.createRange()
+      prefix.selectNodeContents(editorRoot)
+      prefix.setEnd(anchorNode, selection.anchorOffset)
+      return prefix.toString().length
+    })
+    expect(actualOffset).toBe(clickPoint.expectedDocumentOffset)
+  })
+
+  test('side editor preserves content while its BlockNote instance mounts', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.react-flow__node', { timeout: 30000 })
+    await startEntryContinuityProbe(page)
+
+    await openSideEditor(page)
+    await expectContinuousEntry(page)
+  })
+
+  test('card dialog preserves content while the dialog and editor appear', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.react-flow__node', { timeout: 30000 })
+    const leftPanelViewSwitch = page.locator('.segmented').first()
+    await leftPanelViewSwitch.locator('button').nth(1).click()
+    await expect(page.getByRole('heading', { name: '卡片库' })).toBeVisible({ timeout: 10000 })
+    await startEntryContinuityProbe(page)
+
+    await page.getByText('Media Paste Card', { exact: true }).first().click()
+    await expectContinuousEntry(page)
+  })
 
   test('image paste keeps editor responsive and persists after reload', async ({ page }) => {
     await page.goto('/')

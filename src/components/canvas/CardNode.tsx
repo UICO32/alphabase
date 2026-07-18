@@ -24,6 +24,41 @@ import { useCardNodeEditing } from './useCardNodeEditing'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
+function getPreviewTextOffsetAtPoint(root: HTMLElement, x: number, y: number) {
+  let consumedText = 0
+  let bestOffset: number | undefined
+  let bestScore = Infinity
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let textNode: Text | null
+
+  while ((textNode = walker.nextNode() as Text | null)) {
+    const parent = textNode.parentElement
+    if (!parent) continue
+    const parentRect = parent.getBoundingClientRect()
+    const len = textNode.textContent?.length ?? 0
+    const range = document.createRange()
+    for (let offset = 0; offset <= len; offset += 1) {
+      const charStart = offset === 0 ? 0 : offset - 1
+      const charEnd = offset === 0 ? Math.min(1, len) : offset
+      range.setStart(textNode, charStart)
+      range.setEnd(textNode, charEnd)
+      const charRect = range.getClientRects()[0] ?? range.getBoundingClientRect()
+      const boundaryX = offset === 0 ? charRect.left : charRect.right
+      const boundaryY = charRect.height > 0
+        ? (charRect.top + charRect.bottom) / 2
+        : (parentRect.top + parentRect.bottom) / 2
+      const score = Math.abs(y - boundaryY) * 10_000 + Math.abs(x - boundaryX)
+      if (score < bestScore) {
+        bestScore = score
+        bestOffset = consumedText + offset
+      }
+    }
+    consumedText += len
+  }
+
+  return bestOffset
+}
+
 export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const isCollapsed = data.collapsed ?? false
   const isInFrame = !!data.frameId
@@ -39,6 +74,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     isEditing,
     editorRef,
     beginEditingAt,
+    prepareEditorForReveal,
     handleContentChange,
     handleEditorFocus,
     handleEditorBlur,
@@ -210,7 +246,14 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         return
       }
       if (card) {
-        beginEditingAt({ x: e.clientX, y: e.clientY })
+        const preview = target.closest<HTMLElement>('.card-preview-native')
+        beginEditingAt({
+          x: e.clientX,
+          y: e.clientY,
+          textOffset: preview
+            ? getPreviewTextOffsetAtPoint(preview, e.clientX, e.clientY)
+            : undefined,
+        })
       }
     },
     [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, getNode, beginEditingAt, editorRef],
@@ -309,6 +352,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
             onChange={handleContentChange}
             onFocus={handleEditorFocus}
             onBlur={handleEditorBlur}
+            onBeforeEditorReveal={prepareEditorForReveal}
             editorRef={editorRef}
             textColor={textColor}
             onNavigateToCard={handleNavigateToCard}

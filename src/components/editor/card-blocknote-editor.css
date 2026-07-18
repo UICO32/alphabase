@@ -4,8 +4,44 @@
   line-height: 1.5;
 }
 
-.card-blocknote-editor--editable {
+.card-editor-entry {
+  position: relative;
+  min-height: 100%;
+}
+
+.card-editor-entry__preview {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.card-editor-entry__editor {
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.card-editor-entry[data-editor-entry-phase="interactive"] .card-editor-entry__editor {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card-blocknote-editor--editable:not(.annotation-editor) {
+  --card-editor-selection-bg: #cfe4ff;
   cursor: text;
+}
+
+[data-theme="dark"] .card-blocknote-editor--editable:not(.annotation-editor) {
+  --card-editor-selection-bg: rgba(126, 164, 207, 0.38);
+}
+
+.card-blocknote-editor--editable:not(.annotation-editor) .ProseMirror ::selection {
+  background-color: var(--card-editor-selection-bg);
+  color: inherit;
 }
 
 .card-blocknote-editor--readonly {
