@@ -20,7 +20,7 @@ import {
 import type { FrameNodeData } from '../components/canvas/FrameNode'
 import { kanbanDragPreview } from '../components/canvas/utils/kanbanDragPreview'
 import { setDragOverFrameId } from '../components/canvas/utils/frameInteraction'
-import { createCanvasSpatialIndex } from '../components/canvas/utils/canvasSpatialIndex'
+import type { CanvasSpatialIndex } from '../components/canvas/utils/canvasSpatialIndex'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
 
 const SNAP_THRESHOLD_PX = 3
@@ -33,11 +33,12 @@ interface SnapLock {
 
 interface UseCanvasDragOptions {
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
+  spatialIndexRef: React.RefObject<CanvasSpatialIndex>
   setEdges: (updater: Edge[] | ((edges: Edge[]) => Edge[])) => void
   setNodes: (updater: Node[] | ((nodes: Node[]) => Node[])) => void
 }
 
-export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanvasDragOptions) {
+export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, setNodes }: UseCanvasDragOptions) {
   const dragStartedRef = useRef(false)
   const altPressedRef = useRef(false)
   const snapLocksRef = useRef<{ x: SnapLock | null; y: SnapLock | null }>({ x: null, y: null })
@@ -61,6 +62,8 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
     (_event, node) => {
       const instance = reactFlowInstance.current
       if (!instance) return
+      const spatialIndex = spatialIndexRef.current
+      if (!spatialIndex) return
 
       // 隐形边缘吸附：Alt 按下时跳过
       if (!altPressedRef.current && (node.type === 'card' || node.type === 'frame' || node.type === 'text')) {
@@ -86,7 +89,6 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         }
 
         const searchPadding = Math.max(threshold * 8, 160 / zoom)
-        const spatialIndex = createCanvasSpatialIndex(allNodes)
         const otherBounds = spatialIndex
           .queryRect({
             x: dragBounds.x - searchPadding,
@@ -222,11 +224,10 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
           kanbanDragPreview.clear()
         }
 
-        const allNodesForHover = instance.getNodes()
         const dragData = node.data as CardNodeData
         const hoverWidth = dragData.width ?? DEFAULT_CARD_WIDTH
         const hoverHeight = dragData.collapsed ? COLLAPSED_CARD_HEIGHT : (dragData.height ?? DEFAULT_CARD_HEIGHT)
-        const hoverCandidates = createCanvasSpatialIndex(allNodesForHover)
+        const hoverCandidates = spatialIndex
           .queryRect({ x: node.position.x, y: node.position.y, width: hoverWidth, height: hoverHeight })
           .map(item => item.node)
           .filter(n => n.type === 'frame')
@@ -259,7 +260,7 @@ export function useCanvasDrag({ reactFlowInstance, setEdges, setNodes }: UseCanv
         return changed ? next : eds
       })
     },
-    [reactFlowInstance, setEdges, setNodes],
+    [reactFlowInstance, setEdges, setNodes, spatialIndexRef],
   )
 
   const onNodeDragStart = useCallback((_event: MouseEvent | React.MouseEvent, _node: Node) => {

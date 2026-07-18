@@ -17,6 +17,7 @@ import {
   type AnnotationFontSize,
   type AnnotationAlign,
 } from '../../types/card'
+import { createAnnotationHeightBatcher } from './annotationHeightBatcher'
 
 type TextAnnotationNodeType = Node<TextAnnotationNodeData, 'text'>
 
@@ -91,21 +92,28 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
+    const heightBatcher = createAnnotationHeightBatcher({
+      initialHeight: measuredHeightRef.current,
+      threshold: 4,
+      onCommit: (height) => {
+        measuredHeightRef.current = height
+        setNodes(nds => nds.map(n =>
+          n.id === id ? { ...n, data: { ...n.data, height } } : n
+        ))
+      },
+    })
     const observer = new ResizeObserver(entries => {
       for (const entry of entries) {
         const measuredH = Math.max(MIN_ANNOTATION_HEIGHT, Math.round(entry.contentRect.height))
         if (measuredH < 10) return
-        const currentH = measuredHeightRef.current
-        if (Math.abs(measuredH - currentH) > 4) {
-          measuredHeightRef.current = measuredH
-          setNodes(nds => nds.map(n =>
-            n.id === id ? { ...n, data: { ...n.data, height: measuredH } } : n
-          ))
-        }
+        heightBatcher.schedule(measuredH)
       }
     })
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      heightBatcher.dispose()
+    }
   }, [id, setNodes])
 
   const getNodeSize = useCallback((node: Node) => {

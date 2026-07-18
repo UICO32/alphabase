@@ -131,3 +131,5 @@ export function createCanvasSpatialIndex(nodes: Node[], cellSize = DEFAULT_CELL_
 
   return { queryRect, queryPoint, bounds }
 }
+
+export type CanvasSpatialIndex = ReturnType<typeof createCanvasSpatialIndex>

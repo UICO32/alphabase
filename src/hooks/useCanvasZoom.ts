@@ -51,27 +51,15 @@ export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOpt
     }
 
     const SMOOTH_RATIO = 0.4
-    const rafId = { current: null as number | null }
-    let pendingEvent: WheelEvent | null = null
-
-    const processWheel = () => {
-      rafId.current = null
-      if (!pendingEvent) return
-      const event = pendingEvent
-      pendingEvent = null
+    const smoothWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) return
+      // This listener runs in the capture phase, immediately before React Flow's
+      // d3-zoom handler. Scale the same event synchronously so d3 consumes the
+      // softened delta; changing it in a later animation frame is already too late.
       Object.defineProperty(event, 'deltaY', {
         value: event.deltaY * SMOOTH_RATIO,
         writable: false,
       })
-    }
-
-    const smoothWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return
-      event.preventDefault()
-      pendingEvent = event
-      if (rafId.current === null) {
-        rafId.current = requestAnimationFrame(processWheel)
-      }
     }
 
     d3ZoomEl.addEventListener('wheel', smoothWheel, { capture: true, passive: false })
@@ -81,7 +69,6 @@ export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOpt
       d3ZoomEl.removeEventListener('wheel', smoothWheel, true)
       el.removeEventListener('mousedown', onRightDown, true)
       window.removeEventListener('mouseup', onRightUp, true)
-      if (rafId.current !== null) cancelAnimationFrame(rafId.current)
       // Restore any remaining nopan classes
       for (const n of rightDownNodes) n.classList.add(NOPAN)
     }

@@ -12,14 +12,17 @@ export function useFrameSync({ nodes, setNodes }: UseFrameSyncOptions) {
 
   useEffect(() => {
     const prevNodes = prevNodesRef.current
-    const frameNodes = nodes.filter(n => n.type === 'frame')
+    const frameNodesById = new Map(
+      nodes.filter(n => n.type === 'frame').map(frame => [frame.id, frame]),
+    )
+    const prevNodesById = new Map(prevNodes.map(node => [node.id, node]))
 
     let hasChanges = false
     const updatedNodes = nodes.map(node => {
       const nodeData = node.data as CardNodeData
       if (!nodeData.frameId) return node
 
-      const frameNode = frameNodes.find(f => f.id === nodeData.frameId)
+      const frameNode = frameNodesById.get(nodeData.frameId)
       if (!frameNode) {
         hasChanges = true
         return {
@@ -28,7 +31,7 @@ export function useFrameSync({ nodes, setNodes }: UseFrameSyncOptions) {
         }
       }
 
-      const prevFrame = prevNodes.find(n => n.id === nodeData.frameId)
+      const prevFrame = prevNodesById.get(nodeData.frameId)
       if (!prevFrame) return node
 
       const dx = frameNode.position.x - prevFrame.position.x

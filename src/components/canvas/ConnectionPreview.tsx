@@ -2,14 +2,29 @@ import { useSyncExternalStore, useState, useEffect } from 'react'
 import { connectionMediator } from './utils/connectionMediator'
 import { edgePointOnRect } from './utils/geometry'
 import { getBezierPath, Position } from '@xyflow/react'
-import type { Node, ReactFlowInstance } from '@xyflow/react'
+import type { ReactFlowInstance } from '@xyflow/react'
 import type { CardNodeData } from '../../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../../types/card'
+import type { CanvasSpatialIndex } from './utils/canvasSpatialIndex'
 
 interface ConnectionPreviewProps {
-  nodesRef: React.RefObject<Node[]>
+  spatialIndexRef: React.RefObject<CanvasSpatialIndex>
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   lastMousePosRef: React.RefObject<{ x: number; y: number } | null>
+}
+
+export function findConnectionPreviewTarget(
+  spatialIndex: CanvasSpatialIndex,
+  reactFlowInstance: ReactFlowInstance,
+  mouse: { x: number; y: number },
+  sourceNodeId: string,
+  zoom: number,
+) {
+  const flowPoint = reactFlowInstance.screenToFlowPosition(mouse)
+  return spatialIndex
+    .queryPoint(flowPoint, 50 / zoom)
+    .find(item => item.id !== sourceNodeId)
+    ?.node
 }
 
 function getNearestPosition(
@@ -28,7 +43,7 @@ function getNearestPosition(
   return dy > 0 ? Position.Bottom : Position.Top
 }
 
-export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef }: ConnectionPreviewProps) {
+export function ConnectionPreview({ spatialIndexRef, reactFlowInstance, lastMousePosRef }: ConnectionPreviewProps) {
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
     connectionMediator.isConnecting.bind(connectionMediator),
@@ -51,7 +66,7 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
         const rf = reactFlowInstance.current
         const mouse = lastMousePosRef.current
         if (pending && rf && mouse) {
-          const srcNode = nodesRef.current?.find((n) => n.id === pending.sourceNodeId)
+          const srcNode = rf.getNode(pending.sourceNodeId)
           if (srcNode) {
             const data = srcNode.data as CardNodeData
             const w = data.width ?? DEFAULT_CARD_WIDTH
@@ -67,8 +82,18 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
             let targetY = mouse.y
             let targetPos: Position = Position.Top
 
-            for (const node of nodesRef.current ?? []) {
-              if (node.id === pending.sourceNodeId) continue
+            const spatialIndex = spatialIndexRef.current
+            const targetNode = spatialIndex
+              ? findConnectionPreviewTarget(
+                  spatialIndex,
+                  rf,
+                  mouse,
+                  pending.sourceNodeId,
+                  zoom,
+                )
+              : undefined
+            if (targetNode) {
+              const node = targetNode
               const nw = ((node.data as Record<string, unknown>).width as number) ?? DEFAULT_CARD_WIDTH
               const nh = ((node.data as Record<string, unknown>).height as number) ?? DEFAULT_CARD_HEIGHT
               const nodeScreen = rf.flowToScreenPosition(node.position)
@@ -85,7 +110,6 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
                 targetX = snap.x
                 targetY = snap.y
                 targetPos = getNearestPosition(nodeScreen.x, nodeScreen.y, scaledNW, scaledNH, srcEdge.x, srcEdge.y)
-                break
               }
             }
 
@@ -106,7 +130,7 @@ export function ConnectionPreview({ nodesRef, reactFlowInstance, lastMousePosRef
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [isConnecting, nodesRef, reactFlowInstance, lastMousePosRef])
+  }, [isConnecting, spatialIndexRef, reactFlowInstance, lastMousePosRef])
 
   if (!previewPath) return null
 

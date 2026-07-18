@@ -124,7 +124,12 @@ export function ReactFlowCanvas() {
     }
   })
   const { onConnect, onReconnect, onReconnectEnd } = useCanvasConnection({ setEdges })
-  const { onNodeDrag, onNodeDragStart: snapDragStart, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({ reactFlowInstance, setEdges, setNodes })
+  const { onNodeDrag, onNodeDragStart: snapDragStart, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({
+    reactFlowInstance,
+    spatialIndexRef,
+    setEdges,
+    setNodes,
+  })
   useCanvasKeyboard({ undo, redo, setNodes, setEdges, clear, getNodes: () => nodesRef.current })
 
   const recordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -731,7 +736,7 @@ export function ReactFlowCanvas() {
           isDraggingNode={isDraggingNode}
         />
       </ReactFlow>
-      <ConnectionPreview nodesRef={nodesRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
+      <ConnectionPreview spatialIndexRef={spatialIndexRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />
 
       {boards.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center select-none pointer-events-none" style={{ zIndex: 5 }}>
