@@ -21,4 +21,10 @@ describe('editor entry wiring', () => {
     expect(rightPanelSource).not.toContain('<LazyCardBlockNoteEditor')
     expect(rightPanelSource).not.toContain('key={editingCardId} className="h-full animate-fadeIn"')
   })
+
+  it('keeps the card dialog animation native and reduced-motion aware', () => {
+    expect(dialogSource).not.toContain("from 'motion/react'")
+    expect(dialogSource).toContain('.animate(')
+    expect(dialogSource).toContain('prefers-reduced-motion: reduce')
+  })
 })

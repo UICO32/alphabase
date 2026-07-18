@@ -152,7 +152,6 @@ export default defineConfig(({ mode }) => {
         'react', 'react-dom',
         '@xyflow/react',
         '@blocknote/core', '@blocknote/react', '@blocknote/mantine',
-        'motion/react',
         'lucide-react',
         'dompurify',
         'ts-md5',

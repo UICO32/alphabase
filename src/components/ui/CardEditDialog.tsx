@@ -1,5 +1,4 @@
-import { useCallback, useEffect } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../stores/cardStore'
 import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
@@ -9,11 +8,9 @@ import { clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistr
 import { CARD_COLORS, type CardColor } from '../../types/card'
 import { CardEditorEntry } from '../editor/CardEditorEntry'
 
-const MORPH_TRANSITION = {
-  duration: 0.5,
-  ease: [0.2, 0.8, 0.2, 1] as [number, number, number, number],
-}
-const FADE_TRANSITION = { duration: 0.25 }
+const MORPH_DURATION_MS = 500
+const FADE_DURATION_MS = 250
+const MORPH_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
 
 interface CardEditDialogProps {
   cardId: string
@@ -22,6 +19,8 @@ interface CardEditDialogProps {
 }
 
 export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogProps) {
+  const backdropRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const isDarkMode = useIsDarkMode()
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
@@ -56,31 +55,14 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleCloseWithSnapshot])
 
-  if (!card) return null
-
   const dialogWidth = Math.min(700, window.innerWidth * 0.85)
   const dialogHeight = Math.min(600, window.innerHeight * 0.8)
 
   const centerX = (window.innerWidth - dialogWidth) / 2
   const centerY = (window.innerHeight - dialogHeight) / 2
+  const hasCard = card !== undefined
 
-  const initialStyle = sourceRect
-    ? {
-        top: sourceRect.top,
-        left: sourceRect.left,
-        width: sourceRect.width,
-        height: sourceRect.height,
-        borderRadius: 10,
-      }
-    : {
-        top: centerY,
-        left: centerX,
-        width: dialogWidth,
-        height: dialogHeight,
-        borderRadius: 16,
-      }
-
-  const animateStyle = {
+  const finalDialogStyle = {
     top: centerY,
     left: centerX,
     width: dialogWidth,
@@ -88,38 +70,63 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
     borderRadius: 16,
   }
 
-  const exitStyle = sourceRect
-    ? {
-        top: sourceRect.top,
-        left: sourceRect.left,
-        width: sourceRect.width,
-        height: sourceRect.height,
-        borderRadius: 10,
-        opacity: 0,
-      }
-    : { opacity: 0 }
+  useLayoutEffect(() => {
+    if (!hasCard) return
+    const backdrop = backdropRef.current
+    const dialog = dialogRef.current
+    if (!backdrop || !dialog || typeof backdrop.animate !== 'function') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const animations = [
+      backdrop.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: FADE_DURATION_MS, easing: 'ease-out', fill: 'both' },
+      ),
+    ]
+
+    if (sourceRect) {
+      animations.push(dialog.animate(
+        [
+          {
+            top: `${sourceRect.top}px`,
+            left: `${sourceRect.left}px`,
+            width: `${sourceRect.width}px`,
+            height: `${sourceRect.height}px`,
+            borderRadius: '10px',
+          },
+          {
+            top: `${centerY}px`,
+            left: `${centerX}px`,
+            width: `${dialogWidth}px`,
+            height: `${dialogHeight}px`,
+            borderRadius: '16px',
+          },
+        ],
+        { duration: MORPH_DURATION_MS, easing: MORPH_EASING, fill: 'both' },
+      ))
+    }
+
+    return () => animations.forEach(animation => animation.cancel())
+  }, [centerX, centerY, dialogHeight, dialogWidth, hasCard, sourceRect])
+
+  if (!card) return null
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50">
-        <motion.div
-          className="fixed inset-0"
-          style={{ backgroundColor: 'var(--surface-overlay)', backdropFilter: 'blur(4px)' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={FADE_TRANSITION}
-          onClick={handleCloseWithSnapshot}
-        />
+    <div className="fixed inset-0 z-50">
+      <div
+        ref={backdropRef}
+        className="fixed inset-0"
+        style={{ backgroundColor: 'var(--surface-overlay)', backdropFilter: 'blur(4px)' }}
+        onClick={handleCloseWithSnapshot}
+      />
 
-        <motion.div
-          className="fixed z-[60] overflow-hidden flex flex-col"
-          initial={initialStyle}
-          animate={animateStyle}
-          exit={exitStyle}
-          transition={MORPH_TRANSITION}
-          style={{ boxShadow: 'var(--shadow-xl)', backgroundColor: 'var(--surface-card)' }}
-        >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        className="fixed z-[60] overflow-hidden flex flex-col"
+        style={{ ...finalDialogStyle, boxShadow: 'var(--shadow-xl)', backgroundColor: 'var(--surface-card)' }}
+      >
           <div
             className="flex items-center justify-between px-5 py-3 border-b shrink-0 border-line-default"
           >
@@ -186,8 +193,7 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
               theme={isDarkMode ? 'dark' : 'light'}
             />
           </div>
-        </motion.div>
       </div>
-    </AnimatePresence>
+    </div>
   )
 }

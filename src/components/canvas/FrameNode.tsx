@@ -616,6 +616,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
               e.stopPropagation()
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
               setColorMenuPos({ x: rect.left - 40, y: rect.bottom + 6 })
+              setShowLayoutMenu(false)
               setShowColorMenu((v) => !v)
             }}
             onMouseDown={(e) => e.stopPropagation()}

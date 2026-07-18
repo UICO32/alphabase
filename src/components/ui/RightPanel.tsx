@@ -7,7 +7,7 @@ import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { CollapseButton } from './SharedUI'
 import { GalleryVerticalEnd, FileText, ArrowLeftToLine, Globe, Compass } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
-import { AgentReachPanel } from './AgentReachPanel'
+import { LazyAgentReachPanel, preloadAgentReachPanel } from './lazyAgentReachPanel'
 import { CardEditorEntry } from '../editor/CardEditorEntry'
 import { LazyCardLibraryView } from './lazyCardLibraryView'
 
@@ -95,6 +95,8 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
 	          </button>
 	          <button
 	            onClick={() => setRightPanelActiveTab('channels')}
+	            onPointerEnter={preloadAgentReachPanel}
+	            onFocus={preloadAgentReachPanel}
 	            className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'channels' ? 'segmented-item-active' : ''}`}
 	          >
 	            <Compass size={14} />
@@ -115,7 +117,17 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
 
       <div className="flex-1 overflow-y-auto">
         {rightPanelActiveTab === 'channels' ? (
-          <AgentReachPanel />
+          !rightPanelCollapsed && (
+            <Suspense
+              fallback={(
+                <div role="status" aria-label={'\u6b63\u5728\u52a0\u8f7d\u9891\u9053'} className="flex h-full items-center justify-center text-sm text-text-tertiary">
+                  {'\u6b63\u5728\u52a0\u8f7d\u9891\u9053\u2026'}
+                </div>
+              )}
+            >
+              <LazyAgentReachPanel />
+            </Suspense>
+          )
         ) : rightPanelActiveTab === 'library' ? (
           !rightPanelCollapsed && <Suspense fallback={null}><LazyCardLibraryView onOpenSettings={onOpenSettings} compact /></Suspense>
         ) : showEditorContent ? (
