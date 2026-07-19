@@ -11,6 +11,11 @@ import { SettingGroup, SettingRow } from './SettingPrimitives'
 import { setAccentColor, getAccentColor } from '../../../theme'
 import type { GridPattern } from '../../canvas/AdaptiveBackground'
 import { useState } from 'react'
+import {
+  DEFAULT_DENSITY_OVERVIEW_ZOOM_THRESHOLD,
+  MAX_DENSITY_OVERVIEW_ZOOM_THRESHOLD,
+  MIN_DENSITY_OVERVIEW_ZOOM_THRESHOLD,
+} from '../../canvas/densityOverview/densityOverviewConfig'
 
 const GRID_PATTERNS: { value: GridPattern; label: string }[] = [
   { value: 'cross', label: '十字' },
@@ -37,6 +42,8 @@ export function SystemSettings() {
   const setGridPattern = useThemeStore(s => s.setGridPattern)
   const previewZoomThreshold = useLibraryStore(s => s.previewZoomThreshold)
   const setPreviewZoomThreshold = useLibraryStore(s => s.setPreviewZoomThreshold)
+  const densityOverviewZoomThreshold = useLibraryStore(s => s.densityOverviewZoomThreshold)
+  const setDensityOverviewZoomThreshold = useLibraryStore(s => s.setDensityOverviewZoomThreshold)
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
   const settings = useWorkspaceStore(s => s.settings)
   const updateSettings = useWorkspaceStore(s => s.updateSettings)
@@ -127,6 +134,26 @@ export function SystemSettings() {
             />
             <span className="w-9 text-right text-xs tabular-nums text-fg-secondary">
               {previewZoomThreshold.toFixed(2)}
+            </span>
+          </div>
+        </SettingRow>
+        <SettingRow
+          label="点阵模式阈值"
+          description={`画布缩放低于 ${Math.round(densityOverviewZoomThreshold * 100)}% 时开始进入点阵模式`}
+        >
+          <div className="flex w-[240px] items-center gap-3">
+            <Slider
+              aria-label="点阵模式阈值"
+              value={[densityOverviewZoomThreshold]}
+              min={MIN_DENSITY_OVERVIEW_ZOOM_THRESHOLD}
+              max={MAX_DENSITY_OVERVIEW_ZOOM_THRESHOLD}
+              step={0.05}
+              onValueChange={(value) => setDensityOverviewZoomThreshold(
+                value[0] ?? DEFAULT_DENSITY_OVERVIEW_ZOOM_THRESHOLD,
+              )}
+            />
+            <span className="w-9 text-right text-xs tabular-nums text-fg-secondary">
+              {Math.round(densityOverviewZoomThreshold * 100)}%
             </span>
           </div>
         </SettingRow>

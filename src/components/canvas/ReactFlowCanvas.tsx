@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
+import { lazy, Suspense, useState, useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import {
@@ -54,6 +54,11 @@ import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardI
 import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT, DEFAULT_ANNOTATION_CONTENT } from '../../types/card'
 import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
 import { getVisibleCanvasEdges } from './utils/visibleCanvasEdges'
+import { getDensityOverviewProgress, OVERVIEW_INTERACTION_PROGRESS } from './densityOverview/densityOverviewModel'
+
+const DensityOverviewLayer = lazy(() => import('./densityOverview/DensityOverviewLayer').then(module => ({
+  default: module.DensityOverviewLayer,
+})))
 
 const nodeTypes = {
   card: CardNode,
@@ -70,6 +75,7 @@ export function ReactFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [selectionForAlignment, setSelectionForAlignment] = useState<{ nodes: Node[]; edges: Edge[] }>({ nodes: [], edges: [] })
+  const [densityOverviewProgress, setDensityOverviewProgress] = useState(0)
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
@@ -80,6 +86,7 @@ export function ReactFlowCanvas() {
   const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
   const gridPattern = useThemeStore((s) => s.gridPattern)
   const previewZoomThreshold = useLibraryStore(s => s.previewZoomThreshold)
+  const densityOverviewZoomThreshold = useLibraryStore(s => s.densityOverviewZoomThreshold)
   const boards = useBoardStore((s) => s.boards)
   const allCards = useCardStore((s) => s.cards)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
@@ -363,7 +370,8 @@ export function ReactFlowCanvas() {
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     reactFlowInstance.current = instance
-  }, [])
+    setDensityOverviewProgress(getDensityOverviewProgress(instance.getViewport().zoom, densityOverviewZoomThreshold))
+  }, [densityOverviewZoomThreshold])
 
   useEffect(() => {
     const el = canvasRef.current
@@ -372,6 +380,13 @@ export function ReactFlowCanvas() {
     const zoom = useLibraryStore.getState().zoom
     useLibraryStore.getState().setZoomPreviewVisible(zoom <= previewZoomThreshold)
   }, [previewZoomThreshold])
+
+  useEffect(() => {
+    const zoom = reactFlowInstance.current?.getViewport().zoom ?? useLibraryStore.getState().zoom
+    const progress = getDensityOverviewProgress(zoom, densityOverviewZoomThreshold)
+    setDensityOverviewProgress(progress)
+    canvasRef.current?.style.setProperty('--density-overview-progress', String(progress))
+  }, [densityOverviewZoomThreshold])
 
   // 初始节点加载后立即 snap-fit（duration:0 → 无动画过渡，避免 fitView 动画与 card-enter 并发造成的卡顿）
   const initialFitDoneRef = useRef(false)
@@ -394,6 +409,9 @@ export function ReactFlowCanvas() {
         // ZoomPreview、缩放反比元素依赖此变量渲染，延迟会产生视觉跳变
         if (viewport.zoom !== lastZoom && canvasRef.current) {
           lastZoom = viewport.zoom
+          const overviewProgress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
+          setDensityOverviewProgress(overviewProgress)
+          canvasRef.current.style.setProperty('--density-overview-progress', String(overviewProgress))
           canvasRef.current.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
           canvasRef.current.style.setProperty('--rf-zoom', String(viewport.zoom))
           const library = useLibraryStore.getState()
@@ -410,11 +428,12 @@ export function ReactFlowCanvas() {
         useLibraryStore.setState({ transform: [viewport.x, viewport.y, viewport.zoom] })
       }
     })(),
-    [previewZoomThreshold],
+    [densityOverviewZoomThreshold, previewZoomThreshold],
   )
 
   const onPaneClick = useCallback((event: React.MouseEvent) => {
     if (event.button !== 0) return
+    if (densityOverviewProgress >= OVERVIEW_INTERACTION_PROGRESS) return
 
     // 文本注释工具：点击空白处放置一个文本注释节点并自动进入编辑
     if (isTextToolMode) {
@@ -477,7 +496,7 @@ export function ReactFlowCanvas() {
     if (currentViewMode !== 'board') {
       useViewStore.getState().setViewMode('board')
     }
-  }, [setNodes, setEdges, isTextToolMode, snapshotNow, recordCurrentState])
+  }, [densityOverviewProgress, setNodes, setEdges, isTextToolMode, snapshotNow, recordCurrentState])
 
   const handleActivateCardEditor = useCallback((cardId: string) => {
     const viewState = useViewStore.getState()
@@ -506,13 +525,14 @@ export function ReactFlowCanvas() {
 
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      if (densityOverviewProgress >= OVERVIEW_INTERACTION_PROGRESS) return
       editingNodeIdRef.current = node.id
       if (node.type === 'card') {
         const cardId = (node.data as Record<string, unknown>)?.cardId as string | undefined
         if (cardId) handleActivateCardEditor(cardId)
       }
     },
-    [handleActivateCardEditor],
+    [densityOverviewProgress, handleActivateCardEditor],
   )
 
   const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
@@ -623,6 +643,19 @@ export function ReactFlowCanvas() {
 
   // 看板 Frame 内的卡片之间隐藏连接线
   const visibleEdges = useMemo(() => getVisibleCanvasEdges(nodes, edges), [nodes, edges])
+  const densityOverviewInteractive = densityOverviewProgress >= OVERVIEW_INTERACTION_PROGRESS
+
+  useEffect(() => {
+    if (!densityOverviewInteractive) return
+    if (isLassoMode) exitLassoMode()
+    if (isTextToolMode) exitTextToolMode()
+  }, [densityOverviewInteractive, isLassoMode, isTextToolMode])
+
+  const focusDensitySourceNode = useCallback((nodeId: string) => {
+    const node = nodesRef.current.find(candidate => candidate.id === nodeId)
+    if (!node) return
+    reactFlowInstance.current?.fitView({ nodes: [node], duration: 350, padding: 0.35, maxZoom: 1.15 })
+  }, [])
 
   const suggestedCards = useMemo(() => {
     const boardCardIds = new Set(
@@ -684,7 +717,15 @@ export function ReactFlowCanvas() {
 
   return (
     <ErrorBoundary>
-		    <div className={`w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''} ${isTextToolMode ? 'text-tool-mode' : ''}`} ref={canvasRef} onMouseDown={handleDoubleClickMouseDown} onDoubleClick={handleDoubleClick} onContextMenu={(e) => e.preventDefault()}>
+		    <div
+          className={`density-overview-enabled ${densityOverviewInteractive ? 'density-overview-interactive' : ''} w-full h-full bg-surface-app ${isLassoMode ? 'lasso-mode' : ''} ${isTextToolMode ? 'text-tool-mode' : ''}`}
+          ref={canvasRef}
+          data-density-overview-progress={densityOverviewProgress.toFixed(3)}
+          data-density-overview-threshold={densityOverviewZoomThreshold.toFixed(3)}
+          onMouseDown={handleDoubleClickMouseDown}
+          onDoubleClick={densityOverviewInteractive ? undefined : handleDoubleClick}
+          onContextMenu={(e) => e.preventDefault()}
+        >
 	      <ReactFlow
         nodes={sortedNodes}
         edges={visibleEdges}
@@ -711,9 +752,12 @@ export function ReactFlowCanvas() {
         connectionLineComponent={connectionLineComponent}
         isValidConnection={isValidConnection}
         autoPanOnNodeDrag={false}
-        panOnDrag={isLassoMode ? false : [2]}
-        selectionOnDrag={!isLassoMode}
+        panOnDrag={densityOverviewInteractive ? true : (isLassoMode ? false : [2])}
+        selectionOnDrag={!densityOverviewInteractive && !isLassoMode}
         selectionMode={SelectionMode.Partial}
+        nodesDraggable={!densityOverviewInteractive}
+        nodesConnectable={!densityOverviewInteractive}
+        elementsSelectable={!densityOverviewInteractive}
         panActivationKeyCode="Space"
         onMove={onMove}
         elevateNodesOnSelect={false}
@@ -728,6 +772,19 @@ export function ReactFlowCanvas() {
           color={isDarkMode ? '#ffffff' : '#18181b'}
           pattern={gridPattern}
         />
+        {densityOverviewProgress > 0 && (
+          <Suspense fallback={null}>
+            <DensityOverviewLayer
+              nodes={nodes}
+              edges={visibleEdges}
+              cards={allCards}
+              progress={densityOverviewProgress}
+              zoomThreshold={densityOverviewZoomThreshold}
+              isDarkMode={isDarkMode}
+              onFocusNode={focusDensitySourceNode}
+            />
+          </Suspense>
+        )}
         <AlignmentToolbar
           selectedNodes={selectedNodesForAlignment}
           selectedEdges={selectedEdgesForAlignment}

@@ -1,5 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  clampDensityOverviewZoomThreshold,
+  DEFAULT_DENSITY_OVERVIEW_ZOOM_THRESHOLD,
+} from '../components/canvas/densityOverview/densityOverviewConfig'
 
 export type SortBy = 'updatedAt' | 'createdAt' | 'title' | 'related'
 export type SearchMode = 'hybrid' | 'keyword' | 'semantic'
@@ -27,6 +31,9 @@ interface LibraryStore {
   previewZoomThreshold: number
   setPreviewZoomThreshold: (threshold: number) => void
 
+  densityOverviewZoomThreshold: number
+  setDensityOverviewZoomThreshold: (threshold: number) => void
+
   transform: [number, number, number]
   setTransform: (transform: [number, number, number]) => void
 }
@@ -41,6 +48,7 @@ export const useLibraryStore = create<LibraryStore>()(
     zoom: 1,
     isZoomPreviewVisible: false,
     previewZoomThreshold: 0.55,
+    densityOverviewZoomThreshold: DEFAULT_DENSITY_OVERVIEW_ZOOM_THRESHOLD,
     transform: [0, 0, 1],
 
     setSortBy: (sortBy) => set({ sortBy }),
@@ -63,11 +71,15 @@ export const useLibraryStore = create<LibraryStore>()(
     setPreviewZoomThreshold: (threshold) => set({
       previewZoomThreshold: Math.min(0.9, Math.max(0.25, threshold)),
     }),
+    setDensityOverviewZoomThreshold: (threshold) => set({
+      densityOverviewZoomThreshold: clampDensityOverviewZoomThreshold(threshold),
+    }),
     setTransform: (transform) => set({ transform }),
   }), {
     name: 'hepta-library-ui-prefs',
     partialize: (state) => ({
       previewZoomThreshold: state.previewZoomThreshold,
+      densityOverviewZoomThreshold: state.densityOverviewZoomThreshold,
     }),
   }),
 )

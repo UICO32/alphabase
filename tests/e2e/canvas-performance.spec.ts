@@ -57,6 +57,24 @@ test.describe('canvas large-board baselines', () => {
       })
 
       await page.mouse.wheel(0, 600)
+      await expect.poll(async () => Number(
+        await page.locator('.density-overview-enabled').getAttribute('data-density-overview-progress'),
+      )).toBeGreaterThan(0)
+
+      const densityMetrics = await page.locator('.density-overview-layer').evaluate((layer) => ({
+        spacing: Number((layer as HTMLElement).dataset.gridSpacing || Number.NaN),
+        renderMs: Number((layer as HTMLElement).dataset.renderMs || Number.NaN),
+        canvasWidth: (layer.querySelector('canvas') as HTMLCanvasElement | null)?.width ?? 0,
+      }))
+      expect(densityMetrics.canvasWidth).toBeGreaterThan(0)
+      expect(densityMetrics.renderMs).toBeGreaterThanOrEqual(0)
+      if (cardCount === 1000) {
+        expect(densityMetrics.spacing).toBe(18)
+        expect(densityMetrics.renderMs).toBeLessThan(100)
+      } else {
+        expect(densityMetrics.spacing).toBeGreaterThan(18)
+      }
+
       await page.mouse.wheel(0, -600)
       await page.waitForTimeout(200)
 
@@ -66,6 +84,8 @@ test.describe('canvas large-board baselines', () => {
         seedDurationMs: seed.data.durationMs,
         twoFrameLatencyMs: interaction,
         visibleNodeCount,
+        densityRenderMs: densityMetrics.renderMs,
+        densityGridSpacing: densityMetrics.spacing,
       }))
 
       expect(visibleNodeCount).toBeGreaterThan(0)
