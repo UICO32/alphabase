@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useCallback, useRef, useEffect, useLayoutEffect, useSyncExternalStore, useMemo } from 'react'
+import { lazy, Suspense, useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import {
@@ -52,7 +52,7 @@ import { type GlobalCard } from '../../stores/cardStore'
 import { connectionMediator } from './utils/connectionMediator'
 import { kanbanDragPreview } from './utils/kanbanDragPreview'
 import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds, exitTextToolMode, setAutoEditAnnoId } from './utils/frameInteraction'
-import { CardNodeData, PROXIMITY_THRESHOLD, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT, DEFAULT_ANNOTATION_CONTENT } from '../../types/card'
+import { CardNodeData, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT, DEFAULT_ANNOTATION_CONTENT } from '../../types/card'
 import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
 import { getVisibleCanvasEdges } from './utils/visibleCanvasEdges'
 import { getDensityOverviewProgress, OVERVIEW_INTERACTION_PROGRESS } from './densityOverview/densityOverviewModel'
@@ -131,19 +131,6 @@ export function ReactFlowCanvas() {
   useEffect(() => () => {
     useCanvasPresenceStore.getState().clearCanvasPresence()
   }, [])
-
-  // 合并 RAF 清理到 nodesRef 的 effect 中，避免单独的 cleanup effect
-  const rafRef = useRef<number | null>(null)
-  useEffect(() => {
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-    }
-  }, [])
-
-  const isConnecting = useSyncExternalStore(
-    connectionMediator.subscribe.bind(connectionMediator),
-    connectionMediator.isConnecting.bind(connectionMediator),
-  )
 
   useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef })
   useBoardSync({ nodes, edges })
@@ -519,6 +506,7 @@ export function ReactFlowCanvas() {
 
     editingNodeIdRef.current = null
     useViewStore.getState().setEditingCardId(null)
+    useLibraryStore.getState().exitRelatedSort()
 
     // Clicking canvas blank area should deselect left panel tabs (boardLibrary/cards → board)
     const currentViewMode = useViewStore.getState().viewMode
@@ -564,50 +552,8 @@ export function ReactFlowCanvas() {
     [densityOverviewProgress, handleActivateCardEditor],
   )
 
-  const pendingMouseEventRef = useRef<React.MouseEvent | null>(null)
-
-  const isConnectingRef = useRef(isConnecting)
-  useEffect(() => { isConnectingRef.current = isConnecting }, [isConnecting])
-
   const onMouseMove = useCallback((event: React.MouseEvent) => {
     lastMousePosRef.current = { x: event.clientX, y: event.clientY }
-    if (!isConnectingRef.current) return
-    pendingMouseEventRef.current = event
-    if (rafRef.current !== null) return
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = null
-      const evt = pendingMouseEventRef.current
-      if (!evt) return
-      const rf = reactFlowInstance.current
-      if (!rf) return
-      const pending = connectionMediator.getPending()
-      if (!pending) return
-      let closestId: string | null = null
-      let closestDist = PROXIMITY_THRESHOLD
-      const zoom = rf.getViewport().zoom
-      const flowPoint = rf.screenToFlowPosition({ x: evt.clientX, y: evt.clientY })
-      const flowRadius = PROXIMITY_THRESHOLD / zoom
-      const candidates = spatialIndexRef.current
-        .queryPoint(flowPoint, flowRadius)
-        .filter(item => (item.type === 'card' || item.type === 'text') && item.id !== pending.sourceNodeId)
-
-      for (const item of candidates) {
-        const node = item.node
-        const w = ((node.data as Record<string, unknown>).width as number) ?? 280
-        const h = ((node.data as Record<string, unknown>).height as number) ?? 200
-        const screen = rf.flowToScreenPosition(node.position)
-        const scaledW = w * zoom
-        const scaledH = h * zoom
-        const nearestX = Math.max(screen.x, Math.min(evt.clientX, screen.x + scaledW))
-        const nearestY = Math.max(screen.y, Math.min(evt.clientY, screen.y + scaledH))
-        const dist = Math.hypot(evt.clientX - nearestX, evt.clientY - nearestY)
-        if (dist < closestDist) {
-          closestDist = dist
-          closestId = node.id
-        }
-      }
-      connectionMediator.setNearbyTarget(closestId)
-    })
   }, [])
 
   const connectionLineComponent = useCallback(

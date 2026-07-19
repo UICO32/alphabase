@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs'
 import { join, basename } from 'path'
-import { InferenceSession, Tensor } from 'onnxruntime-node'
+import type { InferenceSession } from 'onnxruntime-node'
 import { extractEmbeddingText } from './textExtractor'
 import { JinaTokenizer } from './tokenizer'
 
@@ -19,6 +19,12 @@ export const EMBEDDING_ERRORS = {
   INIT_FAILED: 'INIT_FAILED',
   INDEXING_IN_PROGRESS: 'INDEXING_IN_PROGRESS',
 } as const
+
+function errorWithCause(message: string, cause: unknown) {
+  const error = new Error(message) as Error & { cause?: unknown }
+  error.cause = cause
+  return error
+}
 
 // --- Types ---
 export interface SearchResult {
@@ -69,6 +75,7 @@ export interface ClusterResult {
 
 export class EmbeddingService {
   private session: InferenceSession | null = null
+  private runtime: typeof import('onnxruntime-node') | null = null
   private tokenizer: JinaTokenizer | null = null
   private store: VectorStore = { docs: {} }
   modelLoaded: boolean = false
@@ -79,8 +86,10 @@ export class EmbeddingService {
   private isIndexing: boolean = false
   private abortController: AbortController | null = null
   private threshold: number = DEFAULT_THRESHOLD
+  private initializationError: string | null = null
 
   async init(workspacePath: string, modelDir?: string): Promise<{ modelLoaded: boolean; storeLoaded: boolean; docCount: number }> {
+    this.initializationError = null
     this.cardsDir = join(workspacePath, 'cards')
     this.vectorsDir = join(workspacePath, VECTORS_DIR_NAME)
     this.modelDir = modelDir || join(workspacePath, '.embedding-model')
@@ -109,8 +118,14 @@ export class EmbeddingService {
 
   private loadModelInBackground(): void {
     this.loadModel()
-      .then(() => { this.modelLoaded = true })
-      .catch(() => { /* Model unavailable — store still usable */ })
+      .then(() => {
+        this.modelLoaded = true
+        this.initializationError = null
+      })
+      .catch((error: unknown) => {
+        this.modelLoaded = false
+        this.initializationError = error instanceof Error ? error.message : String(error)
+      })
   }
 
   private async loadModel(): Promise<void> {
@@ -120,26 +135,41 @@ export class EmbeddingService {
       throw new Error(EMBEDDING_ERRORS.MODEL_MISSING)
     }
 
+    let runtime: typeof import('onnxruntime-node')
+    try {
+      runtime = await import('onnxruntime-node')
+      this.runtime = runtime
+    } catch (err) {
+      this.runtime = null
+      throw errorWithCause(
+        `${EMBEDDING_ERRORS.INIT_FAILED}: native runtime load failed - ${(err as Error).message}`,
+        err,
+      )
+    }
+
     try {
       this.tokenizer = new JinaTokenizer(tokenizerPath)
     } catch (err) {
       this.tokenizer = null
-      throw new Error(`${EMBEDDING_ERRORS.INIT_FAILED}: tokenizer load failed - ${(err as Error).message}`)
+      throw errorWithCause(
+        `${EMBEDDING_ERRORS.INIT_FAILED}: tokenizer load failed - ${(err as Error).message}`,
+        err,
+      )
     }
 
     const providers: string[] = ['dml', 'cpu']
     try {
-      this.session = await InferenceSession.create(modelPath, {
+      this.session = await runtime.InferenceSession.create(modelPath, {
         executionProviders: providers,
       })
     } catch {
       try {
-        this.session = await InferenceSession.create(modelPath, {
+        this.session = await runtime.InferenceSession.create(modelPath, {
           executionProviders: ['cpu'],
         })
       } catch (err) {
         this.session = null
-        throw new Error(`${EMBEDDING_ERRORS.INIT_FAILED}: ${(err as Error).message}`)
+        throw errorWithCause(`${EMBEDDING_ERRORS.INIT_FAILED}: ${(err as Error).message}`, err)
       }
     }
   }
@@ -484,6 +514,7 @@ export class EmbeddingService {
     indexing: boolean
     docCount: number
     modelDir: string
+    initializationError: string | null
   } {
     return {
       initialized: this.isInitialized(),
@@ -491,6 +522,7 @@ export class EmbeddingService {
       indexing: this.isIndexing,
       docCount: Object.keys(this.store.docs).length,
       modelDir: this.modelDir,
+      initializationError: this.initializationError,
     }
   }
 
@@ -507,6 +539,7 @@ export class EmbeddingService {
       this.session.release()
       this.session = null
     }
+    this.runtime = null
     this.tokenizer = null
     // Keep store in memory — it will be re-loaded from disk on next init()
     this.isIndexing = false
@@ -519,7 +552,7 @@ export class EmbeddingService {
   }
 
   private async encodeBatch(texts: string[], isQuery: boolean = false): Promise<number[][]> {
-    if (!this.session || !this.tokenizer) {
+    if (!this.session || !this.tokenizer || !this.runtime) {
       throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
     }
 
@@ -551,8 +584,8 @@ export class EmbeddingService {
       }
     }
 
-    const inputIds = new Tensor('int64', flatIds, [batchSize, maxLen])
-    const attentionMask = new Tensor('int64', flatMask, [batchSize, maxLen])
+    const inputIds = new this.runtime.Tensor('int64', flatIds, [batchSize, maxLen])
+    const attentionMask = new this.runtime.Tensor('int64', flatMask, [batchSize, maxLen])
 
     const output = await this.session.run({
       input_ids: inputIds,

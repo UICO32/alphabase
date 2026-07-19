@@ -10,7 +10,6 @@ import { useThemeStore } from '../../stores/themeStore'
 import {
   CARD_COLORS,
   ANNOTATION_FONT_SIZES,
-  DEFAULT_ANNOTATION_WIDTH,
   DEFAULT_ANNOTATION_HEIGHT,
   type CardColor,
   type TextAnnotationNodeData,
@@ -38,7 +37,7 @@ function getNextFontSize(current: AnnotationFontSize): AnnotationFontSize {
 }
 
 export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAnnotationNodeType>) => {
-  const { setNodes, setEdges, getNode } = useReactFlow()
+  const { setNodes, setEdges } = useReactFlow()
   const isDarkMode = useThemeStore(s => s.isDarkMode)
   const [isEditing, setIsEditing] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
@@ -116,31 +115,13 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     }
   }, [id, setNodes])
 
-  const getNodeSize = useCallback((node: Node) => {
-    const d = node.data as TextAnnotationNodeData
-    return { w: d.width ?? DEFAULT_ANNOTATION_WIDTH, h: d.height ?? DEFAULT_ANNOTATION_HEIGHT }
-  }, [])
-
   // 鈹€鈹€ 鐐瑰嚮锛氳繛鎺ュ畬鎴?or 杩涘叆缂栬緫锛堝鍒?CardNode.handleCardClick 鏍稿績锛夆攢鈹€
   const handleNodeClick = useCallback((e: React.MouseEvent) => {
     if (isConnectionTarget || isNearbyTarget) {
       e.stopPropagation()
-      const pending = connectionMediator.getPending()
-      const sourceNode = pending ? getNode(pending.sourceNodeId) : undefined
-      const targetNode = getNode(id)
-      if (sourceNode && targetNode) {
-        const ss = getNodeSize(sourceNode)
-        const ts = getNodeSize(targetNode)
-        connectionMediator.complete(
-          id,
-          '',
-          sourceNode.position,
-          { w: ss.w, h: ss.h },
-          targetNode.position,
-          { w: ts.w, h: ts.h },
-        )
-      } else {
-        connectionMediator.complete(id, '')
+      const preview = connectionMediator.getPreviewCandidate()
+      if (preview?.targetNodeId === id) {
+        connectionMediator.complete(id, preview.targetHandleId)
       }
       return
     }
@@ -150,7 +131,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     if (isEditing) return
     setIsEditing(true)
     requestAnimationFrame(() => editorRef.current?.focus())
-  }, [isConnectionTarget, isNearbyTarget, id, isEditing, getNode, getNodeSize])
+  }, [isConnectionTarget, isNearbyTarget, id, isEditing])
 
   const handleStartConnection = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()

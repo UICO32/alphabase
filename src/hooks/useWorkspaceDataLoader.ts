@@ -419,7 +419,7 @@ export function useWorkspaceDataLoader() {
     // Auto-init embedding index — loadStore() inside EmbeddingService will restore vectors.json
     const wsPath = localStorage.getItem(LAST_WORKSPACE_KEY)
     if (wsPath) {
-      embeddingStore.getState().init(wsPath).catch((err: unknown) => {
+      embeddingStore.getState().initAndEnsureIndexed(wsPath).catch((err: unknown) => {
         console.error('[workspace] embedding init failed:', err)
       })
     }

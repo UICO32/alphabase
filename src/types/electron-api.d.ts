@@ -97,6 +97,7 @@ declare global {
           indexing: boolean
           docCount: number
           modelDir: string
+          initializationError?: string | null
         }>
         checkModel: () => Promise<{ available: boolean }>
         setThreshold: (value: number) => Promise<{ success: boolean }>

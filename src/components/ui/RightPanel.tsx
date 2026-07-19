@@ -44,6 +44,11 @@ export function beginRightPanelResize({ startX, startWidth, panel, onWidthChange
   let active = true
   let frameId: number | null = null
   let latestWidth = startWidth
+  const chromeSurface = document.querySelector<HTMLElement>('.workspace-chrome-surface')
+  const panelContent = panel.querySelector<HTMLElement>('[data-right-panel-content]')
+  const initialChromeRight = chromeSurface
+    ? Number.parseFloat(getComputedStyle(chromeSurface).getPropertyValue('--workspace-chrome-right'))
+    : Number.NaN
   const transitionElements = [panel, ...Array.from(document.querySelectorAll<HTMLElement>(RESIZING_CHROME_SELECTOR))]
   const previousTransitions = transitionElements.map((element) => element.style.transition)
 
@@ -52,30 +57,48 @@ export function beginRightPanelResize({ startX, startWidth, panel, onWidthChange
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
   transitionElements.forEach((element) => { element.style.transition = 'none' })
+  if (panelContent) {
+    panelContent.style.width = `${startWidth}px`
+    panelContent.style.marginLeft = 'auto'
+    panelContent.style.contain = 'layout paint'
+  }
 
-  const commitWidth = () => {
+  const previewWidth = () => {
     frameId = null
-    if (active) onWidthChange(latestWidth)
+    if (!active) return
+    panel.style.width = `${latestWidth}px`
+    if (chromeSurface && Number.isFinite(initialChromeRight)) {
+      chromeSurface.style.setProperty(
+        '--workspace-chrome-right',
+        `${initialChromeRight + latestWidth - startWidth}px`,
+      )
+    }
   }
 
   const onMove = (event: PointerEvent) => {
     if (!active) return
     latestWidth = clampRightPanelWidth(startWidth + startX - event.clientX)
-    if (frameId === null) frameId = requestAnimationFrame(commitWidth)
+    if (frameId === null) frameId = requestAnimationFrame(previewWidth)
   }
 
   const finish = () => {
     if (!active) return
-    active = false
     if (frameId !== null) {
       cancelAnimationFrame(frameId)
       frameId = null
-      onWidthChange(latestWidth)
+      previewWidth()
     }
+    active = false
+    onWidthChange(latestWidth)
     document.removeEventListener('pointermove', onMove)
     document.removeEventListener('pointerup', finish)
     document.removeEventListener('pointercancel', finish)
     transitionElements.forEach((element, index) => { element.style.transition = previousTransitions[index] })
+    if (panelContent) {
+      panelContent.style.width = ''
+      panelContent.style.marginLeft = ''
+      panelContent.style.contain = ''
+    }
     delete document.documentElement.dataset.rightPanelResizing
     delete panel.dataset.rightPanelResizing
     document.body.style.cursor = ''
@@ -160,6 +183,7 @@ export function RightPanel({ integratedSurface = false, mode = 'wide', open, onO
           onPointerDown={handleResizeStart}
         />}
 
+      <div data-right-panel-content className="flex h-full flex-col overflow-hidden">
       <div className="flex items-center justify-between px-2.5 py-2 transition-theme">
 	        <div
 	          className="segmented"
@@ -240,6 +264,7 @@ export function RightPanel({ integratedSurface = false, mode = 'wide', open, onO
             <p className="text-sm">选择卡片进行编辑</p>
           </div>
         )}
+      </div>
       </div>
     </ResponsiveSidePanel>
 

@@ -12,7 +12,7 @@ afterEach(() => {
 })
 
 describe('beginRightPanelResize', () => {
-  it('updates a clamped width at most once per animation frame and disables transitions', () => {
+  it('previews a clamped width without committing store state during pointer moves', () => {
     const panel = document.createElement('div')
     panel.style.transition = 'transform 200ms ease'
     const aperture = document.createElement('div')
@@ -41,7 +41,8 @@ describe('beginRightPanelResize', () => {
     expect(document.documentElement.dataset.rightPanelResizing).toBe('true')
 
     frames[0](0)
-    expect(onWidthChange).toHaveBeenLastCalledWith(600)
+    expect(panel.style.width).toBe('600px')
+    expect(onWidthChange).not.toHaveBeenCalled()
   })
 
   it.each(['pointerup', 'pointercancel'])('commits and restores state on %s', (eventName) => {
@@ -62,6 +63,7 @@ describe('beginRightPanelResize', () => {
     document.dispatchEvent(new PointerEvent(eventName))
 
     expect(cancelAnimationFrame).toHaveBeenCalledWith(42)
+    expect(onWidthChange).toHaveBeenCalledTimes(1)
     expect(onWidthChange).toHaveBeenLastCalledWith(260)
     expect(panel.style.transition).toBe('transform 200ms ease')
     expect(strip.style.transition).toBe('width 160ms ease')

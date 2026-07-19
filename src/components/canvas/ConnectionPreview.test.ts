@@ -4,7 +4,7 @@ import type { CanvasSpatialIndex } from './utils/canvasSpatialIndex'
 import { findConnectionPreviewTarget } from './ConnectionPreview'
 
 describe('findConnectionPreviewTarget', () => {
-  it('queries only the local 50px screen-space area and excludes the source node', () => {
+  it('converts the 72px screen-space snap radius by zoom and excludes the source node', () => {
     const source = { id: 'source', type: 'card', position: { x: 0, y: 0 }, data: {} }
     const target = { id: 'target', type: 'card', position: { x: 100, y: 0 }, data: {} }
     const queryPoint = vi.fn(() => [
@@ -25,7 +25,7 @@ describe('findConnectionPreviewTarget', () => {
     )
 
     expect(reactFlowInstance.screenToFlowPosition).toHaveBeenCalledWith({ x: 120, y: 80 })
-    expect(queryPoint).toHaveBeenCalledWith({ x: 60, y: 40 }, 25)
+    expect(queryPoint).toHaveBeenCalledWith({ x: 60, y: 40 }, 36)
     expect(result).toBe(target)
   })
 })

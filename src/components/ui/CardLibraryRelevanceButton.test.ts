@@ -7,67 +7,62 @@ import { CardLibraryRelevanceButton } from './CardLibraryRelevanceButton'
 
 afterEach(cleanup)
 
+const baseProps = {
+  active: false,
+  indexed: true,
+  editingCardId: 'card-1',
+  onActivate: vi.fn(),
+}
+
 describe('CardLibraryRelevanceButton', () => {
   it('activates relevance when it is available', () => {
     const onActivate = vi.fn()
-    render(createElement(CardLibraryRelevanceButton, {
-      active: false,
-      indexed: true,
-      editingCardId: 'card-1',
-      onActivate,
-    }))
+    render(createElement(CardLibraryRelevanceButton, { ...baseProps, onActivate }))
 
-    fireEvent.click(screen.getByRole('button', { name: '相关性' }))
+    fireEvent.click(screen.getByRole('button', { name: '按当前卡片的相关性排序' }))
     expect(onActivate).toHaveBeenCalledOnce()
   })
 
-  it('exposes its selected state', () => {
-    render(createElement(CardLibraryRelevanceButton, {
-      active: true,
-      indexed: true,
-      editingCardId: 'card-1',
-      onActivate: vi.fn(),
-    }))
-
-    expect(screen.getByRole('button', { name: '相关性' }).getAttribute('aria-pressed')).toBe('true')
-  })
-
-  it('does not collapse its label into vertical text', () => {
-    render(createElement(CardLibraryRelevanceButton, {
-      active: false,
-      indexed: true,
-      editingCardId: 'card-1',
-      onActivate: vi.fn(),
-    }))
+  it('exposes its selected state without collapsing the label', () => {
+    render(createElement(CardLibraryRelevanceButton, { ...baseProps, active: true }))
 
     const button = screen.getByRole('button')
+    expect(button.getAttribute('aria-pressed')).toBe('true')
     expect(button.className).toContain('shrink-0')
     expect(button.className).toContain('whitespace-nowrap')
   })
 
-  it('is disabled without a reference card', () => {
-    render(createElement(CardLibraryRelevanceButton, {
-      active: false,
-      indexed: true,
-      editingCardId: null,
-      onActivate: vi.fn(),
-    }))
+  it('explains that a reference card is required', () => {
+    render(createElement(CardLibraryRelevanceButton, { ...baseProps, editingCardId: null }))
 
-    const button = screen.getByRole('button', { name: '相关性' }) as HTMLButtonElement
+    const button = screen.getByRole('button', { name: '相关性：请先选择一张卡片' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
     expect(button.title).toBe('请先选择一张卡片')
   })
 
-  it('is disabled while the card index is preparing', () => {
+  it('reports indexing progress instead of an indefinite preparing state', () => {
     render(createElement(CardLibraryRelevanceButton, {
-      active: false,
+      ...baseProps,
       indexed: false,
-      editingCardId: 'card-1',
-      onActivate: vi.fn(),
+      indexing: true,
+      progress: 3,
+      total: 10,
     }))
 
-    const button = screen.getByRole('button', { name: '相关性' }) as HTMLButtonElement
+    const button = screen.getByRole('button', { name: '相关性：正在建立卡片索引 3/10' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
-    expect(button.title).toBe('卡片索引准备中')
+    expect(button.title).toBe('正在建立卡片索引 3/10')
+  })
+
+  it('distinguishes a missing model from indexing progress', () => {
+    render(createElement(CardLibraryRelevanceButton, {
+      ...baseProps,
+      indexed: false,
+      indexError: 'model-missing',
+    }))
+
+    const button = screen.getByRole('button', { name: '相关性：请先在设置中下载向量模型' }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(button.title).toBe('请先在设置中下载向量模型')
   })
 })

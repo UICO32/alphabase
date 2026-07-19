@@ -10,6 +10,7 @@ interface CardNodeChromeProps {
   cardId: string
   color: CardColor
   collapsed: boolean
+  collapsedTitle: string
   selected: boolean
   editing: boolean
   hovered: boolean
@@ -22,8 +23,6 @@ interface CardNodeChromeProps {
   darkMode: boolean
   width: number
   height: number
-  cardTitle?: string
-  cardPreviewHTML?: string
   onMouseEnter: () => void
   onMouseLeave: () => void
   onClick: (event: MouseEvent<HTMLDivElement>) => void
@@ -39,6 +38,7 @@ export function CardNodeChrome({
   cardId,
   color,
   collapsed,
+  collapsedTitle,
   selected,
   editing,
   hovered,
@@ -51,8 +51,6 @@ export function CardNodeChrome({
   darkMode,
   width,
   height,
-  cardTitle,
-  cardPreviewHTML,
   onMouseEnter,
   onMouseLeave,
   onClick,
@@ -155,6 +153,7 @@ export function CardNodeChrome({
         cardId={cardId}
         color={color}
         collapsed={collapsed}
+        collapsedTitle={collapsedTitle}
         isHovered={hovered}
         selected={selected}
         isConnecting={connecting}
@@ -162,8 +161,6 @@ export function CardNodeChrome({
         onRemoveFromBoard={onRemoveFromBoard}
         onMoveToBoard={onMoveToBoard}
         onColorChange={onColorChange}
-        cardTitle={cardTitle}
-        cardPreviewHTML={cardPreviewHTML}
       />
 
       {children}

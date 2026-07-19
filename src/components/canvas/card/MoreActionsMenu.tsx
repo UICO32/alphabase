@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { X, Move } from 'lucide-react'
+import { Check, Move, Palette, X } from 'lucide-react'
 import { useBoardStore } from '../../../stores/boardStore'
 import { useThemeStore } from '../../../stores/themeStore'
 import { CARD_COLORS, type CardColor } from '../../../types/card'
@@ -22,6 +22,19 @@ interface MoreActionsMenuProps {
   children: React.ReactNode
 }
 
+const COLOR_LABELS: Record<CardColor, string> = {
+  white: '白色',
+  red: '红色',
+  orange: '橙色',
+  yellow: '黄色',
+  green: '绿色',
+  cyan: '青色',
+  blue: '蓝色',
+  purple: '紫色',
+  pink: '粉色',
+  gray: '灰色',
+}
+
 export const MoreActionsMenu = memo(function MoreActionsMenu({
   color,
   onRemoveFromBoard,
@@ -32,54 +45,60 @@ export const MoreActionsMenu = memo(function MoreActionsMenu({
   const isDarkMode = useThemeStore(s => s.isDarkMode)
   const boards = useBoardStore(s => s.boards)
   const activeBoardId = useBoardStore(s => s.activeBoardId)
-  const otherBoards = boards.filter(b => b.id !== activeBoardId)
+  const otherBoards = boards.filter(board => board.id !== activeBoardId)
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        {children}
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         sideOffset={4}
         className="w-[200px]"
+        style={{ backgroundColor: isDarkMode ? '#242426' : '#FFFFFF' }}
       >
-        <div className="px-2 py-1.5">
-          <div className="text-xs text-fg-secondary mb-1.5">颜色</div>
-          <div className="flex flex-wrap gap-1.5">
-            {(Object.keys(CARD_COLORS) as CardColor[]).map((c) => (
-              <button
-                key={c}
-                onClick={() => onColorChange(c)}
-                className="rounded-full border-2 cursor-pointer"
-                style={{
-                  width: 20,
-                  height: 20,
-                  backgroundColor: isDarkMode ? CARD_COLORS[c].fillDark : CARD_COLORS[c].fillLight,
-                  borderColor: color === c ? CARD_COLORS[c].stroke : 'transparent',
-                  boxShadow: color === c ? `0 0 0 1.5px ${CARD_COLORS[c].stroke}` : 'none',
-                  transition: 'border-color 0.15s, box-shadow 0.15s',
-                }}
-              />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Palette aria-hidden="true" />
+            选择颜色
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent
+            className="min-w-[160px]"
+            style={{ backgroundColor: isDarkMode ? '#242426' : '#FFFFFF' }}
+          >
+            {(Object.keys(CARD_COLORS) as CardColor[]).map(cardColor => (
+              <DropdownMenuItem
+                key={cardColor}
+                aria-label={`卡片颜色：${COLOR_LABELS[cardColor]}`}
+                onSelect={() => onColorChange(cardColor)}
+              >
+                <span
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 rounded-full border border-line-default"
+                  style={{
+                    backgroundColor: isDarkMode
+                      ? CARD_COLORS[cardColor].fillDark
+                      : CARD_COLORS[cardColor].fillLight,
+                  }}
+                />
+                <span className="flex-1">{COLOR_LABELS[cardColor]}</span>
+                {color === cardColor && <Check aria-label="当前颜色" />}
+              </DropdownMenuItem>
             ))}
-          </div>
-        </div>
-
-        <DropdownMenuSeparator />
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
 
         {otherBoards.length > 0 && (
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="text-xs">
-              <Move size={13} />
+            <DropdownMenuSubTrigger>
+              <Move aria-hidden="true" />
               移动到画板
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="min-w-[160px]">
-              {otherBoards.map((board) => (
-                <DropdownMenuItem
-                  key={board.id}
-                  className="text-xs"
-                  onClick={() => onMoveToBoard(board.id)}
-                >
+            <DropdownMenuSubContent
+              className="min-w-[160px]"
+              style={{ backgroundColor: isDarkMode ? '#242426' : '#FFFFFF' }}
+            >
+              {otherBoards.map(board => (
+                <DropdownMenuItem key={board.id} onSelect={() => onMoveToBoard(board.id)}>
                   {board.name}
                 </DropdownMenuItem>
               ))}
@@ -90,10 +109,10 @@ export const MoreActionsMenu = memo(function MoreActionsMenu({
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
-          className="text-xs text-destructive focus:text-destructive"
-          onClick={onRemoveFromBoard}
+          className="text-destructive focus:text-destructive"
+          onSelect={onRemoveFromBoard}
         >
-          <X size={13} />
+          <X aria-hidden="true" />
           移出白板
         </DropdownMenuItem>
       </DropdownMenuContent>

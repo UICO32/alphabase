@@ -108,20 +108,6 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
       switchToBoard(boardStore.boards[0].id)
     }
 
-    const scheduleEmbeddingInit = () => {
-      const workspacePath = localStorage.getItem('hepta-last-workspace-path')
-      if (workspacePath && window.electronAPI?.embedding?.init) {
-        window.electronAPI.embedding.init(workspacePath).catch((err: unknown) => {
-          console.error('[lifecycle] embedding.init failed:', err)
-        })
-      }
-    }
-
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(scheduleEmbeddingInit, { timeout: 5000 })
-    } else {
-      setTimeout(scheduleEmbeddingInit, 3000)
-    }
   }, [switchToBoard])
 
   useEvent('reinit-workspace', () => {

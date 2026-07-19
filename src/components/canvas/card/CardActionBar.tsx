@@ -1,4 +1,4 @@
-import { useMemo, memo, forwardRef } from 'react'
+import { memo, forwardRef } from 'react'
 import { ChevronDown, ArrowUpRight, PanelRight, MoreHorizontal, Globe } from 'lucide-react'
 import { useLibraryStore } from '../../../stores/libraryStore'
 import { useViewStore } from '../../../stores/viewStore'
@@ -10,21 +10,11 @@ import { type CardColor } from '../../../types/card'
 import { MoreActionsMenu } from './MoreActionsMenu'
 import { SummaryButton } from './SummaryButton'
 
-function extractTitle(html: string): string {
-  try {
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
-    const heading = doc.querySelector('[data-content-type="heading"] .bn-inline-content, h1, h2, h3')
-    return heading?.textContent?.trim() || ''
-  } catch {
-    return ''
-  }
-}
-
 interface CardActionBarProps {
   cardId: string
   color: CardColor
   collapsed: boolean
+  collapsedTitle: string
   isHovered: boolean
   selected: boolean
   isConnecting: boolean
@@ -32,14 +22,13 @@ interface CardActionBarProps {
   onRemoveFromBoard: () => void
   onMoveToBoard: (boardId: string) => void
   onColorChange: (color: CardColor) => void
-  cardTitle?: string
-  cardPreviewHTML?: string
 }
 
 export const CardActionBar = memo(function CardActionBar({
   cardId,
   color,
   collapsed,
+  collapsedTitle,
   isHovered,
   selected,
   isConnecting,
@@ -47,18 +36,12 @@ export const CardActionBar = memo(function CardActionBar({
   onRemoveFromBoard,
   onMoveToBoard,
   onColorChange,
-  cardTitle,
-  cardPreviewHTML,
 }: CardActionBarProps) {
   const card = useCard(cardId)
   const isClipCard = !!(card?.sourceUrl)
   const webviewUrl = useLibraryStore(s => s.webviewUrl)
   const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
   const updateCard = useCardStore(s => s.updateCard)
-
-  const html = useMemo(() => cardPreviewHTML || useCardStore.getState().getPreviewHTML(cardId) || '', [cardId, cardPreviewHTML])
-  const extractedTitle = useMemo(() => extractTitle(html), [html])
-  const displayTitle = cardTitle || extractedTitle
 
   const showIcons = isHovered || selected || isConnecting
   const streamingCardId = useAIStore(s => s.streamingCardId)
@@ -89,7 +72,13 @@ export const CardActionBar = memo(function CardActionBar({
         <SummaryButton color={color} visible={showIcons} cardId={cardId} />
       </div>
 
-      <div style={{ opacity: showIcons ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
+      <div
+        className="flex min-w-0 flex-1 items-center gap-1"
+        style={{
+          opacity: collapsed ? 1 : (showIcons ? 1 : 0),
+          transition: 'opacity 0.15s',
+        }}
+      >
         <ActionBarButton
           icon={<ChevronDown
             size={14}
@@ -104,28 +93,16 @@ export const CardActionBar = memo(function CardActionBar({
           }}
           title="折叠/展开"
         />
+        {collapsed && collapsedTitle && (
+          <span
+            data-testid="collapsed-card-title"
+            className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg-primary"
+            title={collapsedTitle}
+          >
+            {collapsedTitle}
+          </span>
+        )}
       </div>
-
-      {collapsed && displayTitle && (
-        <span
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--fg-secondary)',
-            textAlign: 'center',
-            minWidth: 0,
-            margin: '0 4px',
-          }}
-        >
-          {displayTitle}
-        </span>
-      )}
-
-      {!collapsed && <div style={{ flex: 1 }} />}
 
       <div className="flex items-center gap-0.5" style={{ opacity: showIcons ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
         <ActionBarButton

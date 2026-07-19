@@ -6,11 +6,15 @@ import {
 } from '../components/canvas/densityOverview/densityOverviewConfig'
 
 export type SortBy = 'updatedAt' | 'createdAt' | 'title' | 'related'
+export type StandardSortBy = Exclude<SortBy, 'related'>
 export type SearchMode = 'hybrid' | 'keyword' | 'semantic'
 
 interface LibraryStore {
   sortBy: SortBy
+  sortBeforeRelated: StandardSortBy
   setSortBy: (sortBy: SortBy) => void
+  activateRelatedSort: () => void
+  exitRelatedSort: () => void
 
   searchMode: SearchMode
   setSearchMode: (mode: SearchMode) => void
@@ -41,6 +45,7 @@ interface LibraryStore {
 export const useLibraryStore = create<LibraryStore>()(
   persist((set) => ({
     sortBy: 'updatedAt',
+    sortBeforeRelated: 'updatedAt',
     searchMode: 'hybrid',
     webviewUrl: null,
     webviewSourceCardId: null,
@@ -51,7 +56,21 @@ export const useLibraryStore = create<LibraryStore>()(
     densityOverviewZoomThreshold: DEFAULT_DENSITY_OVERVIEW_ZOOM_THRESHOLD,
     transform: [0, 0, 1],
 
-    setSortBy: (sortBy) => set({ sortBy }),
+    setSortBy: (sortBy) => set(
+      sortBy === 'related'
+        ? { sortBy }
+        : { sortBy, sortBeforeRelated: sortBy }
+    ),
+    activateRelatedSort: () => set((state) => (
+      state.sortBy === 'related'
+        ? state
+        : { sortBy: 'related', sortBeforeRelated: state.sortBy }
+    )),
+    exitRelatedSort: () => set((state) => (
+      state.sortBy === 'related'
+        ? { sortBy: state.sortBeforeRelated }
+        : state
+    )),
     setSearchMode: (mode) => set({ searchMode: mode }),
 
     setWebviewUrl: (url, cardId) => set((state) => {

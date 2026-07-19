@@ -1,4 +1,4 @@
-import { getBestHandles } from './geometry'
+import type { ConnectionSnapCandidate } from './connectionSnap'
 
 export interface PendingConnection {
   sourceNodeId: string
@@ -22,6 +22,7 @@ const globalListeners = new Set<Listener>()
 const cardListeners = new Map<string, Set<Listener>>()
 let completeHandler: CompleteHandler | null = null
 let _nearbyTargetId: string | null = null
+let previewCandidate: ConnectionSnapCandidate | null = null
 
 function notifyCardListeners(cardId: string) {
   const listeners = cardListeners.get(cardId)
@@ -34,6 +35,7 @@ export const connectionMediator = {
   start(sourceNodeId: string, sourceHandleId: string) {
     pending = { sourceNodeId, sourceHandleId }
     _nearbyTargetId = null
+    previewCandidate = null
     // Notify global listeners (isConnecting changed)
     globalListeners.forEach((fn) => fn())
     // Notify the source card's listeners (isConnectingFrom changed)
@@ -49,6 +51,7 @@ export const connectionMediator = {
     const prevTargetId = _nearbyTargetId
     pending = null
     _nearbyTargetId = null
+    previewCandidate = null
     // Notify global listeners (isConnecting changed)
     globalListeners.forEach((fn) => fn())
     // Notify previously affected cards
@@ -74,14 +77,13 @@ export const connectionMediator = {
   ) {
     if (!pending || !completeHandler) return false
 
-    let sourceHandleId = pending.sourceHandleId
-    let finalTargetHandleId = targetHandleId
-
-    if (sourcePos && sourceSize && targetPos && targetSize) {
-      const handles = getBestHandles(sourcePos, sourceSize, targetPos, targetSize)
-      sourceHandleId = handles.sourceHandle
-      finalTargetHandleId = handles.targetHandle
-    }
+    void sourcePos
+    void sourceSize
+    void targetPos
+    void targetSize
+    const snapped = previewCandidate?.targetNodeId === targetNodeId ? previewCandidate : null
+    const sourceHandleId = snapped?.sourceHandleId ?? pending.sourceHandleId
+    const finalTargetHandleId = snapped?.targetHandleId ?? targetHandleId
 
     const prevSourceId = pending.sourceNodeId
     const prevTargetId = _nearbyTargetId
@@ -94,6 +96,7 @@ export const connectionMediator = {
     })
     pending = null
     _nearbyTargetId = null
+    previewCandidate = null
     // Notify global listeners (isConnecting changed)
     globalListeners.forEach((fn) => fn())
     // Notify previously affected cards
@@ -147,5 +150,13 @@ export const connectionMediator = {
 
   getNearbyTarget(): string | null {
     return _nearbyTargetId
+  },
+
+  setPreviewCandidate(candidate: ConnectionSnapCandidate | null) {
+    previewCandidate = candidate
+  },
+
+  getPreviewCandidate(): ConnectionSnapCandidate | null {
+    return previewCandidate
   },
 }

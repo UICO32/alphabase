@@ -231,6 +231,8 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
 
   const sortBy = useLibraryStore(s => s.sortBy)
   const setSortBy = useLibraryStore(s => s.setSortBy)
+  const activateRelatedSort = useLibraryStore(s => s.activateRelatedSort)
+  const exitRelatedSort = useLibraryStore(s => s.exitRelatedSort)
   const editingCardId = useViewStore(s => s.editingCardId)
   const searchMode = useLibraryStore(s => s.searchMode)
   const setSearchMode = useLibraryStore(s => s.setSearchMode)
@@ -240,7 +242,18 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
   const tagStoreTags = useTagStore(s => s.tags)
   const getTagsSortedByUsage = useTagStore(s => s.getTagsSortedByUsage)
 
-  const { indexed, searching, searchScores, searchRelated, searchByText, clearResults } = useEmbeddingStore()
+  const {
+    indexed,
+    indexing,
+    progress,
+    total,
+    indexError,
+    searching,
+    searchScores,
+    searchRelated,
+    searchByText,
+    clearResults,
+  } = useEmbeddingStore()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [editingResultId, setEditingResultId] = useState<string | null>(null)
@@ -249,8 +262,10 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [tagMenuOpen, setTagMenuOpen] = useState(false)
   const [isInitialReveal, setIsInitialReveal] = useState(() => !hasStartedInitialCardReveal)
+  const [compactHeader, setCompactHeader] = useState(false)
+  const scrollRootRef = useRef<HTMLDivElement>(null)
+  const scrollFrameRef = useRef<number | null>(null)
   const lastRelatedId = useRef<string | null>(null)
-  const pendingRelatedSort = useRef(false)
 
   const searchModeLabels: Record<SearchMode, string> = {
     hybrid: '混合',
@@ -298,11 +313,9 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
   useEffect(() => {
     if (sortBy === 'related') {
       if (!indexed || !editingCardId) {
-        if (!indexed) pendingRelatedSort.current = true
-        setSortBy('updatedAt')
+        exitRelatedSort()
         return
       }
-      pendingRelatedSort.current = false
       if (lastRelatedId.current === editingCardId) return
       lastRelatedId.current = editingCardId
       searchRelated(editingCardId)
@@ -310,14 +323,7 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
       lastRelatedId.current = null
       clearResults()
     }
-  }, [sortBy, editingCardId, indexed, searchRelated, clearResults, setSortBy])
-
-  useEffect(() => {
-    if (indexed && pendingRelatedSort.current && editingCardId) {
-      pendingRelatedSort.current = false
-      setSortBy('related')
-    }
-  }, [indexed, editingCardId, setSortBy])
+  }, [sortBy, editingCardId, indexed, searchRelated, clearResults, exitRelatedSort])
 
   useEffect(() => {
     if (searchMode === 'keyword') {
@@ -331,6 +337,19 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
     const timer = window.setTimeout(() => setIsInitialReveal(false), 500)
     return () => window.clearTimeout(timer)
   }, [isInitialReveal])
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current)
+  }, [])
+
+  const handleLibraryScroll = useCallback(() => {
+    if (scrollFrameRef.current !== null) return
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null
+      const scrollTop = scrollRootRef.current?.scrollTop ?? 0
+      setCompactHeader(current => current ? scrollTop > 8 : scrollTop > 40)
+    })
+  }, [])
 
   const handleSearchSubmit = useCallback(() => {
     const trimmed = searchQuery.trim()
@@ -436,7 +455,7 @@ if (searchQuery.trim()) {
   const hasCurrentCanvasPresence = activeBoardId !== null && presenceBoardId === activeBoardId
 
   return (
-    <div className="w-full h-full overflow-y-auto">
+    <div className="h-full w-full overflow-hidden">
       <style>{`
         .card-library-preview h1,
         .card-library-preview h2,
@@ -470,18 +489,28 @@ if (searchQuery.trim()) {
           .card-item-returning { animation: none; transform: none; }
         }
       `}</style>
-      <div className={`max-w-3xl mx-auto ${compact ? 'px-3 pb-3 pt-1' : 'p-6'}`}>
-        <h1 className={`${compact ? 'text-lg mb-2' : 'text-xl mb-3'} font-semibold text-fg-primary`}>卡片库</h1>
-        {/* Search bar with mode switch */}
+      <div className={`mx-auto flex h-full max-w-3xl flex-col ${compact ? 'px-3' : 'px-6'}`}>
         <div
-          className={`flex w-full items-center gap-0 rounded-lg bg-surface-card border border-line-default px-2 ${compact ? 'mb-3' : 'mb-4'}`}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && searchMode !== 'keyword') {
-              handleSearchSubmit()
-            }
-          }}
+          data-testid="card-library-header"
+          data-compact={compactHeader ? 'true' : 'false'}
+          className={`relative z-10 shrink-0 transition-[height] duration-200 ease-out motion-reduce:transition-none ${
+            compactHeader ? 'h-[52px]' : 'h-[92px]'
+          }`}
         >
-          <div className="relative shrink-0">
+          <h1 className={`${compact ? 'text-lg' : 'text-xl'} absolute left-0 top-3 whitespace-nowrap font-semibold text-fg-primary`}>卡片库</h1>
+          {/* Search bar with mode switch */}
+          <div
+            data-testid="card-library-search"
+            className={`absolute right-0 flex min-w-0 items-center gap-0 rounded-lg border border-line-default bg-surface-card px-2 transition-[left,top] duration-200 ease-out motion-reduce:transition-none ${
+              compactHeader ? 'left-[72px] top-2' : 'left-0 top-12'
+            }`}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && searchMode !== 'keyword') {
+                handleSearchSubmit()
+              }
+            }}
+          >
+            <div className="relative shrink-0">
             <button
               ref={modeFloating.refs.setReference}
               {...modeInteractions.getReferenceProps()}
@@ -513,16 +542,25 @@ if (searchQuery.trim()) {
                 ))}
               </div>
             )}
-          </div>
+            </div>
 	          <div className="w-px h-4 mx-2 bg-line-default shrink-0" />
-          <input
- type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={searchMode === 'semantic' ? '输入语义搜索内容，按回车触发...' : '搜索卡片...'}
-            className="flex-1 py-2 text-sm outline-none bg-transparent text-fg-primary"
-          />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={searchMode === 'semantic' ? '输入语义搜索内容，按回车触发...' : '搜索卡片...'}
+              className="min-w-0 flex-1 bg-transparent py-2 text-sm text-fg-primary outline-none"
+            />
           </div>
+
+        </div>
+
+        <div
+          ref={scrollRootRef}
+          data-testid="card-library-scroll-root"
+          className={`min-h-0 flex-1 overflow-y-auto ${compact ? 'pb-3' : 'pb-6'}`}
+          onScroll={handleLibraryScroll}
+        >
 
         {tagCloud.length > 0 && !compact && (
           <div className="mb-3 flex flex-wrap gap-1.5">
@@ -555,8 +593,16 @@ if (searchQuery.trim()) {
           </div>
         )}
 
-        {/* Sort + Flomo sync */}
-        <div className={`${compact ? 'mb-3' : 'mb-4'} flex min-w-0 flex-wrap items-center gap-2`}>
+        {/* Library controls */}
+        <div
+          role="toolbar"
+          aria-label="卡片库控制"
+          className={`${compact ? 'mb-3' : 'mb-4'} flex min-w-0 items-center gap-2`}
+        >
+          <div
+            data-testid="card-library-control-track"
+            className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto"
+          >
           <div className="relative shrink-0">
             <button
               ref={sortFloating.refs.setReference}
@@ -590,9 +636,8 @@ if (searchQuery.trim()) {
             )}
           </div>
 
-          {tagCloud.length > 0 && compact && (
-            <div className="relative shrink-0">
-              <button
+          <div className="relative shrink-0">
+            <button
                 ref={tagFloating.refs.setReference}
                 {...tagInteractions.getReferenceProps()}
                 className="flex max-w-[120px] items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-panel"
@@ -601,7 +646,7 @@ if (searchQuery.trim()) {
                 <span className="truncate">{tagFilter ? `#${tagFilter}` : '全部标签'}</span>
                 <ChevronDown size={10} className="shrink-0" />
               </button>
-              {tagMenuOpen && (
+            {tagMenuOpen && (
                 <div
                   ref={tagFloating.refs.setFloating}
                   {...tagInteractions.getFloatingProps()}
@@ -633,25 +678,30 @@ if (searchQuery.trim()) {
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
 
           <CardLibraryRelevanceButton
             active={sortBy === 'related'}
             indexed={indexed}
+            indexing={indexing}
+            progress={progress}
+            total={total}
+            indexError={indexError}
             editingCardId={editingCardId}
-            onActivate={() => setSortBy('related')}
+            onActivate={sortBy === 'related' ? exitRelatedSort : activateRelatedSort}
           />
-
+          </div>
           <button
+            type="button"
+            data-testid="card-library-flomo-sync"
+            aria-label={accessToken ? '同步 Flomo' : '连接 Flomo'}
+            title={accessToken ? '同步 Flomo' : '连接 Flomo'}
             onClick={handleSyncClick}
             disabled={syncing}
-            className="btn-base ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-card-hover"
-            title={accessToken ? '同步 Flomo' : '连接 Flomo'}
+            className="btn-base flex size-8 shrink-0 items-center justify-center rounded-lg border border-line-default bg-surface-card text-fg-secondary hover:bg-surface-card-hover disabled:opacity-50"
           >
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-            同步 Flomo
+            <RefreshCw size={14} aria-hidden="true" className={syncing ? 'animate-spin' : ''} />
           </button>
         </div>
 
@@ -672,16 +722,6 @@ if (searchQuery.trim()) {
         )}
 
         {/* Info bars */}
-        {sortBy === 'related' && editingCardId && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2 bg-surface-card text-fg-secondary">
-            {searching ? (
-              <><Loader2 size={14} className="animate-spin" /> 搜索相关卡片中...</>
-            ) : (
-              <>基于「{cards[editingCardId]?.title || '无标题'}」按相关性排序 · {visibleCards.length} 条结果</>
-            )}
-          </div>
-        )}
-
         {(searchMode === 'semantic' || searchMode === 'hybrid') && searchQuery.trim() && (
           <div className="mb-3 px-3 py-2 rounded-lg text-xs flex items-center gap-2 bg-surface-card text-fg-secondary">
             {searching ? (
@@ -738,6 +778,7 @@ if (searchQuery.trim()) {
 
         <div className="px-3 py-2 text-[10px] text-center text-fg-secondary">
           拖拽到画布创建引用 · 按住 Alt 拖拽创建新实例
+        </div>
         </div>
       </div>
 

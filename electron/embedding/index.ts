@@ -137,7 +137,14 @@ export function registerEmbeddingIPC(): void {
   ipcMain.handle('embedding:getStatus', async () => {
     if (!service) {
       const modelAvailable = existsSync(join(getEmbeddingDir(), MODEL_FILENAME))
-      return { initialized: false, modelAvailable, indexing: false, docCount: 0, modelDir: getEmbeddingDir() }
+      return {
+        initialized: false,
+        modelAvailable,
+        indexing: false,
+        docCount: 0,
+        modelDir: getEmbeddingDir(),
+        initializationError: null,
+      }
     }
     return service.getStatus()
   })

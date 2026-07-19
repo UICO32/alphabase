@@ -42,6 +42,7 @@ export interface EmbeddingState {
   lastIndexedAt: string | null
   modelAvailable: boolean
   modelDir: string
+  indexError: string | null
   searchResults: SearchResult[]
   searchScores: Record<string, number>
   searching: boolean
@@ -54,6 +55,7 @@ export interface EmbeddingState {
   downloadCurrentFile: string
 
   init: (workspacePath: string) => Promise<void>
+  initAndEnsureIndexed: (workspacePath: string, timeoutMs?: number) => Promise<void>
   startIndexing: () => Promise<void>
   cancelIndexing: () => Promise<void>
   indexCard: (cardId: string) => Promise<ElectronCapabilitiesResult<boolean>>
@@ -65,7 +67,6 @@ export interface EmbeddingState {
   clearResults: () => void
   setThreshold: (value: number) => Promise<void>
   checkStatus: () => Promise<void>
-  ensureIndexed: (workspacePath: string, timeoutMs?: number) => Promise<void>
   downloadModel: () => Promise<void>
   cancelDownload: () => Promise<void>
   checkDownloadConfig: () => Promise<{ configured: boolean; modelDir: string }>
@@ -137,6 +138,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   lastIndexedAt: null,
   modelAvailable: false,
   modelDir: '',
+  indexError: null,
   searchResults: [],
   searchScores: {},
   searching: false,
@@ -160,17 +162,71 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
         cardCount: result.docCount,
         indexed: result.storeLoaded && result.docCount > 0,
         modelDir: '',
+        indexError: null,
       })
     } catch (err: any) {
       console.error('[embeddingStore] init failed:', err.message)
-      set({ initialized: false })
+      set({ initialized: false, indexError: 'init-failed' })
     }
+  },
+
+  initAndEnsureIndexed: async (workspacePath: string, timeoutMs = 30000) => {
+    await get().init(workspacePath)
+    if (get().indexed) return
+
+    const embedding = getEmbedding()
+    if (!embedding) {
+      set({ indexError: 'unavailable' })
+      return
+    }
+
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      try {
+        const status = await embedding.getStatus()
+        set({
+          initialized: status.initialized,
+          modelLoaded: status.initialized,
+          modelAvailable: status.modelAvailable ?? false,
+          modelDir: status.modelDir ?? '',
+          indexed: status.docCount > 0,
+          cardCount: status.docCount,
+        })
+        if (status.docCount > 0) return
+        if (status.initializationError) {
+          set({ indexError: status.initializationError })
+          return
+        }
+        if (!status.modelAvailable) {
+          set({ indexError: 'model-missing' })
+          return
+        }
+        if (status.initialized) {
+          set({ indexError: null })
+          await get().startIndexing()
+          return
+        }
+      } catch (error) {
+        console.warn('[embeddingStore] status check failed:', error)
+      }
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+
+    set({ indexError: 'model-timeout' })
   },
 
   startIndexing: async () => {
     const embedding = getEmbedding()
     if (!embedding) return
-    set({ indexing: true, progress: 0, total: 0 })
+    const status = await embedding.getStatus()
+    if (!status.initialized) {
+      set({
+        indexing: false,
+        indexError: status.initializationError || 'model-not-initialized',
+      })
+      return
+    }
+    set({ indexing: true, progress: 0, total: 0, indexError: null })
 
     const offProgress = embedding.onProgress((data) => {
       set({ progress: data.current, total: data.total })
@@ -197,7 +253,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
 
     const offError = embedding.onError((data) => {
       console.error('[embeddingStore] error:', data.message)
-      set({ indexing: false })
+      set({ indexing: false, indexError: data.message || 'index-failed' })
       cleanup()
     })
 
@@ -205,11 +261,11 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       const result = await embedding.indexAll()
       if (!result.error) return
       console.error('[embeddingStore] indexAll error:', result.error)
-      set({ indexing: false })
+      set({ indexing: false, indexError: result.error })
       cleanup()
     } catch (error) {
       console.error('[embeddingStore] indexAll failed:', error)
-      set({ indexing: false })
+      set({ indexing: false, indexError: 'index-failed' })
       cleanup()
     }
   },
@@ -300,6 +356,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
         modelDir: status.modelDir ?? '',
         indexed: status.docCount > 0,
         cardCount: status.docCount,
+        indexError: status.initializationError ?? null,
       })
     } catch {
       // checkStatus 失败不影响主流程
@@ -328,29 +385,6 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       return { ok: true, value: undefined }
     } catch (err) {
       return { ok: false, reason: 'ipc-error', error: err }
-    }
-  },
-
-  ensureIndexed: async (_workspacePath: string, timeoutMs = 30000) => {
-    const store = get()
-    if (store.indexing) return
-
-    const deadline = Date.now() + timeoutMs
-    const embedding = getEmbedding()
-    if (!embedding) return
-    while (Date.now() < deadline) {
-      const status = await embedding.getStatus()
-      if (status.initialized) break
-      await new Promise(r => setTimeout(r, 500))
-    }
-
-    const latest = get()
-    if (!latest.indexed && !latest.indexing) {
-      try {
-        await latest.startIndexing()
-      } catch (err: any) {
-        console.warn('[embeddingStore] ensureIndexed failed:', err.message)
-      }
     }
   },
 

@@ -14,11 +14,11 @@ import { useAIStore } from '../../stores/aiStore'
 import { CardNodeChrome } from './card/CardNodeChrome'
 import { CardContent } from './card/CardContent'
 import { CollapsedContent } from './card/CollapsedContent'
+import { extractCollapsedCardText } from './card/collapsedCardText'
 import { MiniCard } from './card/MiniCard'
 import { ZoomPreview } from './card/ZoomPreview'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
-import { getCardNodeSize } from './utils/cardNodeSize'
 import { useCardNodeActions } from './useCardNodeActions'
 import { useCardNodeEditing } from './useCardNodeEditing'
 
@@ -215,22 +215,9 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     (e: React.MouseEvent) => {
       if (isConnectionTarget || isNearbyTarget) {
         e.stopPropagation()
-        const pending = connectionMediator.getPending()
-        const sourceNode = pending ? getNode(pending.sourceNodeId) : undefined
-        const targetNode = getNode(data.cardId)
-        if (sourceNode && targetNode) {
-          const ss = getCardNodeSize(sourceNode)
-          const ts = getCardNodeSize(targetNode)
-          connectionMediator.complete(
-            data.cardId,
-            '',
-            sourceNode.position,
-            { w: ss.w, h: ss.h },
-            targetNode.position,
-            { w: ts.w, h: ts.h },
-          )
-        } else {
-          connectionMediator.complete(data.cardId, '')
+        const preview = connectionMediator.getPreviewCandidate()
+        if (preview?.targetNodeId === data.cardId) {
+          connectionMediator.complete(data.cardId, preview.targetHandleId)
         }
         return
       }
@@ -256,7 +243,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
         })
       }
     },
-    [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, getNode, beginEditingAt, editorRef],
+    [isConnectionTarget, isNearbyTarget, data.cardId, card, isEditing, isCollapsed, beginEditingAt, editorRef],
   )
 
   const {
@@ -304,12 +291,17 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const textColor = getCardTextColor(data.color, isDarkMode)
   const nodeHeight = isCollapsed ? COLLAPSED_CARD_HEIGHT : (data.height ?? DEFAULT_CARD_HEIGHT) as number
+  const collapsedPreviewHTML = card.previewHTML
+    || useCardStore.getState().getPreviewHTML(data.cardId)
+    || ''
+  const collapsedText = extractCollapsedCardText(card.content, collapsedPreviewHTML)
 
   return (
     <CardNodeChrome
       cardId={data.cardId}
       color={data.color}
       collapsed={isCollapsed}
+      collapsedTitle={isCollapsed ? collapsedText.title : ''}
       selected={!!selected}
       editing={isEditing}
       hovered={isHovered}
@@ -322,8 +314,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       darkMode={isDarkMode}
       width={(data.width ?? DEFAULT_CARD_WIDTH) as number}
       height={nodeHeight}
-      cardTitle={card.title}
-      cardPreviewHTML={card.previewHTML}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleCardClick}
@@ -335,9 +325,8 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     >
       {isCollapsed ? (
         <CollapsedContent
-          cardId={data.cardId}
-          content={card.content}
-          previewHTML={card.previewHTML}
+          body={collapsedText.body}
+          isEmpty={!collapsedText.title && !collapsedText.body}
           textColor={textColor}
         />
       ) : (

@@ -29,3 +29,27 @@ describe('libraryStore density overview preference', () => {
     expect(useLibraryStore.getState().densityOverviewZoomThreshold).toBe(MAX_DENSITY_OVERVIEW_ZOOM_THRESHOLD)
   })
 })
+
+describe('libraryStore related sort lifecycle', () => {
+  beforeEach(() => {
+    useLibraryStore.setState({ sortBy: 'updatedAt', sortBeforeRelated: 'updatedAt' })
+  })
+
+  it('restores the ordinary sort that was active before relevance', () => {
+    useLibraryStore.getState().setSortBy('title')
+    useLibraryStore.getState().activateRelatedSort()
+    expect(useLibraryStore.getState().sortBy).toBe('related')
+
+    useLibraryStore.getState().exitRelatedSort()
+    expect(useLibraryStore.getState().sortBy).toBe('title')
+  })
+
+  it('does not overwrite the saved ordinary sort while relevance is active', () => {
+    useLibraryStore.getState().setSortBy('createdAt')
+    useLibraryStore.getState().activateRelatedSort()
+    useLibraryStore.getState().activateRelatedSort()
+    useLibraryStore.getState().exitRelatedSort()
+
+    expect(useLibraryStore.getState().sortBy).toBe('createdAt')
+  })
+})
