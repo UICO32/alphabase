@@ -76,6 +76,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: isElectron ? './' : '/',
+    cacheDir: isElectron ? 'node_modules/.vite-electron' : 'node_modules/.vite-web',
     plugins: [
       tailwindcss(),
       react(),
