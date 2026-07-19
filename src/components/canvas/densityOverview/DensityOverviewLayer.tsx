@@ -10,7 +10,6 @@ import {
   projectDensityCard,
   type DensitySourceCard,
 } from './densityOverviewModel'
-import { getDensityOverviewFullZoom } from './densityOverviewConfig'
 import {
   buildDensityGrid,
   DARK_DENSITY_THEME,
@@ -25,7 +24,6 @@ interface DensityOverviewLayerProps {
   edges: Edge[]
   cards: Record<string, GlobalCard>
   progress: number
-  zoomThreshold: number
   isDarkMode: boolean
   onFocusNode: (nodeId: string) => void
 }
@@ -35,7 +33,6 @@ export function DensityOverviewLayer({
   edges,
   cards,
   progress,
-  zoomThreshold,
   isDarkMode,
   onFocusNode,
 }: DensityOverviewLayerProps) {
@@ -70,10 +67,9 @@ export function DensityOverviewLayer({
     [clusterResult, edges, sourceCards],
   )
   const viewport = useMemo(() => ({ x: transform[0], y: transform[1], zoom: transform[2] }), [transform])
-  const fullZoom = getDensityOverviewFullZoom(zoomThreshold)
   const projectedCards = useMemo(
-    () => model.cards.map(card => projectDensityCard(card, viewport, fullZoom)),
-    [fullZoom, model.cards, viewport],
+    () => model.cards.map(card => projectDensityCard(card, viewport)),
+    [model.cards, viewport],
   )
   const projectedCardsRef = useRef(projectedCards)
   projectedCardsRef.current = projectedCards

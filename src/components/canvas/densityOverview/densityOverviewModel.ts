@@ -285,13 +285,12 @@ export function buildDensityOverviewModel(
 export function projectDensityCard(
   card: DensityOverviewCard,
   viewport: ViewportTransform,
-  referenceZoom = getDensityOverviewFullZoom(),
 ): ProjectedDensityCard {
   return {
     ...card,
     screenX: card.center.x * viewport.zoom + viewport.x,
     screenY: card.center.y * viewport.zoom + viewport.y,
-    radius: (64 + 126 * card.density) * (viewport.zoom / referenceZoom),
+    radius: (Math.hypot(card.width, card.height) / 2) * viewport.zoom,
   }
 }
 

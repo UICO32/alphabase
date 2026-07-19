@@ -779,7 +779,6 @@ export function ReactFlowCanvas() {
               edges={visibleEdges}
               cards={allCards}
               progress={densityOverviewProgress}
-              zoomThreshold={densityOverviewZoomThreshold}
               isDarkMode={isDarkMode}
               onFocusNode={focusDensitySourceNode}
             />

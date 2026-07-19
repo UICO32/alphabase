@@ -124,6 +124,13 @@ describe('density overview model', () => {
     const projected = projectDensityCard(overviewCard, { x: 10, y: 30, zoom: 0.5 })
     expect(projected.screenX).toBe((140 * 0.5) + 10)
     expect(projected.screenY).toBe((120 * 0.5) + 30)
+    expect(projected.radius).toBeCloseTo((Math.hypot(280, 200) / 2) * 0.5)
+
+    const projectedAtQuarterZoom = projectDensityCard(overviewCard, { x: 10, y: 30, zoom: 0.25 })
+    expect(projectedAtQuarterZoom.radius).toBeCloseTo(projected.radius / 2)
+
+    const widerCard = projectDensityCard({ ...overviewCard, width: 560 }, { x: 10, y: 30, zoom: 0.5 })
+    expect(widerCard.radius).toBeGreaterThan(projected.radius)
     expect(hitTestDensityGroup([projected], { x: projected.screenX, y: projected.screenY })).toBe('group')
     expect(hitTestDensityGroup([projected], { x: projected.screenX + projected.radius * 2, y: projected.screenY })).toBeNull()
   })
