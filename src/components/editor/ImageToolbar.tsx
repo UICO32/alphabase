@@ -6,6 +6,7 @@ import { CropOverlay } from './image-toolbar/CropOverlay'
 interface ToolbarPosition {
   top: number
   left: number
+  side: 'top' | 'bottom'
 }
 
 interface ImageToolbarProps {
@@ -84,7 +85,7 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
       left = window.innerWidth - toolbarWidth - 8
     }
 
-    setPos({ top, left })
+    setPos({ top, left, side: top < imgRect.top ? 'top' : 'bottom' })
   }, [target, containerRef])
 
   useEffect(() => {
@@ -204,11 +205,13 @@ export function ImageToolbar({ containerRef, editable, theme }: ImageToolbarProp
   const toolbarContent = (
     <>
       <div
+        className="ui-floating-content"
+        data-side={pos.side}
         style={{
           position: 'fixed',
           top: pos.top,
           left: pos.left,
-          zIndex: 9999,
+          zIndex: 'var(--z-dropdown)',
         }}
       >
         <ToolbarActions

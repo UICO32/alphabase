@@ -354,7 +354,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         top: 0,
         width: '100vw',
         height: '100vh',
-        zIndex: 9999,
+        zIndex: 'var(--z-dropdown)',
       }}
       onClick={(e) => {
         e.stopPropagation()
@@ -362,20 +362,18 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       }}
     >
       <div
+        className="ui-floating-surface ui-floating-content"
+        data-side="bottom"
         style={{
           position: 'absolute',
           left: (colorMenuPos?.x ?? 0),
           top: (colorMenuPos?.y ?? 0),
-          background: 'rgba(255,255,255,0.95)',
           backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(0,0,0,0.08)',
           borderRadius: 12,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
           padding: 10,
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 28px)',
           gap: 6,
-          zIndex: 10000,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -398,7 +396,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
               padding: 0,
               aspectRatio: '1 / 1',
               boxSizing: 'border-box',
-              transition: 'transform 0.15s',
+              transition: 'filter var(--duration-fast) var(--ease-default)',
             }}
             onClick={(e) => {
               e.stopPropagation()
@@ -418,7 +416,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         top: 0,
         width: '100vw',
         height: '100vh',
-        zIndex: 9999,
+        zIndex: 'var(--z-dropdown)',
       }}
       onClick={(e) => {
         e.stopPropagation()
@@ -426,6 +424,8 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       }}
     >
       <div
+        className="ui-floating-surface ui-floating-content"
+        data-side="bottom"
         style={{
           position: 'absolute',
           left: layoutMenuPos?.x ?? 0,
@@ -433,14 +433,10 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
           minWidth: 118,
           padding: 5,
           borderRadius: 10,
-          background: isDarkMode ? 'rgba(32,32,32,0.96)' : 'rgba(255,255,255,0.96)',
           backdropFilter: 'blur(12px)',
-          border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}`,
-          boxShadow: isDarkMode ? '0 10px 30px rgba(0,0,0,0.35)' : '0 10px 30px rgba(0,0,0,0.12)',
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-          zIndex: 10000,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -621,8 +617,8 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
             }}
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.18)')}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(0.9)')}
+            onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
           />
           {isEditing ? (
             <textarea

@@ -43,6 +43,7 @@ export function ToolbarActions({
   return (
     <div
       ref={toolbarRef}
+      className="ui-floating-surface"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{
@@ -50,9 +51,6 @@ export function ToolbarActions({
         gap: 2,
         padding: 3,
         borderRadius: 8,
-        background: 'var(--surface-card)',
-        border: '1px solid var(--line-default)',
-        boxShadow: 'var(--shadow-md)',
         pointerEvents: 'auto',
       }}
       onPointerDown={onPointerDown}

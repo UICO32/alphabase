@@ -69,7 +69,7 @@ export function CropOverlay({
     left: imgRect.left,
     width: imgRect.width,
     height: imgRect.height,
-    zIndex: 10000,
+    zIndex: 'var(--z-overlay)',
     cursor: 'crosshair',
     pointerEvents: 'auto',
   }

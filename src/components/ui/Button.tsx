@@ -7,6 +7,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
+  selected?: boolean
 }
 
 const variantClasses = {
@@ -22,11 +23,12 @@ const sizeClasses = {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'secondary', size = 'md', loading, leftIcon, rightIcon, className = '', disabled, children, ...props }, ref) => {
+  ({ variant = 'secondary', size = 'md', loading, leftIcon, rightIcon, selected = false, className = '', disabled, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
-        className={`btn-base focus-ring inline-flex items-center justify-center rounded-lg font-medium transition-colors ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+        className={`btn-base interactive-control focus-ring inline-flex items-center justify-center rounded-lg font-medium ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+        data-selected={selected || undefined}
         disabled={disabled || loading}
         {...props}
       >

@@ -143,7 +143,7 @@ export function ConnectionPreview({ spatialIndexRef, reactFlowInstance, lastMous
         width: '100vw',
         height: '100vh',
         pointerEvents: 'none',
-        zIndex: 9999,
+        zIndex: 'var(--z-sticky)',
       }}
     >
       <defs>

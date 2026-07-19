@@ -76,7 +76,8 @@ export function AlignmentToolbar({
 
   return createPortal(
     <div
-      className="fixed z-40 flex items-center gap-0.5 rounded-lg border border-border bg-popover px-1.5 py-1.5 text-popover-foreground shadow-md animate-fadeInUp"
+      className="ui-floating-surface ui-floating-content fixed flex items-center gap-0.5 rounded-lg px-1.5 py-1.5"
+      data-side={position.placeAbove ? 'top' : 'bottom'}
       data-testid="alignment-toolbar"
       style={{
         left: position.x,

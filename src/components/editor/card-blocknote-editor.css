@@ -137,7 +137,7 @@
 /* Formatting toolbar z-index — editing cards are raised at React Flow node level,
    so this only needs to win inside the active card. */
 .bn-formatting-toolbar {
-  z-index: 2147483647 !important;
+  z-index: var(--z-modal) !important;
 }
 
 /* ─── CardLibraryView text preview: reset BlockNote block styles for plain text flow ─── */

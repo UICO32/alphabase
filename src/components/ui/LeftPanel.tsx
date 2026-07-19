@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { usePanelStore } from '../../stores/panelStore'
 import { useViewStore } from '../../stores/viewStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
@@ -13,21 +13,31 @@ import {
   Birdhouse,
   ArrowRightToLine,
 } from 'lucide-react'
+import { ResponsiveSidePanel } from './ResponsiveSidePanel'
+import type { WorkspaceLayoutMode } from '../../hooks/workspaceLayout'
 
 const SIDEBAR_WIDTH = 260
 
 interface LeftPanelProps {
   integratedSurface?: boolean
+  mode?: WorkspaceLayoutMode
+  open?: boolean
+  onOpen?: () => void
+  onClose?: () => void
   onOpenSettings?: () => void
   onOpenTrash?: () => void
   onOpenWorkspacePicker?: () => void
 }
 
-export function LeftPanel({ integratedSurface = false, onOpenSettings, onOpenTrash, onOpenWorkspacePicker }: LeftPanelProps) {
+export function LeftPanel({ integratedSurface = false, mode = 'wide', open, onOpen, onClose, onOpenSettings, onOpenTrash, onOpenWorkspacePicker }: LeftPanelProps) {
   const leftPanelCollapsed = usePanelStore(s => s.leftPanelCollapsed)
   const viewMode = useViewStore(s => s.viewMode)
   const setLeftPanelCollapsed = usePanelStore(s => s.setLeftPanelCollapsed)
   const setViewMode = useViewStore(s => s.setViewMode)
+  const expandButtonRef = useRef<HTMLButtonElement>(null)
+  const panelOpen = open ?? !leftPanelCollapsed
+  const openPanel = onOpen ?? (() => setLeftPanelCollapsed(false))
+  const closePanel = onClose ?? (() => setLeftPanelCollapsed(true))
 
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
 
@@ -51,9 +61,15 @@ export function LeftPanel({ integratedSurface = false, onOpenSettings, onOpenTra
 
   return (
     <>
-      <div
-        className="absolute left-0 top-0 bottom-0 z-10"
-        style={{ width: SIDEBAR_WIDTH, transform: `translateX(${leftPanelCollapsed ? -SIDEBAR_WIDTH : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
+      <ResponsiveSidePanel
+        side="left"
+        mode={mode}
+        open={panelOpen}
+        width={SIDEBAR_WIDTH}
+        label="左侧工作区面板"
+        triggerRef={expandButtonRef}
+        onOpenChange={(nextOpen) => nextOpen ? openPanel() : closePanel()}
+        style={{ transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
       >
         <div
           className={`flex flex-col overflow-hidden h-full transition-theme ${panelSurfaceClass}`}
@@ -61,27 +77,31 @@ export function LeftPanel({ integratedSurface = false, onOpenSettings, onOpenTra
         >
           <div className="flex items-center justify-between px-3 py-2.5 transition-theme">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div
-                className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer rounded-md px-1 py-1 hover:bg-surface-card-hover"
+              <button
+                type="button"
+                className="interactive-control focus-ring flex items-center gap-2 flex-1 min-w-0 cursor-pointer rounded-md px-1 py-1 text-left hover:bg-surface-card-hover"
                 onClick={onOpenWorkspacePicker}
               >
                 <Birdhouse size={18} className="text-fg-secondary" />
                 <span className="text-sm font-medium truncate text-fg-primary">
                   {currentWorkspace?.name || '未选择工作区'}
                 </span>
-              </div>
+              </button>
               <button
                 className="action-icon-btn p-1.5"
                 onClick={onOpenSettings}
+                aria-label="打开设置"
               >
                 <Bolt size={16} />
               </button>
             </div>
-            <CollapseButton direction="left" onClick={() => setLeftPanelCollapsed(true)} />
+            <CollapseButton direction="left" onClick={closePanel} />
           </div>
 
           <div
             className="segmented mx-2 mb-1 mt-0.5"
+            role="tablist"
+            aria-label="内容视图"
             style={{
               '--active-index': viewMode === 'cards' ? 1 : 0,
               '--seg-count': 2,
@@ -126,11 +146,13 @@ export function LeftPanel({ integratedSurface = false, onOpenSettings, onOpenTra
             </button>
           </div>
         </div>
-      </div>
+      </ResponsiveSidePanel>
 
-      {leftPanelCollapsed && (
+      {!panelOpen && (
         <button
-          onClick={() => setLeftPanelCollapsed(false)}
+          ref={expandButtonRef}
+          onClick={openPanel}
+          aria-label="打开左侧面板"
           className="action-icon-btn workspace-panel-expand-button fixed top-9 left-3 z-50 rounded-lg"
         >
           <ArrowRightToLine size={16} />
@@ -149,6 +171,8 @@ function ViewModeButton({ active, onClick, icon, label }: {
   return (
     <button
       onClick={onClick}
+      role="tab"
+      aria-selected={active}
       className={`segmented-item flex-1 cursor-pointer w-[84px] justify-center whitespace-nowrap ${active ? 'segmented-item-active' : ''}`}
     >
       {icon}

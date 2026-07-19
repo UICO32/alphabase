@@ -22,9 +22,12 @@ describe('editor entry wiring', () => {
     expect(rightPanelSource).not.toContain('key={editingCardId} className="h-full animate-fadeIn"')
   })
 
-  it('keeps the card dialog animation native and reduced-motion aware', () => {
+  it('keeps the card dialog transform animation native and reduced-motion aware', () => {
     expect(dialogSource).not.toContain("from 'motion/react'")
     expect(dialogSource).toContain('.animate(')
     expect(dialogSource).toContain('prefers-reduced-motion: reduce')
+    expect(dialogSource).toContain('transform: `translate(')
+    expect(dialogSource).not.toContain('top: `${sourceRect.top}px`')
+    expect(dialogSource).not.toContain('width: `${sourceRect.width}px`')
   })
 })

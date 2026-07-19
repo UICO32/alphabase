@@ -24,6 +24,7 @@ import { preloadCardEditor } from './components/editor/cardEditorLoader'
 import { LazyCardLibraryView } from './components/ui/lazyCardLibraryView'
 import { setupAIListeners } from './stores/aiStore'
 import { Toaster } from '@/components/ui/shadcn/sonner'
+import { useWorkspaceLayout } from './hooks/useWorkspaceLayout'
 
 const LEFT_PANEL_WIDTH = 260
 const TITLE_BAR_HEIGHT = 24
@@ -39,6 +40,7 @@ const TopographyView = lazy(() => import('./components/topography/TopographyView
 function App() {
   const viewMode = useViewStore(s => s.viewMode)
   const [showTopography, setShowTopography] = useState(false)
+  const workspaceLayout = useWorkspaceLayout()
 
   useEffect(() => { setupAIListeners() }, [])
 
@@ -115,16 +117,17 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab' && !e.repeat) {
+        if (document.querySelector('[role="dialog"][data-state="open"]')) return
         if (useViewStore.getState().editingCardId) return
         const el = document.activeElement
         if (el && el.closest('.card-blocknote-editor')) return
         e.preventDefault()
-        usePanelStore.getState().toggleAllSidebars()
+        workspaceLayout.toggleAllPanels()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [workspaceLayout.toggleAllPanels])
 
   const handleAddCard = useCallback(() => {
     const cardId = crypto.randomUUID()
@@ -158,21 +161,19 @@ function App() {
   }
 
   const isBoardView = viewMode === 'board'
-  const leftPanelCollapsed = usePanelStore(s => s.leftPanelCollapsed)
-  const rightPanelCollapsed = usePanelStore(s => s.rightPanelCollapsed)
   const rightPanelWidth = usePanelStore(s => s.rightPanelWidth)
   // 非画板视图下，左侧面板展开时主内容向右平移 260px，与 LeftPanel translateX 同步动画
-  const mainPaddingLeft = (!isBoardView && !leftPanelCollapsed) ? LEFT_PANEL_WIDTH : 0
-  const immersiveCanvas = isBoardView && leftPanelCollapsed && rightPanelCollapsed
+  const mainPaddingLeft = (!isBoardView && workspaceLayout.mode !== 'narrow' && workspaceLayout.leftOpen) ? LEFT_PANEL_WIDTH : 0
+  const immersiveCanvas = isBoardView && !workspaceLayout.leftOpen && !workspaceLayout.rightOpen
   const embeddedCanvas = isBoardView && !immersiveCanvas
   const titleBarVisible = !isBoardView || embeddedCanvas
   const contentTop = titleBarVisible ? TITLE_BAR_HEIGHT : 0
   const mainTop = isBoardView ? -contentTop : 0
   const chromeInsets = {
     top: CANVAS_CHROME_GAP,
-    right: rightPanelCollapsed ? CANVAS_CHROME_GAP : rightPanelWidth + CANVAS_CHROME_GAP,
+    right: workspaceLayout.mode === 'narrow' || !workspaceLayout.rightOpen ? CANVAS_CHROME_GAP : rightPanelWidth + CANVAS_CHROME_GAP,
     bottom: CANVAS_CHROME_GAP,
-    left: leftPanelCollapsed ? CANVAS_CHROME_GAP : LEFT_PANEL_WIDTH + CANVAS_CHROME_GAP,
+    left: workspaceLayout.mode === 'narrow' || !workspaceLayout.leftOpen ? CANVAS_CHROME_GAP : LEFT_PANEL_WIDTH + CANVAS_CHROME_GAP,
   }
 
   useEffect(() => {
@@ -187,7 +188,7 @@ function App() {
   return (
     <ErrorBoundary>
     <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--surface-panel)' }}>
-      <Toaster position="bottom-center" richColors />
+      <Toaster position="bottom-center" richColors visibleToasts={1} duration={5000} />
       <div
         className={`group absolute left-0 right-0 top-0 z-50 overflow-visible transition-[height] duration-150 ${immersiveCanvas ? 'h-1.5 hover:h-6' : 'h-6 workspace-chrome-piece'}`}
       >
@@ -204,6 +205,10 @@ function App() {
       >
         <LeftPanel
           integratedSurface={embeddedCanvas}
+          mode={workspaceLayout.mode}
+          open={workspaceLayout.leftOpen}
+          onOpen={() => workspaceLayout.openPanel('left')}
+          onClose={() => workspaceLayout.closePanel('left')}
           onOpenSettings={() => setShowSettings(true)}
           onOpenTrash={() => setShowTrash(true)}
           onOpenWorkspacePicker={() => setShowWorkspacePicker(true)}
@@ -225,7 +230,16 @@ function App() {
           <WorkspaceChromeSurface {...chromeInsets} />
         )}
 
-        {isBoardView && <RightPanel integratedSurface={embeddedCanvas} onOpenSettings={() => setShowSettings(true)} />}
+        {isBoardView && (
+          <RightPanel
+            integratedSurface={embeddedCanvas}
+            mode={workspaceLayout.mode}
+            open={workspaceLayout.rightOpen}
+            onOpen={() => workspaceLayout.openPanel('right')}
+            onClose={() => workspaceLayout.closePanel('right')}
+            onOpenSettings={() => setShowSettings(true)}
+          />
+        )}
       </div>
 
       {isBoardView && (
@@ -234,6 +248,7 @@ function App() {
           onClipUrl={() => setShowClipUrlBar(true)}
           showTopography={showTopography}
           onToggleTopography={() => setShowTopography(v => !v)}
+          onOpenRightPanel={() => workspaceLayout.openPanel('right')}
         />
       )}
 

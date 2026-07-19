@@ -10,9 +10,10 @@ interface ToolbarProps {
   onClipUrl?: () => void
   showTopography?: boolean
   onToggleTopography?: () => void
+  onOpenRightPanel?: () => void
 }
 
-export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopography }: ToolbarProps) {
+export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopography, onOpenRightPanel }: ToolbarProps) {
   const zoom = useLibraryStore(s => s.zoom)
   const isLassoMode = useFrameInteraction(s => s.lassoMode)
   const isTextToolMode = useFrameInteraction(s => s.textToolMode)
@@ -27,6 +28,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={onAddCard}
+                aria-label="添加卡片"
                 className="action-icon-btn"
                 style={{
                   width: 34,
@@ -48,6 +50,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={onClipUrl}
+                aria-label="剪藏网页"
                 className="action-icon-btn p-2 rounded-full"
               >
                 <Scissors size={16} />
@@ -59,9 +62,11 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 		          <Tooltip>
 		            <TooltipTrigger asChild>
 		              <button
+                        aria-label="打开频道"
 		                onClick={() => {
 		                  usePanelStore.getState().setRightPanelActiveTab('channels')
-		                  usePanelStore.getState().setRightPanelCollapsed(false)
+		                  if (onOpenRightPanel) onOpenRightPanel()
+		                  else usePanelStore.getState().setRightPanelCollapsed(false)
 		                }}
 		                className="action-icon-btn p-2 rounded-full"
 	              >
@@ -75,6 +80,8 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={enterLassoMode}
+                aria-label="框选创建 Frame"
+                aria-pressed={isLassoMode}
                 className={`action-icon-btn p-2 rounded-full ${isLassoMode ? 'bg-surface-card-active text-accent-blue' : ''}`}
               >
                 <Frame size={16} />
@@ -87,6 +94,8 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
             <TooltipTrigger asChild>
               <button
                 onClick={enterTextToolMode}
+                aria-label="文本注释工具"
+                aria-pressed={isTextToolMode}
                 className={`action-icon-btn p-2 rounded-full ${isTextToolMode ? 'bg-surface-card-active text-accent-blue' : ''}`}
               >
                 <Type size={16} />
@@ -104,6 +113,8 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
           <TooltipTrigger asChild>
             <button
               onClick={onToggleTopography}
+              aria-label={showTopography ? '返回画布' : '打开 3D 地形视图'}
+              aria-pressed={showTopography}
               className="toolbar-toggle"
             >
               <span className="toolbar-toggle-track">
@@ -125,6 +136,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('zoom-out', undefined)}
+                    aria-label="缩小"
 	                className="action-icon-btn p-1.5 rounded-full"
 	              >
 	                <ZoomOut size={14} />
@@ -139,6 +151,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('zoom-in', undefined)}
+                    aria-label="放大"
 	                className="action-icon-btn p-1.5 rounded-full"
 	              >
 	                <ZoomIn size={14} />
@@ -151,6 +164,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	            <TooltipTrigger asChild>
 	              <button
 	                onClick={() => emit('fit-view', undefined)}
+                    aria-label="适应视图"
 	                className="action-icon-btn p-1.5 rounded-full"
 	              >
 	                <Maximize size={14} />

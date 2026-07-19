@@ -79,14 +79,14 @@ export function SystemSettings() {
               <button
                 key={c}
                 onClick={() => handleAccentChange(c)}
-                className="w-5 h-5 rounded-full border-2 transition-transform hover:scale-110"
+                className="w-5 h-5 rounded-full border-2 transition-[filter] hover:brightness-90"
                 style={{
                   backgroundColor: c,
                   borderColor: accentColor === c ? 'var(--fg-primary)' : 'transparent',
                 }}
               />
             ))}
-            <label className="w-5 h-5 rounded-full border-2 border-line-default cursor-pointer overflow-hidden relative hover:scale-110 transition-transform">
+            <label className="relative h-5 w-5 cursor-pointer overflow-hidden rounded-full border-2 border-line-default transition-[filter] hover:brightness-90">
               <input
                 type="color"
                 value={accentColor ?? '#2563eb'}

@@ -1,7 +1,14 @@
 import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react'
 import { Layers2, Plus, MoreHorizontal, Pencil, Trash, Copy, FolderOpen } from 'lucide-react'
 import { PanelSeparator } from './SharedUI'
-import { ContextMenuWrapper, type ContextMenuItem } from './ContextMenu'
+import type { ContextMenuItem } from './ContextMenu'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem as ContextMenuItemComp,
+  ContextMenuSeparator,
+} from '@/components/ui/shadcn/context-menu'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -9,6 +16,34 @@ import {
   DropdownMenuItem as DropdownMenuItemComp,
   DropdownMenuSeparator,
 } from '@/components/ui/shadcn/dropdown-menu'
+
+const BOARD_MENU_CONTENT_CLASS = 'min-w-44 rounded-lg border-line-default bg-surface-card text-fg-primary shadow-lg'
+const BOARD_MENU_ITEM_CLASS = 'gap-2 rounded-md text-fg-primary focus:bg-surface-card-hover focus:text-fg-primary'
+const BOARD_MENU_DESTRUCTIVE_CLASS = `${BOARD_MENU_ITEM_CLASS} text-destructive focus:text-destructive`
+const BOARD_MENU_SEPARATOR_CLASS = 'bg-line-default'
+
+function BoardMenuEntries({ items, variant }: { items: ContextMenuItem[]; variant: 'context' | 'dropdown' }) {
+  return items.map((item, index) => {
+    if (item.type === 'separator') {
+      return variant === 'context'
+        ? <ContextMenuSeparator key={index} className={BOARD_MENU_SEPARATOR_CLASS} />
+        : <DropdownMenuSeparator key={index} className={BOARD_MENU_SEPARATOR_CLASS} />
+    }
+
+    const className = item.danger ? BOARD_MENU_DESTRUCTIVE_CLASS : BOARD_MENU_ITEM_CLASS
+    return variant === 'context' ? (
+      <ContextMenuItemComp key={index} onClick={item.onClick} className={className}>
+        {item.icon}
+        <span>{item.label}</span>
+      </ContextMenuItemComp>
+    ) : (
+      <DropdownMenuItemComp key={index} onClick={item.onClick} className={className}>
+        {item.icon}
+        <span>{item.label}</span>
+      </DropdownMenuItemComp>
+    )
+  })
+}
 
 interface Board {
   id: string
@@ -68,22 +103,22 @@ export function BoardList({
   }, [])
 
   const boardContextMenuItems = useCallback((boardId: string): ContextMenuItem[] => [
-    { icon: <Pencil size={12} />, label: '重命名', onClick: () => {
+    { icon: <Pencil className="size-4 shrink-0" />, label: '重命名', onClick: () => {
       const board = boards.find(b => b.id === boardId)
       if (board) {
         setEditingBoardId(boardId)
         setEditingBoardName(board.name)
       }
     }},
-    { icon: <Trash size={12} />, label: '删除', onClick: () => {
+    { icon: <Trash className="size-4 shrink-0" />, label: '删除', danger: true, onClick: () => {
       onDeleteBoard(boardId)
     }},
     { type: 'separator' },
-    { icon: <Copy size={12} />, label: '复制画板', onClick: () => {
+    { icon: <Copy className="size-4 shrink-0" />, label: '复制画板', onClick: () => {
       onDuplicateBoard(boardId)
     }},
     { type: 'separator' },
-    { icon: <FolderOpen size={12} />, label: '在资源管理器中打开', onClick: () => {
+    { icon: <FolderOpen className="size-4 shrink-0" />, label: '在资源管理器中打开', onClick: () => {
       onOpenInExplorer()
     }},
   ], [boards, onDeleteBoard, onDuplicateBoard, onOpenInExplorer])
@@ -111,7 +146,9 @@ export function BoardList({
   return (
     <>
       <div className="flex-1 overflow-y-auto px-2 py-1">
-        {boards.map((board, index) => (
+        {boards.map((board, index) => {
+          const menuItems = boardContextMenuItems(board.id)
+          return (
           <div key={board.id} className="relative stagger-item" style={{ '--stagger': Math.min(index, 8) } as CSSProperties}>
             {editingBoardId === board.id ? (
               <input
@@ -129,11 +166,11 @@ export function BoardList({
                 className="input-base w-full px-3 py-2 rounded-lg text-sm outline-none bg-surface-card text-fg-primary border border-line-default"
               />
             ) : (
-              <ContextMenuWrapper
-                items={boardContextMenuItems(board.id)}
-              >
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
                 <div
                   className={`hepta-list-item hepta-list-item-indicator flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer group ${board.id === activeBoardId && viewMode === 'board' ? 'is-selected' : 'text-fg-secondary'}`}
+                  aria-current={board.id === activeBoardId && viewMode === 'board' ? 'page' : undefined}
                   onClick={() => onSwitchBoard(board.id)}
                   onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 >
@@ -144,34 +181,26 @@ export function BoardList({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded transition-theme hover:bg-surface-card-hover"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded outline-none transition-theme hover:bg-surface-card-hover focus-visible:bg-surface-card-hover focus-visible:ring-1 focus-visible:ring-line-default"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <MoreHorizontal size={12} className="text-fg-secondary" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {boardContextMenuItems(board.id).map((item, i) =>
-                        item.type === 'separator' ? (
-                          <DropdownMenuSeparator key={i} />
-                        ) : (
-                          <DropdownMenuItemComp
-                            key={i}
-                            onClick={item.onClick}
-                            className={item.danger ? 'text-destructive focus:text-destructive' : ''}
-                          >
-                            {item.icon}
-                            <span>{item.label}</span>
-                          </DropdownMenuItemComp>
-                        )
-                      )}
+                    <DropdownMenuContent align="end" className={BOARD_MENU_CONTENT_CLASS}>
+                      <BoardMenuEntries items={menuItems} variant="dropdown" />
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              </ContextMenuWrapper>
+                </ContextMenuTrigger>
+                <ContextMenuContent className={BOARD_MENU_CONTENT_CLASS}>
+                  <BoardMenuEntries items={menuItems} variant="context" />
+                </ContextMenuContent>
+              </ContextMenu>
             )}
           </div>
-        ))}
+          )
+        })}
 
         {isCreatingBoard ? (
           <div className="px-1 py-1">

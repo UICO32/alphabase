@@ -20,6 +20,6 @@ describe('right panel lazy wiring', () => {
   })
 
   it('does not render channel content while the panel is collapsed', () => {
-    expect(rightPanelSource).toMatch(/rightPanelActiveTab === 'channels'[\s\S]*?!rightPanelCollapsed/)
+    expect(rightPanelSource).toMatch(/rightPanelActiveTab === 'channels'[\s\S]*?panelOpen/)
   })
 })

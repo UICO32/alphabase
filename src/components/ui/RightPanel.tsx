@@ -1,23 +1,95 @@
-import { useCallback, useRef, Suspense } from 'react'
+import { useCallback, useEffect, useRef, Suspense } from 'react'
 import { useViewStore } from '../../stores/viewStore'
-import { usePanelStore } from '../../stores/panelStore'
+import { SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN, usePanelStore } from '../../stores/panelStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { CollapseButton } from './SharedUI'
 import { GalleryVerticalEnd, FileText, ArrowLeftToLine, Globe, Compass } from 'lucide-react'
 import { WebviewPanel } from './WebviewPanel'
-import { LazyAgentReachPanel, preloadAgentReachPanel } from './lazyAgentReachPanel'
 import { CardEditorEntry } from '../editor/CardEditorEntry'
+import { LazyAgentReachPanel, preloadAgentReachPanel } from './lazyAgentReachPanel'
 import { LazyCardLibraryView } from './lazyCardLibraryView'
+import { CardLibrarySkeleton } from './CardLibrarySkeleton'
+import { ResponsiveSidePanel } from './ResponsiveSidePanel'
+import type { WorkspaceLayoutMode } from '../../hooks/workspaceLayout'
 
 
 interface RightPanelProps {
   integratedSurface?: boolean
+  mode?: WorkspaceLayoutMode
+  open?: boolean
+  onOpen?: () => void
+  onClose?: () => void
   onOpenSettings?: () => void
 }
 
-export function RightPanel({ integratedSurface = false, onOpenSettings }: RightPanelProps) {
+interface BeginRightPanelResizeOptions {
+  startX: number
+  startWidth: number
+  panel: HTMLElement
+  onWidthChange: (width: number) => void
+  onEnd?: () => void
+}
+
+const RESIZING_CHROME_SELECTOR = [
+  '.workspace-chrome-strip',
+  '.workspace-chrome-corner',
+  '.workspace-canvas-aperture',
+].join(', ')
+
+const clampRightPanelWidth = (width: number) => Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width))
+
+export function beginRightPanelResize({ startX, startWidth, panel, onWidthChange, onEnd }: BeginRightPanelResizeOptions) {
+  let active = true
+  let frameId: number | null = null
+  let latestWidth = startWidth
+  const transitionElements = [panel, ...Array.from(document.querySelectorAll<HTMLElement>(RESIZING_CHROME_SELECTOR))]
+  const previousTransitions = transitionElements.map((element) => element.style.transition)
+
+  document.documentElement.dataset.rightPanelResizing = 'true'
+  panel.dataset.rightPanelResizing = 'true'
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  transitionElements.forEach((element) => { element.style.transition = 'none' })
+
+  const commitWidth = () => {
+    frameId = null
+    if (active) onWidthChange(latestWidth)
+  }
+
+  const onMove = (event: PointerEvent) => {
+    if (!active) return
+    latestWidth = clampRightPanelWidth(startWidth + startX - event.clientX)
+    if (frameId === null) frameId = requestAnimationFrame(commitWidth)
+  }
+
+  const finish = () => {
+    if (!active) return
+    active = false
+    if (frameId !== null) {
+      cancelAnimationFrame(frameId)
+      frameId = null
+      onWidthChange(latestWidth)
+    }
+    document.removeEventListener('pointermove', onMove)
+    document.removeEventListener('pointerup', finish)
+    document.removeEventListener('pointercancel', finish)
+    transitionElements.forEach((element, index) => { element.style.transition = previousTransitions[index] })
+    delete document.documentElement.dataset.rightPanelResizing
+    delete panel.dataset.rightPanelResizing
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    onEnd?.()
+  }
+
+  document.addEventListener('pointermove', onMove)
+  document.addEventListener('pointerup', finish)
+  document.addEventListener('pointercancel', finish)
+  return finish
+}
+
+export function RightPanel({ integratedSurface = false, mode = 'wide', open, onOpen, onClose, onOpenSettings }: RightPanelProps) {
   const rightPanelCollapsed = usePanelStore(s => s.rightPanelCollapsed)
   const setRightPanelCollapsed = usePanelStore(s => s.setRightPanelCollapsed)
   const rightPanelActiveTab = usePanelStore(s => s.rightPanelActiveTab)
@@ -30,31 +102,33 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
   const setWebviewUrl = useLibraryStore(s => s.setWebviewUrl)
   const editingCard = useCard(editingCardId ?? '')
   const isClipCard = !!(editingCard?.sourceUrl)
+  const panelOpen = open ?? !rightPanelCollapsed
+  const openPanel = onOpen ?? (() => setRightPanelCollapsed(false))
+  const closePanel = onClose ?? (() => setRightPanelCollapsed(true))
 
   const isDragging = useRef(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const expandButtonRef = useRef<HTMLButtonElement>(null)
+  const resizeCleanupRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => () => resizeCleanupRef.current?.(), [])
 
   const handleResizeStart = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
+    if (mode === 'narrow' || !panelRef.current) return
+    resizeCleanupRef.current?.()
     isDragging.current = true
-    const startX = e.clientX
-    const startWidth = rightPanelWidth
-    const onMove = (ev: PointerEvent) => {
-      if (!isDragging.current) return
-      const delta = startX - ev.clientX
-      setRightPanelWidth(startWidth + delta)
-    }
-    const onUp = () => {
-      isDragging.current = false
-      document.removeEventListener('pointermove', onMove)
-      document.removeEventListener('pointerup', onUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('pointermove', onMove)
-    document.addEventListener('pointerup', onUp)
-  }, [rightPanelWidth, setRightPanelWidth])
+    resizeCleanupRef.current = beginRightPanelResize({
+      startX: e.clientX,
+      startWidth: rightPanelWidth,
+      panel: panelRef.current,
+      onWidthChange: setRightPanelWidth,
+      onEnd: () => {
+        isDragging.current = false
+        resizeCleanupRef.current = null
+      },
+    })
+  }, [mode, rightPanelWidth, setRightPanelWidth])
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation()
@@ -63,24 +137,34 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
   if (viewMode !== 'board') return null
 
   const showEditorTab = rightPanelActiveTab === 'editor' || !!editingCardId
-  const showEditorContent = !rightPanelCollapsed && rightPanelActiveTab === 'editor' && editingCardId
+  const showEditorContent = panelOpen && rightPanelActiveTab === 'editor' && editingCardId
 
   return (
     <>
-      <div
-        className={`absolute right-0 top-0 bottom-0 z-10 flex flex-col overflow-hidden ${integratedSurface ? 'workspace-integrated-panel' : 'glass-panel-large'}`}
-        style={{ width: rightPanelWidth, transform: `translateX(${rightPanelCollapsed ? rightPanelWidth : 0}px)`, transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
+      <ResponsiveSidePanel
+        side="right"
+        mode={mode}
+        open={panelOpen}
+        width={rightPanelWidth}
+        label="右侧工作区面板"
+        triggerRef={expandButtonRef}
+        panelRef={panelRef}
+        className={`flex flex-col overflow-hidden ${integratedSurface ? 'workspace-integrated-panel' : 'glass-panel-large'}`}
+        style={{ transition: isDragging.current ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
+        onOpenChange={(nextOpen) => nextOpen ? openPanel() : closePanel()}
         onWheel={handleWheel}
       >
-        <div
+        {mode !== 'narrow' && <div
           className="absolute left-0 top-0 bottom-0 z-20 cursor-col-resize"
           style={{ width: 4 }}
           onPointerDown={handleResizeStart}
-        />
+        />}
 
       <div className="flex items-center justify-between px-2.5 py-2 transition-theme">
 	        <div
 	          className="segmented"
+              role="tablist"
+              aria-label="右侧面板内容"
 	          style={{
 	            '--active-index': rightPanelActiveTab === 'library' ? 0 : rightPanelActiveTab === 'channels' ? 1 : 2,
 	            '--seg-count': showEditorTab ? 3 : 2,
@@ -88,6 +172,8 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
 	        >
 	          <button
 	            onClick={() => setRightPanelActiveTab('library')}
+                role="tab"
+                aria-selected={rightPanelActiveTab === 'library'}
 	            className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'library' ? 'segmented-item-active' : ''}`}
 	          >
 	            <GalleryVerticalEnd size={14} />
@@ -95,6 +181,8 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
 	          </button>
 	          <button
 	            onClick={() => setRightPanelActiveTab('channels')}
+                role="tab"
+                aria-selected={rightPanelActiveTab === 'channels'}
 	            onPointerEnter={preloadAgentReachPanel}
 	            onFocus={preloadAgentReachPanel}
 	            className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'channels' ? 'segmented-item-active' : ''}`}
@@ -105,6 +193,8 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
 	          {showEditorTab && (
 	            <button
 	              onClick={() => setRightPanelActiveTab('editor')}
+                  role="tab"
+                  aria-selected={rightPanelActiveTab === 'editor'}
 	              className={`segmented-item cursor-pointer w-[84px] justify-center whitespace-nowrap ${rightPanelActiveTab === 'editor' ? 'segmented-item-active' : ''}`}
 	            >
 	              <FileText size={14} />
@@ -112,16 +202,16 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
 	            </button>
 	          )}
 	        </div>
-	        <CollapseButton direction="right" onClick={() => setRightPanelCollapsed(true)} />
+        <CollapseButton direction="right" onClick={closePanel} />
 	      </div>
 
       <div className="flex-1 overflow-y-auto">
         {rightPanelActiveTab === 'channels' ? (
-          !rightPanelCollapsed && (
+          panelOpen && (
             <Suspense
               fallback={(
-                <div role="status" aria-label={'\u6b63\u5728\u52a0\u8f7d\u9891\u9053'} className="flex h-full items-center justify-center text-sm text-text-tertiary">
-                  {'\u6b63\u5728\u52a0\u8f7d\u9891\u9053\u2026'}
+                <div role="status" aria-label="正在加载频道" className="flex h-full items-center justify-center text-sm text-text-tertiary">
+                  正在加载频道…
                 </div>
               )}
             >
@@ -129,7 +219,11 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
             </Suspense>
           )
         ) : rightPanelActiveTab === 'library' ? (
-          !rightPanelCollapsed && <Suspense fallback={null}><LazyCardLibraryView onOpenSettings={onOpenSettings} compact /></Suspense>
+          panelOpen && (
+            <Suspense fallback={<CardLibrarySkeleton compact />}>
+              <LazyCardLibraryView onOpenSettings={onOpenSettings} compact />
+            </Suspense>
+          )
         ) : showEditorContent ? (
 	          <div key={editingCardId} className="h-full">
 	            <ClipAwareEditorView
@@ -147,11 +241,13 @@ export function RightPanel({ integratedSurface = false, onOpenSettings }: RightP
           </div>
         )}
       </div>
-    </div>
+    </ResponsiveSidePanel>
 
-    {rightPanelCollapsed && (
+    {!panelOpen && (
       <button
-        onClick={() => setRightPanelCollapsed(false)}
+        ref={expandButtonRef}
+        onClick={openPanel}
+        aria-label="打开右侧面板"
         className="action-icon-btn workspace-panel-expand-button fixed top-9 right-3 z-50 rounded-lg"
       >
         <ArrowLeftToLine size={16} />

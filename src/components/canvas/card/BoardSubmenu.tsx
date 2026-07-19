@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Move } from 'lucide-react'
-import { useThemeStore } from '../../../stores/themeStore'
 import { MenuItem } from './MenuItem'
 
 interface BoardSubmenuProps {
@@ -11,10 +10,9 @@ interface BoardSubmenuProps {
 
 export function BoardSubmenu({ boards, onSelect }: BoardSubmenuProps) {
   const [hovered, setHovered] = useState(false)
-  const isDarkMode = useThemeStore(s => s.isDarkMode)
   const triggerRef = useRef<HTMLDivElement>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const [position, setPosition] = useState<{ top: number; left: number; side: 'left' | 'right' }>({ top: 0, left: 0, side: 'right' })
 
   const scheduleClose = useCallback(() => {
     closeTimerRef.current = setTimeout(() => setHovered(false), 150)
@@ -34,10 +32,12 @@ export function BoardSubmenu({ boards, onSelect }: BoardSubmenuProps) {
     const submenuWidth = 160
     const submenuMarginLeft = 2
     let left = rect.right + submenuMarginLeft
+    let side: 'left' | 'right' = 'right'
     if (left + submenuWidth > window.innerWidth) {
       left = rect.left - submenuWidth - submenuMarginLeft
+      side = 'left'
     }
-    setPosition({ top: rect.top, left })
+    setPosition({ top: rect.top, left, side })
   }, [hovered])
 
   useEffect(() => {
@@ -49,18 +49,13 @@ export function BoardSubmenu({ boards, onSelect }: BoardSubmenuProps) {
   const submenuContent = hovered ? (
     <div
       data-board-submenu
-      className="animate-fadeIn"
+      className="ui-floating-surface ui-floating-content overflow-hidden rounded-lg py-1"
+      data-side={position.side}
       style={{
         position: 'fixed',
         top: position.top,
         left: position.left,
-        zIndex: 10000,
         minWidth: 160,
-        padding: '4px 0',
-        borderRadius: 8,
-        backgroundColor: isDarkMode ? '#27272a' : '#ffffff',
-        border: `1px solid ${isDarkMode ? '#3f3f46' : '#e4e4e7'}`,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
       }}
       onClick={(e) => e.stopPropagation()}
       onMouseEnter={cancelClose}
@@ -90,7 +85,7 @@ export function BoardSubmenu({ boards, onSelect }: BoardSubmenuProps) {
         hasSubmenu
       />
       {submenuContent && createPortal(submenuContent, document.body)}
-      <div style={{ height: 1, backgroundColor: isDarkMode ? '#3f3f46' : '#e4e4e7', margin: '4px 0' }} />
+      <div className="my-1 h-px bg-line-default" />
     </div>
   )
 }

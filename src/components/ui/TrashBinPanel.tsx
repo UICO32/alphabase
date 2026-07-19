@@ -3,6 +3,7 @@ import { useCardStore } from '../../stores/cardStore'
 import { useTrashStore } from '../../stores/trashStore'
 import { EmptyState } from './SharedUI'
 import { Trash2, RotateCcw, Trash, X } from 'lucide-react'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from './shadcn/dialog'
 
 interface TrashBinPanelProps {
   onClose: () => void
@@ -44,26 +45,16 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
   }
 
   return (
-    <div
-      className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
-      style={{ backgroundColor: 'var(--surface-overlay)' }}
-      onClick={onClose}
-    >
-      <div
-        className="modal-content w-[600px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn glass-panel"
-        style={{
-          boxShadow: 'var(--shadow-xl)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent size="lg" showCloseButton={false} className="flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 glass-panel">
         <div
           className="flex items-center justify-between px-6 py-4 border-b border-line-default transition-theme"
         >
           <div className="flex items-center gap-3">
             <Trash2 size={20} className="text-fg-primary" />
-            <span className="font-semibold text-fg-primary">
+            <DialogTitle className="font-semibold text-fg-primary">
               回收站
-            </span>
+            </DialogTitle>
             <span
               className="text-sm px-2 py-0.5 rounded-full bg-surface-card text-fg-secondary"
             >
@@ -79,12 +70,11 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
                 清空回收站
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="btn-base p-2 rounded-lg text-fg-secondary"
-            >
-              <X size={18} />
-            </button>
+            <DialogClose asChild>
+              <button aria-label="关闭回收站" className="btn-base interactive-control focus-ring p-2 rounded-lg text-fg-secondary">
+                <X size={18} />
+              </button>
+            </DialogClose>
           </div>
         </div>
 
@@ -137,7 +127,7 @@ export function TrashBinPanel({ onClose }: TrashBinPanelProps) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

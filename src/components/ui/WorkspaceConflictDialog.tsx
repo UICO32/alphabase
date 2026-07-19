@@ -1,5 +1,6 @@
 import { AlertTriangle, Database, HardDrive } from 'lucide-react'
 import type { ConflictDiffItem } from '../../utils/workspace/types'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from './shadcn/dialog'
 
 export interface BackupSummary {
   timestamp: string
@@ -40,13 +41,14 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, latestBackup, onC
   const backup = latestBackup ?? conflict.latestBackup ?? null
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center animate-fadeIn"
-      style={{ backgroundColor: 'var(--surface-overlay)' }}
-    >
-      <div
-        className="w-[560px] rounded-xl flex flex-col animate-scaleIn overflow-hidden glass-panel"
-        style={{ boxShadow: 'var(--shadow-xl)' }}
+    <Dialog open>
+      <DialogContent
+        size="lg"
+        showCloseButton={false}
+        className="flex max-h-[calc(100vh-2rem)] flex-col gap-0 overflow-y-auto p-0 glass-panel"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
       >
         <div
           className="flex items-start gap-3 px-6 py-4 border-b border-line-default"
@@ -54,10 +56,10 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, latestBackup, onC
         >
           <AlertTriangle size={24} className="mt-0.5 shrink-0" style={{ color: 'var(--fg-danger)' }} />
           <div>
-            <h3 className="font-semibold text-base text-fg-primary">检测到工作区数据不完整</h3>
-            <p className="text-sm text-fg-secondary mt-1">
+            <DialogTitle className="font-semibold text-base text-fg-primary">检测到工作区数据不完整</DialogTitle>
+            <DialogDescription className="text-sm text-fg-secondary mt-1">
               元数据记录的数量和磁盘上的文件数量不一致。为了避免误删数据，请先选择如何处理。
-            </p>
+            </DialogDescription>
           </div>
         </div>
 
@@ -133,7 +135,7 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, latestBackup, onC
             先不加载
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

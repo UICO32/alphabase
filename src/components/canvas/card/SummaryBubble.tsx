@@ -276,12 +276,14 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
 
   return (
     <div
+      className="ui-floating-content"
+      data-side="right"
       style={{
         position: 'absolute',
         top: -8,
         left: '100%',
         marginLeft: 10,
-        zIndex: 99999,
+        zIndex: 'var(--z-dropdown)',
         width: 260,
         display: 'flex',
         flexDirection: 'column',
@@ -292,14 +294,12 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
     >
       {/* Viewport with gradient fade at edges */}
       <div
+        className="ui-floating-surface"
         style={{
           position: 'relative',
           width: 260,
           height: lineHeight * viewportLines,
           borderRadius: 8,
-          backgroundColor: 'var(--surface-card)',
-          boxShadow: 'var(--shadow-md)',
-          border: '1px solid var(--line-default)',
           overflow: 'hidden',
         }}
       >
@@ -344,7 +344,7 @@ export function SummaryBubble({ cardId, onClose }: SummaryBubbleProps) {
             ) : showLoading ? (
               <span style={{ color: 'var(--fg-secondary)' }}>
                 {LOADING_STAGES[stageIndex]?.text}
-                <span style={{ animation: 'blink 1s step-end infinite', marginLeft: 2 }}>…</span>
+                <span className="summary-bubble-loading-caret" style={{ marginLeft: 2 }}>…</span>
               </span>
             ) : showContent ? (
               <>

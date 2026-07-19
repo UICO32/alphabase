@@ -2,6 +2,7 @@ import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { EmptyState } from './SharedUI'
 import { Folder, Plus, Clock, X } from 'lucide-react'
 import { emit } from '../../stores/eventBus'
+import { Dialog, DialogClose, DialogContent, DialogTitle } from './shadcn/dialog'
 
 interface WorkspacePickerProps {
   onClose: () => void
@@ -27,29 +28,17 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
-      style={{ backgroundColor: 'var(--surface-overlay)' }}
-      onClick={onClose}
-    >
-      <div
-        className="w-[500px] max-h-[80vh] rounded-xl flex flex-col animate-scaleIn overflow-hidden"
-        style={{
-          backgroundColor: 'var(--surface-card)',
-          boxShadow: 'var(--shadow-xl)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent size="md" showCloseButton={false} className="flex max-h-[80vh] flex-col gap-0 overflow-hidden bg-surface-card p-0">
         <div className="flex items-center justify-between px-6 py-4">
-          <span className="font-semibold text-fg-primary">
+          <DialogTitle className="font-semibold text-fg-primary">
             选择工作区
-          </span>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-fg-secondary hover:text-fg-primary hover:bg-surface-panel-hover transition-colors"
-          >
-            <X size={18} />
-          </button>
+          </DialogTitle>
+          <DialogClose asChild>
+            <button aria-label="关闭工作区选择" className="interactive-control focus-ring p-2 rounded-lg text-fg-secondary hover:text-fg-primary hover:bg-surface-panel-hover">
+              <X size={18} />
+            </button>
+          </DialogClose>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pb-6">
@@ -109,7 +98,7 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

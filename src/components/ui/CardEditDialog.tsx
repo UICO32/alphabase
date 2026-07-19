@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../stores/cardStore'
 import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
@@ -7,9 +7,9 @@ import { X, Trash2 } from 'lucide-react'
 import { clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
 import { CARD_COLORS, type CardColor } from '../../types/card'
 import { CardEditorEntry } from '../editor/CardEditorEntry'
+import { Dialog, DialogContent, DialogTitle } from './shadcn/dialog'
 
-const MORPH_DURATION_MS = 500
-const FADE_DURATION_MS = 250
+const MORPH_DURATION_MS = 220
 const MORPH_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
 
 interface CardEditDialogProps {
@@ -19,8 +19,8 @@ interface CardEditDialogProps {
 }
 
 export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogProps) {
-  const backdropRef = useRef<HTMLDivElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : document.activeElement as HTMLElement | null)
   const isDarkMode = useIsDarkMode()
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
@@ -47,14 +47,6 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
     updateCard(cardId, { color })
   }, [cardId, updateCard])
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleCloseWithSnapshot()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [handleCloseWithSnapshot])
-
   const dialogWidth = Math.min(700, window.innerWidth * 0.85)
   const dialogHeight = Math.min(600, window.innerHeight * 0.8)
 
@@ -72,67 +64,60 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
 
   useLayoutEffect(() => {
     if (!hasCard) return
-    const backdrop = backdropRef.current
     const dialog = dialogRef.current
-    if (!backdrop || !dialog || typeof backdrop.animate !== 'function') return
+    if (!dialog || typeof dialog.animate !== 'function') return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!sourceRect) return
 
-    const animations = [
-      backdrop.animate(
-        [{ opacity: 0 }, { opacity: 1 }],
-        { duration: FADE_DURATION_MS, easing: 'ease-out', fill: 'both' },
-      ),
-    ]
-
-    if (sourceRect) {
-      animations.push(dialog.animate(
+    const animation = dialog.animate(
         [
           {
-            top: `${sourceRect.top}px`,
-            left: `${sourceRect.left}px`,
-            width: `${sourceRect.width}px`,
-            height: `${sourceRect.height}px`,
+            opacity: 0.92,
+            transform: `translate(${sourceRect.left - centerX}px, ${sourceRect.top - centerY}px) scale(${sourceRect.width / dialogWidth}, ${sourceRect.height / dialogHeight})`,
             borderRadius: '10px',
           },
           {
-            top: `${centerY}px`,
-            left: `${centerX}px`,
-            width: `${dialogWidth}px`,
-            height: `${dialogHeight}px`,
+            opacity: 1,
+            transform: 'translate(0, 0) scale(1)',
             borderRadius: '16px',
           },
         ],
         { duration: MORPH_DURATION_MS, easing: MORPH_EASING, fill: 'both' },
-      ))
-    }
+      )
 
-    return () => animations.forEach(animation => animation.cancel())
+    return () => animation.cancel()
   }, [centerX, centerY, dialogHeight, dialogWidth, hasCard, sourceRect])
 
   if (!card) return null
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div
-        ref={backdropRef}
-        className="fixed inset-0"
-        style={{ backgroundColor: 'var(--surface-overlay)', backdropFilter: 'blur(4px)' }}
-        onClick={handleCloseWithSnapshot}
-      />
-
-      <div
+    <Dialog open onOpenChange={(open) => { if (!open) handleCloseWithSnapshot() }}>
+      <DialogContent
         ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        className="fixed z-[60] overflow-hidden flex flex-col"
-        style={{ ...finalDialogStyle, boxShadow: 'var(--shadow-xl)', backgroundColor: 'var(--surface-card)' }}
+        size="lg"
+        showCloseButton={false}
+        aria-describedby={undefined}
+        className="flex max-w-none flex-col gap-0 overflow-hidden p-0"
+        style={{
+          ...finalDialogStyle,
+          maxWidth: 'none',
+          translate: 'none',
+          transform: 'none',
+          transformOrigin: 'top left',
+          boxShadow: 'var(--shadow-xl)',
+          backgroundColor: 'var(--surface-card)',
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          requestAnimationFrame(() => returnFocusRef.current?.focus())
+        }}
       >
           <div
             className="flex items-center justify-between px-5 py-3 border-b shrink-0 border-line-default"
           >
-            <span className="text-sm font-medium truncate text-fg-primary">
+            <DialogTitle className="truncate text-sm font-medium text-fg-primary">
               {card.title || '无标题'}
-            </span>
+            </DialogTitle>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -193,7 +178,7 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
               theme={isDarkMode ? 'dark' : 'light'}
             />
           </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

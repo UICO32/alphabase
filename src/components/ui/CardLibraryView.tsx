@@ -1,4 +1,3 @@
-import DOMPurify from 'dompurify'
 import { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { useFloating, useClick, useDismiss, useInteractions, offset, flip } from '@floating-ui/react'
@@ -10,6 +9,8 @@ import { useTagStore } from '../../stores/tagStore'
 import { useFlomoSyncStore } from '../../sync/flomoSync'
 import { EmptyState } from './SharedUI'
 import { CardEditDialog } from './CardEditDialog'
+import { CardLibraryRelevanceButton } from './CardLibraryRelevanceButton'
+import { buildCardPreviewSemantics } from './cardPreview/previewSemantics'
 import { GalleryVerticalEnd, RefreshCw, Loader2, ChevronDown, X } from 'lucide-react'
 
 interface CardLibraryViewProps {
@@ -18,12 +19,14 @@ interface CardLibraryViewProps {
 }
 
 const COMPACT_CARD_RENDER_LIMIT = 80
+let hasStartedInitialCardReveal = false
 
-const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+type OrdinarySortBy = Exclude<SortBy, 'related'>
+
+const SORT_OPTIONS: { value: OrdinarySortBy; label: string }[] = [
   { value: 'updatedAt', label: '最近修改' },
   { value: 'createdAt', label: '创建时间' },
   { value: 'title', label: '标题' },
-  { value: 'related', label: '相关性' },
 ]
 
 function extractImages(html: string): string[] {
@@ -64,7 +67,7 @@ const CardItem = memo(function CardItem({
   onDragStart,
   onClick,
 }: {
-  card: { id: string; title?: string; previewHTML?: string; updatedAt?: number; createdAt: number }
+  card: { id: string; content: string; title?: string; previewHTML?: string; updatedAt?: number; createdAt: number }
   score: number | undefined
   onDragStart: (e: React.DragEvent, cardId: string) => void
   onClick: (e: React.MouseEvent) => void
@@ -72,7 +75,15 @@ const CardItem = memo(function CardItem({
   const previewHTML = card.previewHTML || useCardStore.getState().getPreviewHTML(card.id) || ''
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
   const images = useMemo(() => extractImages(previewHTML), [previewHTML])
-  const textHTML = useMemo(() => stripImages(DOMPurify.sanitize(previewHTML, { ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i })), [previewHTML])
+  const preview = useMemo(
+    () => buildCardPreviewSemantics({
+      content: card.content,
+      title: card.title,
+      previewHTML,
+    }),
+    [card.content, card.title, previewHTML],
+  )
+  const textHTML = useMemo(() => stripImages(preview.bodyHTML), [preview.bodyHTML])
   const relativeTime = formatRelativeTime(card.updatedAt ?? card.createdAt)
   const visibleImages = images.slice(0, 3).filter((_, i) => !failedImages.has(i))
 
@@ -127,20 +138,20 @@ const CardItem = memo(function CardItem({
         el.addEventListener('animationend', () => el.classList.remove('card-item-returning'), { once: true })
       }}
       onClick={onClick}
-      className="group relative p-2.5 rounded-lg cursor-pointer active:cursor-grabbing overflow-hidden flex flex-col bg-surface-card border border-line-default transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover active:scale-[0.98]"
+      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line-default bg-surface-card p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover active:translate-y-px active:cursor-grabbing"
       style={{ aspectRatio: '1/1' }}
     >
       {/* Title row — truncate with ellipsis, time right */}
-      <div className="flex items-baseline justify-between gap-2 mb-0.5">
-        {card.title && card.title !== '新卡片' ? (
-          <span className="text-sm font-medium text-fg-primary leading-snug truncate">{card.title}</span>
-        ) : (
-          <span className="text-sm font-medium text-fg-tertiary leading-snug truncate">无标题</span>
-        )}
-        {relativeTime && (
-          <span className="text-[10px] shrink-0 text-fg-tertiary">{relativeTime}</span>
-        )}
-      </div>
+      {(preview.title || relativeTime) && (
+        <div className="flex items-baseline justify-between gap-2 mb-0.5">
+          {preview.title && (
+            <span className="text-sm font-medium text-fg-primary leading-snug truncate">{preview.title}</span>
+          )}
+          {relativeTime && (
+            <span className="text-[10px] shrink-0 text-fg-tertiary">{relativeTime}</span>
+          )}
+        </div>
+      )}
 
       {/* Text body — fade via mask, self-adaptive */}
       <div
@@ -218,6 +229,7 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [tagMenuOpen, setTagMenuOpen] = useState(false)
+  const [isInitialReveal, setIsInitialReveal] = useState(() => !hasStartedInitialCardReveal)
   const lastRelatedId = useRef<string | null>(null)
   const pendingRelatedSort = useRef(false)
 
@@ -293,6 +305,13 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
       clearResults()
     }
   }, [searchMode, clearResults])
+
+  useEffect(() => {
+    if (!isInitialReveal) return
+    hasStartedInitialCardReveal = true
+    const timer = window.setTimeout(() => setIsInitialReveal(false), 500)
+    return () => window.clearTimeout(timer)
+  }, [isInitialReveal])
 
   const handleSearchSubmit = useCallback(() => {
     const trimmed = searchQuery.trim()
@@ -415,13 +434,15 @@ if (searchQuery.trim()) {
           opacity: 0.3;
           filter: grayscale(0.6);
         }
-        @keyframes card-return-bounce {
-          0% { transform: scale(0.94); opacity: 0.6; }
-          55% { transform: scale(1.03); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
+        @keyframes card-return-settle {
+          from { transform: translateY(4px); opacity: 0.72; }
+          to { transform: translateY(0); opacity: 1; }
         }
         .card-item-returning {
-          animation: card-return-bounce 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+          animation: card-return-settle 180ms var(--ease-out) both;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .card-item-returning { animation: none; transform: none; }
         }
       `}</style>
       <div className={`max-w-3xl mx-auto ${compact ? 'px-3 pb-3 pt-1' : 'p-6'}`}>
@@ -455,6 +476,7 @@ if (searchQuery.trim()) {
 	                {(Object.keys(searchModeLabels) as SearchMode[]).map((mode) => (
 	                  <button
 	                    key={mode}
+	                    aria-pressed={searchMode === mode}
 	                    onClick={() => {
 	                      setSearchMode(mode)
 	                      setModeMenuOpen(false)
@@ -484,6 +506,7 @@ if (searchQuery.trim()) {
               return (
                 <button
                   key={t.name}
+                  aria-pressed={active}
                   onClick={() => setTagFilter(active ? null : t.name)}
                   className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
                     active
@@ -508,15 +531,14 @@ if (searchQuery.trim()) {
         )}
 
         {/* Sort + Flomo sync */}
-        <div className={`${compact ? 'mb-3' : 'mb-4'} flex items-center justify-between gap-2`}>
-          <div className="relative">
+        <div className={`${compact ? 'mb-3' : 'mb-4'} flex min-w-0 flex-wrap items-center gap-2`}>
+          <div className="relative shrink-0">
             <button
               ref={sortFloating.refs.setReference}
               {...sortInteractions.getReferenceProps()}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-panel"
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap px-2 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-panel"
             >
-              {sortLabels[sortBy]}
-              {sortBy === 'related' && !indexed ? ' (向量化中...)' : ''}
+              {sortBy === 'related' ? '排序' : sortLabels[sortBy]}
               <ChevronDown size={10} />
             </button>
             {sortMenuOpen && (
@@ -529,6 +551,7 @@ if (searchQuery.trim()) {
 	                {SORT_OPTIONS.map((opt) => (
 	                  <button
 	                    key={opt.value}
+	                    aria-pressed={sortBy === opt.value}
 	                    onClick={() => {
 	                      setSortBy(opt.value)
 	                      setSortMenuOpen(false)
@@ -543,7 +566,7 @@ if (searchQuery.trim()) {
           </div>
 
           {tagCloud.length > 0 && compact && (
-            <div className="relative mr-auto">
+            <div className="relative shrink-0">
               <button
                 ref={tagFloating.refs.setReference}
                 {...tagInteractions.getReferenceProps()}
@@ -561,6 +584,7 @@ if (searchQuery.trim()) {
                   style={tagFloating.floatingStyles}
                 >
                   <button
+                    aria-pressed={!tagFilter}
                     onClick={() => {
                       setTagFilter(null)
                       setTagMenuOpen(false)
@@ -572,6 +596,7 @@ if (searchQuery.trim()) {
                   {tagCloud.map((t) => (
                     <button
                       key={t.name}
+                      aria-pressed={tagFilter === t.name}
                       onClick={() => {
                         setTagFilter(t.name)
                         setTagMenuOpen(false)
@@ -587,10 +612,17 @@ if (searchQuery.trim()) {
             </div>
           )}
 
+          <CardLibraryRelevanceButton
+            active={sortBy === 'related'}
+            indexed={indexed}
+            editingCardId={editingCardId}
+            onActivate={() => setSortBy('related')}
+          />
+
           <button
             onClick={handleSyncClick}
             disabled={syncing}
-            className="btn-base flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-card-hover"
+            className="btn-base ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs text-fg-secondary bg-surface-card border border-line-default hover:bg-surface-card-hover"
             title={accessToken ? '同步 Flomo' : '连接 Flomo'}
           >
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
@@ -652,14 +684,19 @@ if (searchQuery.trim()) {
           />
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
-            {renderedCards.map((card) => (
-              <CardItem
+            {renderedCards.map((card, index) => (
+              <div
                 key={card.id}
-                card={card}
-                score={searchScores[card.id]}
-                onDragStart={handleDragStart}
-                onClick={(e) => handleClick(e, card.id)}
-              />
+                className={isInitialReveal && index < 12 ? 'card-library-card-reveal' : undefined}
+                style={isInitialReveal && index < 12 ? { animationDelay: `${index * 30}ms` } : undefined}
+              >
+                <CardItem
+                  card={card}
+                  score={searchScores[card.id]}
+                  onDragStart={handleDragStart}
+                  onClick={(e) => handleClick(e, card.id)}
+                />
+              </div>
             ))}
           </div>
         )}

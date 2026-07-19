@@ -228,6 +228,8 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
       {/* 娴姩宸ュ叿鏉★紙浠呴€変腑/缂栬緫/杩炴帴鎬侊級 */}
       {showToolbar && (
         <div
+          className="ui-floating-surface ui-floating-content"
+          data-side="top"
           onPointerDown={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
@@ -239,10 +241,6 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
             gap: 4,
             padding: '4px 6px',
             borderRadius: 8,
-            background: isDarkMode ? '#2a2a2e' : '#ffffff',
-            border: `1px solid ${isDarkMode ? '#3f3f46' : '#e4e4e7'}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-            zIndex: 50,
             whiteSpace: 'nowrap',
           }}
         >
@@ -278,7 +276,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
           <div style={{ width: 1, height: 14, background: isDarkMode ? '#3f3f46' : '#e4e4e7' }} />
 
           {/* 鑹叉澘锛氬皬鍦嗙偣 */}
-          <ColorDotPicker color={color} isDarkMode={isDarkMode} onChange={handleColorChange} />
+          <ColorDotPicker color={color} onChange={handleColorChange} />
 
           <div style={{ width: 1, height: 14, background: isDarkMode ? '#3f3f46' : '#e4e4e7' }} />
 
@@ -391,11 +389,9 @@ TextAnnotationNode.displayName = 'TextAnnotationNode'
 // 鈹€鈹€ 鑹叉澘灏忓渾鐐归€夋嫨鍣?鈹€鈹€
 const ColorDotPicker = memo(function ColorDotPicker({
   color,
-  isDarkMode,
   onChange,
 }: {
   color: CardColor
-  isDarkMode: boolean
   onChange: (c: CardColor) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -416,8 +412,8 @@ const ColorDotPicker = memo(function ColorDotPicker({
       </button>
       {open && (
         <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
-          <div style={{
+          <div style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-dropdown)' }} onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
+          <div className="ui-floating-surface ui-floating-content" data-side="bottom" style={{
             position: 'absolute',
             top: 24,
             left: '50%',
@@ -427,11 +423,7 @@ const ColorDotPicker = memo(function ColorDotPicker({
             gap: 6,
             padding: 6,
             borderRadius: 8,
-            background: isDarkMode ? '#2a2a2e' : '#ffffff',
-            border: `1px solid ${isDarkMode ? '#3f3f46' : '#e4e4e7'}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
             width: 110,
-            zIndex: 51,
           }}>
             {(Object.keys(CARD_COLORS) as CardColor[]).map((c) => (
               <button

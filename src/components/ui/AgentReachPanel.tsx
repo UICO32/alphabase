@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Search, Loader2, Scissors, Flame, Trophy } from 'lucide-react'
+import { Search, Loader2, Scissors, Flame, Trophy, RefreshCw } from 'lucide-react'
 import { clipUrl } from '../../utils/clipper'
 import { htmlToBlocks } from '../../converters/htmlToBlocks'
 import { useCardStore } from '../../stores/cardStore'
@@ -52,6 +52,9 @@ function isVideoUrl(url: string): boolean {
 // Simple in-memory cache for browse results
 const browseCache = new Map<string, { items: BrowseItem[]; ts: number }>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const getCacheKey = (platform: Platform, action: Action, query?: string) => `${platform}:${action}:${query || ''}`
+
+export const clearAgentReachBrowseCacheForTests = () => browseCache.clear()
 
 export function AgentReachPanel() {
   const [platform, setPlatform] = useState<Platform>('bilibili')
@@ -66,21 +69,25 @@ export function AgentReachPanel() {
   const workspacePath = useWorkspaceStore((s) => s.currentWorkspace?.path)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const getCacheKey = (p: Platform, a: Action, q?: string) => `${p}:${a}:${q || ''}`
-
-  const browse = useCallback(async (browsePlatform: Platform, browseAction: Action, browseQuery?: string) => {
+  const browse = useCallback(async (
+    browsePlatform: Platform,
+    browseAction: Action,
+    browseQuery?: string,
+    options: { bypassCache?: boolean; preserveItems?: boolean } = {},
+  ) => {
     const cacheKey = getCacheKey(browsePlatform, browseAction, browseQuery)
     const cached = browseCache.get(cacheKey)
-    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    if (!options.bypassCache && cached && Date.now() - cached.ts < CACHE_TTL) {
       setItems(cached.items)
       setAction(browseAction)
       setHasLoaded(true)
       return
     }
 
+    setAction(browseAction)
     setLoading(true)
     setError('')
-    setItems([])
+    if (!options.preserveItems) setItems([])
 
     try {
       const electronAPI = (window as any).electronAPI
@@ -186,17 +193,26 @@ export function AgentReachPanel() {
     }
   }
 
+  const handleRefresh = () => {
+    const searchQuery = query.trim()
+    if (action === 'search' && !searchQuery) return
+    void browse(platform, action, action === 'search' ? searchQuery : undefined, {
+      bypassCache: true,
+      preserveItems: true,
+    })
+  }
+
   const config = PLATFORM_CONFIG[platform]
 
   return (
     <div className="flex flex-col h-full">
       {/* Platform tabs */}
-      <div className="flex gap-1 px-3 pt-1 pb-1.5">
+      <div data-testid="agent-reach-platforms" className="flex gap-1 overflow-x-auto whitespace-nowrap px-3 pt-1 pb-1.5">
         {(Object.entries(PLATFORM_CONFIG) as [Platform, typeof config][]).map(([p, c]) => (
           <button
             key={p}
             onClick={() => handlePlatformChange(p)}
-            className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${platform === p ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'}`}
+            className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs transition-colors ${platform === p ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'}`}
           >
             {c.label}
           </button>
@@ -204,7 +220,7 @@ export function AgentReachPanel() {
       </div>
 
       {/* Action bar */}
-      <div className="flex items-center gap-1.5 px-3 pb-2">
+      <div data-testid="agent-reach-actions" className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap px-3 pb-2">
         {config.actions.filter(a => a !== 'search').map((a) => {
           const ac = ACTION_CONFIG[a]
           const Icon = ac.icon
@@ -212,7 +228,7 @@ export function AgentReachPanel() {
             <button
               key={a}
               onClick={() => browse(platform, a)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs transition-colors ${action === a ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'}`}
+              className={`flex shrink-0 items-center gap-1 whitespace-nowrap px-2.5 py-1 rounded-md text-xs transition-colors ${action === a ? 'bg-surface-card text-fg-primary' : 'text-fg-secondary hover:text-fg-primary'}`}
             >
               <Icon size={12} />
               {ac.label}
@@ -221,7 +237,7 @@ export function AgentReachPanel() {
         })}
 
         {config.actions.includes('search') && (
-          <div className="flex items-center gap-1 ml-auto flex-1 max-w-[200px]">
+          <div className="ml-auto flex min-w-[160px] max-w-[200px] flex-1 shrink-0 items-center gap-1">
             <input
               ref={inputRef}
               value={query}
@@ -238,6 +254,16 @@ export function AgentReachPanel() {
             </button>
           </div>
         )}
+        <button
+          type="button"
+          aria-label="刷新当前频道"
+          title="刷新当前频道"
+          disabled={loading || (action === 'search' && !query.trim())}
+          onClick={handleRefresh}
+          className="shrink-0 rounded-md p-1 text-fg-secondary transition-colors hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {/* Content */}

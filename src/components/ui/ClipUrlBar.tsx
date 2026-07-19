@@ -130,10 +130,10 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
 
   return (
     <div
-      className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 rounded-xl z-50 animate-fadeInUp glass-panel"
+      className="ui-floating-surface ui-command-bar fixed bottom-20 left-1/2 flex items-center gap-2 rounded-xl px-3 py-2"
       style={{
-        width: 420,
-        boxShadow: 'var(--shadow-lg)',
+        width: 'min(420px, calc(100vw - 2rem))',
+        transform: 'translateX(-50%)',
       }}
     >
       <Scissors size={16} className="text-fg-primary shrink-0" />
@@ -141,7 +141,10 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
         ref={inputRef}
         value={url}
         onChange={(e) => { setUrl(e.target.value); setError('') }}
-        onKeyDown={(e) => { if (e.key === 'Enter' && !loading) handleClip() }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose()
+          if (e.key === 'Enter' && !loading) handleClip()
+        }}
         placeholder="粘贴网页链接..."
         disabled={loading}
         className="flex-1 bg-transparent outline-none text-sm text-fg-primary"
@@ -153,7 +156,7 @@ export function ClipUrlBar({ open, onClose }: ClipUrlBarProps) {
           剪藏
         </Button>
       ) : null}
-      <IconButton size="sm" variant="ghost" onClick={onClose} className="shrink-0">
+      <IconButton size="sm" variant="ghost" onClick={onClose} className="shrink-0" aria-label="关闭剪藏输入">
         <X size={14} />
       </IconButton>
       {error && (

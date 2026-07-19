@@ -27,7 +27,7 @@ export function SummaryFormatMenu({
   onClose,
 }: SummaryFormatMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const [position, setPosition] = useState<{ top: number; left: number; side: 'left' | 'right' }>({ top: 0, left: 0, side: 'right' })
 
   useEffect(() => {
     if (!triggerRef.current) return
@@ -35,10 +35,12 @@ export function SummaryFormatMenu({
     const menuWidth = 180
     const menuMarginLeft = 4
     let left = rect.right + menuMarginLeft
+    let side: 'left' | 'right' = 'right'
     if (left + menuWidth > window.innerWidth) {
       left = rect.left - menuWidth - menuMarginLeft
+      side = 'left'
     }
-    setPosition({ top: rect.top, left })
+    setPosition({ top: rect.top, left, side })
   }, [triggerRef])
 
   useEffect(() => {
@@ -64,12 +66,12 @@ export function SummaryFormatMenu({
   const menuContent = (
     <div
       ref={menuRef}
-      className="animate-fadeIn floating-menu"
+      className="ui-floating-surface ui-floating-content overflow-hidden rounded-lg py-1"
+      data-side={position.side}
       style={{
         position: 'fixed',
         top: position.top,
         left: position.left,
-        zIndex: 9999,
         minWidth: 180,
       }}
       onClick={(e) => e.stopPropagation()}

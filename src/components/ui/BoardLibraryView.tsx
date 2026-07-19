@@ -213,7 +213,7 @@ export function BoardLibraryView() {
                 <div
                   key={board.id}
                   onClick={() => handleBoardClick(board.id)}
-                  className={`group relative cursor-pointer rounded-lg bg-surface-card border border-line-default p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover ${isActive ? 'border-line-hover bg-surface-card-active' : ''}`}
+                  className={`group relative cursor-pointer rounded-lg bg-surface-card border border-line-default p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover active:translate-y-0 ${isActive ? 'border-line-hover bg-surface-card-active' : ''}`}
                 >
                   <div className="aspect-[4/3] w-full overflow-hidden rounded-md">
                     <BoardMiniMap
