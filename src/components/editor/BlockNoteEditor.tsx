@@ -6,8 +6,6 @@ import { undoDepth, redoDepth } from 'prosemirror-history'
 import { useCreateBlockNote } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import type { PartialBlock } from '@blocknote/core'
-import '@blocknote/core/fonts/inter.css'
-import '@blocknote/mantine/style.css'
 import './card-blocknote-editor.css'
 import { ImageToolbar } from './ImageToolbar'
 import { CardFormattingToolbar } from './CardFormattingToolbar'
@@ -16,6 +14,7 @@ import { CardMentionMenu } from './CardMentionMenu'
 import { TagSuggestionMenu } from './TagSuggestionMenu'
 import { useImageColumnDrop } from './useImageColumnDrop'
 import { usePosAtCoordsScalePatch } from './usePosAtCoordsScalePatch'
+import { editorElementSnapshot, editorTrace } from './editorTrace'
 import { useViewStore } from '../../stores/viewStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { isImageFile } from '../../utils/fileUtils'
@@ -54,6 +53,7 @@ export interface BlockNoteEditorProps {
   onNavigateToCard?: (cardId: string) => void
   onTagClick?: (tagName: string) => void
   cardId?: string
+  debugTraceLabel?: string
 }
 
 export type CardSelectAllStage = 0 | 1
@@ -109,7 +109,7 @@ function getProseMirrorView(editor: unknown) {
 }
 
 const CardBlockNoteEditorInner = (
-  { content, onChange, onReady, onFocus, onBlur, theme = 'light', editable = true, enforceInitialHeading = false, scrollRestorePosition, onNavigateToCard, onTagClick, cardId }: BlockNoteEditorProps,
+  { content, onChange, onReady, onFocus, onBlur, theme = 'light', editable = true, enforceInitialHeading = false, scrollRestorePosition, onNavigateToCard, onTagClick, cardId, debugTraceLabel }: BlockNoteEditorProps,
   ref: ForwardedRef<BlockNoteEditorHandle>
 ) => {
     const initialContent = useRef<unknown[] | undefined>(undefined)
@@ -124,6 +124,7 @@ const CardBlockNoteEditorInner = (
     const didNotifyReadyRef = useRef(false)
     const selectAllStepRef = useRef<CardSelectAllStage>(0)
     const isSelfUpdateRef = useRef(false)
+    const initialTraceDetailsRef = useRef({ contentLength: content.length })
 
     if (isFirstRender.current) {
       initialContent.current = parseContentToBlocks(content)
@@ -245,6 +246,17 @@ const CardBlockNoteEditorInner = (
         return true
       },
     })
+
+    useEffect(() => {
+      const root = containerRef.current?.closest<HTMLElement>('.card-editor-entry') ?? null
+      editorTrace(debugTraceLabel, 'blocknote-mounted', {
+        cardId,
+        contentLength: initialTraceDetailsRef.current.contentLength,
+        documentBlocks: editor.document.length,
+        snapshot: editorElementSnapshot(root),
+      })
+      return () => editorTrace(debugTraceLabel, 'blocknote-unmounted', { cardId })
+    }, [cardId, debugTraceLabel, editor])
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -480,10 +492,15 @@ const CardBlockNoteEditorInner = (
         () => {
           if (didNotifyReadyRef.current) return
           didNotifyReadyRef.current = true
+          const root = containerRef.current?.closest<HTMLElement>('.card-editor-entry') ?? null
+          editorTrace(debugTraceLabel, 'blocknote-ready-layout-frame-fired', {
+            documentBlocks: editor.document.length,
+            snapshot: editorElementSnapshot(root),
+          })
           onReadyRef.current?.()
         },
       )
-    }, [editor])
+    }, [debugTraceLabel, editor])
 
     const handleChange = useCallback(() => {
       isSelfUpdateRef.current = true
@@ -526,8 +543,12 @@ const CardBlockNoteEditorInner = (
       const currentComparable = toComparableJson(editor.document)
       const nextComparable = toComparableJson(nextBlocks ?? [])
 
-      if (currentComparable === nextComparable) return
-      if (editable && editor.isFocused()) return
+      if (currentComparable === nextComparable) {
+        return
+      }
+      if (editable && editor.isFocused()) {
+        return
+      }
 
       const currentIds = editor.document.map((block) => block.id)
       const replacement = nextBlocks && nextBlocks.length > 0
@@ -535,9 +556,13 @@ const CardBlockNoteEditorInner = (
         : [{ type: 'paragraph' }]
 
       if (currentIds.length > 0) {
+        editorTrace(debugTraceLabel, 'blocknote-external-content-replacing', {
+          currentBlocks: currentIds.length,
+          replacementBlocks: replacement.length,
+        })
         editor.replaceBlocks(currentIds, replacement as PartialBlock[])
       }
-    }, [content, editor, editable])
+    }, [content, debugTraceLabel, editor, editable])
 
     useEffect(() => {
       const el = containerRef.current

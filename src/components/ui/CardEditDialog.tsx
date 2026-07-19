@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 import { useCardStore } from '../../stores/cardStore'
 import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
@@ -7,10 +7,16 @@ import { X, Trash2 } from 'lucide-react'
 import { clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
 import { CARD_COLORS, type CardColor } from '../../types/card'
 import { CardEditorEntry } from '../editor/CardEditorEntry'
+import { editorTrace } from '../editor/editorTrace'
 import { Dialog, DialogContent, DialogTitle } from './shadcn/dialog'
 
-const MORPH_DURATION_MS = 220
-const MORPH_EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+type DialogPhase = 'morphing' | 'settling' | 'editing'
+const MORPH_FALLBACK_MS = 420
+const DIALOG_PHASE_ORDER: Record<DialogPhase, number> = {
+  morphing: 0,
+  settling: 1,
+  editing: 2,
+}
 
 interface CardEditDialogProps {
   cardId: string
@@ -19,13 +25,95 @@ interface CardEditDialogProps {
 }
 
 export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null)
   const returnFocusRef = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : document.activeElement as HTMLElement | null)
+  const traceLabel = `dialog:${cardId}`
   const isDarkMode = useIsDarkMode()
   const card = useCardStore(s => s.cards[cardId])
   const updateCard = useCardStore(s => s.updateCard)
   const softDeleteCard = useCardStore(s => s.softDeleteCard)
   const addItem = useTrashStore(s => s.addItem)
+  const prefersReducedMotion = typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const [phase, setPhase] = useState<DialogPhase>(() => prefersReducedMotion ? 'editing' : 'morphing')
+  const phaseRef = useRef(phase)
+  const initialDialogTraceRef = useRef({
+    cardPresent: Boolean(card),
+    contentLength: card?.content.length ?? 0,
+    previewHTMLLength: card?.previewHTML?.length ?? 0,
+  })
+
+  const advancePhase = useCallback((nextPhase: DialogPhase, reason: string) => {
+    const currentPhase = phaseRef.current
+    const accepted = DIALOG_PHASE_ORDER[nextPhase] > DIALOG_PHASE_ORDER[currentPhase]
+    editorTrace(traceLabel, 'dialog-phase-transition-requested', {
+      from: currentPhase,
+      to: nextPhase,
+      reason,
+      accepted,
+    })
+    if (!accepted) return
+    phaseRef.current = nextPhase
+    setPhase(nextPhase)
+  }, [traceLabel])
+
+  useEffect(() => {
+    editorTrace(traceLabel, 'dialog-mounted', {
+      cardId,
+      prefersReducedMotion,
+      ...initialDialogTraceRef.current,
+      sourceRect: sourceRect ? {
+        x: sourceRect.x,
+        y: sourceRect.y,
+        width: sourceRect.width,
+        height: sourceRect.height,
+      } : null,
+    })
+    return () => editorTrace(traceLabel, 'dialog-unmounted', { cardId })
+  }, [cardId, prefersReducedMotion, sourceRect, traceLabel])
+
+  useEffect(() => {
+    if (phase !== 'morphing') return
+    const timer = window.setTimeout(() => {
+      editorTrace(traceLabel, 'dialog-morph-fallback-fired')
+      advancePhase('settling', 'morph-fallback')
+    }, MORPH_FALLBACK_MS)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [advancePhase, phase, traceLabel])
+
+  useEffect(() => {
+    if (phase !== 'settling') return
+
+    let idleId: number | null = null
+    const frameId = window.requestAnimationFrame(() => {
+      idleId = window.requestIdleCallback(
+        (deadline) => {
+          editorTrace(traceLabel, 'dialog-editor-idle-fired', {
+            didTimeout: deadline.didTimeout,
+            timeRemaining: Number(deadline.timeRemaining().toFixed(2)),
+          })
+          advancePhase('editing', 'idle-editor-mount')
+        },
+        { timeout: 240 },
+      )
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      if (idleId !== null) window.cancelIdleCallback(idleId)
+    }
+  }, [advancePhase, phase, traceLabel])
+
+  const handleMorphEnd = useCallback((event: React.AnimationEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return
+    if (event.animationName !== 'card-edit-dialog-source-morph') return
+    editorTrace(traceLabel, 'dialog-morph-animation-ended', {
+      animationName: event.animationName,
+      elapsedTimeMs: Number((event.elapsedTime * 1000).toFixed(2)),
+    })
+    advancePhase('settling', 'morph-animation-end')
+  }, [advancePhase, traceLabel])
 
   const handleChange = useCallback((content: string) => {
     clearProseMirrorSuppression(cardId)
@@ -52,52 +140,31 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
 
   const centerX = (window.innerWidth - dialogWidth) / 2
   const centerY = (window.innerHeight - dialogHeight) / 2
-  const hasCard = card !== undefined
+  const sourceTransform = sourceRect
+    ? `translate(${sourceRect.left - centerX}px, ${sourceRect.top - centerY}px) scale(${sourceRect.width / dialogWidth}, ${sourceRect.height / dialogHeight})`
+    : 'translate(0, 8px) scale(0.98)'
 
-  const finalDialogStyle = {
+  const finalDialogStyle: CSSProperties & { '--card-dialog-source-transform': string } = {
     top: centerY,
     left: centerX,
     width: dialogWidth,
     height: dialogHeight,
     borderRadius: 16,
+    '--card-dialog-source-transform': sourceTransform,
   }
 
-  useLayoutEffect(() => {
-    if (!hasCard) return
-    const dialog = dialogRef.current
-    if (!dialog || typeof dialog.animate !== 'function') return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    if (!sourceRect) return
-
-    const animation = dialog.animate(
-        [
-          {
-            opacity: 0.92,
-            transform: `translate(${sourceRect.left - centerX}px, ${sourceRect.top - centerY}px) scale(${sourceRect.width / dialogWidth}, ${sourceRect.height / dialogHeight})`,
-            borderRadius: '10px',
-          },
-          {
-            opacity: 1,
-            transform: 'translate(0, 0) scale(1)',
-            borderRadius: '16px',
-          },
-        ],
-        { duration: MORPH_DURATION_MS, easing: MORPH_EASING, fill: 'both' },
-      )
-
-    return () => animation.cancel()
-  }, [centerX, centerY, dialogHeight, dialogWidth, hasCard, sourceRect])
-
   if (!card) return null
+  const visibleTitle = card.title?.trim()
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) handleCloseWithSnapshot() }}>
       <DialogContent
-        ref={dialogRef}
         size="lg"
         showCloseButton={false}
         aria-describedby={undefined}
-        className="flex max-w-none flex-col gap-0 overflow-hidden p-0"
+        data-card-dialog-phase={phase}
+        className="card-edit-dialog-motion flex max-w-none flex-col gap-0 overflow-hidden p-0"
+        onAnimationEnd={handleMorphEnd}
         style={{
           ...finalDialogStyle,
           maxWidth: 'none',
@@ -105,21 +172,39 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
           transform: 'none',
           transformOrigin: 'top left',
           boxShadow: 'var(--shadow-xl)',
-          backgroundColor: 'var(--surface-card)',
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault()
           requestAnimationFrame(() => returnFocusRef.current?.focus())
         }}
       >
-          <div
-            className="flex items-center justify-between px-5 py-3 border-b shrink-0 border-line-default"
-          >
-            <DialogTitle className="truncate text-sm font-medium text-fg-primary">
-              {card.title || '无标题'}
-            </DialogTitle>
-            <div className="flex items-center gap-2">
+          <div className={`card-edit-dialog-toolbar ${visibleTitle ? '' : 'card-edit-dialog-toolbar-no-title'}`}>
+            {visibleTitle ? (
+              <DialogTitle className="card-edit-dialog-title">{visibleTitle}</DialogTitle>
+            ) : (
+              <DialogTitle className="sr-only">编辑卡片</DialogTitle>
+            )}
+            <div className="card-edit-dialog-actions">
+              <div className="card-edit-dialog-palette" role="group" aria-label="卡片颜色">
+                {(Object.keys(CARD_COLORS) as CardColor[]).map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`切换为 ${color} 色`}
+                    aria-pressed={card.color === color}
+                    onClick={() => handleColorChange(color)}
+                    className="card-edit-dialog-swatch"
+                    style={{
+                      backgroundColor: isDarkMode ? CARD_COLORS[color].fillDark : CARD_COLORS[color].fillLight,
+                      borderColor: CARD_COLORS[color].stroke,
+                      color: CARD_COLORS[color].stroke,
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="card-edit-dialog-toolbar-divider" aria-hidden="true" />
               <button
+                type="button"
                 onClick={() => {
                   if (window.confirm(`确定删除卡片「${card.title || '无标题'}」？`)) {
                     softDeleteCard(cardId)
@@ -137,36 +222,23 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
                     handleCloseWithSnapshot()
                   }
                 }}
-                className="btn-base btn-danger flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm"
+                className="btn-base btn-danger card-edit-dialog-delete"
               >
                 <Trash2 size={14} />
-                删除
+                <span className="card-edit-dialog-delete-label">删除</span>
               </button>
               <button
+                type="button"
                 onClick={handleCloseWithSnapshot}
-                className="btn-base p-2 rounded-lg text-fg-secondary"
+                className="btn-base card-edit-dialog-close"
+                aria-label="关闭"
               >
-                <X size={18} />
+                <X size={17} />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-5 py-2 border-b border-line-default">
-            {(Object.keys(CARD_COLORS) as CardColor[]).map((color) => (
-              <button
-                key={color}
-                onClick={() => handleColorChange(color)}
-                className="w-6 h-6 rounded-full border-2 transition-all cursor-pointer"
-                style={{
-                  backgroundColor: isDarkMode ? CARD_COLORS[color].fillDark : CARD_COLORS[color].fillLight,
-                  borderColor: card.color === color ? CARD_COLORS[color].stroke : 'transparent',
-                  boxShadow: card.color === color ? `0 0 0 2px ${CARD_COLORS[color].stroke}` : 'none',
-                }}
-              />
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-auto p-4">
+          <div className="card-edit-dialog-body">
             <CardEditorEntry
               entryKey={cardId}
               cardId={cardId}
@@ -174,6 +246,9 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
               previewHTML={card.previewHTML}
               onChange={handleChange}
               onFocus={handleEditorFocus}
+              mountEditor={phase === 'editing'}
+              revealAfterPaint
+              debugTraceLabel={traceLabel}
               editable
               theme={isDarkMode ? 'dark' : 'light'}
             />

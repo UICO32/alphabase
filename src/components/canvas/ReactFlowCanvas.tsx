@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useCallback, useRef, useEffect, useSyncExternalStore, useMemo } from 'react'
+import { lazy, Suspense, useState, useCallback, useRef, useEffect, useLayoutEffect, useSyncExternalStore, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import DOMPurify from 'dompurify'
 import {
@@ -27,6 +27,7 @@ import { useThemeStore } from '../../stores/themeStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { useCardStore } from '../../stores/cardStore'
 import { useBoardStore } from '../../stores/boardStore'
+import { useCanvasPresenceStore } from '../../stores/canvasPresenceStore'
 import { emit } from '../../stores/eventBus'
 import { MemoizedConnectionEdge } from './ConnectionEdge'
 import { CustomConnectionLine, setNodesRef } from './CustomConnectionLine'
@@ -88,6 +89,7 @@ export function ReactFlowCanvas() {
   const previewZoomThreshold = useLibraryStore(s => s.previewZoomThreshold)
   const densityOverviewZoomThreshold = useLibraryStore(s => s.densityOverviewZoomThreshold)
   const boards = useBoardStore((s) => s.boards)
+  const activeBoardId = useBoardStore((s) => s.activeBoardId)
   const allCards = useCardStore((s) => s.cards)
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
@@ -95,6 +97,7 @@ export function ReactFlowCanvas() {
   const edgesRef = useRef<Edge[]>(edges)
   const spatialIndex = useMemo(() => createCanvasSpatialIndex(nodes), [nodes])
   const spatialIndexRef = useRef(spatialIndex)
+  const presenceBoardIdRef = useRef<string | null>(null)
 
   const { record, undo, redo, clear } = useHistory({ maxHistory: 20 })
 
@@ -102,6 +105,32 @@ export function ReactFlowCanvas() {
   useEffect(() => { edgesRef.current = edges }, [edges])
   useEffect(() => { spatialIndexRef.current = spatialIndex }, [spatialIndex])
   useEffect(() => { setNodesRef(nodes) }, [nodes])
+  useLayoutEffect(() => {
+    const presenceStore = useCanvasPresenceStore.getState()
+    if (!activeBoardId) {
+      presenceBoardIdRef.current = null
+      presenceStore.clearCanvasPresence()
+      return
+    }
+
+    if (presenceBoardIdRef.current !== activeBoardId) {
+      presenceBoardIdRef.current = activeBoardId
+      presenceStore.clearCanvasPresence()
+      return
+    }
+
+    const cardIds = new Set<string>()
+    for (const node of nodes) {
+      if (node.type !== 'card') continue
+      const cardId = (node.data as Record<string, unknown>)?.cardId
+      if (typeof cardId === 'string' && cardId) cardIds.add(cardId)
+    }
+    presenceStore.setCanvasPresence(activeBoardId, cardIds)
+  }, [activeBoardId, nodes])
+
+  useEffect(() => () => {
+    useCanvasPresenceStore.getState().clearCanvasPresence()
+  }, [])
 
   // 合并 RAF 清理到 nodesRef 的 effect 中，避免单独的 cleanup effect
   const rafRef = useRef<number | null>(null)

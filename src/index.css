@@ -317,6 +317,214 @@ html, body, #root {
   will-change: opacity, translate;
 }
 
+.ui-dialog-content.card-edit-dialog-motion[data-state='open'] {
+  animation: card-edit-dialog-source-morph 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top left;
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
+.card-edit-dialog-motion {
+  container-type: inline-size;
+  background: hsl(0 0% 100%) !important;
+  border-color: hsl(0 0% 88%);
+}
+
+[data-theme='dark'] .card-edit-dialog-motion {
+  background: hsl(0 0% 12%) !important;
+  border-color: hsl(0 0% 23%);
+}
+
+.card-edit-dialog-toolbar {
+  display: flex;
+  min-height: 58px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 18px;
+  padding: 11px 14px 11px 20px;
+  border-bottom: 1px solid var(--line-default);
+  background: inherit;
+}
+
+.card-edit-dialog-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--fg-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-edit-dialog-actions {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.card-edit-dialog-toolbar-no-title .card-edit-dialog-actions {
+  width: 100%;
+  margin-left: 0;
+}
+
+.card-edit-dialog-palette {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 3px;
+}
+
+.card-edit-dialog-swatch {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  border: 1px solid;
+  border-radius: 999px;
+  opacity: 0.72;
+  transition: opacity 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.card-edit-dialog-swatch:hover {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.card-edit-dialog-swatch[aria-pressed='true'] {
+  opacity: 1;
+  box-shadow: 0 0 0 2px hsl(0 0% 100%), 0 0 0 3px currentColor;
+  transform: scale(1.04);
+}
+
+[data-theme='dark'] .card-edit-dialog-swatch[aria-pressed='true'] {
+  box-shadow: 0 0 0 2px hsl(0 0% 12%), 0 0 0 3px currentColor;
+}
+
+.card-edit-dialog-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  flex: 0 0 auto;
+  background: var(--line-default);
+}
+
+.card-edit-dialog-delete,
+.card-edit-dialog-close {
+  display: inline-flex;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  white-space: nowrap;
+}
+
+.card-edit-dialog-delete {
+  gap: 6px;
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.card-edit-dialog-close {
+  width: 34px;
+  padding: 0;
+  color: var(--fg-secondary);
+}
+
+.card-edit-dialog-close:hover {
+  background: var(--surface-card-hover);
+  color: var(--fg-primary);
+}
+
+.card-edit-dialog-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 24px 28px 28px;
+  background: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.card-edit-dialog-body .card-editor-entry__preview,
+.card-edit-dialog-body .card-blocknote-editor {
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+
+.card-edit-dialog-body .card-editor-entry__preview {
+  z-index: 2;
+  background: hsl(0 0% 100%);
+}
+
+[data-theme='dark'] .card-edit-dialog-body .card-editor-entry__preview {
+  background: hsl(0 0% 12%);
+}
+
+.card-edit-dialog-body .card-editor-entry[data-editor-entry-phase='ready'] .card-editor-entry__editor {
+  opacity: 1;
+  pointer-events: none;
+}
+
+.card-edit-dialog-body .bn-block-outer,
+.card-edit-dialog-body .bn-block-content,
+.card-edit-dialog-body .bn-block-content::before,
+.card-edit-dialog-body .bn-block-group,
+.card-edit-dialog-body .bn-inline-content {
+  animation: none !important;
+  transition: none !important;
+}
+
+@container (max-width: 560px) {
+  .card-edit-dialog-toolbar {
+    gap: 10px;
+    padding-inline: 12px 10px;
+  }
+
+  .card-edit-dialog-delete {
+    width: 34px;
+    padding: 0;
+  }
+
+  .card-edit-dialog-delete-label {
+    display: none;
+  }
+
+  .card-edit-dialog-body {
+    padding: 20px;
+  }
+}
+
+.ui-dialog-overlay:has(+ .card-edit-dialog-motion[data-state='open']) {
+  animation: card-edit-dialog-backdrop-in 180ms ease-out both;
+}
+
+@keyframes card-edit-dialog-source-morph {
+  from {
+    opacity: 0.96;
+    transform: var(--card-dialog-source-transform);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes card-edit-dialog-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes ui-floating-from-top {
   from { opacity: 0; translate: 0 calc(-1 * var(--ui-floating-distance)); }
   to { opacity: 1; translate: 0 0; }
@@ -348,6 +556,15 @@ html, body, #root {
   z-index: var(--z-overlay);
   background: color-mix(in srgb, var(--surface-overlay) 72%, transparent);
   animation: workspace-overlay-in var(--duration-normal) var(--ease-out) both;
+}
+
+/* Let native card drags leave the narrow Radix drawer and reach the canvas. */
+html[data-card-library-dragging='true'] body {
+  pointer-events: auto !important;
+}
+
+html[data-card-library-dragging='true'] .workspace-drawer-overlay {
+  pointer-events: none !important;
 }
 
 .workspace-drawer {
@@ -437,6 +654,11 @@ html, body, #root {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ui-dialog-content.card-edit-dialog-motion[data-state='open'] {
+    animation-duration: 1ms !important;
+    transform: none !important;
+  }
+
   .ui-floating-content,
   .ui-tooltip-content,
   .ui-command-bar {

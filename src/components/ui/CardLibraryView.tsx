@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { useFloating, useClick, useDismiss, useInteractions, offset, flip } from '@floating-ui/react'
 import { useCardStore } from '../../stores/cardStore'
+import { useBoardStore } from '../../stores/boardStore'
+import { useCanvasPresenceStore } from '../../stores/canvasPresenceStore'
 import { useLibraryStore, type SortBy, type SearchMode } from '../../stores/libraryStore'
 import { useViewStore } from '../../stores/viewStore'
 import { useEmbeddingStore } from '../../stores/embeddingStore'
@@ -11,6 +13,7 @@ import { EmptyState } from './SharedUI'
 import { CardEditDialog } from './CardEditDialog'
 import { CardLibraryRelevanceButton } from './CardLibraryRelevanceButton'
 import { buildCardPreviewSemantics } from './cardPreview/previewSemantics'
+import { emit } from '../../stores/eventBus'
 import { GalleryVerticalEnd, RefreshCw, Loader2, ChevronDown, X } from 'lucide-react'
 
 interface CardLibraryViewProps {
@@ -64,11 +67,13 @@ const IMAGE_ROTATIONS = [0, -6, 6]
 const CardItem = memo(function CardItem({
   card,
   score,
+  isOnCanvas,
   onDragStart,
   onClick,
 }: {
   card: { id: string; content: string; title?: string; previewHTML?: string; updatedAt?: number; createdAt: number }
   score: number | undefined
+  isOnCanvas: boolean
   onDragStart: (e: React.DragEvent, cardId: string) => void
   onClick: (e: React.MouseEvent) => void
 }) {
@@ -89,9 +94,14 @@ const CardItem = memo(function CardItem({
 
   return (
     <div
-      draggable
+      data-on-canvas={isOnCanvas ? 'true' : 'false'}
+      aria-disabled={isOnCanvas}
+      draggable={!isOnCanvas}
+      title={isOnCanvas ? '已置入画布，点击定位' : undefined}
       onDragStart={(e) => {
+        if (isOnCanvas) return
         onDragStart(e, card.id)
+        document.documentElement.dataset.cardLibraryDragging = 'true'
         // 先 clone 再加虚线类，避免 ghost 复制到虚线样式
         const rect = e.currentTarget.getBoundingClientRect()
         const ghost = e.currentTarget.cloneNode(true) as HTMLElement
@@ -132,13 +142,19 @@ const CardItem = memo(function CardItem({
         ;(e.currentTarget as HTMLElement).classList.add('card-item-floating')
       }}
       onDragEnd={(e) => {
+        if (isOnCanvas) return
+        delete document.documentElement.dataset.cardLibraryDragging
         const el = e.currentTarget as HTMLElement
         el.classList.remove('card-item-floating')
         el.classList.add('card-item-returning')
         el.addEventListener('animationend', () => el.classList.remove('card-item-returning'), { once: true })
       }}
       onClick={onClick}
-      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line-default bg-surface-card p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-line-hover active:translate-y-px active:cursor-grabbing"
+      className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-line-default bg-surface-card p-2.5 transition-all duration-200 ${
+        isOnCanvas
+          ? 'cursor-default opacity-[0.48] grayscale-[0.55] hover:border-line-default'
+          : 'hover:-translate-y-0.5 hover:border-line-hover active:translate-y-px active:cursor-grabbing'
+      }`}
       style={{ aspectRatio: '1/1' }}
     >
       {/* Title row — truncate with ellipsis, time right */}
@@ -206,6 +222,9 @@ const CardItem = memo(function CardItem({
 
 export function CardLibraryView({ onOpenSettings, compact = false }: CardLibraryViewProps) {
   const cards = useCardStore(s => s.cards)
+  const activeBoardId = useBoardStore(s => s.activeBoardId)
+  const presenceBoardId = useCanvasPresenceStore(s => s.boardId)
+  const canvasCardIds = useCanvasPresenceStore(s => s.cardIds)
   const syncing = useFlomoSyncStore(s => s.syncing)
   const accessToken = useFlomoSyncStore(s => s.accessToken)
   const sync = useFlomoSyncStore(s => s.sync)
@@ -405,10 +424,16 @@ if (searchQuery.trim()) {
     sync()
   }
 
-  const handleClick = useCallback((e: React.MouseEvent, cardId: string) => {
+  const handleClick = useCallback((e: React.MouseEvent, cardId: string, isOnCanvas: boolean) => {
+    if (isOnCanvas) {
+      emit('focus-card', { cardId })
+      return
+    }
     setSourceRect(e.currentTarget.getBoundingClientRect())
     setEditingResultId(cardId)
   }, [])
+
+  const hasCurrentCanvasPresence = activeBoardId !== null && presenceBoardId === activeBoardId
 
   return (
     <div className="w-full h-full overflow-y-auto">
@@ -684,7 +709,9 @@ if (searchQuery.trim()) {
           />
         ) : (
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
-            {renderedCards.map((card, index) => (
+            {renderedCards.map((card, index) => {
+              const isOnCanvas = hasCurrentCanvasPresence && canvasCardIds.has(card.id)
+              return (
               <div
                 key={card.id}
                 className={isInitialReveal && index < 12 ? 'card-library-card-reveal' : undefined}
@@ -693,11 +720,13 @@ if (searchQuery.trim()) {
                 <CardItem
                   card={card}
                   score={searchScores[card.id]}
+                  isOnCanvas={isOnCanvas}
                   onDragStart={handleDragStart}
-                  onClick={(e) => handleClick(e, card.id)}
+                  onClick={(e) => handleClick(e, card.id, isOnCanvas)}
                 />
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
