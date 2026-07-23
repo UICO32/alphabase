@@ -75,3 +75,66 @@ test('card library controls wrap without collapsing labels vertically', async ({
   }
   expect(geometry[2].box!.y).toBeGreaterThanOrEqual(geometry[0].box!.y)
 })
+
+test('narrow card library drag reaches the canvas through the drawer overlay', async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 800 })
+  await enterWorkspaceShell(page)
+
+  const canvasNodes = page.locator('.react-flow__node')
+  const initialNodeCount = await canvasNodes.count()
+  await page.locator('button[aria-label="添加卡片"]').click()
+  await expect(canvasNodes).toHaveCount(initialNodeCount + 1)
+
+  const openRightPanel = page.locator('button[aria-label="打开右侧面板"]')
+  if (await openRightPanel.isVisible().catch(() => false)) await openRightPanel.click()
+  const drawer = page.locator('.workspace-drawer-right')
+  await expect(drawer).toBeVisible()
+  await drawer.locator('[role="tab"]').first().click()
+  const source = drawer.locator('[draggable="true"]').first()
+  await expect(source).toBeVisible()
+
+  const dragResult = await source.evaluate((element) => {
+    const sourceElement = element as HTMLElement
+    const sourceRect = sourceElement.getBoundingClientRect()
+    const dataTransfer = new DataTransfer()
+    sourceElement.dispatchEvent(new DragEvent('dragstart', {
+      bubbles: true,
+      cancelable: true,
+      clientX: sourceRect.left + 20,
+      clientY: sourceRect.top + 20,
+      dataTransfer,
+      altKey: true,
+    }))
+
+    const target = document.elementFromPoint(40, 300) as HTMLElement | null
+    target?.dispatchEvent(new DragEvent('dragover', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 40,
+      clientY: 300,
+      dataTransfer,
+    }))
+    target?.dispatchEvent(new DragEvent('drop', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 40,
+      clientY: 300,
+      dataTransfer,
+    }))
+
+    const result = {
+      bodyPointerEvents: getComputedStyle(document.body).pointerEvents,
+      overlayPointerEvents: getComputedStyle(document.querySelector('.workspace-drawer-overlay') as HTMLElement).pointerEvents,
+      targetInsideCanvas: !!target?.closest('.react-flow'),
+    }
+    sourceElement.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }))
+    return result
+  })
+
+  expect(dragResult).toEqual({
+    bodyPointerEvents: 'auto',
+    overlayPointerEvents: 'none',
+    targetInsideCanvas: true,
+  })
+  await expect(canvasNodes).toHaveCount(initialNodeCount + 2)
+})

@@ -1,9 +1,19 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { useBoardStore } from '../../stores/boardStore'
+import { useViewStore } from '../../stores/viewStore'
 
 export function TitleBar() {
   const currentWorkspace = useWorkspaceStore(s => s.currentWorkspace)
+  const activeBoardId = useBoardStore(s => s.activeBoardId)
+  const boards = useBoardStore(s => s.boards)
+  const viewMode = useViewStore(s => s.viewMode)
   const [isMaximized, setIsMaximized] = useState(false)
+
+  const activeBoardName = useMemo(() => {
+    if (viewMode !== 'board' || !activeBoardId) return null
+    return boards.find(b => b.id === activeBoardId)?.name ?? null
+  }, [viewMode, activeBoardId, boards])
 
   const handleMinimize = useCallback(() => {
     window.electronAPI?.window?.minimize()
@@ -30,6 +40,14 @@ export function TitleBar() {
         <span className="text-xs truncate text-fg-secondary">
           {currentWorkspace?.name || 'Heptabase'}
         </span>
+        {activeBoardName && (
+          <>
+            <span className="text-xs text-fg-tertiary select-none">/</span>
+            <span className="text-xs truncate text-fg-primary font-medium">
+              {activeBoardName}
+            </span>
+          </>
+        )}
       </div>
       <div className="flex-1" />
 

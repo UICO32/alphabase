@@ -29,15 +29,20 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
               <button
                 onClick={onAddCard}
                 aria-label="添加卡片"
-                className="action-icon-btn"
+                className="rounded-full"
                 style={{
                   width: 34,
                   height: 34,
                   padding: 0,
                   borderRadius: 999,
-                  backgroundColor: '#000',
-                  color: '#fff',
+                  backgroundColor: 'var(--emphasis)',
+                  color: 'var(--fg-inverse)',
                   flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: 'none',
+                  cursor: 'pointer',
                 }}
               >
                 <Plus size={16} />

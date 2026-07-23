@@ -298,6 +298,126 @@ test.describe('media paste smoke', () => {
     expect(actualOffset).toBe(clickPoint.expectedDocumentOffset)
   })
 
+  test('canvas editor moves the insertion point on subsequent text clicks', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.react-flow__node', { timeout: 30000 })
+    const canvasNode = page.locator('.react-flow__node').first()
+
+    await page.locator('.react-flow__pane').hover()
+    await page.mouse.wheel(0, 400)
+    await expect.poll(async () => page.locator('.react-flow__viewport').evaluate((viewport) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(viewport).transform)
+      return Math.abs(matrix.a - 1)
+    })).toBeGreaterThan(0.05)
+
+    await canvasNode.getByText('Editor continuity sentinel', { exact: true }).click()
+    await expect(page.locator('.card-editor-entry[data-editor-entry-phase="interactive"]')).toBeVisible({ timeout: 10000 })
+
+    const secondClick = await page.locator('.card-blocknote-editor--editable .ProseMirror').evaluate((editorRoot) => {
+      const targetOffset = 20
+      const walker = document.createTreeWalker(editorRoot, NodeFilter.SHOW_TEXT)
+      let consumedText = 0
+      let textNode: Text | null
+      while ((textNode = walker.nextNode() as Text | null)) {
+        if (textNode.textContent === 'Editor continuity sentinel') {
+          const range = document.createRange()
+          range.setStart(textNode, targetOffset - 1)
+          range.setEnd(textNode, targetOffset)
+          const rect = range.getBoundingClientRect()
+          return {
+            x: rect.left + rect.width * 0.75,
+            y: (rect.top + rect.bottom) / 2,
+            expectedDocumentOffset: consumedText + targetOffset,
+          }
+        }
+        consumedText += textNode.textContent?.length ?? 0
+      }
+      throw new Error('sentinel editor text node not found')
+    })
+
+    await page.mouse.click(secondClick.x, secondClick.y)
+
+    const actualOffset = await page.evaluate(() => {
+      const selection = window.getSelection()
+      const anchorNode = selection?.anchorNode
+      if (!selection || !anchorNode) return -1
+      const editorRoot = (anchorNode.nodeType === Node.ELEMENT_NODE
+        ? anchorNode as Element
+        : anchorNode.parentElement)?.closest('.ProseMirror')
+      if (!editorRoot) return -1
+      const prefix = document.createRange()
+      prefix.selectNodeContents(editorRoot)
+      prefix.setEnd(anchorNode, selection.anchorOffset)
+      return prefix.toString().length
+    })
+    expect(actualOffset).toBeGreaterThanOrEqual(secondClick.expectedDocumentOffset - 1)
+    expect(actualOffset).toBeLessThanOrEqual(secondClick.expectedDocumentOffset)
+  })
+
+  test('canvas editor text drag does not move the card', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.react-flow__node', { timeout: 30000 })
+    const canvasNode = page.locator('.react-flow__node').first()
+    await canvasNode.getByText('Editor continuity sentinel', { exact: true }).click()
+    await expect(page.locator('.card-editor-entry[data-editor-entry-phase="interactive"]')).toBeVisible({ timeout: 10000 })
+    const proseMirror = page.locator('.card-blocknote-editor--editable .ProseMirror')
+    await expect(proseMirror).toBeFocused()
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+
+    const nodeTransformBefore = await canvasNode.evaluate(node => getComputedStyle(node).transform)
+    const dragPoints = await proseMirror.evaluate((editorRoot) => {
+      const walker = document.createTreeWalker(editorRoot, NodeFilter.SHOW_TEXT)
+      let textNode: Text | null
+      while ((textNode = walker.nextNode() as Text | null)) {
+        if (textNode.textContent === 'Editor continuity sentinel') {
+          const start = document.createRange()
+          start.setStart(textNode, 3)
+          start.setEnd(textNode, 4)
+          const end = document.createRange()
+          end.setStart(textNode, 20)
+          end.setEnd(textNode, 21)
+          const startRect = start.getBoundingClientRect()
+          const endRect = end.getBoundingClientRect()
+          return {
+            startX: startRect.left + startRect.width / 2,
+            startY: (startRect.top + startRect.bottom) / 2,
+            endX: endRect.left + endRect.width / 2,
+            endY: (endRect.top + endRect.bottom) / 2,
+          }
+        }
+      }
+      throw new Error('sentinel editor text node not found')
+    })
+
+    await page.mouse.move(dragPoints.startX, dragPoints.startY)
+    await page.mouse.down()
+    await page.waitForTimeout(50)
+    await page.mouse.move(dragPoints.endX, dragPoints.endY, { steps: 8 })
+    await page.mouse.up()
+
+    expect(await canvasNode.evaluate(node => getComputedStyle(node).transform)).toBe(nodeTransformBefore)
+  })
+
+  test('canvas editor keeps the card header as its drag handle', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForSelector('.react-flow__node', { timeout: 30000 })
+    const canvasNode = page.locator('.react-flow__node').first()
+    await canvasNode.getByText('Editor continuity sentinel', { exact: true }).click()
+    await expect(page.locator('.card-editor-entry[data-editor-entry-phase="interactive"]')).toBeVisible({ timeout: 10000 })
+
+    const transformBefore = await canvasNode.evaluate(node => getComputedStyle(node).transform)
+    const header = canvasNode.locator('.card-drag-handle')
+    const box = await header.boundingBox()
+    if (!box) throw new Error('card drag handle is not visible')
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2 + 30, { steps: 8 })
+    await page.mouse.up()
+
+    await expect.poll(() => canvasNode.evaluate(node => getComputedStyle(node).transform)).not.toBe(transformBefore)
+  })
+
   test('side editor preserves content while its BlockNote instance mounts', async ({ page }) => {
     await page.goto('/')
     await page.waitForSelector('.react-flow__node', { timeout: 30000 })
@@ -334,7 +454,9 @@ test.describe('media paste smoke', () => {
       if (!target) throw new Error('editable target not found')
       target.focus()
 
-      const blob = await fetch(url).then((response) => response.blob())
+      const encoded = url.slice(url.indexOf(',') + 1)
+      const bytes = Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0))
+      const blob = new Blob([bytes], { type: 'image/png' })
       const file = new File([blob], 'tiny.png', { type: 'image/png' })
       const dataTransfer = new DataTransfer()
       dataTransfer.items.add(file)

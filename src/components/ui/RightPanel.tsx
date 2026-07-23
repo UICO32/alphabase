@@ -178,8 +178,8 @@ export function RightPanel({ integratedSurface = false, mode = 'wide', open, onO
         onWheel={handleWheel}
       >
         {mode !== 'narrow' && <div
-          className="absolute left-0 top-0 bottom-0 z-20 cursor-col-resize"
-          style={{ width: 4 }}
+          className="absolute -left-1 top-0 bottom-0 z-20 cursor-col-resize"
+          style={{ width: 8 }}
           onPointerDown={handleResizeStart}
         />}
 
@@ -259,9 +259,10 @@ export function RightPanel({ integratedSurface = false, mode = 'wide', open, onO
 	            />
 	          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-fg-secondary">
+          <div className="flex flex-col items-center justify-center h-full animate-fadeIn text-fg-secondary px-6 text-center">
             <FileText size={48} className="mb-4 opacity-30" />
-            <p className="text-sm">选择卡片进行编辑</p>
+            <p className="text-sm mb-1">选择卡片进行编辑</p>
+            <p className="text-xs text-fg-tertiary">拖拽或点击画布上的卡片即可开始编辑</p>
           </div>
         )}
       </div>

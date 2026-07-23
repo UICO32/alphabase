@@ -24,9 +24,11 @@ describe('editor entry wiring', () => {
 
   it('keeps the card dialog transform animation native and reduced-motion aware', () => {
     expect(dialogSource).not.toContain("from 'motion/react'")
-    expect(dialogSource).toContain('.animate(')
+    expect(dialogSource).toContain('card-edit-dialog-motion')
+    expect(dialogSource).toContain('onAnimationEnd={handleMorphEnd}')
     expect(dialogSource).toContain('prefers-reduced-motion: reduce')
-    expect(dialogSource).toContain('transform: `translate(')
+    expect(dialogSource).toContain('const sourceTransform = sourceRect')
+    expect(dialogSource).toContain('`translate(${sourceRect.left - centerX}px')
     expect(dialogSource).not.toContain('top: `${sourceRect.top}px`')
     expect(dialogSource).not.toContain('width: `${sourceRect.width}px`')
   })

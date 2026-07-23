@@ -61,10 +61,31 @@ test('command bar and card editor remain viewport-safe and dismiss with Escape',
   await page.getByRole('tab', { name: '卡片库' }).click()
   const card = page.locator('[draggable="true"]').first()
   await expect(card).toBeVisible()
+  expect(await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(false)
   await card.click()
 
-  const editorDialog = page.locator('.ui-dialog-content').last()
+  const editorDialog = page.locator('.ui-dialog-content').filter({ has: page.locator('.card-blocknote-editor') })
   await expect(editorDialog).toBeVisible()
+  const cardDialogMotion = await editorDialog.evaluate((element) => {
+    const contentStyle = getComputedStyle(element)
+    const overlayStyle = element.previousElementSibling
+      ? getComputedStyle(element.previousElementSibling)
+      : null
+    return {
+      contentAnimationName: contentStyle.animationName,
+      contentAnimationDuration: contentStyle.animationDuration,
+      overlayAnimationName: overlayStyle?.animationName,
+      overlayAnimationDuration: overlayStyle?.animationDuration,
+      sourceTransform: contentStyle.getPropertyValue('--card-dialog-source-transform'),
+    }
+  })
+  expect(cardDialogMotion).toEqual({
+    contentAnimationName: 'card-edit-dialog-source-morph',
+    contentAnimationDuration: '0.5s',
+    overlayAnimationName: 'card-edit-dialog-backdrop-in',
+    overlayAnimationDuration: '0.25s',
+    sourceTransform: expect.stringContaining('scale('),
+  })
   await expect.poll(() => editorDialog.evaluate((element) =>
     element.getAnimations().every((animation) => animation.playState === 'finished'),
   )).toBe(true)
