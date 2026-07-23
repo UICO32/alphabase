@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { getRegisteredWorkspacePaths, isPathWithinWorkspace, registerWorkspacePath, unregisterWorkspacePath } from './workspacePaths'
+import { getRegisteredWorkspacePaths, isPathWithinWorkspace, isRegisteredWorkspaceRoot, registerWorkspacePath, unregisterWorkspacePath } from './workspacePaths'
 
 describe('workspace path authorization', () => {
   const workspace = `C:\\workspace-security-${Date.now()}`
@@ -113,5 +113,18 @@ describe('workspace path authorization with real paths', () => {
     const { workspace } = createWorkspace()
 
     expect(isPathWithinWorkspace(join(workspace.toUpperCase(), 'MISSING', 'card.json'))).toBe(true)
+  })
+
+  it('recognizes only the exact registered workspace root', () => {
+    const { workspace } = createWorkspace()
+
+    expect(isRegisteredWorkspaceRoot(workspace)).toBe(true)
+    expect(isRegisteredWorkspaceRoot(join(workspace, 'cards'))).toBe(false)
+  })
+
+  it.skipIf(process.platform !== 'win32')('recognizes a case variant of a registered Windows root', () => {
+    const { workspace } = createWorkspace()
+
+    expect(isRegisteredWorkspaceRoot(workspace.toUpperCase())).toBe(true)
   })
 })

@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { restoreFromBackup, getBackupBasePath } from './backupStore'
+import {
+  createFileSystemBackup,
+  getBackupBasePath,
+  getFileSystemBackupSummary,
+  listFileSystemBackups,
+  restoreFromBackup,
+} from './backupStore'
 
 // Mock fs module
 vi.mock('../utils/workspace/fs', () => ({
@@ -24,6 +30,7 @@ vi.mocked(writeFile)
 describe('backupStore', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Reflect.deleteProperty(window, 'electronAPI')
   })
 
   describe('getBackupBasePath', () => {
@@ -53,6 +60,55 @@ describe('backupStore', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('disk error')
+    })
+  })
+
+  describe('Electron backup compatibility', () => {
+    it('forwards automatic backup creation while preserving the legacy string result', async () => {
+      const createAutomatic = vi.fn().mockResolvedValue({ success: true, path: 'D:/workspace/.backups/123' })
+      window.electronAPI = { backup: {
+        selectExternal: vi.fn(),
+        createAutomatic,
+        listRecent: vi.fn(),
+        exportCurrent: vi.fn(),
+        exportRecent: vi.fn(),
+        restoreExternal: vi.fn(),
+        restoreRecent: vi.fn(),
+        openExportDirectory: vi.fn(),
+      } } as unknown as Window['electronAPI']
+
+      await expect(createFileSystemBackup('D:/workspace')).resolves.toBe('D:/workspace/.backups/123')
+      expect(createAutomatic).toHaveBeenCalledWith('D:/workspace')
+    })
+
+    it('maps rich recent backup summaries to the existing caller contracts', async () => {
+      const rich: BackupSummary = {
+        path: 'D:/workspace/.backups/123',
+        timestamp: '123',
+        createdAt: 123,
+        cardCount: 4,
+        boardCount: 2,
+        trashCount: 1,
+        mediaCount: 3,
+        format: 'current',
+        warnings: [],
+      }
+      const listRecent = vi.fn().mockResolvedValue([rich])
+      window.electronAPI = { backup: {
+        selectExternal: vi.fn(),
+        createAutomatic: vi.fn(),
+        listRecent,
+        exportCurrent: vi.fn(),
+        exportRecent: vi.fn(),
+        restoreExternal: vi.fn(),
+        restoreRecent: vi.fn(),
+        openExportDirectory: vi.fn(),
+      } } as unknown as Window['electronAPI']
+
+      await expect(listFileSystemBackups('D:/workspace')).resolves.toEqual([{ timestamp: '123', createdAt: 123 }])
+      await expect(getFileSystemBackupSummary('123', 'D:/workspace')).resolves.toEqual({
+        timestamp: '123', createdAt: 123, cardCount: 4, boardCount: 2,
+      })
     })
   })
 })

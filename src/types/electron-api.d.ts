@@ -3,6 +3,25 @@ export {}
 declare global {
   const __APP_VERSION__: string
   const __DEV__: boolean
+  interface BackupSummary {
+    path: string
+    timestamp: string
+    createdAt: number
+    cardCount: number
+    boardCount: number
+    trashCount: number
+    mediaCount: number
+    format: 'current' | 'legacy'
+    warnings: string[]
+  }
+  interface BackupOperationResult {
+    success: boolean
+    stage?: 'selection' | 'validation' | 'safety-backup' | 'staging' | 'replacement' | 'reload' | 'export'
+    error?: string
+    path?: string
+    safetyBackupPath?: string
+    summary?: BackupSummary
+  }
   interface Window {
     electronAPI: {
       fs: {
@@ -19,6 +38,16 @@ declare global {
       }
       dialog: {
         openDirectory: () => Promise<string | null>
+      }
+      backup: {
+        selectExternal: () => Promise<BackupOperationResult | null>
+        createAutomatic: (workspacePath: string) => Promise<BackupOperationResult>
+        listRecent: (workspacePath: string) => Promise<BackupSummary[]>
+        exportCurrent: (workspacePath: string) => Promise<BackupOperationResult>
+        exportRecent: (workspacePath: string, timestamp: string) => Promise<BackupOperationResult>
+        restoreExternal: (workspacePath: string, sourcePath: string) => Promise<BackupOperationResult>
+        restoreRecent: (workspacePath: string, timestamp: string) => Promise<BackupOperationResult>
+        openExportDirectory: (directoryPath: string) => Promise<void>
       }
       shell: {
         openExternal: (url: string) => Promise<void>

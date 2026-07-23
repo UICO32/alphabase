@@ -7,8 +7,8 @@ delete process.env.ELECTRON_RUN_AS_NODE
 
 import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
 import { startupLog } from './startupLog'
-import { join, dirname, resolve } from 'path'
-import { getRegisteredWorkspacePaths, isPathWithinWorkspace, registerWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
+import { join, dirname, isAbsolute, relative, resolve } from 'path'
+import { getRegisteredWorkspacePaths, isPathWithinWorkspace, isRegisteredWorkspaceRoot, registerWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
 import { isAllowedMainFrameNavigation, isAllowedWebviewUrl } from './navigationSecurity'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
@@ -20,6 +20,16 @@ import { registerAISummaryIPC } from './ai'
 import { createTray, setIsQuitting, getIsQuitting, destroyTray } from './tray'
 import { auditWorkspaceEvent } from './workspaceAuditLog'
 import { Md5 } from 'ts-md5'
+import {
+  createAutomaticBackup,
+  exportCurrentWorkspace,
+  exportExistingBackup,
+  intendedExportDirectory,
+  listAutomaticBackups,
+  recentBackupPath,
+  restoreBackup,
+  validateBackupFolder,
+} from './backupService'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
@@ -572,6 +582,115 @@ ipcMain.handle('dialog:openDirectory', async (event) => {
   const workspacePath = result.filePaths[0]
   await authorizeWorkspacePath(workspacePath)
   return workspacePath
+})
+
+function assertWorkspaceRoot(workspacePath: string): void {
+  if (!isRegisteredWorkspaceRoot(workspacePath)) {
+    throw new Error(`Workspace is not authorized: ${workspacePath}`)
+  }
+}
+
+ipcMain.handle('backup:selectExternal', async (event) => {
+  assertMainWindowSender(event)
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] })
+  if (result.canceled || !result.filePaths[0]) return null
+  const selectedPath = result.filePaths[0]
+  try {
+    return { success: true, summary: await validateBackupFolder(selectedPath), path: selectedPath }
+  } catch (error) {
+    return {
+      success: false,
+      stage: 'validation',
+      error: error instanceof Error ? error.message : String(error),
+      path: selectedPath,
+    }
+  }
+})
+
+ipcMain.handle('backup:createAutomatic', async (event, workspacePath: string) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  return createAutomaticBackup(workspacePath)
+})
+
+ipcMain.handle('backup:listRecent', async (event, workspacePath: string) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  return listAutomaticBackups(workspacePath)
+})
+
+ipcMain.handle('backup:exportCurrent', async (event, workspacePath: string) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  return exportCurrentWorkspace(workspacePath, app.getPath('downloads'))
+})
+
+ipcMain.handle('backup:exportRecent', async (event, workspacePath: string, timestamp: string) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  return exportExistingBackup(recentBackupPath(workspacePath, timestamp), app.getPath('downloads'))
+})
+
+ipcMain.handle('backup:restoreExternal', async (event, workspacePath: string, sourcePath: string) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  auditWorkspaceEvent({
+    source: 'main',
+    action: 'backup-restore-external-start',
+    workspacePath,
+    path: sourcePath,
+    caller: getIpcCaller(event),
+  })
+  const result = await restoreBackup(workspacePath, sourcePath)
+  auditWorkspaceEvent({
+    level: result.success ? 'info' : 'error',
+    source: 'main',
+    action: 'backup-restore-external-end',
+    workspacePath,
+    path: sourcePath,
+    caller: getIpcCaller(event),
+    ok: result.success,
+    error: result.error,
+    details: { stage: result.stage, safetyBackupPath: result.safetyBackupPath },
+  })
+  return result
+})
+
+ipcMain.handle('backup:restoreRecent', async (event, workspacePath: string, timestamp: string) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  const sourcePath = recentBackupPath(workspacePath, timestamp)
+  auditWorkspaceEvent({
+    source: 'main',
+    action: 'backup-restore-recent-start',
+    workspacePath,
+    path: sourcePath,
+    caller: getIpcCaller(event),
+  })
+  const result = await restoreBackup(workspacePath, sourcePath)
+  auditWorkspaceEvent({
+    level: result.success ? 'info' : 'error',
+    source: 'main',
+    action: 'backup-restore-recent-end',
+    workspacePath,
+    path: sourcePath,
+    caller: getIpcCaller(event),
+    ok: result.success,
+    error: result.error,
+    details: { stage: result.stage, safetyBackupPath: result.safetyBackupPath },
+  })
+  return result
+})
+
+ipcMain.handle('backup:openExportDirectory', async (event, directoryPath: string) => {
+  assertMainWindowSender(event)
+  const exportRoot = resolve(intendedExportDirectory(app.getPath('downloads')))
+  const target = resolve(directoryPath)
+  const rel = relative(exportRoot, target)
+  if (rel.startsWith('..') || isAbsolute(rel)) throw new Error('Export directory is outside the backup destination')
+  const error = await shell.openPath(target)
+  if (error) throw new Error(error)
 })
 
 ipcMain.handle('workspace:auditEvent', async (event, payload: unknown) => {

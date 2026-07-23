@@ -33,3 +33,25 @@ export function getStartupCapabilities(): ElectronCapabilitiesResult<ElectronAPI
 
   return { ok: true, value: startup }
 }
+
+export function getBackupCapabilities(): ElectronCapabilitiesResult<ElectronAPI['backup']> {
+  const capabilities = getElectronCapabilities()
+  if (!capabilities.ok) return capabilities
+
+  const backup = (capabilities.value as Partial<ElectronAPI>).backup
+  if (
+    !backup
+    || typeof backup.selectExternal !== 'function'
+    || typeof backup.createAutomatic !== 'function'
+    || typeof backup.listRecent !== 'function'
+    || typeof backup.exportCurrent !== 'function'
+    || typeof backup.exportRecent !== 'function'
+    || typeof backup.restoreExternal !== 'function'
+    || typeof backup.restoreRecent !== 'function'
+    || typeof backup.openExportDirectory !== 'function'
+  ) {
+    return { ok: false, reason: 'unavailable' }
+  }
+
+  return { ok: true, value: backup }
+}

@@ -44,6 +44,11 @@ export function getRegisteredWorkspacePaths(): string[] {
   return [...new Set(registeredWorkspaces.values())]
 }
 
+export function isRegisteredWorkspaceRoot(workspacePath: string): boolean {
+  const normalized = resolveWithRealPath(workspacePath)
+  return [...registeredWorkspaces.values()].some(workspace => workspace === normalized)
+}
+
 export function isPathWithinWorkspace(filePath: string): boolean {
   if (registeredWorkspaces.size === 0) return false
   const normalized = resolveWithRealPath(filePath)

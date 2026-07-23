@@ -1,6 +1,8 @@
 import { mkdir, exists, readdir, writeFile, readFile, deleteFile, rmdir, readJSON } from '../utils/workspace/fs'
 import type { TrashFile } from '../utils/workspace/types'
 import { auditWorkspaceEvent, auditWorkspaceHealth } from '../utils/workspace/audit'
+import { getBackupCapabilities } from '../platform/electronCapabilities'
+import { flushActiveSyncEngine } from '../sync/syncEngineRef'
 
 const MAX_FILE_BACKUPS = 10
 const AUTO_BACKUP_INTERVAL_MS = 30 * 60 * 1000 // 30 minutes
@@ -32,6 +34,20 @@ async function removeDir(dirPath: string): Promise<void> {
 export async function createFileSystemBackup(workspacePath: string): Promise<string | null> {
   try {
     await auditWorkspaceHealth(workspacePath, 'backup-create-before')
+    const capabilities = getBackupCapabilities()
+    if (capabilities.ok) {
+      const result = await capabilities.value.createAutomatic(workspacePath)
+      if (!result.success || !result.path) throw new Error(result.error || 'Automatic backup failed')
+      await auditWorkspaceHealth(workspacePath, 'backup-create-after', { backupDir: result.path })
+      auditWorkspaceEvent({
+        action: 'backup-create-success',
+        workspacePath,
+        path: result.path,
+      })
+      return result.path
+    }
+    if (capabilities.reason === 'ipc-error') throw capabilities.error
+
     const timestamp = Date.now().toString()
     const backupBase = getBackupBasePath(workspacePath)
     const backupDir = `${backupBase}/${timestamp}`
@@ -75,6 +91,13 @@ export async function createFileSystemBackup(workspacePath: string): Promise<str
 }
 
 export async function listFileSystemBackups(workspacePath: string): Promise<{ timestamp: string; createdAt: number }[]> {
+  const capabilities = getBackupCapabilities()
+  if (capabilities.ok) {
+    const backups = await capabilities.value.listRecent(workspacePath)
+    return backups.map(({ timestamp, createdAt }) => ({ timestamp, createdAt }))
+  }
+  if (capabilities.reason === 'ipc-error') throw capabilities.error
+
   const backupBase = getBackupBasePath(workspacePath)
   if (!(await exists(backupBase))) return []
   const dirs = await readdir(backupBase)
@@ -88,6 +111,16 @@ export async function getFileSystemBackupSummary(
   timestamp: string,
   workspacePath: string,
 ): Promise<{ timestamp: string; createdAt: number; cardCount: number; boardCount: number } | null> {
+  const capabilities = getBackupCapabilities()
+  if (capabilities.ok) {
+    const backup = (await capabilities.value.listRecent(workspacePath))
+      .find(item => item.timestamp === timestamp)
+    return backup
+      ? { timestamp: backup.timestamp, createdAt: backup.createdAt, cardCount: backup.cardCount, boardCount: backup.boardCount }
+      : null
+  }
+  if (capabilities.reason === 'ipc-error') throw capabilities.error
+
   const backupBase = getBackupBasePath(workspacePath)
   const backupDir = `${backupBase}/${timestamp}`
   if (!(await exists(backupDir))) return null
@@ -120,6 +153,26 @@ export async function restoreFromBackup(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await auditWorkspaceHealth(workspacePath, 'backup-restore-before', { timestamp })
+    const capabilities = getBackupCapabilities()
+    if (capabilities.ok) {
+      await flushActiveSyncEngine()
+      const result = await capabilities.value.restoreRecent(workspacePath, timestamp)
+      if (!result.success) return { success: false, error: result.error || `Restore failed during ${result.stage || 'unknown stage'}` }
+      await auditWorkspaceHealth(workspacePath, 'backup-restore-after', {
+        timestamp,
+        backupDir: result.path,
+        safetyBackupPath: result.safetyBackupPath,
+      })
+      auditWorkspaceEvent({
+        action: 'backup-restore-success',
+        workspacePath,
+        path: result.path,
+        details: { timestamp, safetyBackupPath: result.safetyBackupPath },
+      })
+      return { success: true }
+    }
+    if (capabilities.reason === 'ipc-error') throw capabilities.error
+
     const backupBase = getBackupBasePath(workspacePath)
     const backupDir = `${backupBase}/${timestamp}`
 

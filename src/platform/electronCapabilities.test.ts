@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { getElectronCapabilities, getStartupCapabilities } from './electronCapabilities'
+import { getBackupCapabilities, getElectronCapabilities, getStartupCapabilities } from './electronCapabilities'
 
 describe('getElectronCapabilities', () => {
   const originalElectronAPI = Object.getOwnPropertyDescriptor(window, 'electronAPI')
@@ -29,5 +29,11 @@ describe('getElectronCapabilities', () => {
     window.electronAPI = { startup: {} } as unknown as Window['electronAPI']
 
     expect(getStartupCapabilities()).toEqual({ ok: false, reason: 'unavailable' })
+  })
+
+  it('treats a partial backup bridge as unavailable', () => {
+    window.electronAPI = { backup: { listRecent: async () => [] } } as unknown as Window['electronAPI']
+
+    expect(getBackupCapabilities()).toEqual({ ok: false, reason: 'unavailable' })
   })
 })
