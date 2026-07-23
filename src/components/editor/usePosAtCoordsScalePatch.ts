@@ -1,12 +1,58 @@
 import { useEffect, useRef } from 'react'
-import type { EditorState } from '@tiptap/pm/state'
-import type { Node as PmNode } from '@tiptap/pm/model'
 
 type PmView = {
   posAtCoords: (coords: { left: number; top: number }) => { pos: number; inside: number } | null
+  posAtDOM: (node: Node, offset: number) => number
   dom: HTMLElement
-  state: EditorState
-  nodeDOM: (pos: number) => HTMLElement | null
+  state: {
+    selection: { from: number; to: number; anchor: number; head: number }
+  }
+}
+
+export function findClosestTextPosition(
+  view: Pick<PmView, 'dom' | 'posAtDOM'>,
+  coords: { left: number; top: number },
+): number | null {
+  let bestPos: number | null = null
+  let bestScore = Infinity
+  const walker = document.createTreeWalker(view.dom, NodeFilter.SHOW_TEXT)
+  let textNode: Text | null
+
+  while ((textNode = walker.nextNode() as Text | null)) {
+    const parent = textNode.parentElement
+    if (!parent) continue
+
+    const parentRect = parent.getBoundingClientRect()
+    if (coords.top < parentRect.top - parentRect.height / 2
+      || coords.top > parentRect.bottom + parentRect.height / 2) continue
+
+    const length = textNode.textContent?.length ?? 0
+    const range = document.createRange()
+
+    for (let offset = 0; offset <= length; offset += 1) {
+      const characterStart = offset === 0 ? 0 : offset - 1
+      const characterEnd = offset === 0 ? Math.min(1, length) : offset
+      range.setStart(textNode, characterStart)
+      range.setEnd(textNode, characterEnd)
+
+      const caretRect = range.getClientRects()[0] ?? range.getBoundingClientRect()
+      const caretY = caretRect.height > 0
+        ? (caretRect.top + caretRect.bottom) / 2
+        : (parentRect.top + parentRect.bottom) / 2
+      const caretX = offset === 0 ? caretRect.left : caretRect.right
+      const score = Math.abs(coords.top - caretY) * 10_000
+        + Math.abs(coords.left - caretX)
+
+      if (score < bestScore) {
+        try {
+          bestPos = view.posAtDOM(textNode, offset)
+          bestScore = score
+        } catch { /* ignore DOM nodes that ProseMirror does not own */ }
+      }
+    }
+  }
+
+  return bestPos
 }
 
 /**
@@ -17,7 +63,7 @@ type PmView = {
  * 在 CSS transform 环境下这两个浏览器 API 的精度下降。
  *
  * 修复：当编辑器 DOM 被缩放时，monkey-patch posAtCoords，
- * 用布局坐标遍历 block 子元素确定最近的块边界位置。
+ * 用浏览器返回的真实字符矩形确定最近的字符边界位置。
  * 无缩放时直接走原始逻辑，零侵入。
  */
 export function usePosAtCoordsScalePatch(editor: unknown) {
@@ -44,36 +90,7 @@ export function usePosAtCoordsScalePatch(editor: unknown) {
         return original(coords)
       }
 
-      const layoutY = (coords.top - rect.top) / scaleY
-      let bestPos: number | null = null
-      let bestDist = Infinity
-
-      const state = currentPm.state
-      if (!state) return original(coords)
-
-      state.doc.descendants((node: PmNode, pos: number) => {
-        if (!node.isBlock) return true
-        try {
-          const nodeDom = currentPm.nodeDOM(pos) as HTMLElement | null
-          if (!nodeDom) return true
-          const nodeRect = nodeDom.getBoundingClientRect()
-          const nodeLayoutBottom = (nodeRect.bottom - rect.top) / scaleY
-          const nodeLayoutTop = (nodeRect.top - rect.top) / scaleY
-
-          const distBottom = Math.abs(layoutY - nodeLayoutBottom)
-          const distTop = Math.abs(layoutY - nodeLayoutTop)
-
-          if (distBottom < bestDist) {
-            bestDist = distBottom
-            bestPos = pos + node.nodeSize
-          }
-          if (distTop < bestDist) {
-            bestDist = distTop
-            bestPos = pos
-          }
-        } catch { return true }
-        return true
-      })
+      const bestPos = findClosestTextPosition(currentPm, coords)
 
       if (bestPos != null) {
         return { pos: bestPos, inside: -1 }

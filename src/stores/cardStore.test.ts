@@ -265,6 +265,7 @@ describe('EmbeddingStore browser fallback', () => {
     const offError = vi.fn()
     window.electronAPI = {
       embedding: {
+        getStatus: vi.fn().mockResolvedValue({ initialized: true }),
         onProgress: vi.fn(() => offProgress),
         onComplete: vi.fn(() => offComplete),
         onError: vi.fn(() => offError),
@@ -323,6 +324,7 @@ describe('EmbeddingStore browser fallback', () => {
     try {
       window.electronAPI = {
         embedding: {
+          getStatus: vi.fn().mockResolvedValue({ initialized: true }),
           onProgress: vi.fn(unsubscribe),
           onComplete: vi.fn(unsubscribe),
           onError: vi.fn(unsubscribe),

@@ -131,11 +131,14 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
       {loaded ? (
         <img
           src={data.url}
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
           style={{
             display: 'block',
             width: '100%',
             height: '100%',
-            objectFit: 'fill',
+            objectFit: 'contain',
             borderRadius: 8,
           }}
           alt={data.name || ''}

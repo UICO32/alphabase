@@ -179,8 +179,11 @@ function App() {
   useEffect(() => {
     if (!dataReady) return
     preloadCardEditor()
-    // Prefetch topography cache so 3D view opens instantly
-    import('./components/topography/useClusterData').then(m => m.prefetchTopography())
+    // Delay topography prefetch so it doesn't compete with initial canvas render
+    const timer = setTimeout(() => {
+      import('./components/topography/useClusterData').then(m => m.prefetchTopography())
+    }, 1500)
+    return () => clearTimeout(timer)
   }, [dataReady])
 
   if (!dataReady) return null
@@ -190,7 +193,7 @@ function App() {
     <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--surface-panel)' }}>
       <Toaster position="bottom-center" richColors visibleToasts={1} duration={5000} />
       <div
-        className={`group absolute left-0 right-0 top-0 z-50 overflow-visible transition-[height] duration-150 ${immersiveCanvas ? 'h-1.5 hover:h-6' : 'h-6 workspace-chrome-piece'}`}
+        className={`group absolute left-0 right-0 top-0 z-50 overflow-visible transition-[height] duration-150 ${immersiveCanvas ? 'h-2 hover:h-6' : 'h-6 workspace-chrome-piece'}`}
       >
         <div className={`transition-opacity duration-150 ${immersiveCanvas ? 'workspace-chrome-piece opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
           <TitleBar />

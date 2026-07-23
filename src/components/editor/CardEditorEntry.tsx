@@ -130,7 +130,13 @@ export function CardEditorEntry({
   }, [entryKey, onBeforeReveal, revealAfterPaint, traceLabel])
 
   return (
-    <div ref={rootRef} className="card-editor-entry" data-editor-entry-phase={effectivePhase}>
+    <div
+      ref={rootRef}
+      className="card-editor-entry nodrag"
+      data-editor-entry-phase={effectivePhase}
+      onPointerDown={event => event.stopPropagation()}
+      onMouseDown={event => event.stopPropagation()}
+    >
       {effectivePhase !== 'interactive' && (
         <div
           aria-hidden="true"

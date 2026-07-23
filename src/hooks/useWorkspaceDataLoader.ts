@@ -400,8 +400,9 @@ export function useWorkspaceDataLoader() {
     setDataReady(true)
     notifyDataReady()
     await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-ready')
-    // Preview generation stays after dataReady so board mount wins the startup race.
-    useCardStore.getState().schedulePreviewHTMLGeneration()
+    // Preview generation — defer first batch to next frame so React commits
+    // canvas mount first, but previews still land before the first paint.
+    requestAnimationFrame(() => useCardStore.getState().schedulePreviewHTMLGeneration())
     scheduleIdleTask(() => {
       const cards = useCardStore.getState().cards
       for (const card of Object.values(cards)) {

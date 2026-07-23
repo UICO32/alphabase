@@ -129,11 +129,11 @@ function renderBlock(block: Record<string, unknown>, depth = 0): string {
       return `<p style="${cs}">${renderedContent || '<br />'}</p>${renderedChildren}`
 
     case 'quote':
-      return `<blockquote style="${cs};border-left:3px solid rgba(0,0,0,0.15);padding-left:12px;margin:0;color:#7d797a;font-style:italic">${renderedContent || '<br />'}</blockquote>${renderedChildren}`
+      return `<blockquote style="${cs};border-left:3px solid var(--line-default);padding-left:12px;margin:0;color:var(--fg-secondary);font-style:italic">${renderedContent || '<br />'}</blockquote>${renderedChildren}`
 
     case 'codeBlock': {
       const lang = (props.language as string) || 'text'
-      return `<pre style="${BLOCK_STYLE};margin:0;background:#161616;border-radius:8px;padding:24px;overflow-x:auto"><code class="language-${escapeHTML(lang)}" style="${CODE_FONT};font-size:0.875em;line-height:1.6;color:#fff;tab-size:2;-moz-tab-size:2">${renderedContent || ''}</code></pre>${renderedChildren}`
+      return `<pre style="${BLOCK_STYLE};margin:0;background:var(--surface-panel);border-radius:8px;padding:24px;overflow-x:auto"><code class="language-${escapeHTML(lang)}" style="${CODE_FONT};font-size:0.875em;line-height:1.6;color:var(--fg-primary);tab-size:2;-moz-tab-size:2">${renderedContent || ''}</code></pre>${renderedChildren}`
     }
 
     case 'bulletListItem': {
@@ -157,8 +157,8 @@ function renderBlock(block: Record<string, unknown>, depth = 0): string {
       const textStyle = checked ? 'text-decoration:line-through' : ''
       const boxStyle = 'display:inline-block;width:20px;height:20px;min-width:20px;flex-shrink:0;border-radius:4px;margin-inline-end:8px;vertical-align:middle;line-height:20px;text-align:center;font-size:14px;font-weight:700'
       const box = checked
-        ? `<span style="${boxStyle};background:#3b82f6;border:2px solid #3b82f6;color:#fff">✓</span>`
-        : `<span style="${boxStyle};background:#fff;border:2px solid #ced4da;color:transparent">✓</span>`
+        ? `<span style="${boxStyle};background:var(--brand);border:2px solid var(--brand);color:var(--fg-inverse)">✓</span>`
+        : `<span style="${boxStyle};background:var(--surface-card);border:2px solid var(--line-default);color:transparent">✓</span>`
       return `<div style="${cs};display:flex;align-items:center;width:100%">${box}<div style="min-width:0;flex:1"><span style="${textStyle}">${inner}</span></div></div>${nested}`
     }
 
@@ -271,7 +271,7 @@ function renderTable(tc: Record<string, unknown>): string {
       const align = cellProps.textAlignment as string | undefined
 
       const style = [
-        'border:1px solid rgba(0,0,0,0.12)',
+        'border:1px solid var(--line-default)',
         'padding:6px 10px',
         'text-align:left',
         `font-weight:${isHeader ? '600' : '400'}`,
@@ -311,7 +311,7 @@ function renderInlineContent(node: Record<string, unknown>): string {
     const styles = node.styles as Record<string, unknown> | undefined
     if (!styles) return text
     if (styles.code)
-      text = `<code style="font-size:0.875em;background:rgba(0,0,0,0.06);border-radius:3px;padding:0 3px;${CODE_FONT}">${text}</code>`
+      text = `<code style="font-size:0.875em;background:var(--surface-hover);border-radius:3px;padding:0 3px;${CODE_FONT}">${text}</code>`
     if (styles.bold) text = `<strong>${text}</strong>`
     if (styles.italic) text = `<em>${text}</em>`
     if (styles.strike) text = `<s>${text}</s>`
@@ -382,6 +382,13 @@ function renderBlocksToHTMLLegacy(content: string): string {
 export function renderBlocksToHTML(content: string): string {
   if (!content) return ''
   const native = renderBlocksToHTMLNative(content)
-  if (native !== null) return native
+  if (native !== null && native !== '') {
+    // BlockNote native serializer may discard data-tag-name / data-card-id
+    // for custom React inline specs. Fall back to hand-written renderer if
+    // content contains these types but the output doesn't.
+    const hasCustomInline = content.includes('"type":"tag"') || content.includes('"type":"cardReference"')
+    const outputHasAttrs = native.includes('data-tag-name') || native.includes('data-card-id')
+    if (!hasCustomInline || outputHasAttrs) return native
+  }
   return renderBlocksToHTMLLegacy(content)
 }

@@ -77,6 +77,8 @@ export function ReactFlowCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [selectionForAlignment, setSelectionForAlignment] = useState<{ nodes: Node[]; edges: Edge[] }>({ nodes: [], edges: [] })
   const [densityOverviewProgress, setDensityOverviewProgress] = useState(0)
+  const [floatingCardId, setFloatingCardId] = useState<string | null>(null)
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null)
   const editingNodeIdRef = useRef<string | null>(null)
   const isDarkMode = useIsDarkMode()
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
@@ -616,6 +618,24 @@ export function ReactFlowCanvas() {
     })
   }, [setNodes, record])
 
+  const onApplyScale = useCallback((updates: Map<string, { x: number; y: number; width: number; height: number }>) => {
+    if (recordTimerRef.current) {
+      clearTimeout(recordTimerRef.current)
+      recordTimerRef.current = null
+    }
+    const currentNodes = nodesRef.current.map(n => ({ ...n }))
+    const currentEdges = edgesRef.current.map(e => ({ ...e }))
+    const nextNodes = currentNodes.map((n) => {
+      const pos = updates.get(n.id)
+      if (!pos) return n
+      return { ...n, position: { x: pos.x, y: pos.y }, width: pos.width, height: pos.height }
+    })
+
+    setNodes(nextNodes)
+    record({ nodes: currentNodes, edges: currentEdges })
+    record({ nodes: nextNodes, edges: currentEdges })
+  }, [setNodes, record])
+
   // 看板 Frame 内的卡片之间隐藏连接线
   const visibleEdges = useMemo(() => getVisibleCanvasEdges(nodes, edges), [nodes, edges])
   const densityOverviewInteractive = densityOverviewProgress >= OVERVIEW_INTERACTION_PROGRESS
@@ -642,8 +662,10 @@ export function ReactFlowCanvas() {
     return Object.values(allCards)
       .filter(card => !card.deletedAt && !boardCardIds.has(card.id))
       .sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))
-      .slice(0, 6)
+      .slice(0, 5)
   }, [nodes, allCards])
+
+  const fanCardsVisible = boards.length > 0 && nodes.length === 0 && suggestedCards.length > 0
 
   const suggestedCardIdsRef = useRef<string[]>([])
   useEffect(() => {
@@ -727,7 +749,7 @@ export function ReactFlowCanvas() {
         connectionLineComponent={connectionLineComponent}
         isValidConnection={isValidConnection}
         autoPanOnNodeDrag={false}
-        panOnDrag={densityOverviewInteractive ? true : (isLassoMode ? false : [2])}
+        panOnDrag={densityOverviewInteractive ? true : (isLassoMode ? false : fanCardsVisible ? false : [2])}
         selectionOnDrag={!densityOverviewInteractive && !isLassoMode}
         selectionMode={SelectionMode.Partial}
         nodesDraggable={!densityOverviewInteractive}
@@ -764,6 +786,7 @@ export function ReactFlowCanvas() {
           selectedEdges={selectedEdgesForAlignment}
           reactFlowInstance={reactFlowInstance}
           onApplyAlignment={onApplyAlignment}
+          onApplyScale={onApplyScale}
           isDraggingNode={isDraggingNode}
         />
       </ReactFlow>
@@ -810,17 +833,22 @@ export function ReactFlowCanvas() {
         </div>
       )}
 
-      {boards.length > 0 && nodes.length === 0 && suggestedCards.length > 0 && (
+      {fanCardsVisible && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style={{ zIndex: 1 }}>
-          <p className="text-xs text-fg-tertiary mb-4">从卡片库拖入，或点击添加到画布</p>
+          <p className="text-xs text-fg-secondary mb-5">拖拽或点击卡片添加到画布</p>
           <div className="flex items-end justify-center pointer-events-auto" style={{ perspective: '800px' }}>
             {suggestedCards.map((card, index) => {
               const total = suggestedCards.length
               const offset = index - (total - 1) / 2
+              const fanRotation = total <= 4 ? 9 : 7
               const previewHTML = card.previewHTML || useCardStore.getState().getPreviewHTML(card.id) || ''
               const sanitizedHTML = DOMPurify.sanitize(previewHTML, {
                 ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i,
               }).replace(/<img[^>]*>/gi, '')
+              const isFloating = floatingCardId === card.id
+              const isHovered = hoveredCardId === card.id
+              const fanTransform = `rotate(${offset * fanRotation}deg) translateY(${Math.abs(offset) * 10}px)`
+              const hoverTransform = `rotate(${offset * 2}deg) translateY(-8px) translateX(${offset * 6}px) scale(1.06)`
 
               return (
                 <div
@@ -833,9 +861,11 @@ export function ReactFlowCanvas() {
                       isNewInstance: event.altKey,
                     }))
                     event.dataTransfer.effectAllowed = 'copy'
-                    event.currentTarget.classList.add('suggested-card-floating')
+                    setFloatingCardId(card.id)
                   }}
-                  onDragEnd={(event) => event.currentTarget.classList.remove('suggested-card-floating')}
+                  onDragEnd={() => setFloatingCardId(null)}
+                  onMouseEnter={() => { if (!floatingCardId) setHoveredCardId(card.id) }}
+                  onMouseLeave={() => setHoveredCardId(null)}
                   onClick={() => {
                     const instance = reactFlowInstance.current
                     if (!instance) return
@@ -862,18 +892,24 @@ export function ReactFlowCanvas() {
                     ])
                     setTimeout(() => recordCurrentState(), 0)
                   }}
-                  className="suggested-card group flex flex-col bg-surface-card border border-line-default rounded-xl cursor-pointer overflow-hidden transition-all duration-300 ease-out hover:z-[999]"
+                  aria-label={`将卡片「${card.title || '无标题'}」添加到画布`}
+                  className={`suggested-card group flex flex-col bg-surface-card border border-line-default rounded-xl cursor-pointer overflow-hidden ${isFloating ? 'suggested-card-floating' : ''}`}
                   style={{
+                    '--fan-index': index,
                     width: 130,
                     aspectRatio: '3/4',
-                    transform: `rotate(${offset * (total <= 4 ? 5 : 4)}deg) translateY(${Math.abs(offset) * 10 * (offset > 0 ? 1 : -1)}px)`,
-                    transformOrigin: 'bottom center',
-                    marginLeft: index === 0 ? 0 : -(130 * 0.06),
-                    zIndex: total - Math.abs(Math.round(offset)),
-                    boxShadow: 'var(--shadow-md)',
-                  }}
+                    marginLeft: index === 0 ? 0 : -(130 * 0.03),
+                    ...(isFloating ? {} : {
+                      transform: isHovered ? hoverTransform : fanTransform,
+                      transformOrigin: 'bottom center',
+                      zIndex: isHovered ? 999 : total - Math.abs(Math.round(offset)),
+                      boxShadow: isHovered
+                        ? 'var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent)'
+                        : 'var(--shadow-md)',
+                    }),
+                  } as React.CSSProperties}
                 >
-                  <div className="p-2.5 flex flex-col h-full overflow-hidden">
+                  <div className="p-2.5 flex flex-col flex-1 min-h-0 overflow-hidden">
                     <div className="text-[11px] font-medium text-fg-primary truncate mb-1">{card.title || '无标题'}</div>
                     <div
                       className="min-h-0 flex-1 overflow-hidden text-[10px] leading-relaxed text-fg-secondary"
@@ -881,7 +917,7 @@ export function ReactFlowCanvas() {
                       dangerouslySetInnerHTML={{ __html: sanitizedHTML || '无内容' }}
                     />
                   </div>
-                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                  <div className={`absolute inset-0 rounded-xl transition-opacity duration-200 pointer-events-none flex items-center justify-center bg-surface-hover ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
                     <span className="text-[10px] text-fg-secondary bg-surface-panel/90 px-2 py-0.5 rounded shadow-sm">拖拽或点击放置</span>
                   </div>
                 </div>

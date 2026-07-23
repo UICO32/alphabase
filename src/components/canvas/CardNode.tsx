@@ -213,6 +213,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
 
   const handleCardClick = useCallback(
     (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
       if (isConnectionTarget || isNearbyTarget) {
         e.stopPropagation()
         const preview = connectionMediator.getPreviewCandidate()
@@ -223,7 +224,6 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       }
       if (isCollapsed) return
       // 点击编辑器内部时（ProseMirror contenteditable），不拦截
-      const target = e.target as HTMLElement
       if (target.closest('[contenteditable="true"]')) return
       // 点击划词工具栏、图片工具栏等编辑器浮层时，不要把光标移到点击坐标——
       // 这些按钮有自己的行为，focusAtCoords 会破坏当前选区并把光标插到按钮下方。

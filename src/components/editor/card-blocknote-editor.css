@@ -33,6 +33,13 @@
 .card-blocknote-editor--editable:not(.annotation-editor) {
   --card-editor-selection-bg: #cfe4ff;
   cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.card-blocknote-editor--editable:not(.annotation-editor) .ProseMirror {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 [data-theme="dark"] .card-blocknote-editor--editable:not(.annotation-editor) {
@@ -122,7 +129,7 @@
 
 /* ─── Preview mode: reuse BlockNote native CSS ─── */
 
-.card-preview-native.bn-editor { padding-inline: 0 !important; --N800: #172b4d; --N40: #dfe1e6; }
+.card-preview-native.bn-editor { padding-inline: 0 !important; --N800: var(--fg-primary); --N40: var(--line-default); }
 .card-preview-native.bn-default-styles { color: inherit !important; font-size: inherit !important; background-color: transparent !important; }
 .card-preview-native .bn-container { --bn-colors-editor-background: transparent; }
 .card-preview-native .bn-editor,

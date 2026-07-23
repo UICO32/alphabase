@@ -18,14 +18,17 @@ describe('canvas empty-state regression contract', () => {
   it('keeps the empty-board suggested-card fan and landing behavior', () => {
     expect(canvasSource).toMatch(/boards\.length > 0 && nodes\.length === 0 && suggestedCards\.length > 0/)
     expect(canvasSource).toContain('suggestedCards.map((card, index) =>')
-    expect(canvasSource).toContain("classList.add('suggested-card-floating')")
+    expect(canvasSource).toContain('setFloatingCardId(card.id)')
+    expect(canvasSource).toContain("suggested-card-floating")
+    expect(canvasSource).toContain('--fan-index')
     expect(canvasSource).toContain("className: 'card-node-landing'")
   })
 
   it('defines the animation classes consumed by dropped and suggested cards', () => {
     expect(animationsSource).toMatch(/@keyframes\s+card-land/)
     expect(animationsSource).toMatch(/\.card-node-landing(?:\s+\.card-node-default)?\s*\{[^}]*animation:\s*card-land/s)
+    expect(animationsSource).toMatch(/@keyframes\s+fan-card-enter/)
     expect(animationsSource).toMatch(/\.suggested-card-floating\s*\{/)
-    expect(animationsSource).toMatch(/\.suggested-card:hover\s*\{/)
+    expect(animationsSource).toMatch(/\.suggested-card::after\s*\{/)
   })
 })

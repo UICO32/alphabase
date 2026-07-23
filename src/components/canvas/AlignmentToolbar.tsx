@@ -10,6 +10,8 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   AlignVerticalDistributeCenter,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { computeAlignment, computeBoundingBox, type AlignmentMode } from './utils/alignment'
 
@@ -18,6 +20,7 @@ interface AlignmentToolbarProps {
   selectedEdges?: Edge[]
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   onApplyAlignment: (updates: Map<string, { x: number; y: number }>) => void
+  onApplyScale?: (updates: Map<string, { x: number; y: number; width: number; height: number }>) => void
   isDraggingNode?: boolean
 }
 
@@ -41,6 +44,7 @@ export function AlignmentToolbar({
   selectedEdges = [],
   reactFlowInstance,
   onApplyAlignment,
+  onApplyScale,
   isDraggingNode = false,
 }: AlignmentToolbarProps) {
   const alignableNodes = useMemo(() => {
@@ -69,6 +73,27 @@ export function AlignmentToolbar({
     const updates = computeAlignment(alignableNodes, mode)
     onApplyAlignment(updates)
   }, [alignableNodes, onApplyAlignment])
+
+  const handleScale = useCallback((factor: number) => {
+    if (!onApplyScale) return
+    const box = computeBoundingBox(alignableNodes)
+    const cx = (box.minX + box.maxX) / 2
+    const cy = (box.minY + box.maxY) / 2
+    const updates = new Map<string, { x: number; y: number; width: number; height: number }>()
+    for (const node of alignableNodes) {
+      const w = node.width ?? node.measured?.width ?? 100
+      const h = node.height ?? node.measured?.height ?? 100
+      const dx = node.position.x - cx
+      const dy = node.position.y - cy
+      updates.set(node.id, {
+        x: cx + dx * factor,
+        y: cy + dy * factor,
+        width: Math.max(40, w * factor),
+        height: Math.max(40, h * factor),
+      })
+    }
+    onApplyScale(updates)
+  }, [alignableNodes, onApplyScale])
 
   if (!position) return null
 
@@ -101,6 +126,25 @@ export function AlignmentToolbar({
           </span>
         )
       })}
+      {onApplyScale && (
+        <>
+          <div className="mx-0.5 h-4 w-px bg-border" />
+          <button
+            className="btn-base rounded-md p-1.5"
+            title="缩小选中项（包围盒中心缩放）"
+            onClick={() => handleScale(0.9)}
+          >
+            <ZoomOut size={14} />
+          </button>
+          <button
+            className="btn-base rounded-md p-1.5"
+            title="放大选中项（包围盒中心缩放）"
+            onClick={() => handleScale(1.1)}
+          >
+            <ZoomIn size={14} />
+          </button>
+        </>
+      )}
     </div>,
     document.body,
   )
