@@ -135,8 +135,14 @@ export function useCardNodeEditing({
     const activeEditingId = useViewStore.getState().editingCardId
     if (activeEditingId !== null && activeEditingId !== cardId) return
     const coords = takeEditorFocusIntent(clickCoordsRef)
-    if (coords) editor.focusAtCoords(coords)
-    else editor.focus()
+    try {
+      if (coords) editor.focusAtCoords(coords)
+      else editor.focus()
+    } catch {
+      // 坐标定位/聚焦失败不阻塞编辑：兜底聚焦到编辑器默认位置，
+      // 避免编辑器从未获得焦点 → 失焦事件不触发 → 编辑态残留（黑色边框）
+      try { editor.focus() } catch { /* ignore */ }
+    }
   }, [cardId])
 
   return {

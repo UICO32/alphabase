@@ -412,8 +412,10 @@ const CardBlockNoteEditorInner = (
           // returns block-boundary positions (block start or end), which is
           // better than nothing but causes the "cursor at paragraph head" bug.
           if (pos == null) {
-            const result = pm.posAtCoords({ left: x, top: y })
-            if (result?.pos != null) pos = result.pos
+            try {
+              const result = pm.posAtCoords({ left: x, top: y })
+              if (result?.pos != null) pos = result.pos
+            } catch { /* 定位失败不中断：保持默认光标位置 */ }
           }
 
           if (pos != null) {

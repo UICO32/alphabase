@@ -81,7 +81,9 @@ export function usePosAtCoordsScalePatch(editor: unknown) {
     const pm = (editor as unknown as Record<string, unknown>).prosemirrorView as PmView | undefined
     if (!pm) return
 
-    originalFnRef.current = pm.posAtCoords
+    // 保存原始 posAtCoords 时必须绑定 this：ProseMirror 内部用 this.dom，
+    // 否则 original(coords) 调用时 this 为 undefined 会崩溃（"reading 'dom'"）。
+    originalFnRef.current = pm.posAtCoords.bind(pm)
 
     pm.posAtCoords = function (coords: { left: number; top: number }) {
       const original = originalFnRef.current!
