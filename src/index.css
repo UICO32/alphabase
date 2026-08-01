@@ -21,9 +21,10 @@ html, body, #root {
   overflow: visible !important;
 }
 
-/* 未选中/未编辑态卡片用 clip-path 裁切内容，选中态描边即时消失避免圆角残影 */
+/* 未选中/未编辑态卡片用 clip-path 裁切内容，选中态描边即时消失避免圆角残影；
+   round 半径与 rounded-xl（--radius-xl: 18px）保持一致，避免直角裁切把圆角切出锯齿 */
 .card-node-default.overflow-hidden {
-  clip-path: inset(0);
+  clip-path: inset(0 round var(--radius-xl));
   transition: clip-path 80ms ease, box-shadow 80ms ease, border-color 80ms ease;
 }
 

@@ -31,6 +31,18 @@ describe('getCardStroke', () => {
     }
   })
 
+  it('暗模式仅默认白卡使用 strokeDark', () => {
+    expect(getCardStroke('white', true)).toBe(CARD_COLORS.white.strokeDark)
+    expect(getCardStroke(undefined, true)).toBe(CARD_COLORS.white.strokeDark)
+  })
+
+  it('暗模式彩色卡应沿用原 stroke', () => {
+    const colors: CardColor[] = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink', 'gray']
+    for (const color of colors) {
+      expect(getCardStroke(color, true)).toBe(CARD_COLORS[color].stroke)
+    }
+  })
+
   it('undefined 应默认白色 stroke', () => {
     expect(getCardStroke(undefined)).toBe(CARD_COLORS.white.stroke)
   })

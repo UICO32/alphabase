@@ -2,6 +2,8 @@ export type CardColor = 'white' | 'red' | 'orange' | 'yellow' | 'green' | 'cyan'
 
 export interface CardColorDef {
   stroke: string
+  /** 可选：暗色模式下覆盖描边色（仅默认白卡配置，其他颜色沿用 stroke） */
+  strokeDark?: string
   fillLight: string
   fillDark: string
   textLight: string
@@ -11,7 +13,7 @@ export interface CardColorDef {
 }
 
 export const CARD_COLORS: Record<CardColor, CardColorDef> = {
-  white:  { stroke: '#D4D4D4', fillLight: '#FFFFFF', fillDark: '#333333', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#9CA3AF', mutedDark: '#6B7280' },
+  white:  { stroke: '#D4D4D4', strokeDark: '#888888', fillLight: '#FFFFFF', fillDark: '#333333', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#9CA3AF', mutedDark: '#6B7280' },
   red:    { stroke: '#EF4444', fillLight: '#FDE8E8', fillDark: '#3D2424', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
   orange: { stroke: '#F97316', fillLight: '#FEF0E0', fillDark: '#3D3024', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },
   yellow: { stroke: '#EAB308', fillLight: '#FDF8E1', fillDark: '#3D3824', textLight: '#18181B', textDark: '#E4E4E7', mutedLight: '#18181B99', mutedDark: '#E4E4E799' },

@@ -72,10 +72,10 @@ export function CardNodeChrome({
     ? 'var(--card-selected-border)'
     : editing
       ? 'var(--card-selected-border)'
-      : getCardStroke(color)
+      : getCardStroke(color, darkMode)
 
   const hoverOutline = hovered
-    ? `0 0 0 3px ${getCardStroke(color)}33`
+    ? `0 0 0 3px ${getCardStroke(color, darkMode)}33`
     : ''
 
   const selectedShadow = '0 0 0 1px var(--card-selected-border), 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent)'

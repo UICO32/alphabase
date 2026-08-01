@@ -5,9 +5,9 @@ export function getCardFill(color: CardColor | undefined, isDarkMode: boolean): 
   return isDarkMode ? c.fillDark : c.fillLight
 }
 
-export function getCardStroke(color: CardColor | undefined): string {
+export function getCardStroke(color: CardColor | undefined, isDarkMode = false): string {
   const c = CARD_COLORS[color ?? 'white'] ?? CARD_COLORS.white
-  return c.stroke
+  return isDarkMode ? (c.strokeDark ?? c.stroke) : c.stroke
 }
 
 export function getCardTextColor(color: CardColor | undefined, isDarkMode: boolean): string {
