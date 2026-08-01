@@ -58,8 +58,6 @@ export function computeMultiScale(
 }
 
 interface MultiSelectionScalerProps {
-  /** 选中的可缩放节点（card/media/text） */
-  nodes: Node[]
   /** 缩放开始（记录撤销前快照） */
   onScaleStart: () => void
   /** 缩放结束（记录撤销后快照） */
@@ -75,7 +73,6 @@ interface DragState {
 }
 
 export const MultiSelectionScaler = memo(function MultiSelectionScaler({
-  nodes,
   onScaleStart,
   onScaleEnd,
 }: MultiSelectionScalerProps) {
@@ -83,6 +80,15 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
   // 订阅完整 transform：包围盒/手柄用屏幕坐标渲染在 pane 固定层，
   // pan/zoom 时需跟随画布重新计算位置
   const transform = useStore(s => s.transform)
+  // 直接从 store 订阅选中节点的最新状态（而非选择时的快照）：
+  // 拖动缩放、图片加载完成、resize 等导致的尺寸变化，包围盒实时跟随
+  const nodes = useStore(s => {
+    const out: Node[] = []
+    for (const n of s.nodes.values()) {
+      if (n.selected && (n.type === 'card' || n.type === 'media' || n.type === 'text')) out.push(n)
+    }
+    return out
+  })
   const dragRef = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
 

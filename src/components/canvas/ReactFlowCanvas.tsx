@@ -599,12 +599,8 @@ export function ReactFlowCanvas() {
     return selectionForAlignment.edges.filter(e => edgeIds.has(e.id))
   }, [edges, isDraggingNode, selectionForAlignment.edges])
 
-  // 多选整体缩放：仅 card/media/text 参与（frame 有子布局，不参与）
-  const scalableSelectionNodes = useMemo(
-    () => selectedNodesForAlignment.filter(n => n.type === 'card' || n.type === 'media' || n.type === 'text'),
-    [selectedNodesForAlignment],
-  )
-
+  // 多选整体缩放：组件内部从 store 订阅选中节点（card/media/text），
+  // 实时跟随节点尺寸变化（拖动缩放/图片加载等）
   const handleMultiScaleStart = useCallback(() => {
     record({
       nodes: nodesRef.current.map(n => ({ ...n })),
@@ -815,7 +811,6 @@ export function ReactFlowCanvas() {
           isDraggingNode={isDraggingNode}
         />
         <MultiSelectionScaler
-          nodes={scalableSelectionNodes}
           onScaleStart={handleMultiScaleStart}
           onScaleEnd={handleMultiScaleEnd}
         />
