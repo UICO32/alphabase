@@ -67,7 +67,7 @@ export function CardEditorEntry({
     const raw = previewHTML
       || (cardId ? useCardStore.getState().getPreviewHTML(cardId) : '')
       || '<span style="opacity:0.5">双击编辑...</span>'
-    return DOMPurify.sanitize(raw, { ALLOWED_URI_REGEXP: ALLOWED_PREVIEW_URI })
+    return DOMPurify.sanitize(raw, { ALLOWED_URI_REGEXP: ALLOWED_PREVIEW_URI, ADD_URI_SAFE_ATTR: ['type'] })
   }, [effectivePhase, editorProps.cardId, editorProps.content, previewHTML])
   useEffect(() => {
     editorTrace(traceLabel, 'editor-entry-phase-committed', {

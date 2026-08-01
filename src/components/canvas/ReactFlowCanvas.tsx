@@ -880,6 +880,7 @@ export function ReactFlowCanvas() {
               const previewHTML = card.previewHTML || useCardStore.getState().getPreviewHTML(card.id) || ''
               const sanitizedHTML = DOMPurify.sanitize(previewHTML, {
                 ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i,
+                ADD_URI_SAFE_ATTR: ['type'],
               }).replace(/<img[^>]*>/gi, '')
               const isFloating = floatingCardId === card.id
               const isHovered = hoveredCardId === card.id

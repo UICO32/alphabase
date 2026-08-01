@@ -580,15 +580,40 @@ const CardBlockNoteEditorInner = (
           }
         }, 0)
       }
+      // checkListItem 的 checkbox：mousedown 阶段手动切换 checked 并触发 change，
+      // 同时 preventDefault 阻止 input 抢焦点。BlockNote 原生行为是浏览器切换 →
+      // change → node view 重建，重建瞬间 input 被移除、焦点丢失到 body →
+      // focusout 把 relatedTarget=null 误判为"离开编辑器"→ 触发 onBlur 退出编辑态
+      // （表现为"点两下才切换"：第一下切完编辑器被踢出，回到预览）。
+      const handleCheckboxMousedown = (e: MouseEvent) => {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' || target.getAttribute('type') !== 'checkbox') return
+        if (!el.classList.contains('card-blocknote-editor--editable')) return
+        e.preventDefault()
+        const input = target as HTMLInputElement
+        const next = !input.checked
+        input.checked = next
+        input.dispatchEvent(new Event('change', { bubbles: true }))
+      }
+      // 双保险：click 阶段再 preventDefault，防止浏览器残留的默认激活行为二次切换
+      const handleCheckboxClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' || target.getAttribute('type') !== 'checkbox') return
+        e.preventDefault()
+      }
       el.addEventListener('focusin', handleFocusIn)
       el.addEventListener('focusout', handleFocusOut)
       el.addEventListener('keydown', handleKeyDown)
       el.addEventListener('drop', handleDrop)
+      el.addEventListener('mousedown', handleCheckboxMousedown, true)
+      el.addEventListener('click', handleCheckboxClick, true)
       return () => {
         el.removeEventListener('focusin', handleFocusIn)
         el.removeEventListener('focusout', handleFocusOut)
         el.removeEventListener('keydown', handleKeyDown)
         el.removeEventListener('drop', handleDrop)
+        el.removeEventListener('mousedown', handleCheckboxMousedown, true)
+        el.removeEventListener('click', handleCheckboxClick, true)
       }
     }, [editor, enforceInitialHeading, onFocus, onBlur, flushPending])
 

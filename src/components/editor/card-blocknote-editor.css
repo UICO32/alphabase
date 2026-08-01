@@ -123,8 +123,98 @@
   font-size: inherit !important;
 }
 
-.card-blocknote-editor .bn-inline-content:not([data-card-id]):not([data-tag-name]) {
+.card-blocknote-editor .bn-inline-content:not([data-card-id]):not([data-tag-name]):not(blockquote),
+.card-preview-native .bn-inline-content:not([data-card-id]):not([data-tag-name]):not(blockquote) {
   color: inherit;
+}
+
+/* ─── 引用块：编辑/预览统一样式（覆盖 BlockNote 硬编码灰，暗色下可见且两边一致）─── */
+.card-blocknote-editor [data-content-type="quote"] blockquote,
+.card-preview-native [data-content-type="quote"] blockquote {
+  border-left: 2px solid var(--line-hover);
+  color: var(--fg-secondary);
+  margin: 0;
+  padding-left: 1em;
+}
+
+/* ─── checkListItem 预览/编辑统一样式：
+   原生序列化把 <input> 直接放在 block-content 下（缺少 node view 的包装 div），
+   BlockNote 默认 CSS（> div > div > input）不命中会流式错排，预览用扁平结构兜底；
+   勾选框 accent 色跟随 --brand（编辑态补上同款，避免浏览器默认色与预览不一致）─── */
+.card-preview-native .bn-block-content[data-content-type="checkListItem"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+/* bn-block-content 自带 ::before（列表标记位，空 content），在 flex 中占位会被
+   gap 挤出 6.5px；去掉它，让 input 从容器左缘开始（与编辑态一致） */
+.card-preview-native .bn-block-content[data-content-type="checkListItem"]::before {
+  content: none;
+}
+.card-blocknote-editor .bn-block-content[data-content-type="checkListItem"] input,
+.card-preview-native .bn-block-content[data-content-type="checkListItem"] input {
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--brand);
+  vertical-align: top;
+}
+/* 编辑态 node view 的 flex 容器默认 stretch，input（inline-block）会被基线对齐
+   压低约 2px；强制顶部对齐，并给 input 容器与文本之间补 0.5em 间隙
+   （input 的 margin-inline-end 被包装 div 吞掉，实际不生效） */
+.card-blocknote-editor .bn-block-content[data-content-type="checkListItem"] > div {
+  align-items: flex-start;
+  gap: 0.5em;
+}
+.card-preview-native .bn-block-content[data-content-type="checkListItem"] .bn-inline-content {
+  flex: 1;
+  width: auto;
+}
+
+/* ─── 预览态补齐 BlockNote 高亮/字色主题变量 ───
+   mantine style.css 的 [data-text-color] / [data-background-color] 规则
+   实际使用 --bn-colors-highlights-* 变量，这些变量只在编辑态的
+   .bn-container（Mantine 主题）上定义；预览容器没有 .bn-container，
+   预设字色/高光因此全部失效（回退继承色）。这里按 Mantine 亮/暗主题
+   值补上，保证预览与编辑完全一致。 */
+.card-preview-native {
+  --bn-colors-highlights-gray-text: #9b9a97;
+  --bn-colors-highlights-gray-background: #ebeced;
+  --bn-colors-highlights-brown-text: #64473a;
+  --bn-colors-highlights-brown-background: #e9e5e3;
+  --bn-colors-highlights-red-text: #e03e3e;
+  --bn-colors-highlights-red-background: #fbe4e4;
+  --bn-colors-highlights-orange-text: #d9730d;
+  --bn-colors-highlights-orange-background: #f6e9d9;
+  --bn-colors-highlights-yellow-text: #dfab01;
+  --bn-colors-highlights-yellow-background: #fbf3db;
+  --bn-colors-highlights-green-text: #4d6461;
+  --bn-colors-highlights-green-background: #ddedea;
+  --bn-colors-highlights-blue-text: #0b6e99;
+  --bn-colors-highlights-blue-background: #ddebf1;
+  --bn-colors-highlights-purple-text: #6940a5;
+  --bn-colors-highlights-purple-background: #eae4f2;
+  --bn-colors-highlights-pink-text: #ad1a72;
+  --bn-colors-highlights-pink-background: #f4dfeb;
+}
+[data-theme="dark"] .card-preview-native {
+  --bn-colors-highlights-gray-text: #bebdb8;
+  --bn-colors-highlights-gray-background: #9b9a97;
+  --bn-colors-highlights-brown-text: #8e6552;
+  --bn-colors-highlights-brown-background: #64473a;
+  --bn-colors-highlights-red-text: #ec4040;
+  --bn-colors-highlights-red-background: #be3434;
+  --bn-colors-highlights-orange-text: #e3790d;
+  --bn-colors-highlights-orange-background: #b7600a;
+  --bn-colors-highlights-yellow-text: #dfab01;
+  --bn-colors-highlights-yellow-background: #b58b00;
+  --bn-colors-highlights-green-text: #6b8b87;
+  --bn-colors-highlights-green-background: #4d6461;
+  --bn-colors-highlights-blue-text: #0e87bc;
+  --bn-colors-highlights-blue-background: #0b6e99;
+  --bn-colors-highlights-purple-text: #8552d7;
+  --bn-colors-highlights-purple-background: #6940a5;
+  --bn-colors-highlights-pink-text: #da208f;
+  --bn-colors-highlights-pink-background: #ad1a72;
 }
 
 /* ─── Preview mode: reuse BlockNote native CSS ─── */

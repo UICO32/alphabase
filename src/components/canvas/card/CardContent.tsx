@@ -54,7 +54,7 @@ export const CardContent = memo(function CardContent({
     if (isEditing) return ''
     // Use store's lazy getPreviewHTML — generates on first access, caches after
     const raw = previewHTML || useCardStore.getState().getPreviewHTML(cardId) || '<span style="opacity:0.5">双击编辑...</span>'
-    return DOMPurify.sanitize(raw, { ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i })
+    return DOMPurify.sanitize(raw, { ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i, ADD_URI_SAFE_ATTR: ['type'] })
   }, [previewHTML, cardId, content, isEditing])
 
   return (

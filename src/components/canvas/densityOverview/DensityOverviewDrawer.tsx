@@ -26,6 +26,7 @@ function previewHTML(card: ProjectedDensityCard): string {
   const source = card.card.previewHTML || card.card.content || ''
   return DOMPurify.sanitize(source, {
     ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i,
+    ADD_URI_SAFE_ATTR: ['type'],
   }).replace(/<img[^>]*>/gi, '')
 }
 

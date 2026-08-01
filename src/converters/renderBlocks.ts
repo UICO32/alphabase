@@ -363,6 +363,40 @@ function escapeCSS(str: string): string {
   return str.replace(/[^-a-zA-Z0-9#.,%()\s]/g, '')
 }
 
+/**
+ * BlockNote 原生序列化（createInternalHTMLSerializer）的两个缺口，在此兜底，
+ * 行为与 legacy 渲染器对齐：
+ * 1) tag/cardReference 的 content 为空时原生输出空 span（文本缺失），
+ *    这里用 props.tagName 填充——标签块应始终显示标签名。
+ * 2) textColor/backgroundColor 为非预设值（如自定义 hex 色）时原生输出
+ *    data-text-color="#ff5500"，而 BlockNote 的 CSS 只覆盖预设色名，
+ *    颜色不生效；这里转成内联 style（legacy 渲染器的 escapeCSS 做法）。
+ */
+function postProcessNativeHTML(html: string): string {
+  if (typeof DOMParser === 'undefined') return html
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    for (const el of Array.from(doc.querySelectorAll<HTMLElement>('[data-tag-name]:empty'))) {
+      el.textContent = el.getAttribute('data-tag-name') || ''
+    }
+    for (const el of Array.from(doc.querySelectorAll<HTMLElement>('[data-text-color]'))) {
+      const v = el.getAttribute('data-text-color') || ''
+      if (v && v !== 'default' && !(v in BN_TEXT_COLORS) && !el.style.color) {
+        el.style.color = v
+      }
+    }
+    for (const el of Array.from(doc.querySelectorAll<HTMLElement>('[data-background-color]'))) {
+      const v = el.getAttribute('data-background-color') || ''
+      if (v && v !== 'default' && !(v in BN_BG_COLORS) && !el.style.backgroundColor) {
+        el.style.backgroundColor = v
+      }
+    }
+    return doc.body.innerHTML
+  } catch {
+    return html
+  }
+}
+
 function renderBlocksToHTMLLegacy(content: string): string {
   try {
     const blocks = JSON.parse(content)
@@ -388,7 +422,9 @@ export function renderBlocksToHTML(content: string): string {
     // content contains these types but the output doesn't.
     const hasCustomInline = content.includes('"type":"tag"') || content.includes('"type":"cardReference"')
     const outputHasAttrs = native.includes('data-tag-name') || native.includes('data-card-id')
-    if (!hasCustomInline || outputHasAttrs) return native
+    if (!hasCustomInline || outputHasAttrs) {
+      return postProcessNativeHTML(native)
+    }
   }
   return renderBlocksToHTMLLegacy(content)
 }

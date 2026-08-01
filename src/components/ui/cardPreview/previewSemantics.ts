@@ -82,6 +82,7 @@ export function buildCardPreviewSemantics({
   const title = extractExplicitTitle(content)
   const sanitizedHTML = DOMPurify.sanitize(previewHTML, {
     ALLOWED_URI_REGEXP: ALLOWED_PREVIEW_URI,
+    ADD_URI_SAFE_ATTR: ['type'],
   })
 
   if (!title || !sanitizedHTML) {
