@@ -47,6 +47,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
     cardId: data.cardId,
     selected: !!selected,
     updateCard,
+    setNodes,
   })
 
   // 直接读取下沉到 card data 的 frameLayout，避免每次 render 调用 getNode(frameId)

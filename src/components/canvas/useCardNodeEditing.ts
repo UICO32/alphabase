@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Node } from '@xyflow/react'
 import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
 import { useCardStore, type GlobalCard } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
@@ -25,6 +26,8 @@ interface UseCardNodeEditingArgs {
   cardId: string
   selected: boolean
   updateCard: UpdateCard
+  /** 取消其他节点选中用（编辑聚焦 = 单选语义） */
+  setNodes: (nodes: Node[] | ((nds: Node[]) => Node[])) => void
 }
 
 export function takeEditorFocusIntent(
@@ -39,6 +42,7 @@ export function useCardNodeEditing({
   cardId,
   selected,
   updateCard,
+  setNodes,
 }: UseCardNodeEditingArgs) {
   const [isEditing, setIsEditing] = useState(false)
   const editorRef = useRef<BlockNoteEditorHandle>(null)
@@ -113,7 +117,16 @@ export function useCardNodeEditing({
     const content = useCardStore.getState().cards[cardId]?.content
     if (content) useEditorHistoryStore.getState().recordSnapshot(cardId, content)
     useViewStore.getState().setEditingCardId(cardId)
-  }, [cardId])
+    // 编辑聚焦 = 单选语义：取消其他节点的选中。
+    // 否则多选后点击某张卡进入编辑（或点击编辑器内部移动光标）时，
+    // 其他节点仍保持 selected → 多选误判 → 本卡选中态被隐藏（显示编辑态
+    // 黑边框）+ 外部出现整体缩放框（蓝框）。
+    setNodes(nds => nds.map(n => {
+      const cid = (n.data as Record<string, unknown>)?.cardId
+      if (cid === cardId) return n
+      return n.selected ? { ...n, selected: false } : n
+    }))
+  }, [cardId, setNodes])
 
   const handleEditorBlur = useCallback(() => {
     const content = useCardStore.getState().cards[cardId]?.content
