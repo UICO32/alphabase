@@ -10,10 +10,8 @@ type Corner = 'nw' | 'ne' | 'sw' | 'se'
 const CORNERS: Corner[] = ['nw', 'ne', 'sw', 'se']
 const PAD = 6
 export const MIN_SCALE = 0.05
-// 角热区（hover 触发圆弧显示）与圆弧尺寸/外偏量
+// 角热区（hover 时 cursor 提示可缩放）
 const CORNER_HOT_SIZE = 30
-const ARC_SIZE = 18
-const ARC_OUTSET = 7
 
 export interface MultiScaleNode {
   id: string
@@ -208,26 +206,10 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
       {CORNERS.map(corner => {
         const cx = cornerPos[corner].x
         const cy = cornerPos[corner].y
-        // 短圆弧：1/4 圆（只显示相邻两边），定位在蓝色边框角外侧
-        const arcStyle: React.CSSProperties = {
-          position: 'absolute',
-          width: ARC_SIZE,
-          height: ARC_SIZE,
-          border: `${Math.max(1, lineWidth)}px solid var(--card-selected-border)`,
-          borderRadius: ARC_SIZE,
-          boxSizing: 'border-box',
-          ...(corner === 'nw'
-            ? { left: -ARC_OUTSET - ARC_SIZE, top: -ARC_OUTSET - ARC_SIZE, borderRight: 'none', borderBottom: 'none' }
-            : corner === 'ne'
-              ? { right: -ARC_OUTSET - ARC_SIZE, top: -ARC_OUTSET - ARC_SIZE, borderLeft: 'none', borderBottom: 'none' }
-              : corner === 'sw'
-                ? { left: -ARC_OUTSET - ARC_SIZE, bottom: -ARC_OUTSET - ARC_SIZE, borderRight: 'none', borderTop: 'none' }
-                : { right: -ARC_OUTSET - ARC_SIZE, bottom: -ARC_OUTSET - ARC_SIZE, borderLeft: 'none', borderTop: 'none' }),
-        }
         return (
           <div
             key={corner}
-            className={`scaler-corner ${dragging ? 'dragging' : ''}`}
+            className="scaler-corner"
             onPointerDown={handlePointerDown(corner)}
             onPointerMove={dragging ? handlePointerMove : undefined}
             onPointerUp={handlePointerUp}
@@ -243,9 +225,7 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
               touchAction: 'none',
               zIndex: 2001,
             }}
-          >
-            <div className="scaler-corner-arc" style={arcStyle} />
-          </div>
+          />
         )
       })}
     </>

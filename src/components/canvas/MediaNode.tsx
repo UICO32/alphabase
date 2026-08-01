@@ -42,6 +42,8 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
   // 用 React Flow 内置的 selectedNodesCount（运行时存在、类型未导出），
   // 避免每张卡在每次 store 更新时 filter 全部节点（大画布下 O(n²) 开销）。
   const multiSelected = useStore(s => (s as unknown as { selectedNodesCount: number }).selectedNodesCount > 1)
+  // 多选时隐藏图片自身的选中态（整体缩放框已代表选中范围）
+  const showSelected = selected && !multiSelected
 
   useEffect(() => {
     if (!data.url || data.type !== 'image') return
@@ -81,11 +83,11 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
       style={{
         width: '100%',
         height: '100%',
-        outline: selected ? '2px solid var(--line-active)' : '1px solid transparent',
+        outline: showSelected ? '2px solid var(--line-active)' : '1px solid transparent',
         outlineOffset: 0,
         borderRadius: 8,
         lineHeight: 0,
-        boxShadow: selected ? 'var(--shadow-glow-accent)' : 'var(--shadow-sm)',
+        boxShadow: showSelected ? 'var(--shadow-glow-accent)' : 'var(--shadow-sm)',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

@@ -65,8 +65,10 @@ export function CardNodeChrome({
   // 用 React Flow 内置的 selectedNodesCount（运行时存在、类型未导出），
   // 避免每张卡在每次 store 更新时 filter 全部节点（大画布下 O(n²) 开销）。
   const multiSelected = useStore(s => (s as unknown as { selectedNodesCount: number }).selectedNodesCount > 1)
+  // 多选时隐藏卡片自身的选中态蓝色边框/阴影（整体缩放框已代表选中范围）
+  const showSelected = selected && !multiSelected
   const borderWidth = 1
-  const activeBorderColor = selected
+  const activeBorderColor = showSelected
     ? 'var(--card-selected-border)'
     : editing
       ? 'var(--line-active)'
@@ -78,7 +80,7 @@ export function CardNodeChrome({
 
   const selectedShadow = '0 0 0 1px var(--card-selected-border), 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent)'
   const editingShadow = '0 0 0 1px var(--line-active), 0 0 0 2px color-mix(in srgb, var(--line-active) 18%, transparent)'
-  const activeShadow = selected ? selectedShadow : editing ? editingShadow : ''
+  const activeShadow = showSelected ? selectedShadow : editing ? editingShadow : ''
 
   const cursor = collapsed ? 'grab'
     : editing ? 'text'

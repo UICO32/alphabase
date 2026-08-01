@@ -1,5 +1,5 @@
 ﻿import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
-import { useReactFlow, NodeResizeControl, type NodeProps } from '@xyflow/react'
+import { useReactFlow, useStore, NodeResizeControl, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { ArrowUpRight, Trash2, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { connectionMediator } from './utils/connectionMediator'
@@ -37,6 +37,9 @@ function getNextFontSize(current: AnnotationFontSize): AnnotationFontSize {
 }
 
 export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAnnotationNodeType>) => {
+  // 多选时隐藏自身选中态（整体缩放框已代表选中范围）
+  const multiSelected = useStore(s => (s as unknown as { selectedNodesCount: number }).selectedNodesCount > 1)
+  const showSelected = selected && !multiSelected
   const { setNodes, setEdges } = useReactFlow()
   const isDarkMode = useThemeStore(s => s.isDarkMode)
   const [isEditing, setIsEditing] = useState(false)
@@ -167,7 +170,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
   const fontPx = ANNOTATION_FONT_SIZES[fontSize]
   const frameColor = isEditing
     ? 'var(--accent-blue, #3b82f6)'
-    : selected
+    : showSelected
       ? 'var(--border-strong, #9ca3af)'
       : isHovered
         ? 'var(--border-subtle, #d4d4d8)'
@@ -196,7 +199,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* 閫変腑鏃舵樉绀鸿璋冩暣澶у皬鎺т欢 */}
-      {selected && (
+      {showSelected && (
         <NodeResizeControl
           position="bottom-right"
           minWidth={MIN_ANNOTATION_WIDTH}
