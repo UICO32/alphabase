@@ -14,7 +14,8 @@ interface ToolbarProps {
 }
 
 export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopography, onOpenRightPanel }: ToolbarProps) {
-  const zoom = useLibraryStore(s => s.zoom)
+  // 只订阅整数百分比，缩放微调时（如 100%→99.9%）不触发工具栏重渲染
+  const zoomPercent = useLibraryStore(s => Math.round(s.zoom * 100))
   const isLassoMode = useFrameInteraction(s => s.lassoMode)
   const isTextToolMode = useFrameInteraction(s => s.textToolMode)
 
@@ -150,7 +151,7 @@ export function Toolbar({ onAddCard, onClipUrl, showTopography, onToggleTopograp
 	            <TooltipContent side="top">缩小</TooltipContent>
 	          </Tooltip>
 	          <span className="text-xs px-1.5 cursor-default tabular-nums text-fg-secondary">
-	            {Math.round(zoom * 100)}%
+	            {zoomPercent}%
 	          </span>
 	          <Tooltip>
 	            <TooltipTrigger asChild>

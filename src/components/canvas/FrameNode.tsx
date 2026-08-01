@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
-import { type NodeProps, type Node, useReactFlow, useStore } from '@xyflow/react'
+import { type NodeProps, type Node, useReactFlow } from '@xyflow/react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { computeLayout, saveCardSnapshots, saveFrameSnapshot, restoreOrComputePositions, restoreFrameDimensions, updateSingleCardSnapshot, type FrameLayout, type KanbanColumn, KANBAN_CARD_HEIGHT } from './utils/frameLayouts'
@@ -56,8 +56,10 @@ const LAYOUT_OPTIONS: { value: FrameLayout; label: string }[] = [
 ]
 
 export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>) => {
-  const { setNodes } = useReactFlow()
-  const zoom = useStore((s) => s.transform[2])
+  const { setNodes, getViewport } = useReactFlow()
+  // 注意：这里不再订阅 React Flow 的 transform。
+  // 标签/边框等逆缩放尺寸改用 CSS 变量 --rf-inv-zoom（由 ReactFlowCanvas.onMove
+  // 每帧更新），浏览器原生处理，避免缩放时整个 FrameNode 每帧重渲染。
   const isDarkMode = useIsDarkMode()
   const isDragOver = useFrameInteraction(s => s.dragOverFrameId === id)
 
@@ -267,7 +269,8 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       const startY = e.clientY
       const startW = size.width
       const startH = size.height
-      const currentZoom = zoom
+      // 动态取当前缩放（不订阅 transform，避免每帧重渲染）
+      const currentZoom = getViewport().zoom
       const frameLayout = currentLayout
 
       const handleMouseMove = (ev: MouseEvent) => {
@@ -332,7 +335,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       window.addEventListener('mousemove', handleMouseMove)
       window.addEventListener('mouseup', handleMouseUp)
     },
-    [id, size, setNodes, zoom, currentLayout],
+    [id, size, setNodes, getViewport, currentLayout],
   )
 
   const kanbanColumns: KanbanColumn[] = useMemo(() => {
@@ -491,44 +494,46 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
     : isHovered ? shadowHover
     : shadowDefault
 
-  const tagScale = 1 / zoom
-  const ts = tagScale
-  const tagFontSize = 11 * ts
-  const tagDotSize = 9 * ts
-  const tagPaddingH = 10 * ts
-  const tagPaddingV = 2.5 * ts
-  const tagMaxWidth = 80 * ts
-  const tagBorderWidth = 1 * ts
-  const tagBorderRadius = 6 * ts
-  const titleControlHeight = 20 * ts
+  // 缩放逆尺寸：所有值保持"zoom=1 时的基准"，实际渲染用
+  // calc(<base>px * var(--rf-inv-zoom, 1))（--rf-inv-zoom 由 ReactFlowCanvas
+  // 每帧更新，浏览器原生处理，FrameNode 自身不因缩放重渲染）。
+  const tagFontSize = 11
+  const tagDotSize = 9
+  const tagPaddingH = 10
+  const tagPaddingV = 2.5
+  const tagMaxWidth = 80
+  const tagBorderWidth = 1
+  const tagBorderRadius = 6
+  const titleControlHeight = 20
   const titleModuleHeight = titleControlHeight + (tagPaddingV * 2) + (tagBorderWidth * 2)
-  const frameBorderW = 1.5 * ts
-  const headerFrameGap = 8 * ts
-  const dragHandleHeight = 36 * ts
+  const frameBorderW = 1.5
+  const headerFrameGap = 8
+  const dragHandleHeight = 36
   const titleTextForWidth = isEditing ? titleDraft.split(/\r?\n/)[0]?.trim() ?? '' : name.trim()
   const titleDisplayChars = Math.max(TITLE_MIN_CHARS, titleTextForWidth.length)
-  const titleMinWidth = Math.max(64 * ts, TITLE_MIN_CHARS * tagFontSize * 0.62 + 28 * ts)
-  const titleMaxWidth = Math.max(titleMinWidth, TITLE_MAX_WIDTH * ts)
+  const titleMinWidth = Math.max(64, TITLE_MIN_CHARS * tagFontSize * 0.62 + 28)
+  const titleMaxWidth = Math.max(titleMinWidth, TITLE_MAX_WIDTH)
   const titleMeasuredWidth = Math.max(
     titleMinWidth,
-    Math.min(titleMaxWidth, titleDisplayChars * tagFontSize * 0.62 + 28 * ts),
+    Math.min(titleMaxWidth, titleDisplayChars * tagFontSize * 0.62 + 28),
   )
-  const titleDisplayMaxWidth = Math.max(titleMinWidth, TITLE_MAX_WIDTH * ts)
+  const titleDisplayMaxWidth = Math.max(titleMinWidth, TITLE_MAX_WIDTH)
 
-  const rs = tagScale
-  const edgeSize = Math.max(2, EDGE_SIZE * rs)
-  const cornerSize = Math.max(4, CORNER_SIZE * rs)
+  const edgeSize = Math.max(2, EDGE_SIZE)
+  const cornerSize = Math.max(4, CORNER_SIZE)
+  // 统一逆缩放函数：把 zoom=1 时的基准尺寸转为随 --rf-inv-zoom 缩放的样式值
+  const rz = (base: number) => `calc(${base}px * var(--rf-inv-zoom, 1))`
 
   const resizeEdges: { dir: ResizeDir; style: React.CSSProperties }[] = selected
     ? [
-        { dir: 'n', style: { top: 0, left: cornerSize, right: cornerSize, height: edgeSize, cursor: 'n-resize' } },
-        { dir: 's', style: { bottom: 0, left: cornerSize, right: cornerSize, height: edgeSize, cursor: 's-resize' } },
-        { dir: 'e', style: { right: 0, top: cornerSize, bottom: cornerSize, width: edgeSize, cursor: 'e-resize' } },
-        { dir: 'w', style: { left: 0, top: cornerSize, bottom: cornerSize, width: edgeSize, cursor: 'w-resize' } },
-        { dir: 'ne', style: { top: 0, right: 0, width: cornerSize, height: cornerSize, cursor: 'ne-resize' } },
-        { dir: 'nw', style: { top: 0, left: 0, width: cornerSize, height: cornerSize, cursor: 'nw-resize' } },
-        { dir: 'se', style: { bottom: 0, right: 0, width: cornerSize, height: cornerSize, cursor: 'se-resize' } },
-        { dir: 'sw', style: { bottom: 0, left: 0, width: cornerSize, height: cornerSize, cursor: 'sw-resize' } },
+        { dir: 'n', style: { top: 0, left: rz(cornerSize), right: rz(cornerSize), height: rz(edgeSize), cursor: 'n-resize' } },
+        { dir: 's', style: { bottom: 0, left: rz(cornerSize), right: rz(cornerSize), height: rz(edgeSize), cursor: 's-resize' } },
+        { dir: 'e', style: { right: 0, top: rz(cornerSize), bottom: rz(cornerSize), width: rz(edgeSize), cursor: 'e-resize' } },
+        { dir: 'w', style: { left: 0, top: rz(cornerSize), bottom: rz(cornerSize), width: rz(edgeSize), cursor: 'w-resize' } },
+        { dir: 'ne', style: { top: 0, right: 0, width: rz(cornerSize), height: rz(cornerSize), cursor: 'ne-resize' } },
+        { dir: 'nw', style: { top: 0, left: 0, width: rz(cornerSize), height: rz(cornerSize), cursor: 'nw-resize' } },
+        { dir: 'se', style: { bottom: 0, right: 0, width: rz(cornerSize), height: rz(cornerSize), cursor: 'se-resize' } },
+        { dir: 'sw', style: { bottom: 0, left: 0, width: rz(cornerSize), height: rz(cornerSize), cursor: 'sw-resize' } },
       ]
     : []
 
@@ -542,7 +547,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
           ? `color-mix(in srgb, ${frameColor} 8%, rgba(30,30,30,0.03))`
           : `color-mix(in srgb, ${frameColor} 8%, rgba(255,255,255,0.3))`,
         borderRadius: 18,
-        border: `${frameBorderW}px solid ${selected || isDragOver || isHovered ? borderColor : 'transparent'}`,
+        border: `${rz(frameBorderW)} solid ${selected || isDragOver || isHovered ? borderColor : 'transparent'}`,
         boxShadow,
         pointerEvents: 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
@@ -552,9 +557,9 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       <div
         className={`${isEditing ? '' : 'frame-drag-handle select-none'} absolute`}
         style={{
-          top: -(dragHandleHeight + frameBorderW + headerFrameGap),
+          top: rz(-(dragHandleHeight + frameBorderW + headerFrameGap)),
           left: 0,
-          height: dragHandleHeight,
+          height: rz(dragHandleHeight),
           zIndex: 1,
           pointerEvents: 'auto',
           cursor: isEditing ? 'default' : 'grab',
@@ -565,9 +570,9 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         <div
           className="inline-flex items-center"
           style={{
-            marginTop: 2 * ts,
+            marginTop: rz(2),
             marginLeft: 0,
-            gap: 5 * ts,
+            gap: rz(5),
           }}
         >
         <div
@@ -576,11 +581,11 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
             background: isDarkMode
               ? `color-mix(in srgb, ${frameColor} 18%, rgba(25,25,25,0.98))`
               : `color-mix(in srgb, ${frameColor} 18%, rgba(255,255,255,0.98))`,
-            border: `${tagBorderWidth}px solid ${isDarkMode ? frameColor + '60' : frameColor + '50'}`,
-            borderRadius: tagBorderRadius,
-            padding: `${tagPaddingV}px ${tagPaddingH}px`,
-            gap: 6 * ts,
-            fontSize: tagFontSize,
+            border: `${rz(tagBorderWidth)} solid ${isDarkMode ? frameColor + '60' : frameColor + '50'}`,
+            borderRadius: rz(tagBorderRadius),
+            padding: `${rz(tagPaddingV)} ${rz(tagPaddingH)}`,
+            gap: rz(6),
+            fontSize: rz(tagFontSize),
             lineHeight: 1,
             transition: 'border-color 0.15s, background-color 0.15s',
             boxShadow: isDarkMode ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.08)',
@@ -593,14 +598,14 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
         >
           <button
             style={{
-              width: tagDotSize,
-              height: tagDotSize,
-              minWidth: tagDotSize,
-              minHeight: tagDotSize,
+              width: rz(tagDotSize),
+              height: rz(tagDotSize),
+              minWidth: rz(tagDotSize),
+              minHeight: rz(tagDotSize),
               borderRadius: '50%',
               backgroundColor: frameColor,
               boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-              border: `${tagBorderWidth}px solid ${isDarkMode ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.85)'}`,
+              border: `${rz(tagBorderWidth)} solid ${isDarkMode ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.85)'}`,
               cursor: 'pointer',
               flexShrink: 0,
               padding: 0,
@@ -635,14 +640,14 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
                 }
               }}
               style={{
-                width: titleMeasuredWidth,
-                minWidth: titleMinWidth,
-                maxWidth: titleDisplayMaxWidth,
-                height: titleControlHeight,
-                minHeight: titleControlHeight,
-                maxHeight: titleControlHeight,
-                padding: `0 ${7 * ts}px`,
-                fontSize: tagFontSize,
+                width: rz(titleMeasuredWidth),
+                minWidth: rz(titleMinWidth),
+                maxWidth: rz(titleDisplayMaxWidth),
+                height: rz(titleControlHeight),
+                minHeight: rz(titleControlHeight),
+                maxHeight: rz(titleControlHeight),
+                padding: `0 ${rz(7)}`,
+                fontSize: rz(tagFontSize),
                 fontFamily: 'inherit',
                 fontWeight: 600,
                 color: isDarkMode ? '#c8c8c8' : '#333',
@@ -651,7 +656,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
                 outline: 'none',
                 resize: 'none',
                 overflow: 'hidden',
-                lineHeight: `${titleControlHeight}px`,
+                lineHeight: rz(titleControlHeight),
                 whiteSpace: 'nowrap',
                 boxSizing: 'border-box',
               }}
@@ -665,18 +670,18 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
                 letterSpacing: 0,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
-                maxWidth: Math.max(tagMaxWidth, titleDisplayMaxWidth),
-                width: titleMeasuredWidth,
-                minWidth: titleMinWidth,
-                height: titleControlHeight,
+                maxWidth: rz(Math.max(tagMaxWidth, titleDisplayMaxWidth)),
+                width: rz(titleMeasuredWidth),
+                minWidth: rz(titleMinWidth),
+                height: rz(titleControlHeight),
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                padding: `0 ${7 * ts}px`,
-                borderRadius: 5 * ts,
+                padding: `0 ${rz(7)}`,
+                borderRadius: rz(5),
                 background: isTitleHovered
                   ? (isDarkMode ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.026)')
                   : 'transparent',
-                lineHeight: `${titleControlHeight}px`,
+                lineHeight: rz(titleControlHeight),
                 transition: 'background-color 0.15s',
                 boxSizing: 'border-box',
               }}
@@ -692,12 +697,12 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 3 * ts,
-              height: titleModuleHeight,
-              minWidth: 32 * ts,
-              padding: `0 ${7 * ts}px`,
-              borderRadius: tagBorderRadius,
-              border: `${tagBorderWidth}px solid ${isDarkMode ? frameColor + '45' : frameColor + '35'}`,
+              gap: rz(3),
+              height: rz(titleModuleHeight),
+              minWidth: rz(32),
+              padding: `0 ${rz(7)}`,
+              borderRadius: rz(tagBorderRadius),
+              border: `${rz(tagBorderWidth)} solid ${isDarkMode ? frameColor + '45' : frameColor + '35'}`,
               background: isDarkMode
                 ? `color-mix(in srgb, ${frameColor} 10%, rgba(25,25,25,0.96))`
                 : `color-mix(in srgb, ${frameColor} 10%, rgba(255,255,255,0.96))`,
@@ -705,7 +710,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
               flexShrink: 0,
               color: isDarkMode ? '#a8a8a8' : '#5f5f5f',
               cursor: 'pointer',
-              fontSize: tagFontSize,
+              fontSize: rz(tagFontSize),
               fontWeight: 600,
               lineHeight: 1,
             }}
@@ -723,7 +728,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
               {LAYOUT_OPTIONS.find((option) => option.value === currentLayout)?.label}
             </span>
             <ChevronDown
-              size={12 * ts}
+              size={rz(12)}
               strokeWidth={2}
               style={{
                 flexShrink: 0,
