@@ -64,6 +64,9 @@ export function useCardNodeEditing({
   const beginEditingAt = useCallback((coords?: BeginEditingOptions) => {
     const x = coords?.x ?? 0
     const y = coords?.y ?? 0
+    // 立即声明编辑意图：让其他卡（尤其挂载中的编辑器）知道焦点归属已变化，
+    // 避免它们 mount 完成后抢回焦点（表现为点 B 却回到 A，A 显示编辑态黑边框）。
+    useViewStore.getState().setEditingCardId(cardId)
     // 已有现成 textOffset（调用方同步算好）直接使用
     if (coords?.textOffset != null) {
       clickCoordsRef.current = { x, y, textOffset: coords.textOffset }
@@ -92,7 +95,7 @@ export function useCardNodeEditing({
       const textOffset = findTextOffsetAtPoint(root, x, y)
       clickCoordsRef.current = { x, y, textOffset }
     })
-  }, [])
+  }, [cardId])
 
   const handleContentChange = useCallback(
     (content: string) => {
@@ -116,15 +119,25 @@ export function useCardNodeEditing({
     const content = useCardStore.getState().cards[cardId]?.content
     if (content) useEditorHistoryStore.getState().recordSnapshot(cardId, content)
     setIsEditing(false)
+    // 当前编辑卡失焦 → 清空全局编辑卡标记，让 zIndex 恢复、其他挂载中的编辑器
+    // 也能感知焦点归属已失效
+    if (useViewStore.getState().editingCardId === cardId) {
+      useViewStore.getState().setEditingCardId(null)
+    }
   }, [cardId])
 
   const prepareEditorForReveal = useCallback(() => {
     const editor = editorRef.current
     if (!editor) return
+    // 挂载完成时校验焦点归属：若用户已点击/编辑其他卡（editingCardId 已切换），
+    // 本卡不再抢回焦点——否则表现为"点 B 却回到 A，A 显示编辑态黑色边框"。
+    // editingCardId 为 null（如 autoEdit 新卡）时放行。
+    const activeEditingId = useViewStore.getState().editingCardId
+    if (activeEditingId !== null && activeEditingId !== cardId) return
     const coords = takeEditorFocusIntent(clickCoordsRef)
     if (coords) editor.focusAtCoords(coords)
     else editor.focus()
-  }, [])
+  }, [cardId])
 
   return {
     isEditing,
