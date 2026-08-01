@@ -79,34 +79,45 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
   onScaleStart,
   onScaleEnd,
 }: MultiSelectionScalerProps) {
-  const { setNodes, screenToFlowPosition } = useReactFlow()
-  const zoom = useStore(s => s.transform[2])
+  const { setNodes, screenToFlowPosition, flowToScreenPosition } = useReactFlow()
+  // 订阅完整 transform：包围盒/手柄用屏幕坐标渲染在 pane 固定层，
+  // pan/zoom 时需跟随画布重新计算位置
+  const transform = useStore(s => s.transform)
   const dragRef = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
 
   // 注意：所有 hooks（含下方 useCallback）必须在 early return 之前，
   // 否则多选→单选切换时 hooks 数量变化会触发 "Rendered fewer hooks" 错误。
   const bounds = computeBoundingBox(nodes)
-  const invZoom = 1 / zoom
+  const invZoom = 1 / transform[2]
   const pad = PAD * invZoom
+
+  // React Flow 的 children 渲染在 pane（固定层），需用 flowToScreenPosition
+  // 把 flow 坐标转成屏幕坐标，否则缩放框会渲染到错误位置（看不到）。
   const left = bounds.minX - pad
   const top = bounds.minY - pad
   const right = bounds.maxX + pad
   const bottom = bounds.maxY + pad
-  const lineWidth = Math.max(1, 1.5 * invZoom)
-  const handleSize = HANDLE_SIZE * invZoom
+  const tl = flowToScreenPosition({ x: left, y: top })
+  const br = flowToScreenPosition({ x: right, y: bottom })
+  const boxLeft = tl.x
+  const boxTop = tl.y
+  const boxWidth = br.x - tl.x
+  const boxHeight = br.y - tl.y
+  const lineWidth = 1.5
+  const handleSize = HANDLE_SIZE
 
   const cornerPos: Record<Corner, { x: number; y: number }> = {
-    nw: { x: left, y: top },
-    ne: { x: right, y: top },
-    sw: { x: left, y: bottom },
-    se: { x: right, y: bottom },
+    nw: { x: boxLeft, y: boxTop },
+    ne: { x: br.x, y: boxTop },
+    sw: { x: boxLeft, y: br.y },
+    se: { x: br.x, y: br.y },
   }
 
   const handlePointerDown = useCallback((corner: Corner) => (e: React.PointerEvent) => {
     e.stopPropagation()
     e.preventDefault()
-    // 锚点 = 拖拽角的对角（保持不动）
+    // 锚点 = 拖拽角的对角（保持不动，flow 坐标）
     const anchor = {
       nw: { x: right, y: bottom },
       ne: { x: left, y: bottom },
@@ -170,14 +181,14 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
 
   return (
     <>
-      {/* 包围盒虚线框（flow 坐标，随画布缩放） */}
+      {/* 包围盒虚线框（屏幕坐标，pane 固定层） */}
       <div
         style={{
           position: 'absolute',
-          left,
-          top,
-          width: bounds.maxX - bounds.minX + pad * 2,
-          height: bounds.maxY - bounds.minY + pad * 2,
+          left: boxLeft,
+          top: boxTop,
+          width: boxWidth,
+          height: boxHeight,
           border: `${lineWidth}px dashed var(--line-active)`,
           borderRadius: 4,
           pointerEvents: 'none',
