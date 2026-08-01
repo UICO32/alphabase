@@ -129,6 +129,7 @@ export function CardNodeChrome({
         <NodeResizer
           minWidth={200}
           minHeight={120}
+          keepAspectRatio
           isVisible={selected}
           handleClassName="!w-8 !h-8 !bg-transparent !border-0"
           lineClassName="!bg-transparent !border-0 !w-8"

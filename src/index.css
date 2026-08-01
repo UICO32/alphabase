@@ -598,6 +598,17 @@ html[data-card-library-dragging='true'] .workspace-drawer-overlay {
   overflow-anchor: none;
 }
 
+/* 多选缩放框角手柄：hover 到角附近时，在蓝色边框外侧显示短圆弧暗示可缩放 */
+.scaler-corner-arc {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.scaler-corner:hover .scaler-corner-arc,
+.scaler-corner.dragging .scaler-corner-arc {
+  opacity: 1;
+}
+
 .workspace-drawer {
   position: fixed;
   top: 24px;

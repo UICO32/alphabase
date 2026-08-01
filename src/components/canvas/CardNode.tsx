@@ -152,12 +152,17 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleMouseEnter = useCallback(() => setIsHovered(true), [])
   const handleMouseLeave = useCallback(() => setIsHovered(false), [])
 
-  const handleResize = useCallback((params: { width: number; height: number }) => {
+  const handleResize = useCallback((params: { width: number; height: number; x?: number; y?: number }) => {
     setNodes((nds) =>
       nds.map((n) =>
         n.id === data.cardId
           ? {
               ...n,
+              // 拖 nw/ne/sw 角时 React Flow 会给出新 position（对角固定）；
+              // 若不应用，节点会以左上角为锚点缩放（左上角不动，形状错位）
+              ...(params.x !== undefined && params.y !== undefined
+                ? { position: { x: params.x, y: params.y } }
+                : {}),
               data: { ...n.data, width: params.width, height: params.height },
               width: params.width,
               height: params.height,
