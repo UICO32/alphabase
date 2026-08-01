@@ -51,8 +51,10 @@ export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOp
                 type: 'media',
                 position: { x: position.x + i * 40, y: position.y + i * 40 },
                 data: { url, type: 'image' },
-                width: 100,
-                height: 100,
+                // 合理默认尺寸：避免 100x100 的小占位在加载完成前被放大显示（模糊），
+                // 加载完成后 MediaNode 会用图片自然尺寸更新节点
+                width: 320,
+                height: 220,
               }
               setNodes((nds) => [...nds, node])
             })

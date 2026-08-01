@@ -16,8 +16,9 @@ function makeMediaNode(url: string, position: { x: number; y: number }): Node<Me
     type: 'media',
     position,
     data: { url, type: 'image' },
-    width: 100,
-    height: 100,
+    // 合理默认尺寸（加载完成后 MediaNode 会用自然尺寸更新）
+    width: 320,
+    height: 220,
   }
 }
 

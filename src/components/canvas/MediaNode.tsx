@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback } from 'react'
-import { NodeResizeControl, useReactFlow, type NodeProps } from '@xyflow/react'
+import { NodeResizeControl, useReactFlow, useStore, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { Copy } from 'lucide-react'
 import { CardHandles } from './card/CardHandles'
@@ -38,6 +38,8 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
   const { setNodes } = useReactFlow()
   const [loaded, setLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
+  // 多选时隐藏单节点缩放手柄（由整体缩放框 MultiSelectionScaler 接管）
+  const multiSelected = useStore(s => s.nodes.filter(n => n.selected).length > 1)
 
   useEffect(() => {
     if (!data.url || data.type !== 'image') return
@@ -87,7 +89,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
       onMouseLeave={() => setHovered(false)}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {selected && cornerPositions.map((pos) => (
+      {selected && !multiSelected && cornerPositions.map((pos) => (
         <NodeResizeControl
           key={pos}
           position={pos}

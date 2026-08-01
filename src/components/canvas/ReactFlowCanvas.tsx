@@ -56,6 +56,7 @@ import { CardNodeData, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATI
 import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
 import { getVisibleCanvasEdges } from './utils/visibleCanvasEdges'
 import { getDensityOverviewProgress, OVERVIEW_INTERACTION_PROGRESS } from './densityOverview/densityOverviewModel'
+import { MultiSelectionScaler } from './MultiSelectionScaler'
 
 const DensityOverviewLayer = lazy(() => import('./densityOverview/DensityOverviewLayer').then(module => ({
   default: module.DensityOverviewLayer,
@@ -598,6 +599,26 @@ export function ReactFlowCanvas() {
     return selectionForAlignment.edges.filter(e => edgeIds.has(e.id))
   }, [edges, isDraggingNode, selectionForAlignment.edges])
 
+  // 多选整体缩放：仅 card/media/text 参与（frame 有子布局，不参与）
+  const scalableSelectionNodes = useMemo(
+    () => selectedNodesForAlignment.filter(n => n.type === 'card' || n.type === 'media' || n.type === 'text'),
+    [selectedNodesForAlignment],
+  )
+
+  const handleMultiScaleStart = useCallback(() => {
+    record({
+      nodes: nodesRef.current.map(n => ({ ...n })),
+      edges: edgesRef.current.map(e => ({ ...e })),
+    })
+  }, [record])
+
+  const handleMultiScaleEnd = useCallback(() => {
+    record({
+      nodes: nodesRef.current.map(n => ({ ...n })),
+      edges: edgesRef.current.map(e => ({ ...e })),
+    })
+  }, [record])
+
   const onApplyAlignment = useCallback((updates: Map<string, { x: number; y: number }>) => {
     if (recordTimerRef.current) {
       clearTimeout(recordTimerRef.current)
@@ -792,6 +813,11 @@ export function ReactFlowCanvas() {
           onApplyAlignment={onApplyAlignment}
           onApplyScale={onApplyScale}
           isDraggingNode={isDraggingNode}
+        />
+        <MultiSelectionScaler
+          nodes={scalableSelectionNodes}
+          onScaleStart={handleMultiScaleStart}
+          onScaleEnd={handleMultiScaleEnd}
         />
       </ReactFlow>
       <ConnectionPreview spatialIndexRef={spatialIndexRef} reactFlowInstance={reactFlowInstance} lastMousePosRef={lastMousePosRef} />

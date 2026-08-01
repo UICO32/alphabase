@@ -66,7 +66,7 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
       if (!spatialIndex) return
 
       // 隐形边缘吸附：Alt 按下时跳过
-      if (!altPressedRef.current && (node.type === 'card' || node.type === 'frame' || node.type === 'text')) {
+      if (!altPressedRef.current && (node.type === 'card' || node.type === 'frame' || node.type === 'text' || node.type === 'media')) {
         const zoom = instance.getViewport().zoom
         const threshold = SNAP_THRESHOLD_PX / zoom
 
@@ -76,8 +76,8 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
 
         // node.position 是 React Flow 给的未经吸附的"鼠标真实位置"
         const dragData = node.data as CardNodeData
-        const dragWidth = dragData.width ?? DEFAULT_CARD_WIDTH
-        const dragHeight = dragData.collapsed ? COLLAPSED_CARD_HEIGHT : (dragData.height ?? DEFAULT_CARD_HEIGHT)
+        const dragWidth = dragData.width ?? node.width ?? DEFAULT_CARD_WIDTH
+        const dragHeight = dragData.collapsed ? COLLAPSED_CARD_HEIGHT : (dragData.height ?? node.height ?? DEFAULT_CARD_HEIGHT)
         const dragW = node.type === 'frame' ? ((node.data as Record<string, unknown>).width as number) ?? 600 : dragWidth
         const dragH = node.type === 'frame' ? ((node.data as Record<string, unknown>).height as number) ?? 400 : dragHeight
 

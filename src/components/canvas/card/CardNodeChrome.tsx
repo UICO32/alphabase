@@ -1,5 +1,5 @@
 import type { CSSProperties, MouseEvent, ReactNode } from 'react'
-import { NodeResizer } from '@xyflow/react'
+import { NodeResizer, useStore } from '@xyflow/react'
 import type { ResizeParamsWithDirection } from '@xyflow/react'
 import type { CardColor } from '../../../types/card'
 import { getCardFill, getCardStroke } from '../utils/cardStyles'
@@ -61,6 +61,8 @@ export function CardNodeChrome({
   onColorChange,
   children,
 }: CardNodeChromeProps) {
+  // 多选时隐藏单节点缩放手柄（由整体缩放框 MultiSelectionScaler 接管）
+  const multiSelected = useStore(s => s.nodes.filter(n => n.selected).length > 1)
   const borderWidth = 1
   const activeBorderColor = selected
     ? 'var(--card-selected-border)'
@@ -121,7 +123,7 @@ export function CardNodeChrome({
       onClick={onClick}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {selected && !collapsed && (
+      {selected && !multiSelected && !collapsed && (
         <NodeResizer
           minWidth={200}
           minHeight={120}
