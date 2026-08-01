@@ -7,7 +7,6 @@ import {
   SelectionMode,
   useNodesState,
   useEdgesState,
-  useStore,
   type Node,
   type Edge,
   type Connection,
@@ -58,7 +57,7 @@ import { CardNodeData, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATI
 import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
 import { getVisibleCanvasEdges } from './utils/visibleCanvasEdges'
 import { getDensityOverviewProgress, OVERVIEW_INTERACTION_PROGRESS } from './densityOverview/densityOverviewModel'
-import { MultiSelectionScaler } from './MultiSelectionScaler'
+import { MultiSelectionScaler, MultiSelectWatcher } from './MultiSelectionScaler'
 
 const DensityOverviewLayer = lazy(() => import('./densityOverview/DensityOverviewLayer').then(module => ({
   default: module.DensityOverviewLayer,
@@ -95,9 +94,13 @@ export function ReactFlowCanvas() {
   const densityOverviewZoomThreshold = useLibraryStore(s => s.densityOverviewZoomThreshold)
   const boards = useBoardStore((s) => s.boards)
   const activeBoardId = useBoardStore((s) => s.activeBoardId)
-  // 多选状态（>1 个选中节点）：由画布统一计算，节点组件通过 context 消费，
-  // 用于多选时隐藏各节点自身的选中态（整体缩放框已代表选中范围）
-  const isMultiSelected = useStore(s => s.nodes.filter(n => n.selected).length > 1)
+  // 多选状态（>1 个选中节点）：由 ReactFlow 内部的 MultiSelectWatcher 计算
+  // 并通过回调提升到这里，节点组件经 context 消费——多选时隐藏各节点
+  // 自身的选中态（整体缩放框已代表选中范围）
+  const [isMultiSelected, setIsMultiSelected] = useState(false)
+  const handleMultiSelectChange = useCallback((v: boolean) => {
+    setIsMultiSelected(prev => (prev === v ? prev : v))
+  }, [])
   // 只在 fan 视图（画布还没有任何节点）订阅全量卡片；board 编辑时打字导致的
   // 内容落盘会替换 cards 引用，若常驻订阅会让整个画布每 400ms 重渲染一次。
   // 非 fan 视图返回稳定空引用，zustand 判定相等，不触发重渲染。
@@ -816,6 +819,7 @@ export function ReactFlowCanvas() {
           onApplyScale={onApplyScale}
           isDraggingNode={isDraggingNode}
         />
+        <MultiSelectWatcher onChange={handleMultiSelectChange} />
         <MultiSelectionScaler
           onScaleStart={handleMultiScaleStart}
           onScaleEnd={handleMultiScaleEnd}

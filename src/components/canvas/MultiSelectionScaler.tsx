@@ -1,6 +1,19 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useReactFlow, useStore, type Node } from '@xyflow/react'
 import { computeBoundingBox } from './utils/alignment'
+
+/**
+ * 多选状态观察器：渲染在 <ReactFlow> 内部（useStore 需要 provider），
+ * 计算"选中节点 > 1"并通过回调提升到 ReactFlowCanvas，
+ * 由 ReactFlowCanvas 的 MultiSelectContext.Provider 下发给所有节点。
+ */
+export function MultiSelectWatcher({ onChange }: { onChange: (v: boolean) => void }) {
+  const isMultiSelected = useStore(s => s.nodes.filter(n => n.selected).length > 1)
+  useEffect(() => {
+    onChange(isMultiSelected)
+  }, [isMultiSelected, onChange])
+  return null
+}
 
 // 多选整体缩放：选中 ≥2 个节点时显示包围盒 + 四角手柄，
 // 拖动角按对角线等比缩放所有选中节点的位置与尺寸（类似 Figma 多选缩放）。
