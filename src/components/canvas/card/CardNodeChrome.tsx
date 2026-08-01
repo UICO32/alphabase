@@ -1,6 +1,8 @@
 import type { CSSProperties, MouseEvent, ReactNode } from 'react'
-import { NodeResizer, useStore } from '@xyflow/react'
+import { useContext } from 'react'
+import { NodeResizer } from '@xyflow/react'
 import type { ResizeParamsWithDirection } from '@xyflow/react'
+import { MultiSelectContext } from '../utils/multiSelectContext'
 import type { CardColor } from '../../../types/card'
 import { getCardFill, getCardStroke } from '../utils/cardStyles'
 import { CardActionBar } from './CardActionBar'
@@ -61,10 +63,8 @@ export function CardNodeChrome({
   onColorChange,
   children,
 }: CardNodeChromeProps) {
-  // 多选时隐藏单节点缩放手柄（由整体缩放框 MultiSelectionScaler 接管）。
-  // 用 React Flow 内置的 selectedNodesCount（运行时存在、类型未导出），
-  // 避免每张卡在每次 store 更新时 filter 全部节点（大画布下 O(n²) 开销）。
-  const multiSelected = useStore(s => (s as unknown as { selectedNodesCount: number }).selectedNodesCount > 1)
+  // 多选状态由画布统一计算（context），避免每张卡各自 filter 节点
+  const multiSelected = useContext(MultiSelectContext)
   // 多选时隐藏卡片自身的选中态蓝色边框/阴影（整体缩放框已代表选中范围）
   const showSelected = selected && !multiSelected
   const borderWidth = 1

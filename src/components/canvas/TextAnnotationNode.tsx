@@ -1,9 +1,10 @@
-﻿import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
-import { useReactFlow, useStore, NodeResizeControl, type NodeProps } from '@xyflow/react'
+﻿import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore, useContext } from 'react'
+import { useReactFlow, NodeResizeControl, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { ArrowUpRight, Trash2, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { connectionMediator } from './utils/connectionMediator'
 import { useFrameInteraction } from './utils/frameInteraction'
+import { MultiSelectContext } from './utils/multiSelectContext'
 import { CardHandles } from './card/CardHandles'
 import { AnnotationEditor, type AnnotationEditorHandle } from '../editor/AnnotationEditor'
 import { useThemeStore } from '../../stores/themeStore'
@@ -37,8 +38,8 @@ function getNextFontSize(current: AnnotationFontSize): AnnotationFontSize {
 }
 
 export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAnnotationNodeType>) => {
-  // 多选时隐藏自身选中态（整体缩放框已代表选中范围）
-  const multiSelected = useStore(s => (s as unknown as { selectedNodesCount: number }).selectedNodesCount > 1)
+  // 多选状态由画布统一计算（context），多选时隐藏自身选中态
+  const multiSelected = useContext(MultiSelectContext)
   const showSelected = selected && !multiSelected
   const { setNodes, setEdges } = useReactFlow()
   const isDarkMode = useThemeStore(s => s.isDarkMode)
