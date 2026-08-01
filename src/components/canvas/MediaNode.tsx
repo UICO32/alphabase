@@ -38,8 +38,10 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
   const { setNodes } = useReactFlow()
   const [loaded, setLoaded] = useState(false)
   const [hovered, setHovered] = useState(false)
-  // 多选时隐藏单节点缩放手柄（由整体缩放框 MultiSelectionScaler 接管）
-  const multiSelected = useStore(s => s.nodes.filter(n => n.selected).length > 1)
+  // 多选时隐藏单节点缩放手柄（由整体缩放框 MultiSelectionScaler 接管）。
+  // 用 React Flow 内置的 selectedNodesCount（运行时存在、类型未导出），
+  // 避免每张卡在每次 store 更新时 filter 全部节点（大画布下 O(n²) 开销）。
+  const multiSelected = useStore(s => (s as unknown as { selectedNodesCount: number }).selectedNodesCount > 1)
 
   useEffect(() => {
     if (!data.url || data.type !== 'image') return

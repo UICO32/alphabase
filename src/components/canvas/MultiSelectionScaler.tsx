@@ -84,8 +84,8 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
   const dragRef = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
 
-  if (nodes.length < 2) return null
-
+  // 注意：所有 hooks（含下方 useCallback）必须在 early return 之前，
+  // 否则多选→单选切换时 hooks 数量变化会触发 "Rendered fewer hooks" 错误。
   const bounds = computeBoundingBox(nodes)
   const invZoom = 1 / zoom
   const pad = PAD * invZoom
@@ -164,6 +164,9 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
     setDragging(false)
     onScaleEnd()
   }, [onScaleEnd])
+
+  // early return 放在所有 hooks 之后（单节点用各自的 NodeResizer）
+  if (nodes.length < 2) return null
 
   return (
     <>
