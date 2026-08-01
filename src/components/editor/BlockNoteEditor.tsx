@@ -29,6 +29,7 @@ import {
   SAVE_DEBOUNCE_MS
 } from '../../converters/richTextUtils'
 import { cardSchema } from './blocknoteSchema'
+import { findTextOffsetAtPoint } from '../../utils/caretScan'
 
 export interface BlockNoteEditorHandle {
   focus: () => void
@@ -311,47 +312,22 @@ const CardBlockNoteEditorInner = (
           const preview = entrySurface?.querySelector<HTMLElement>('.card-editor-entry__preview')
           if (pos == null && !canUsePointCaret && preview) {
             try {
-              let previewTextOffset = 0
-              let consumedPreviewText = 0
-              let bestPreviewScore = Infinity
-              const previewWalker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT)
-              let previewTextNode: Text | null
-              while ((previewTextNode = previewWalker.nextNode() as Text | null)) {
-                const parent = previewTextNode.parentElement
-                if (!parent) continue
-                const parentRect = parent.getBoundingClientRect()
-                const len = previewTextNode.textContent?.length ?? 0
-                const range = document.createRange()
-                for (let offset = 0; offset <= len; offset += 1) {
-                  const charStart = offset === 0 ? 0 : offset - 1
-                  const charEnd = offset === 0 ? Math.min(1, len) : offset
-                  range.setStart(previewTextNode, charStart)
-                  range.setEnd(previewTextNode, charEnd)
-                  const caretRect = range.getClientRects()[0] ?? range.getBoundingClientRect()
-                  const caretY = caretRect.height > 0
-                    ? (caretRect.top + caretRect.bottom) / 2
-                    : (parentRect.top + parentRect.bottom) / 2
-                  const caretX = offset === 0 ? caretRect.left : caretRect.right
-                  const score = Math.abs(y - caretY) * 10_000
-                    + Math.abs(x - caretX)
-                  if (score < bestPreviewScore) {
-                    bestPreviewScore = score
-                    previewTextOffset = consumedPreviewText + offset
-                  }
-                }
-                consumedPreviewText += len
-              }
+              // findTextOffsetAtPoint 带行级粗筛 + 提前终止，
+              // 避免长卡片预览逐字符 range 度量阻塞点击进入编辑。
+              const previewTextOffset = findTextOffsetAtPoint(preview, x, y)
 
-              let consumedEditorText = 0
-              const editorWalker = document.createTreeWalker(pm.dom, NodeFilter.SHOW_TEXT)
-              let editorTextNode: Text | null
-              while ((editorTextNode = editorWalker.nextNode() as Text | null)) {
-                const len = editorTextNode.textContent?.length ?? 0
-                if (previewTextOffset <= consumedEditorText + len) {
-                  pos = pm.posAtDOM(editorTextNode, previewTextOffset - consumedEditorText)
-                  break
+              if (previewTextOffset != null) {
+                let consumedEditorText = 0
+                const editorWalker = document.createTreeWalker(pm.dom, NodeFilter.SHOW_TEXT)
+                let editorTextNode: Text | null
+                while ((editorTextNode = editorWalker.nextNode() as Text | null)) {
+                  const len = editorTextNode.textContent?.length ?? 0
+                  if (previewTextOffset <= consumedEditorText + len) {
+                    pos = pm.posAtDOM(editorTextNode, previewTextOffset - consumedEditorText)
+                    break
+                  }
+                  consumedEditorText += len
                 }
-                consumedEditorText += len
               }
             } catch { /* fall through */ }
           }

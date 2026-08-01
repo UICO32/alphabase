@@ -3,6 +3,7 @@ import { useEditorHistoryStore } from '../../stores/editorHistoryStore'
 import { useCardStore, type GlobalCard } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { registerEditorHandle, clearProseMirrorSuppression } from '../editor/utils/editorHandleRegistry'
+import { findTextOffsetAtPoint } from '../../utils/caretScan'
 import type { BlockNoteEditorHandle } from '../editor/BlockNoteEditor'
 
 type UpdateCard = (id: string, props: Partial<GlobalCard>) => void
@@ -11,6 +12,13 @@ export interface EditorFocusIntent {
   x: number
   y: number
   textOffset?: number
+}
+
+export interface BeginEditingOptions extends EditorFocusIntent {
+  /** 点击时捕获的 preview 元素；textOffset 将延迟到下一帧对其计算，避免同步阻塞 */
+  previewElement?: HTMLElement | null
+  /** 点击所属的节点容器（编辑态切换后用于回退查找 CardEditorEntry 的 preview） */
+  nodeElement?: HTMLElement | null
 }
 
 interface UseCardNodeEditingArgs {
@@ -35,6 +43,7 @@ export function useCardNodeEditing({
   const [isEditing, setIsEditing] = useState(false)
   const editorRef = useRef<BlockNoteEditorHandle>(null)
   const clickCoordsRef = useRef<EditorFocusIntent | null>(null)
+  const textOffsetRafRef = useRef<number | null>(null)
 
   const isAutoEdit = useViewStore((s) => s.autoEditCardId === cardId)
 
@@ -42,14 +51,47 @@ export function useCardNodeEditing({
     if (isAutoEdit) setIsEditing(true)
   }, [isAutoEdit])
 
+  // 卸载时取消未完成的 textOffset 计算
+  useEffect(() => () => {
+    if (textOffsetRafRef.current !== null) cancelAnimationFrame(textOffsetRafRef.current)
+  }, [])
+
   useEffect(() => {
     registerEditorHandle(cardId, editorRef.current ?? null)
     return () => registerEditorHandle(cardId, null)
   }, [cardId, isEditing, selected])
 
-  const beginEditingAt = useCallback((coords?: EditorFocusIntent) => {
-    clickCoordsRef.current = coords ?? null
+  const beginEditingAt = useCallback((coords?: BeginEditingOptions) => {
+    const x = coords?.x ?? 0
+    const y = coords?.y ?? 0
+    // 已有现成 textOffset（调用方同步算好）直接使用
+    if (coords?.textOffset != null) {
+      clickCoordsRef.current = { x, y, textOffset: coords.textOffset }
+      setIsEditing(true)
+      return
+    }
+    // 先立即进入编辑态，textOffset 延迟到下一帧计算：
+    // 长卡片的逐字符 layout 扫描（getClientRects）可达数十毫秒，
+    // 同步执行会让点击瞬间冻结；而编辑器挂载（>1 帧）后才消费该值，
+    // rAF 内算完绰绰有余。
+    clickCoordsRef.current = { x, y }
     setIsEditing(true)
+    const previewEl = coords?.previewElement
+    const nodeEl = coords?.nodeElement
+    if (!previewEl && !nodeEl) return
+    if (textOffsetRafRef.current !== null) cancelAnimationFrame(textOffsetRafRef.current)
+    textOffsetRafRef.current = requestAnimationFrame(() => {
+      textOffsetRafRef.current = null
+      // React 在点击事件后同步切换编辑态，原 preview 已卸载；
+      // 回退到 CardEditorEntry 挂载的 preview（内容与点击时一致）。
+      // 若两者都不可用（初始化极快、preview 已隐藏）则跳过，交给坐标定位兜底。
+      const root = previewEl?.isConnected
+        ? previewEl
+        : (nodeEl?.querySelector<HTMLElement>('.card-editor-entry__preview') ?? null)
+      if (!root) return
+      const textOffset = findTextOffsetAtPoint(root, x, y)
+      clickCoordsRef.current = { x, y, textOffset }
+    })
   }, [])
 
   const handleContentChange = useCallback(
