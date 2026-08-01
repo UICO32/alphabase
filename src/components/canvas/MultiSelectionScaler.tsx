@@ -187,7 +187,7 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
 
   return (
     <>
-      {/* 包围盒虚线框（屏幕坐标，pane 固定层） */}
+      {/* 包围盒（屏幕坐标，pane 固定层）：与卡片选中态一致的蓝色圆角边框 */}
       <div
         style={{
           position: 'absolute',
@@ -195,8 +195,9 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
           top: boxTop,
           width: boxWidth,
           height: boxHeight,
-          border: `${lineWidth}px dashed var(--line-active)`,
-          borderRadius: 4,
+          border: `${lineWidth}px solid var(--card-selected-border)`,
+          borderRadius: 10,
+          boxShadow: '0 0 0 1px var(--card-selected-border), 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent)',
           pointerEvents: 'none',
           zIndex: 2000,
           boxSizing: 'border-box',
@@ -215,8 +216,8 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
             top: cornerPos[corner].y - handleSize / 2,
             width: handleSize,
             height: handleSize,
-            background: dragging ? 'var(--line-active)' : 'var(--surface-panel)',
-            border: `${Math.max(1, lineWidth)}px solid var(--line-active)`,
+            background: dragging ? 'var(--card-selected-border)' : 'var(--surface-panel)',
+            border: `${Math.max(1, lineWidth)}px solid var(--card-selected-border)`,
             borderRadius: 3,
             cursor: `${corner}-resize`,
             pointerEvents: 'auto',

@@ -33,7 +33,7 @@ describe('MultiSelectionScaler 渲染（内部订阅 store）', () => {
     const { container } = render(
       <MultiSelectionScaler onScaleStart={vi.fn()} onScaleEnd={vi.fn()} />,
     )
-    expect(container.querySelectorAll('[style*="dashed"]')).toHaveLength(1)
+    expect(container.querySelectorAll('[style*="brand-ring"]')).toHaveLength(1)
     expect(container.querySelectorAll('[style*="resize"]')).toHaveLength(4)
   })
 
@@ -64,7 +64,7 @@ describe('MultiSelectionScaler 渲染（内部订阅 store）', () => {
     const { container } = render(
       <MultiSelectionScaler onScaleStart={vi.fn()} onScaleEnd={vi.fn()} />,
     )
-    const box = container.querySelector('[style*="dashed"]') as HTMLElement | null
+    const box = container.querySelector('[style*="brand-ring"]') as HTMLElement | null
     expect(box).not.toBeNull()
     const style = box!.getAttribute('style') ?? ''
     // 包围盒从 (0,0) 到 (400,300) 加 padding
@@ -81,14 +81,14 @@ describe('MultiSelectionScaler 渲染（内部订阅 store）', () => {
     const first = render(
       <MultiSelectionScaler onScaleStart={vi.fn()} onScaleEnd={vi.fn()} />,
     )
-    const box1 = first.container.querySelector('[style*="dashed"]') as HTMLElement
+    const box1 = first.container.querySelector('[style*="brand-ring"]') as HTMLElement
     expect(box1.getAttribute('style')).toContain('width: 412px')
     // 模拟节点被缩放：更新 store 中的尺寸，重新渲染
     storeNodes.set('b', makeNode('b', 300, 200, 250, 200))
     const second = render(
       <MultiSelectionScaler onScaleStart={vi.fn()} onScaleEnd={vi.fn()} />,
     )
-    const box2 = second.container.querySelector('[style*="dashed"]') as HTMLElement
+    const box2 = second.container.querySelector('[style*="brand-ring"]') as HTMLElement
     expect(box2.getAttribute('style')).toContain('width: 562px')
     expect(box2.getAttribute('style')).toContain('height: 412px')
   })
