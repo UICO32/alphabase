@@ -324,6 +324,26 @@ html, body, #root {
   will-change: opacity, transform;
 }
 
+/* 关闭动画：从居中位置反向 morph 回卡片原点，同时淡出。
+   --card-dialog-source-transform 由 CardEditDialog 内联提供（与打开动画同源）。 */
+.ui-dialog-content.card-edit-dialog-motion[data-state='closed'] {
+  animation: card-edit-dialog-close-morph 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top left;
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
+@keyframes card-edit-dialog-close-morph {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: var(--card-dialog-source-transform, translate(0, 8px) scale(0.98));
+    opacity: 0.35;
+  }
+}
+
 .card-edit-dialog-motion {
   container-type: inline-size;
   background: hsl(0 0% 100%) !important;

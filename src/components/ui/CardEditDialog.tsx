@@ -34,6 +34,10 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
   const addItem = useTrashStore(s => s.addItem)
   const prefersReducedMotion = typeof window !== 'undefined'
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  // 受控 open：关闭时先播退出动画（反向 morph），动画结束后才真正卸载，
+  // 同时让编辑器销毁的同步开销被动画掩盖，避免关闭瞬间卡顿。
+  const [open, setOpen] = useState(true)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [phase, setPhase] = useState<DialogPhase>(() => prefersReducedMotion ? 'editing' : 'morphing')
   const phaseRef = useRef(phase)
   const initialDialogTraceRef = useRef({
@@ -41,6 +45,11 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
     contentLength: card?.content.length ?? 0,
     previewHTMLLength: card?.previewHTML?.length ?? 0,
   })
+
+  // 卸载时清理关闭定时器
+  useEffect(() => () => {
+    if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current)
+  }, [])
 
   const advancePhase = useCallback((nextPhase: DialogPhase, reason: string) => {
     const currentPhase = phaseRef.current
@@ -126,10 +135,19 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
   }, [cardId])
 
   const handleCloseWithSnapshot = useCallback(() => {
+    if (!open) return
     const content = useCardStore.getState().cards[cardId]?.content
     if (content) useEditorHistoryStore.getState().recordSnapshot(cardId, content)
-    onClose()
-  }, [cardId, onClose])
+    // 关闭动画：setOpen(false) 触发 Radix 退出动画（含反向 morph），
+    // 动画结束后再真正卸载（超时兜底，防止动画未触发导致无法关闭）
+    if (prefersReducedMotion) {
+      onClose()
+      return
+    }
+    setOpen(false)
+    if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(onClose, 320)
+  }, [cardId, onClose, open, prefersReducedMotion])
 
   const handleColorChange = useCallback((color: CardColor) => {
     updateCard(cardId, { color })
@@ -157,7 +175,7 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
   const visibleTitle = card.title?.trim()
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) handleCloseWithSnapshot() }}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) handleCloseWithSnapshot() }}>
       <DialogContent
         size="lg"
         showCloseButton={false}

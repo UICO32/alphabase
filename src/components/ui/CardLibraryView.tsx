@@ -346,8 +346,14 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
     if (scrollFrameRef.current !== null) return
     scrollFrameRef.current = requestAnimationFrame(() => {
       scrollFrameRef.current = null
-      const scrollTop = scrollRootRef.current?.scrollTop ?? 0
+      const root = scrollRootRef.current
+      if (!root) return
+      const scrollTop = root.scrollTop
       setCompactHeader(current => current ? scrollTop > 8 : scrollTop > 40)
+      // 接近底部时增量渲染（渐进渲染）
+      if (scrollTop + root.clientHeight > root.scrollHeight - 600) {
+        setRenderLimit(prev => Math.min(prev + RENDER_STEP, visibleCountRef.current))
+      }
     })
   }, [])
 
@@ -404,21 +410,60 @@ if (searchQuery.trim()) {
     }
   }, [cards, searchQuery, sortBy, searchScores, searchMode, tagFilter])
 
+  // 渐进渲染：非 compact 模式先渲染前 INITIAL_RENDER_LIMIT 张，
+  // 滚动接近底部或浏览器空闲时增量增加——几百上千张卡片一次渲染会卡顿。
+  const INITIAL_RENDER_LIMIT = 48
+  const RENDER_STEP = 32
+  const [renderLimit, setRenderLimit] = useState(INITIAL_RENDER_LIMIT)
+  const visibleCountRef = useRef(0)
+  visibleCountRef.current = visibleCards.length
+
+  // 筛选/搜索/排序条件变化时重置渲染上限
+  useEffect(() => {
+    setRenderLimit(INITIAL_RENDER_LIMIT)
+  }, [tagFilter, searchQuery, searchMode, sortBy])
+
   const renderedCards = useMemo(
-    () => compact ? visibleCards.slice(0, COMPACT_CARD_RENDER_LIMIT) : visibleCards,
-    [compact, visibleCards]
+    () => compact
+      ? visibleCards.slice(0, COMPACT_CARD_RENDER_LIMIT)
+      : visibleCards.slice(0, renderLimit),
+    [compact, visibleCards, renderLimit],
   )
   const hiddenCardCount = Math.max(0, visibleCards.length - renderedCards.length)
 
-  // 可见卡片变化时，预生成缺少 previewHTML 的卡片 HTML（避免在 render 中调 getPreviewHTML 触发 flushSync 警告）
+  // 浏览器空闲时渐进渲染更多卡片
+  useEffect(() => {
+    if (compact) return
+    if (renderLimit >= visibleCountRef.current) return
+    const id = requestIdleCallback(() => {
+      setRenderLimit(prev => Math.min(prev + RENDER_STEP, visibleCountRef.current))
+    }, { timeout: 400 })
+    return () => cancelIdleCallback(id)
+  }, [renderLimit, compact])
+
+  // 可见卡片变化时，预生成缺少 previewHTML 的卡片 HTML（避免在 render 中调 getPreviewHTML 触发 flushSync 警告）。
+  // 分批 + 空闲生成：一次性同步转换几百张卡（标签筛选/搜索后）会阻塞主线程造成卡顿。
   useEffect(() => {
     const missing = renderedCards.filter(c => !c.previewHTML && c.content).map(c => c.id)
-    if (missing.length > 0) {
-      // 使用 requestIdleCallback 或 setTimeout 延迟到 render 完成后执行
-      const id = requestIdleCallback(() => {
-        useCardStore.getState().ensurePreviewHTMLBatch(missing)
-      })
-      return () => cancelIdleCallback(id)
+    if (missing.length === 0) return
+    const BATCH = 8
+    let idx = 0
+    let idleId: number | null = null
+    let cancelled = false
+    const generateNext = () => {
+      if (cancelled) return
+      const batch = missing.slice(idx, idx + BATCH)
+      if (batch.length === 0) return
+      idx += BATCH
+      useCardStore.getState().ensurePreviewHTMLBatch(batch)
+      if (idx < missing.length) {
+        idleId = requestIdleCallback(generateNext)
+      }
+    }
+    idleId = requestIdleCallback(generateNext)
+    return () => {
+      cancelled = true
+      if (idleId !== null) cancelIdleCallback(idleId)
     }
   }, [renderedCards])
 
