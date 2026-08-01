@@ -71,7 +71,7 @@ export function CardNodeChrome({
   const activeBorderColor = showSelected
     ? 'var(--card-selected-border)'
     : editing
-      ? 'var(--line-active)'
+      ? 'var(--card-selected-border)'
       : getCardStroke(color)
 
   const hoverOutline = hovered
@@ -79,7 +79,7 @@ export function CardNodeChrome({
     : ''
 
   const selectedShadow = '0 0 0 1px var(--card-selected-border), 0 0 0 2px var(--brand-ring), 0 4px 16px color-mix(in srgb, var(--brand) 14%, transparent)'
-  const editingShadow = '0 0 0 1px var(--line-active), 0 0 0 2px color-mix(in srgb, var(--line-active) 18%, transparent)'
+  const editingShadow = '0 0 0 1px var(--card-selected-border), 0 0 0 2px color-mix(in srgb, var(--brand) 18%, transparent)'
   const activeShadow = showSelected ? selectedShadow : editing ? editingShadow : ''
 
   const cursor = collapsed ? 'grab'

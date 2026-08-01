@@ -82,7 +82,7 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
       style={{
         width: '100%',
         height: '100%',
-        outline: showSelected ? '2px solid var(--line-active)' : '1px solid transparent',
+        outline: showSelected ? '2px solid var(--card-selected-border)' : '1px solid transparent',
         outlineOffset: 0,
         borderRadius: 8,
         lineHeight: 0,
