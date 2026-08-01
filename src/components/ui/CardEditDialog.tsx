@@ -116,13 +116,20 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
 
   const handleMorphEnd = useCallback((event: React.AnimationEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return
-    if (event.animationName !== 'card-edit-dialog-source-morph') return
-    editorTrace(traceLabel, 'dialog-morph-animation-ended', {
-      animationName: event.animationName,
-      elapsedTimeMs: Number((event.elapsedTime * 1000).toFixed(2)),
-    })
-    advancePhase('settling', 'morph-animation-end')
-  }, [advancePhase, traceLabel])
+    if (event.animationName === 'card-edit-dialog-source-morph') {
+      editorTrace(traceLabel, 'dialog-morph-animation-ended', {
+        animationName: event.animationName,
+        elapsedTimeMs: Number((event.elapsedTime * 1000).toFixed(2)),
+      })
+      advancePhase('settling', 'morph-animation-end')
+      return
+    }
+    // 关闭动画结束 → 立即卸载（与 setTimeout 兜底相比无间隙，动画不顿挫）
+    if (event.animationName === 'card-edit-dialog-close-morph') {
+      if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current)
+      onClose()
+    }
+  }, [advancePhase, onClose, traceLabel])
 
   const handleChange = useCallback((content: string) => {
     clearProseMirrorSuppression(cardId)
@@ -193,7 +200,9 @@ export function CardEditDialog({ cardId, sourceRect, onClose }: CardEditDialogPr
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault()
-          requestAnimationFrame(() => returnFocusRef.current?.focus())
+          // preventScroll：焦点返回原元素时不让浏览器滚动页面/列表，
+          // 避免关闭弹窗后视角跳到别处
+          requestAnimationFrame(() => returnFocusRef.current?.focus({ preventScroll: true }))
         }}
       >
           <div className={`card-edit-dialog-toolbar ${visibleTitle ? '' : 'card-edit-dialog-toolbar-no-title'}`}>

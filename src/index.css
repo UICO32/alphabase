@@ -338,9 +338,13 @@ html, body, #root {
     transform: translate(0, 0) scale(1);
     opacity: 1;
   }
+  55% {
+    opacity: 0.15;
+  }
   to {
     transform: var(--card-dialog-source-transform, translate(0, 8px) scale(0.98));
-    opacity: 0.35;
+    /* 终点完全透明：dialog 缩小到卡片原位置时不再与卡片内容重叠 */
+    opacity: 0;
   }
 }
 
@@ -585,6 +589,13 @@ html[data-card-library-dragging='true'] body {
 
 html[data-card-library-dragging='true'] .workspace-drawer-overlay {
   pointer-events: none !important;
+}
+
+/* 卡片库滚动容器：禁用 scroll anchoring。
+   dialog 打开时 body 锁滚动/卡片预览分批生成会引起列表重排，
+   浏览器 scroll anchoring 会把滚动位置大幅拉回顶部（关闭弹窗后视角丢失）。 */
+[data-testid='card-library-scroll-root'] {
+  overflow-anchor: none;
 }
 
 .workspace-drawer {
