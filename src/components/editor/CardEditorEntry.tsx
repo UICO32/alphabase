@@ -59,12 +59,16 @@ export function CardEditorEntry({
   const effectivePhase = state.entryKey === entryKey ? state.phase : 'mounting'
 
   const sanitizedPreviewHTML = useMemo(() => {
+    // interactive 后 preview 层已隐藏（编辑内容由 ProseMirror 接管），
+    // 不再需要为整卡做 renderBlocksToHTML + DOMPurify——打字落盘每 400ms
+    // 触发一次 useMemo 重算，这里 O(1) 直接返回，避免大卡片同步转换卡顿。
+    if (effectivePhase === 'interactive') return ''
     const cardId = editorProps.cardId
     const raw = previewHTML
       || (cardId ? useCardStore.getState().getPreviewHTML(cardId) : '')
       || '<span style="opacity:0.5">双击编辑...</span>'
     return DOMPurify.sanitize(raw, { ALLOWED_URI_REGEXP: ALLOWED_PREVIEW_URI })
-  }, [editorProps.cardId, editorProps.content, previewHTML])
+  }, [effectivePhase, editorProps.cardId, editorProps.content, previewHTML])
   useEffect(() => {
     editorTrace(traceLabel, 'editor-entry-phase-committed', {
       effectivePhase,

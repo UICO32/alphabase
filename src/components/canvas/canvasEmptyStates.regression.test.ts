@@ -16,7 +16,10 @@ describe('canvas empty-state regression contract', () => {
   })
 
   it('keeps the empty-board suggested-card fan and landing behavior', () => {
-    expect(canvasSource).toMatch(/boards\.length > 0 && nodes\.length === 0 && suggestedCards\.length > 0/)
+    // isFanView 提取自 boards.length > 0 && nodes.length === 0，
+    // fan 视图显示条件等价于原来的单行表达式
+    expect(canvasSource).toMatch(/const isFanView = boards\.length > 0 && nodes\.length === 0/)
+    expect(canvasSource).toMatch(/isFanView && suggestedCards\.length > 0/)
     expect(canvasSource).toContain('suggestedCards.map((card, index) =>')
     expect(canvasSource).toContain('setFloatingCardId(card.id)')
     expect(canvasSource).toContain("suggested-card-floating")

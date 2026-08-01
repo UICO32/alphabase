@@ -92,7 +92,12 @@ export function ReactFlowCanvas() {
   const densityOverviewZoomThreshold = useLibraryStore(s => s.densityOverviewZoomThreshold)
   const boards = useBoardStore((s) => s.boards)
   const activeBoardId = useBoardStore((s) => s.activeBoardId)
-  const allCards = useCardStore((s) => s.cards)
+  // 只在 fan 视图（画布还没有任何节点）订阅全量卡片；board 编辑时打字导致的
+  // 内容落盘会替换 cards 引用，若常驻订阅会让整个画布每 400ms 重渲染一次。
+  // 非 fan 视图返回稳定空引用，zustand 判定相等，不触发重渲染。
+  const isFanView = boards.length > 0 && nodes.length === 0
+  const emptyCardsRef = useRef<Record<string, GlobalCard>>({})
+  const allCards = useCardStore((s) => (isFanView ? s.cards : emptyCardsRef.current))
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null)
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
@@ -665,7 +670,7 @@ export function ReactFlowCanvas() {
       .slice(0, 5)
   }, [nodes, allCards])
 
-  const fanCardsVisible = boards.length > 0 && nodes.length === 0 && suggestedCards.length > 0
+  const fanCardsVisible = isFanView && suggestedCards.length > 0
 
   const suggestedCardIdsRef = useRef<string[]>([])
   useEffect(() => {
@@ -774,7 +779,6 @@ export function ReactFlowCanvas() {
             <DensityOverviewLayer
               nodes={nodes}
               edges={visibleEdges}
-              cards={allCards}
               progress={densityOverviewProgress}
               isDarkMode={isDarkMode}
               onFocusNode={focusDensitySourceNode}

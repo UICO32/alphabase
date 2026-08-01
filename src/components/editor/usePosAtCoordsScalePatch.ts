@@ -9,6 +9,10 @@ type PmView = {
   }
 }
 
+// 缩放（scale≠1）时 posAtCoords 精度下降，这里会退到逐字符 range 度量。
+// 优化策略（不改变定位结果）：行级粗筛跳过远处行；score 越过最近行后提前终止。
+const CARET_SCORE_ESCALATION = 4000
+
 export function findClosestTextPosition(
   view: Pick<PmView, 'dom' | 'posAtDOM'>,
   coords: { left: number; top: number },
@@ -23,8 +27,9 @@ export function findClosestTextPosition(
     if (!parent) continue
 
     const parentRect = parent.getBoundingClientRect()
-    if (coords.top < parentRect.top - parentRect.height / 2
-      || coords.top > parentRect.bottom + parentRect.height / 2) continue
+    if (parentRect.height > 0
+      && (coords.top < parentRect.top - parentRect.height
+        || coords.top > parentRect.bottom + parentRect.height)) continue
 
     const length = textNode.textContent?.length ?? 0
     const range = document.createRange()
@@ -48,6 +53,9 @@ export function findClosestTextPosition(
           bestPos = view.posAtDOM(textNode, offset)
           bestScore = score
         } catch { /* ignore DOM nodes that ProseMirror does not own */ }
+      } else if (score - bestScore > CARET_SCORE_ESCALATION) {
+        // 已越过最近行：剩余字符只会更远，跳过本节点剩余部分
+        break
       }
     }
   }

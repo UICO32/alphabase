@@ -48,10 +48,14 @@ export const CardContent = memo(function CardContent({
   const isWebMode = card?.viewMode === 'web' && !!card?.sourceUrl
 
   const sanitizedHTML = useMemo(() => {
+    // 编辑态由 CardEditorEntry 负责渲染（preview 层只短暂显示于挂载阶段），
+    // 这里无需再为整卡做 renderBlocksToHTML + DOMPurify——打字落盘每 400ms
+    // 一次，大卡片可省 5-15ms 的同步转换。
+    if (isEditing) return ''
     // Use store's lazy getPreviewHTML — generates on first access, caches after
     const raw = previewHTML || useCardStore.getState().getPreviewHTML(cardId) || '<span style="opacity:0.5">双击编辑...</span>'
     return DOMPurify.sanitize(raw, { ALLOWED_URI_REGEXP: /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i })
-  }, [previewHTML, cardId, content])
+  }, [previewHTML, cardId, content, isEditing])
 
   return (
     <div

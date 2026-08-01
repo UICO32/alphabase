@@ -19,8 +19,21 @@ import type { CardColor } from '../types/card'
  *
  * 仅在缓存未命中时计算一次 renderBlocksToHTML（含 JSON parse + 块序列化），
  * 命中后所有组件共享同一份 HTML 字符串。
+ *
+ * 容量上限：编辑时每次键入的中间态都会作为新键写入且永不主动清理，
+ * 长期使用会让缓存无限膨胀。用 Map 的插入顺序做近似 LRU，
+ * 超出上限时淘汰最早插入的键（set 已存在的键会刷新其位置）。
  */
 const previewHTMLCache = new Map<string, string>()
+const PREVIEW_HTML_CACHE_LIMIT = 300
+
+function cachePreviewHTML(content: string, html: string) {
+  previewHTMLCache.set(content, html)
+  if (previewHTMLCache.size > PREVIEW_HTML_CACHE_LIMIT) {
+    const oldest = previewHTMLCache.keys().next().value
+    if (oldest !== undefined) previewHTMLCache.delete(oldest)
+  }
+}
 
 function scheduleIdle(callback: () => void) {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -176,10 +189,15 @@ export const useCardStore = create<CardStore>()(
       if (!card.content) return undefined
       // 2) 模块级缓存：用 content 字符串做键，内容变化自动失效
       const cached = previewHTMLCache.get(card.content)
-      if (cached !== undefined) return cached
-      // 3) 未命中：计算一次并写回缓存
+      if (cached !== undefined) {
+        // 命中时刷新插入位置，让 Map 保持近似 LRU 淘汰顺序
+        previewHTMLCache.delete(card.content)
+        previewHTMLCache.set(card.content, cached)
+        return cached
+      }
+      // 3) 未命中：计算一次并写回缓存（带容量上限的近似 LRU）
       const html = renderBlocksToHTML(card.content)
-      previewHTMLCache.set(card.content, html)
+      cachePreviewHTML(card.content, html)
       return html
     },
 

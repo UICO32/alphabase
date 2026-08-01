@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore as useReactFlowStore, type Edge, type Node } from '@xyflow/react'
 import { useStore as useZustandStore } from 'zustand'
-import type { GlobalCard } from '../../../stores/cardStore'
+import { useCardStore } from '../../../stores/cardStore'
 import { embeddingStore } from '../../../stores/embeddingStore'
 import {
   buildDensityOverviewModel,
@@ -22,7 +22,6 @@ import './density-overview.css'
 interface DensityOverviewLayerProps {
   nodes: Node[]
   edges: Edge[]
-  cards: Record<string, GlobalCard>
   progress: number
   isDarkMode: boolean
   onFocusNode: (nodeId: string) => void
@@ -31,7 +30,6 @@ interface DensityOverviewLayerProps {
 export function DensityOverviewLayer({
   nodes,
   edges,
-  cards,
   progress,
   isDarkMode,
   onFocusNode,
@@ -41,6 +39,9 @@ export function DensityOverviewLayer({
   const transform = useReactFlowStore(state => state.transform)
   const nodeLookup = useReactFlowStore(state => state.nodeLookup)
   const clusterResult = useZustandStore(embeddingStore, state => state.clusterResult)
+  // 在组件内部订阅卡片，避免父级 ReactFlowCanvas 常驻订阅全量 cards
+  //（否则编辑时每次内容落盘都会触发画布整树重渲染）。
+  const cards = useZustandStore(useCardStore, state => state.cards)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [hoverGroupId, setHoverGroupId] = useState<string | null>(null)
   const [pinnedGroupId, setPinnedGroupId] = useState<string | null>(null)

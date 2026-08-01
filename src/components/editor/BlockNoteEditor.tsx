@@ -60,6 +60,10 @@ export type CardSelectAllStage = 0 | 1
 
 type CardSelectAllShortcutLike = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey'>
 
+// focusAtCoords 的 Method 2 退化路径会对文本逐字符做 range 度量。
+// 优化策略（不改变定位结果）：行级粗筛跳过远处行；score 越过最近行后提前终止。
+const CARET_SCORE_ESCALATION = 4000
+
 export function isCardSelectAllShortcut(event: CardSelectAllShortcutLike) {
   return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a'
 }
@@ -388,11 +392,12 @@ const CardBlockNoteEditorInner = (
                 const parent = textNode.parentElement
                 if (!parent) continue
                 const parentRect = parent.getBoundingClientRect()
-                // Use a generous y tolerance (half a line) so clicks between
+                // Use a generous y tolerance (a full line) so clicks between
                 // lines still land on the nearest text node rather than falling
                 // through to the coarse block-boundary fallback (Method 3).
-                if (clickY < parentRect.top - parentRect.height / 2
-                  || clickY > parentRect.bottom + parentRect.height / 2) continue
+                if (parentRect.height > 0
+                  && (clickY < parentRect.top - parentRect.height
+                    || clickY > parentRect.bottom + parentRect.height)) continue
 
                 const len = textNode.textContent?.length ?? 0
                 const range = document.createRange()
@@ -414,6 +419,9 @@ const CardBlockNoteEditorInner = (
                     bestScore = score
                     bestNode = textNode
                     bestOffset = offset
+                  } else if (score - bestScore > CARET_SCORE_ESCALATION) {
+                    // 已越过最近行：剩余字符只会更远，跳过本节点剩余部分
+                    break
                   }
                 }
               }
