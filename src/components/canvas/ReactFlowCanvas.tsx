@@ -58,6 +58,7 @@ import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canv
 import { getVisibleCanvasEdges } from './utils/visibleCanvasEdges'
 import { getDensityOverviewProgress, OVERVIEW_INTERACTION_PROGRESS } from './densityOverview/densityOverviewModel'
 import { MultiSelectionScaler, MultiSelectWatcher } from './MultiSelectionScaler'
+import type { BoardViewport } from '../../utils/workspace/types'
 
 const DensityOverviewLayer = lazy(() => import('./densityOverview/DensityOverviewLayer').then(module => ({
   default: module.DensityOverviewLayer,
@@ -114,6 +115,22 @@ export function ReactFlowCanvas() {
   const spatialIndex = useMemo(() => createCanvasSpatialIndex(nodes), [nodes])
   const spatialIndexRef = useRef(spatialIndex)
   const presenceBoardIdRef = useRef<string | null>(null)
+  const canvasViewportRef = useRef<BoardViewport | null>(null)
+  const [boardViewportRequest, setBoardViewportRequest] = useState<{
+    boardId: string
+    viewport: BoardViewport | undefined
+  } | null>(null)
+  const appliedViewportBoardIdRef = useRef<string | null>(null)
+  const scheduledViewportRef = useRef<{ boardId: string; raf: number } | null>(null)
+  const handleBoardLoaded = useCallback((boardId: string, viewport: BoardViewport | undefined) => {
+    const scheduled = scheduledViewportRef.current
+    if (scheduled) {
+      cancelAnimationFrame(scheduled.raf)
+      scheduledViewportRef.current = null
+    }
+    appliedViewportBoardIdRef.current = null
+    setBoardViewportRequest({ boardId, viewport })
+  }, [])
 
   const { record, undo, redo, clear } = useHistory({ maxHistory: 20 })
 
@@ -148,8 +165,15 @@ export function ReactFlowCanvas() {
     useCanvasPresenceStore.getState().clearCanvasPresence()
   }, [])
 
-  useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef })
-  useBoardSync({ nodes, edges })
+  useWorkspaceLifecycle({
+    setNodes,
+    setEdges,
+    nodesRef,
+    edgesRef,
+    viewportRef: canvasViewportRef,
+    onBoardLoaded: handleBoardLoaded,
+  })
+  const saveViewport = useBoardSync({ nodes, edges, viewportRef: canvasViewportRef })
   useFrameSync({ nodes, setNodes })
   useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef })
 
@@ -400,10 +424,45 @@ export function ReactFlowCanvas() {
     snapshotNow({ [cardId]: cardContent as Record<string, GlobalCard>[string] })
   }, [snapshotNow])
 
+  const applyBoardViewport = useCallback(() => {
+    const request = boardViewportRequest
+    if (!request || request.boardId !== activeBoardId) return
+    if (appliedViewportBoardIdRef.current === request.boardId) return
+    if (!request.viewport && nodesRef.current.length === 0) return
+
+    const instance = reactFlowInstance.current
+    if (!instance) return
+
+    const scheduled = scheduledViewportRef.current
+    if (scheduled?.boardId === request.boardId) return
+
+    const raf = requestAnimationFrame(() => {
+      if (scheduledViewportRef.current?.raf === raf) scheduledViewportRef.current = null
+      if (useBoardStore.getState().activeBoardId !== request.boardId) return
+      if (!request.viewport && nodesRef.current.length === 0) return
+
+      const saveCurrentViewport = () => {
+        if (useBoardStore.getState().activeBoardId === request.boardId) {
+          saveViewport(instance.getViewport())
+        }
+      }
+
+      appliedViewportBoardIdRef.current = request.boardId
+      if (request.viewport) {
+        canvasViewportRef.current = request.viewport
+        void instance.setViewport(request.viewport, { duration: 0 }).then(saveCurrentViewport)
+      } else {
+        void instance.fitView({ duration: 0, padding: 0.2 }).then(saveCurrentViewport)
+      }
+    })
+    scheduledViewportRef.current = { boardId: request.boardId, raf }
+  }, [activeBoardId, boardViewportRequest, saveViewport])
+
   const onInit = useCallback((instance: ReactFlowInstance) => {
     reactFlowInstance.current = instance
     setDensityOverviewProgress(getDensityOverviewProgress(instance.getViewport().zoom, densityOverviewZoomThreshold))
-  }, [densityOverviewZoomThreshold])
+    applyBoardViewport()
+  }, [applyBoardViewport, densityOverviewZoomThreshold])
 
   useEffect(() => {
     const el = canvasRef.current
@@ -420,23 +479,17 @@ export function ReactFlowCanvas() {
     canvasRef.current?.style.setProperty('--density-overview-progress', String(progress))
   }, [densityOverviewZoomThreshold])
 
-  // 初始节点加载后立即 snap-fit（duration:0 → 无动画过渡，避免 fitView 动画与 card-enter 并发造成的卡顿）
-  const initialFitDoneRef = useRef(false)
+  // Restore a saved board viewport, or fit new content once when no viewport exists.
   useEffect(() => {
-    if (initialFitDoneRef.current || nodes.length === 0) return
-    initialFitDoneRef.current = true
-    // requestAnimationFrame 确保 ReactFlow 内部已经完成节点布局
-    const raf = requestAnimationFrame(() => {
-      reactFlowInstance.current?.fitView({ duration: 0, padding: 0.2 })
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [nodes.length])
+    applyBoardViewport()
+  }, [activeBoardId, applyBoardViewport, boardViewportRequest, nodes.length])
 
   const onMove = useCallback(
     (() => {
       let lastTransformCall = 0
       let lastZoom = 0
       return (_event: MouseEvent | TouchEvent | null, viewport: { x: number; y: number; zoom: number }) => {
+        saveViewport(viewport)
         // CSS 变量：zoom 变化时即时更新，无节流
         // ZoomPreview、缩放反比元素依赖此变量渲染，延迟会产生视觉跳变
         if (viewport.zoom !== lastZoom && canvasRef.current) {
@@ -460,7 +513,7 @@ export function ReactFlowCanvas() {
         useLibraryStore.setState({ transform: [viewport.x, viewport.y, viewport.zoom] })
       }
     })(),
-    [densityOverviewZoomThreshold, previewZoomThreshold],
+    [densityOverviewZoomThreshold, previewZoomThreshold, saveViewport],
   )
 
   const onPaneClick = useCallback((event: React.MouseEvent) => {

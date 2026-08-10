@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { flushActiveSyncEngine } from '../sync/syncEngineRef'
-import type { BoardMeta } from '../utils/workspace/types'
+import type { BoardMeta, BoardViewport } from '../utils/workspace/types'
 
-interface BoardNodesData {
+export interface BoardNodesData {
   nodes: Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown>; width?: number; height?: number }>
   edges: Array<{ id: string; source: string; target: string; type?: string; sourceHandle?: string; targetHandle?: string }>
+  viewport?: BoardViewport
 }
 
 interface BoardStore {
@@ -55,7 +56,12 @@ export const useBoardStore = create<BoardStore>()(
       setLoaded: (loaded) => set({ isLoaded: loaded }),
 
       saveBoardData: (boardId, data) =>
-        set((state) => ({ boardData: { ...state.boardData, [boardId]: data } })),
+        set((state) => ({
+          boardData: {
+            ...state.boardData,
+            [boardId]: { ...state.boardData[boardId], ...data },
+          },
+        })),
 
       getBoardData: (boardId) => get().boardData[boardId],
   }),

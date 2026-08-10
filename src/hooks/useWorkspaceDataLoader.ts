@@ -11,7 +11,7 @@ import { migrateFromLocalStorageIfNeeded } from '../utils/workspace/migrateFromL
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
-import type { ConflictDiffItem } from '../utils/workspace/types'
+import { getPersistedBoardViewport, type ConflictDiffItem } from '../utils/workspace/types'
 import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup, getFileSystemBackupSummary } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import { setupSubscriptions } from '../sync/subscriptionManager'
@@ -182,8 +182,10 @@ export function useWorkspaceDataLoader() {
 
     // Apply board snapshots
     for (const [boardId, snapshot] of boardSnapshots) {
+      const viewport = getPersistedBoardViewport(snapshot.viewport)
       useBoardStore.getState().saveBoardData(boardId, {
         nodes: snapshot.nodes,
+        viewport,
         edges: snapshot.edges,
       })
     }

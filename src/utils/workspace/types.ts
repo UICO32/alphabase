@@ -39,11 +39,33 @@ export interface BoardEdge {
   targetHandle?: string
 }
 
+export interface BoardViewport {
+  x: number
+  y: number
+  zoom: number
+}
+
+export const DEFAULT_BOARD_VIEWPORT: BoardViewport = { x: 0, y: 0, zoom: 1 }
+
+/**
+ * Viewports written by older versions were always { x: 0, y: 0, zoom: 1 }.
+ * Treat that value as "not visited yet" so existing boards get a content-fit
+ * entry instead of reopening at the canvas origin.
+ */
+export function getPersistedBoardViewport(viewport: BoardViewport | null | undefined): BoardViewport | undefined {
+  if (!viewport) return undefined
+  if (!Number.isFinite(viewport.x) || !Number.isFinite(viewport.y) || !Number.isFinite(viewport.zoom) || viewport.zoom <= 0) {
+    return undefined
+  }
+  if (viewport.x === 0 && viewport.y === 0 && viewport.zoom === 1) return undefined
+  return { x: viewport.x, y: viewport.y, zoom: viewport.zoom }
+}
+
 export interface BoardSnapshot {
   version: 2
   nodes: BoardNode[]
   edges: BoardEdge[]
-  viewport: { x: number; y: number; zoom: number }
+  viewport: BoardViewport
 }
 
 export interface CardFile {

@@ -3,12 +3,16 @@ import type { Node, Edge } from '@xyflow/react'
 import { useBoardStore } from '../stores/boardStore'
 import { useEvent } from './useEvent'
 import { serializeBoardData } from '../sync/boardSnapshot'
+import { getActiveSyncEngine } from '../sync/syncEngineRef'
+import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type BoardViewport } from '../utils/workspace/types'
 
 interface UseWorkspaceLifecycleOptions {
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void
   setEdges: (edges: Edge[] | ((prev: Edge[]) => Edge[])) => void
   nodesRef: React.RefObject<Node[]>
   edgesRef: React.RefObject<Edge[]>
+  viewportRef: React.MutableRefObject<BoardViewport | null>
+  onBoardLoaded?: (boardId: string, viewport: BoardViewport | undefined) => void
 }
 
 function defaultBoardNodes(_boardId: string) {
@@ -25,7 +29,14 @@ function defaultBoardNodes(_boardId: string) {
   }
 }
 
-export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }: UseWorkspaceLifecycleOptions) {
+export function useWorkspaceLifecycle({
+  setNodes,
+  setEdges,
+  nodesRef,
+  edgesRef,
+  viewportRef,
+  onBoardLoaded,
+}: UseWorkspaceLifecycleOptions) {
   const activeBoardIdRef = useRef<string | null>(null)
 
   const switchToBoard = useCallback((boardId: string) => {
@@ -34,10 +45,23 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
     if (activeBoardIdRef.current === boardId) return
 
     if (activeBoardIdRef.current && nodesRef.current) {
+      const previousBoardId = activeBoardIdRef.current
+      const previousBoardViewport = viewportRef.current
+        ?? getPersistedBoardViewport(boardStore.getBoardData(previousBoardId)?.viewport)
+      const serialized = serializeBoardData(nodesRef.current, edgesRef.current ?? [])
       boardStore.saveBoardData(
-        activeBoardIdRef.current,
-        serializeBoardData(nodesRef.current, edgesRef.current ?? []),
+        previousBoardId,
+        {
+          ...serialized,
+          ...(previousBoardViewport ? { viewport: previousBoardViewport } : {}),
+        },
       )
+      getActiveSyncEngine()?.scheduleWriteBoard(previousBoardId, {
+        version: 2,
+        nodes: serialized.nodes,
+        edges: serialized.edges,
+        viewport: previousBoardViewport ?? DEFAULT_BOARD_VIEWPORT,
+      })
     }
 
     activeBoardIdRef.current = boardId
@@ -47,6 +71,9 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
       boardData = defaultBoardNodes(boardId)
       boardStore.saveBoardData(boardId, boardData)
     }
+
+    const viewport = getPersistedBoardViewport(boardData.viewport)
+    viewportRef.current = viewport ?? null
 
     setNodes(() => {
       const loaded = boardData.nodes as Node[]
@@ -81,7 +108,8 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
       }))
     })
     setEdges(boardData.edges as Edge[])
-  }, [setNodes, setEdges, nodesRef, edgesRef])
+    onBoardLoaded?.(boardId, viewport)
+  }, [setNodes, setEdges, nodesRef, edgesRef, viewportRef, onBoardLoaded])
 
   useEvent('switch-board', (detail) => {
     if (detail.boardId && activeBoardIdRef.current !== detail.boardId) {
@@ -112,5 +140,6 @@ export function useWorkspaceLifecycle({ setNodes, setEdges, nodesRef, edgesRef }
 
   useEvent('reinit-workspace', () => {
     activeBoardIdRef.current = null
+    viewportRef.current = null
   })
 }

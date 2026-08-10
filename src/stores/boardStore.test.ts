@@ -120,6 +120,17 @@ describe('BoardStore', () => {
       expect(useBoardStore.getState().getBoardData('board-1')).toEqual(data)
     })
 
+    it('更新节点数据时应保留已保存的画布视角', () => {
+      const viewport = { x: -320, y: 180, zoom: 1.25 }
+      useBoardStore.getState().saveBoardData('board-1', { nodes: [], edges: [], viewport })
+      useBoardStore.getState().saveBoardData('board-1', {
+        nodes: [{ id: 'n1', type: 'card', position: { x: 0, y: 0 }, data: {} }],
+        edges: [],
+      })
+
+      expect(useBoardStore.getState().getBoardData('board-1')?.viewport).toEqual(viewport)
+    })
+
     it('getBoardData 不存在时应返回 undefined', () => {
       expect(useBoardStore.getState().getBoardData('nonexistent')).toBeUndefined()
     })

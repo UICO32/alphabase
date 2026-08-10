@@ -4,6 +4,7 @@ import { useBoardStore } from '../stores/boardStore'
 import { useEvent } from './useEvent'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
 import { serializeBoardData } from '../sync/boardSnapshot'
+import { DEFAULT_BOARD_VIEWPORT, type BoardViewport } from '../utils/workspace/types'
 
 function hasBoardDataChanged(
   prev: ReturnType<typeof serializeBoardData> | null,
@@ -14,15 +15,29 @@ function hasBoardDataChanged(
   return JSON.stringify(prev) !== JSON.stringify(next)
 }
 
-export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] }) {
+function sameViewport(a: BoardViewport | null, b: BoardViewport) {
+  return a?.x === b.x && a?.y === b.y && a?.zoom === b.zoom
+}
+
+export function useBoardSync({
+  nodes,
+  edges,
+  viewportRef,
+}: {
+  nodes: Node[]
+  edges: Edge[]
+  viewportRef: React.MutableRefObject<BoardViewport | null>
+}) {
   const activeBoardId = useBoardStore((s) => s.activeBoardId)
   const isLoaded = useBoardStore((s) => s.isLoaded)
   const saveBoardData = useBoardStore((s) => s.saveBoardData)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const viewportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLoadedRef = useRef(isLoaded)
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   const lastSerializedRef = useRef<ReturnType<typeof serializeBoardData> | null>(null)
+  const lastViewportRef = useRef<BoardViewport | null>(null)
 
   isLoadedRef.current = isLoaded
   nodesRef.current = nodes
@@ -31,11 +46,13 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
   const syncToStore = useCallback(() => {
     if (!activeBoardId || !isLoadedRef.current) return
 
-    const data = serializeBoardData(nodes, edges)
-    if (!hasBoardDataChanged(lastSerializedRef.current, data)) return
+    const data = serializeBoardData(nodesRef.current, edgesRef.current)
+    const viewport = viewportRef.current ?? DEFAULT_BOARD_VIEWPORT
+    if (!hasBoardDataChanged(lastSerializedRef.current, data) && sameViewport(lastViewportRef.current, viewport)) return
     lastSerializedRef.current = data
+    lastViewportRef.current = viewport
 
-    saveBoardData(activeBoardId, data)
+    saveBoardData(activeBoardId, { ...data, viewport })
 
     const syncEngine = getActiveSyncEngine()
     if (syncEngine) {
@@ -43,13 +60,27 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
         version: 2,
         nodes: data.nodes,
         edges: data.edges,
-        viewport: { x: 0, y: 0, zoom: 1 },
+        viewport,
       })
     }
-  }, [activeBoardId, nodes, edges, saveBoardData])
+  }, [activeBoardId, saveBoardData, viewportRef])
+
+  const saveViewport = useCallback((viewport: BoardViewport) => {
+    if (viewportRef.current?.x === viewport.x && viewportRef.current?.y === viewport.y && viewportRef.current?.zoom === viewport.zoom) return
+    viewportRef.current = { x: viewport.x, y: viewport.y, zoom: viewport.zoom }
+
+    if (!useBoardStore.getState().activeBoardId || !isLoadedRef.current) return
+    if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current)
+    viewportTimerRef.current = setTimeout(syncToStore, 600)
+  }, [syncToStore, viewportRef])
 
   useEffect(() => {
     lastSerializedRef.current = null
+    lastViewportRef.current = null
+    if (viewportTimerRef.current) {
+      clearTimeout(viewportTimerRef.current)
+      viewportTimerRef.current = null
+    }
   }, [activeBoardId])
 
   useEffect(() => {
@@ -68,14 +99,29 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
         clearTimeout(timerRef.current)
         timerRef.current = null
       }
+      if (viewportTimerRef.current) {
+        clearTimeout(viewportTimerRef.current)
+        viewportTimerRef.current = null
+      }
       if (!isLoadedRef.current) return
 
       const boardStore = useBoardStore.getState()
       if (boardStore.activeBoardId) {
+        const data = serializeBoardData(nodesRef.current, edgesRef.current)
+        const viewport = viewportRef.current ?? DEFAULT_BOARD_VIEWPORT
         boardStore.saveBoardData(
           boardStore.activeBoardId,
-          serializeBoardData(nodesRef.current, edgesRef.current),
+          {
+            ...data,
+            viewport,
+          },
         )
+        getActiveSyncEngine()?.scheduleWriteBoard(boardStore.activeBoardId, {
+          version: 2,
+          nodes: data.nodes,
+          edges: data.edges,
+          viewport,
+        }, 0)
       }
     }
   }, [])
@@ -83,4 +129,6 @@ export function useBoardSync({ nodes, edges }: { nodes: Node[]; edges: Edge[] })
   useEvent('save-current-board', () => {
     syncToStore()
   }, [syncToStore])
+
+  return saveViewport
 }
