@@ -96,25 +96,36 @@ export function CardEditorEntry({
       revealToken,
       snapshot: editorElementSnapshot(rootRef.current),
     })
-    onBeforeReveal?.()
     dispatch({ type: 'ready', entryKey: readyKey })
 
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    const focusAfterReveal = () => {
+      // 先让 interactive 状态完成一次绘制，再做精确光标定位。
+      // 即便后续命中需要布局兜底，也不会阻塞这次 pointer 交互的首帧。
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null
+        if (activeKeyRef.current !== readyKey || revealTokenRef.current !== revealToken) return
+        onBeforeReveal?.()
+      })
+    }
+    const commitInteractive = (afterPaint: boolean) => {
+      dispatch({ type: 'interactive', entryKey: readyKey })
+      editorTrace(traceLabel, 'editor-entry-interactive-dispatched', { revealToken, afterPaint })
+      focusAfterReveal()
+    }
     const reveal = () => {
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null
         if (activeKeyRef.current !== readyKey || revealTokenRef.current !== revealToken) return
         if (!revealAfterPaint) {
-          dispatch({ type: 'interactive', entryKey: readyKey })
-          editorTrace(traceLabel, 'editor-entry-interactive-dispatched', { revealToken, afterPaint: false })
+          commitInteractive(false)
           return
         }
 
         frameRef.current = requestAnimationFrame(() => {
           frameRef.current = null
           if (activeKeyRef.current !== readyKey || revealTokenRef.current !== revealToken) return
-          dispatch({ type: 'interactive', entryKey: readyKey })
-          editorTrace(traceLabel, 'editor-entry-interactive-dispatched', { revealToken, afterPaint: true })
+          commitInteractive(true)
         })
       })
     }

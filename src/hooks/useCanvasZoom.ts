@@ -1,13 +1,39 @@
 import { useEffect } from 'react'
-import type { ReactFlowInstance } from '@xyflow/react'
+import type { ReactFlowInstance, Viewport } from '@xyflow/react'
 import { on } from '../stores/eventBus'
 
 interface UseCanvasZoomOptions {
   canvasRef: React.RefObject<HTMLDivElement | null>
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
+  minZoom?: number
+  maxZoom?: number
+  onViewportChange?: (viewport: Viewport) => void
+  onViewportSettled?: (viewport: Viewport) => void
 }
 
-export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOptions) {
+const WHEEL_SENSITIVITY = 0.55
+const FOLLOW_ALPHA = 0.62
+const COMMIT_DELAY_MS = 96
+const ZOOM_EPSILON = 0.001
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function isViewportSettled(current: Viewport, target: Viewport) {
+  return Math.abs(current.x - target.x) < ZOOM_EPSILON
+    && Math.abs(current.y - target.y) < ZOOM_EPSILON
+    && Math.abs(current.zoom - target.zoom) < ZOOM_EPSILON
+}
+
+export function useCanvasZoom({
+  canvasRef,
+  reactFlowInstance,
+  minZoom = 0.1,
+  maxZoom = 4,
+  onViewportChange,
+  onViewportSettled,
+}: UseCanvasZoomOptions) {
   useEffect(() => {
     const off1 = on('zoom-in', () => reactFlowInstance.current?.zoomIn({ duration: 200 }))
     const off2 = on('zoom-out', () => reactFlowInstance.current?.zoomOut({ duration: 200 }))
@@ -24,6 +50,7 @@ export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOpt
 
     const d3ZoomEl = paneEl.parentElement
     if (!d3ZoomEl) return
+    const viewportEl = el.querySelector('.react-flow__viewport') as HTMLElement | null
 
     // Allow right-click pan on nodes by temporarily removing 'nopan' class.
     // React Flow adds 'nopan' to draggable nodes, which makes d3-zoom reject
@@ -50,16 +77,94 @@ export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOpt
       })
     }
 
-    const SMOOTH_RATIO = 0.4
+    let animationFrame: number | null = null
+    let targetViewport: Viewport | null = null
+    let visualViewport: Viewport | null = null
+    let commitTimer: number | null = null
+
+    const applyVisualViewport = (viewport: Viewport) => {
+      if (viewportEl) {
+        viewportEl.style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`
+      }
+      onViewportChange?.(viewport)
+    }
+
+    const commitTargetViewport = () => {
+      const instance = reactFlowInstance.current
+      const target = targetViewport
+      if (!instance || !target) return
+      if (commitTimer !== null) {
+        window.clearTimeout(commitTimer)
+        commitTimer = null
+      }
+      applyVisualViewport(target)
+      visualViewport = null
+      targetViewport = null
+      onViewportSettled?.(target)
+      void instance.setViewport(target, { duration: 0 })
+    }
+
+    const animateToTarget = () => {
+      animationFrame = null
+      const instance = reactFlowInstance.current
+      const target = targetViewport
+      if (!instance || !target) return
+
+      const current = visualViewport ?? instance.getViewport()
+      if (isViewportSettled(current, target)) {
+        commitTargetViewport()
+        return
+      }
+
+      const next = {
+        x: current.x + (target.x - current.x) * FOLLOW_ALPHA,
+        y: current.y + (target.y - current.y) * FOLLOW_ALPHA,
+        zoom: current.zoom + (target.zoom - current.zoom) * FOLLOW_ALPHA,
+      }
+      visualViewport = next
+      applyVisualViewport(next)
+      animationFrame = requestAnimationFrame(animateToTarget)
+    }
+
+    const scheduleAnimation = () => {
+      if (animationFrame !== null) return
+      animationFrame = requestAnimationFrame(animateToTarget)
+    }
+
     const smoothWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return
-      // This listener runs in the capture phase, immediately before React Flow's
-      // d3-zoom handler. Scale the same event synchronously so d3 consumes the
-      // softened delta; changing it in a later animation frame is already too late.
-      Object.defineProperty(event, 'deltaY', {
-        value: event.deltaY * SMOOTH_RATIO,
-        writable: false,
-      })
+      // Keep browser pinch-zoom semantics unchanged.
+      if (event.ctrlKey || event.deltaY === 0) return
+
+      const instance = reactFlowInstance.current
+      if (!instance) return
+
+      const current = targetViewport ?? visualViewport ?? instance.getViewport()
+      if (!visualViewport) visualViewport = current
+      const rect = el.getBoundingClientRect()
+      const pointerX = event.clientX - rect.left
+      const pointerY = event.clientY - rect.top
+      const flowX = (pointerX - current.x) / current.zoom
+      const flowY = (pointerY - current.y) / current.zoom
+      const deltaFactor = event.deltaMode === 1 ? 0.05 : event.deltaMode === 2 ? 1 : 0.002
+      const zoomDelta = -event.deltaY * deltaFactor * WHEEL_SENSITIVITY
+      const nextZoom = clamp(current.zoom * (2 ** zoomDelta), minZoom, maxZoom)
+
+      targetViewport = {
+        x: pointerX - flowX * nextZoom,
+        y: pointerY - flowY * nextZoom,
+        zoom: nextZoom,
+      }
+      if (commitTimer !== null) window.clearTimeout(commitTimer)
+      commitTimer = window.setTimeout(() => {
+        commitTimer = null
+        commitTargetViewport()
+      }, COMMIT_DELAY_MS)
+
+      // React Flow's d3-zoom applies a discrete step immediately. Stop that
+      // handler and let the rAF loop converge on the accumulated target instead.
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      scheduleAnimation()
     }
 
     d3ZoomEl.addEventListener('wheel', smoothWheel, { capture: true, passive: false })
@@ -67,10 +172,14 @@ export function useCanvasZoom({ canvasRef, reactFlowInstance }: UseCanvasZoomOpt
     window.addEventListener('mouseup', onRightUp, true)
     return () => {
       d3ZoomEl.removeEventListener('wheel', smoothWheel, true)
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame)
+      if (commitTimer !== null) window.clearTimeout(commitTimer)
+      targetViewport = null
+      visualViewport = null
       el.removeEventListener('mousedown', onRightDown, true)
       window.removeEventListener('mouseup', onRightUp, true)
       // Restore any remaining nopan classes
       for (const n of rightDownNodes) n.classList.add(NOPAN)
     }
-  }, [canvasRef])
+  }, [canvasRef, maxZoom, minZoom, onViewportChange, onViewportSettled, reactFlowInstance])
 }

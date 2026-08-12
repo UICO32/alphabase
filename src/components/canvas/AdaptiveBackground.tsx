@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { useStore } from '@xyflow/react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useStore, type Viewport } from '@xyflow/react'
 
 export type GridPattern = 'cross' | 'dot' | 'circle' | 'triangle'
 
@@ -62,25 +62,65 @@ function PatternShape({ pattern, color, cx, cy, size: _size }: {
   }
 }
 
-export function AdaptiveBackground({ color, pattern = 'cross' }: { color: string; pattern?: GridPattern }) {
+interface AdaptiveBackgroundProps {
+  color: string
+  pattern?: GridPattern
+  visualViewportRef?: { current: Viewport | null }
+  frameSchedulerRef?: { current: (() => void) | null }
+}
+
+export function AdaptiveBackground({
+  color,
+  pattern = 'cross',
+  visualViewportRef,
+  frameSchedulerRef,
+}: AdaptiveBackgroundProps) {
   const transform = useStore((s) => s.transform)
   const patternId = 'hepta-grid-pattern'
+  const svgRef = useRef<SVGSVGElement>(null)
+  const patternRefs = useRef<Array<SVGPatternElement | null>>([])
+  const shapeRefs = useRef<Array<SVGGElement | null>>([])
 
   const [tx, ty, z] = transform
 
-  const layers = useMemo(() => {
-    return gridSteps
-      .map((gs, i) => {
-        const opacity = stepOpacity(z, gs.min, gs.mid) * MAX_OPACITY
-        if (opacity <= 0) return null
-        const scaledGap = gs.step * BASE_GAP * z
-        const x = tx % scaledGap
-        const y = ty % scaledGap
-        const scaledOffset = scaledGap / 2
-        return { id: `${patternId}-grid-${i}`, scaledGap, x, y, scaledOffset, opacity }
-      })
-      .filter(Boolean) as { id: string; scaledGap: number; x: number; y: number; scaledOffset: number; opacity: number }[]
-  }, [tx, ty, z, patternId])
+  const renderViewport = useCallback((viewport: Viewport) => {
+    const svg = svgRef.current
+    if (!svg) return
+
+    gridSteps.forEach((gs, index) => {
+      const patternElement = patternRefs.current[index]
+      const shapeElement = shapeRefs.current[index]
+      if (!patternElement || !shapeElement) return
+
+      const opacity = stepOpacity(viewport.zoom, gs.min, gs.mid) * MAX_OPACITY
+      const scaledGap = gs.step * BASE_GAP * viewport.zoom
+      const scaledOffset = scaledGap / 2
+
+      patternElement.setAttribute('x', String(viewport.x % scaledGap))
+      patternElement.setAttribute('y', String(viewport.y % scaledGap))
+      patternElement.setAttribute('width', String(scaledGap))
+      patternElement.setAttribute('height', String(scaledGap))
+      patternElement.setAttribute('patternTransform', `translate(-${scaledOffset},-${scaledOffset})`)
+      shapeElement.setAttribute('transform', `translate(${scaledOffset},${scaledOffset})`)
+      shapeElement.setAttribute('opacity', String(opacity))
+    })
+  }, [])
+
+  useEffect(() => {
+    renderViewport(visualViewportRef?.current ?? { x: tx, y: ty, zoom: z })
+  }, [renderViewport, tx, ty, z, visualViewportRef])
+
+  useEffect(() => {
+    if (!frameSchedulerRef) return
+    const renderVisualViewport = () => {
+      const viewport = visualViewportRef?.current
+      if (viewport) renderViewport(viewport)
+    }
+    frameSchedulerRef.current = renderVisualViewport
+    return () => {
+      if (frameSchedulerRef.current === renderVisualViewport) frameSchedulerRef.current = null
+    }
+  }, [frameSchedulerRef, renderViewport, visualViewportRef])
 
   const containerStyle = useMemo(() => ({
     position: 'absolute' as const,
@@ -93,37 +133,42 @@ export function AdaptiveBackground({ color, pattern = 'cross' }: { color: string
   }), [])
 
   return (
-    <svg className="react-flow__background" style={containerStyle}>
-      {layers.map((layer) => (
+    <svg ref={svgRef} className="react-flow__background" style={containerStyle}>
+      {gridSteps.map((gs, index) => (
         <pattern
-          key={layer.id}
-          id={layer.id}
-          x={layer.x}
-          y={layer.y}
-          width={layer.scaledGap}
-          height={layer.scaledGap}
+          key={`${patternId}-grid-${index}`}
+          ref={(element) => { patternRefs.current[index] = element }}
+          id={`${patternId}-grid-${index}`}
+          x="0"
+          y="0"
+          width={BASE_GAP * gs.step * z}
+          height={BASE_GAP * gs.step * z}
           patternUnits="userSpaceOnUse"
-          patternTransform={`translate(-${layer.scaledOffset},-${layer.scaledOffset})`}
+          patternTransform={`translate(-${BASE_GAP * gs.step * z / 2},-${BASE_GAP * gs.step * z / 2})`}
         >
-          <g opacity={layer.opacity}>
+          <g
+            ref={(element) => { shapeRefs.current[index] = element }}
+            transform={`translate(${BASE_GAP * gs.step * z / 2},${BASE_GAP * gs.step * z / 2})`}
+            opacity={stepOpacity(z, gs.min, gs.mid) * MAX_OPACITY}
+          >
             <PatternShape
               pattern={pattern}
               color={color}
-              cx={layer.scaledGap / 2}
-              cy={layer.scaledGap / 2}
-              size={layer.scaledGap}
+              cx={0}
+              cy={0}
+              size={BASE_GAP * gs.step * z}
             />
           </g>
         </pattern>
       ))}
-      {layers.map((layer) => (
+      {gridSteps.map((_gs, index) => (
         <rect
-          key={`${layer.id}-rect`}
+          key={`${patternId}-grid-${index}-rect`}
           x="0"
           y="0"
           width="100%"
           height="100%"
-          fill={`url(#${layer.id})`}
+          fill={`url(#${patternId}-grid-${index})`}
         />
       ))}
     </svg>

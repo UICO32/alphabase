@@ -80,6 +80,7 @@ export function ReactFlowCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [selectionForAlignment, setSelectionForAlignment] = useState<{ nodes: Node[]; edges: Edge[] }>({ nodes: [], edges: [] })
   const [densityOverviewProgress, setDensityOverviewProgress] = useState(0)
+  const [densityOverviewLayerMounted, setDensityOverviewLayerMounted] = useState(false)
   const [floatingCardId, setFloatingCardId] = useState<string | null>(null)
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null)
   const editingNodeIdRef = useRef<string | null>(null)
@@ -178,7 +179,67 @@ export function ReactFlowCanvas() {
   useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef })
 
   const canvasRef = useRef<HTMLDivElement>(null)
-  useCanvasZoom({ canvasRef, reactFlowInstance })
+  const densityOverviewProgressRef = useRef(0)
+  const densityOverviewViewportRef = useRef<BoardViewport | null>(null)
+  const densityOverviewFrameSchedulerRef = useRef<(() => void) | null>(null)
+  const backgroundFrameSchedulerRef = useRef<(() => void) | null>(null)
+  const nodeZoomVariablesRef = useRef(false)
+  const updateVisualViewport = useCallback((viewport: BoardViewport) => {
+    densityOverviewViewportRef.current = viewport
+    const overviewProgress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
+    const previewVisible = viewport.zoom <= previewZoomThreshold
+    densityOverviewProgressRef.current = overviewProgress
+
+    const canvas = canvasRef.current
+    if (canvas) {
+      canvas.dataset.densityOverviewProgress = overviewProgress.toFixed(3)
+      const previewVisibility = String(previewVisible)
+      if (canvas.dataset.zoomPreviewVisible !== previewVisibility) {
+        canvas.dataset.zoomPreviewVisible = previewVisibility
+      }
+      // These inherited variables affect every visible card. Set them once
+      // for the current committed viewport; changing them on every animation
+      // frame would force a style recalculation across the whole board.
+      if (!nodeZoomVariablesRef.current) {
+        nodeZoomVariablesRef.current = true
+        canvas.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
+        canvas.style.setProperty('--rf-zoom', String(viewport.zoom))
+      }
+    }
+    backgroundFrameSchedulerRef.current?.()
+    densityOverviewFrameSchedulerRef.current?.()
+
+    const library = useLibraryStore.getState()
+    if (library.isZoomPreviewVisible !== previewVisible) {
+      library.setZoomPreviewVisible(previewVisible)
+    }
+
+  }, [densityOverviewZoomThreshold, previewZoomThreshold])
+  const settleVisualViewport = useCallback((viewport: BoardViewport) => {
+    nodeZoomVariablesRef.current = false
+    updateVisualViewport(viewport)
+    const progress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
+    densityOverviewProgressRef.current = progress
+    const canvas = canvasRef.current
+    if (canvas) {
+      canvas.dataset.densityOverviewProgress = progress.toFixed(3)
+      canvas.style.setProperty('--density-overview-progress', String(progress))
+      canvas.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
+      canvas.style.setProperty('--rf-zoom', String(viewport.zoom))
+    }
+    nodeZoomVariablesRef.current = true
+    setDensityOverviewProgress(progress)
+    useLibraryStore.setState({ transform: [viewport.x, viewport.y, viewport.zoom] })
+    const library = useLibraryStore.getState()
+    if (library.zoom !== viewport.zoom) library.setZoom(viewport.zoom)
+    saveViewport(viewport)
+  }, [densityOverviewZoomThreshold, saveViewport, updateVisualViewport])
+  useCanvasZoom({
+    canvasRef,
+    reactFlowInstance,
+    onViewportChange: updateVisualViewport,
+    onViewportSettled: settleVisualViewport,
+  })
 
   useEvent('focus-card', (detail) => {
     const node = nodesRef.current.find(n => (n.data as Record<string, unknown>)?.cardId === detail.cardId)
@@ -443,7 +504,8 @@ export function ReactFlowCanvas() {
 
       const saveCurrentViewport = () => {
         if (useBoardStore.getState().activeBoardId === request.boardId) {
-          saveViewport(instance.getViewport())
+          const viewport = instance.getViewport()
+          settleVisualViewport(viewport)
         }
       }
 
@@ -456,28 +518,35 @@ export function ReactFlowCanvas() {
       }
     })
     scheduledViewportRef.current = { boardId: request.boardId, raf }
-  }, [activeBoardId, boardViewportRequest, saveViewport])
+  }, [activeBoardId, boardViewportRequest, settleVisualViewport])
 
   const onInit = useCallback((instance: ReactFlowInstance) => {
     reactFlowInstance.current = instance
-    setDensityOverviewProgress(getDensityOverviewProgress(instance.getViewport().zoom, densityOverviewZoomThreshold))
+    const viewport = instance.getViewport()
+    updateVisualViewport(viewport)
+    const progress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
+    densityOverviewProgressRef.current = progress
+    canvasRef.current?.style.setProperty('--density-overview-progress', String(progress))
+    setDensityOverviewProgress(progress)
     applyBoardViewport()
-  }, [applyBoardViewport, densityOverviewZoomThreshold])
+  }, [applyBoardViewport, densityOverviewZoomThreshold, updateVisualViewport])
 
   useEffect(() => {
     const el = canvasRef.current
     if (!el) return
     el.style.setProperty('--zoom-preview-threshold', String(previewZoomThreshold))
     const zoom = useLibraryStore.getState().zoom
-    useLibraryStore.getState().setZoomPreviewVisible(zoom <= previewZoomThreshold)
+    const previewVisible = zoom <= previewZoomThreshold
+    el.dataset.zoomPreviewVisible = String(previewVisible)
+    useLibraryStore.getState().setZoomPreviewVisible(previewVisible)
   }, [previewZoomThreshold])
 
   useEffect(() => {
-    const zoom = reactFlowInstance.current?.getViewport().zoom ?? useLibraryStore.getState().zoom
-    const progress = getDensityOverviewProgress(zoom, densityOverviewZoomThreshold)
-    setDensityOverviewProgress(progress)
-    canvasRef.current?.style.setProperty('--density-overview-progress', String(progress))
-  }, [densityOverviewZoomThreshold])
+    const viewport = densityOverviewViewportRef.current
+      ?? reactFlowInstance.current?.getViewport()
+      ?? { x: 0, y: 0, zoom: useLibraryStore.getState().zoom }
+    updateVisualViewport(viewport)
+  }, [densityOverviewZoomThreshold, updateVisualViewport])
 
   // Restore a saved board viewport, or fit new content once when no viewport exists.
   useEffect(() => {
@@ -487,25 +556,11 @@ export function ReactFlowCanvas() {
   const onMove = useCallback(
     (() => {
       let lastTransformCall = 0
-      let lastZoom = 0
       return (_event: MouseEvent | TouchEvent | null, viewport: { x: number; y: number; zoom: number }) => {
         saveViewport(viewport)
         // CSS 变量：zoom 变化时即时更新，无节流
         // ZoomPreview、缩放反比元素依赖此变量渲染，延迟会产生视觉跳变
-        if (viewport.zoom !== lastZoom && canvasRef.current) {
-          lastZoom = viewport.zoom
-          const overviewProgress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
-          setDensityOverviewProgress(overviewProgress)
-          canvasRef.current.style.setProperty('--density-overview-progress', String(overviewProgress))
-          canvasRef.current.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
-          canvasRef.current.style.setProperty('--rf-zoom', String(viewport.zoom))
-          const library = useLibraryStore.getState()
-          const previewVisible = viewport.zoom <= previewZoomThreshold
-          library.setZoom(viewport.zoom)
-          if (library.isZoomPreviewVisible !== previewVisible) {
-            library.setZoomPreviewVisible(previewVisible)
-          }
-        }
+        updateVisualViewport(viewport)
         // transform 三元组驱动较重的订阅（library、panels），100ms 节流
         const now = performance.now()
         if (now - lastTransformCall < 100) return
@@ -513,7 +568,13 @@ export function ReactFlowCanvas() {
         useLibraryStore.setState({ transform: [viewport.x, viewport.y, viewport.zoom] })
       }
     })(),
-    [densityOverviewZoomThreshold, previewZoomThreshold, saveViewport],
+    [saveViewport, updateVisualViewport],
+  )
+  const onMoveEnd = useCallback(
+    (_event: MouseEvent | TouchEvent | null, viewport: BoardViewport) => {
+      settleVisualViewport(viewport)
+    },
+    [settleVisualViewport],
   )
 
   const onPaneClick = useCallback((event: React.MouseEvent) => {
@@ -723,6 +784,23 @@ export function ReactFlowCanvas() {
   const visibleEdges = useMemo(() => getVisibleCanvasEdges(nodes, edges), [nodes, edges])
   const densityOverviewInteractive = densityOverviewProgress >= OVERVIEW_INTERACTION_PROGRESS
 
+  const densityOverviewLayerMountedRef = useRef(false)
+  useEffect(() => {
+    if (densityOverviewProgress > 0) {
+      if (!densityOverviewLayerMountedRef.current) {
+        densityOverviewLayerMountedRef.current = true
+        setDensityOverviewLayerMounted(true)
+      }
+      return
+    }
+    if (!densityOverviewLayerMountedRef.current) return
+    const timer = window.setTimeout(() => {
+      densityOverviewLayerMountedRef.current = false
+      setDensityOverviewLayerMounted(false)
+    }, 240)
+    return () => window.clearTimeout(timer)
+  }, [densityOverviewProgress])
+
   useEffect(() => {
     if (!densityOverviewInteractive) return
     if (isLassoMode) exitLassoMode()
@@ -841,6 +919,7 @@ export function ReactFlowCanvas() {
         elementsSelectable={!densityOverviewInteractive}
         panActivationKeyCode="Space"
         onMove={onMove}
+        onMoveEnd={onMoveEnd}
         elevateNodesOnSelect={false}
         zoomOnScroll={true}
         zoomOnPinch={true}
@@ -848,17 +927,22 @@ export function ReactFlowCanvas() {
         minZoom={0.1}
         maxZoom={4}
         nodeDragThreshold={3}
-      >
+        >
         <AdaptiveBackground
           color={isDarkMode ? '#ffffff' : '#18181b'}
           pattern={gridPattern}
+          visualViewportRef={densityOverviewViewportRef}
+          frameSchedulerRef={backgroundFrameSchedulerRef}
         />
-        {densityOverviewProgress > 0 && (
+        {densityOverviewLayerMounted && (
           <Suspense fallback={null}>
             <DensityOverviewLayer
               nodes={nodes}
               edges={visibleEdges}
               progress={densityOverviewProgress}
+              progressRef={densityOverviewProgressRef}
+              viewportRef={densityOverviewViewportRef}
+              frameSchedulerRef={densityOverviewFrameSchedulerRef}
               isDarkMode={isDarkMode}
               onFocusNode={focusDensitySourceNode}
             />

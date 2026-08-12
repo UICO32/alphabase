@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useStore as useReactFlowStore, type Edge, type Node } from '@xyflow/react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useStore as useReactFlowStore, useStoreApi, type Edge, type Node, type Viewport } from '@xyflow/react'
 import { useStore as useZustandStore } from 'zustand'
 import { useCardStore } from '../../../stores/cardStore'
 import { embeddingStore } from '../../../stores/embeddingStore'
@@ -8,7 +8,10 @@ import {
   getAdaptiveGridSpacing,
   hitTestDensityGroup,
   projectDensityCard,
+  type DensityOverviewModel,
+  type ProjectedDensityCard,
   type DensitySourceCard,
+  type ViewportTransform,
 } from './densityOverviewModel'
 import {
   buildDensityGrid,
@@ -23,21 +26,93 @@ interface DensityOverviewLayerProps {
   nodes: Node[]
   edges: Edge[]
   progress: number
+  progressRef: { current: number }
+  viewportRef: { current: Viewport | null }
+  frameSchedulerRef: { current: (() => void) | null }
   isDarkMode: boolean
   onFocusNode: (nodeId: string) => void
+}
+
+interface DensityFrameOptions {
+  canvas: HTMLCanvasElement
+  root: HTMLDivElement
+  model: DensityOverviewModel
+  viewport: ViewportTransform
+  size: { width: number; height: number }
+  progress: number
+  activeGroupId: string | null
+  isDarkMode: boolean
+}
+
+function drawDensityFrame({
+  canvas,
+  root,
+  model,
+  viewport,
+  size,
+  progress,
+  activeGroupId,
+  isDarkMode,
+}: DensityFrameOptions): ProjectedDensityCard[] {
+  if (progress <= 0) {
+    canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
+    delete root.dataset.gridSpacing
+    delete root.dataset.renderMs
+    return []
+  }
+  if (size.width <= 0 || size.height <= 0) return []
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  const pixelWidth = Math.round(size.width * dpr)
+  const pixelHeight = Math.round(size.height * dpr)
+  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    canvas.width = pixelWidth
+    canvas.height = pixelHeight
+  }
+
+  const context = canvas.getContext('2d')
+  if (!context) return []
+  context.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+  const projectedCards = model.cards.map(card => projectDensityCard(card, viewport))
+  const spacing = getAdaptiveGridSpacing(model.cards.length)
+  const visibleCards = projectedCards.filter(card => (
+    card.screenX + card.radius >= -spacing
+    && card.screenX - card.radius <= size.width + spacing
+    && card.screenY + card.radius >= -spacing
+    && card.screenY - card.radius <= size.height + spacing
+  ))
+  const start = performance.now()
+  const grid = buildDensityGrid(visibleCards, size.width, size.height, spacing)
+  drawDensityOverview(
+    context,
+    grid,
+    size.width,
+    size.height,
+    progress,
+    activeGroupId,
+    isDarkMode ? DARK_DENSITY_THEME : LIGHT_DENSITY_THEME,
+  )
+  root.dataset.gridSpacing = spacing.toFixed(1)
+  root.dataset.renderMs = (performance.now() - start).toFixed(2)
+  root.dataset.progress = progress.toFixed(3)
+  return projectedCards
 }
 
 export function DensityOverviewLayer({
   nodes,
   edges,
   progress,
+  progressRef,
+  viewportRef,
+  frameSchedulerRef,
   isDarkMode,
   onFocusNode,
 }: DensityOverviewLayerProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const transform = useReactFlowStore(state => state.transform)
   const nodeLookup = useReactFlowStore(state => state.nodeLookup)
+  const storeApi = useStoreApi()
   const clusterResult = useZustandStore(embeddingStore, state => state.clusterResult)
   // 在组件内部订阅卡片，避免父级 ReactFlowCanvas 常驻订阅全量 cards
   //（否则编辑时每次内容落盘都会触发画布整树重渲染）。
@@ -48,8 +123,10 @@ export function DensityOverviewLayer({
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
   const movementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const previousTransformRef = useRef(transform)
   const pointerRef = useRef<{ x: number; y: number } | null>(null)
+  const projectedCardsRef = useRef<ProjectedDensityCard[]>([])
+  const projectionRevisionRef = useRef(0)
+  const [projectionRevision, setProjectionRevision] = useState(0)
 
   const sourceCards = useMemo<DensitySourceCard[]>(() => nodes.flatMap((node) => {
     if (node.type !== 'card') return []
@@ -67,18 +144,62 @@ export function DensityOverviewLayer({
     () => buildDensityOverviewModel(sourceCards, edges.map(edge => ({ source: edge.source, target: edge.target })), clusterResult),
     [clusterResult, edges, sourceCards],
   )
-  const viewport = useMemo(() => ({ x: transform[0], y: transform[1], zoom: transform[2] }), [transform])
-  const projectedCards = useMemo(
-    () => model.cards.map(card => projectDensityCard(card, viewport)),
-    [model.cards, viewport],
-  )
-  const projectedCardsRef = useRef(projectedCards)
-  projectedCardsRef.current = projectedCards
   const activeGroupId = pinnedGroupId ?? (moving ? null : hoverGroupId)
   const activeGroup = activeGroupId ? model.groupById.get(activeGroupId) ?? null : null
+  const modelRef = useRef(model)
+  const sizeRef = useRef(size)
+  const activeGroupIdRef = useRef(activeGroupId)
+  const isDarkModeRef = useRef(isDarkMode)
+  const pinnedGroupIdRef = useRef(pinnedGroupId)
+  modelRef.current = model
+  sizeRef.current = size
+  activeGroupIdRef.current = activeGroupId
+  isDarkModeRef.current = isDarkMode
+  pinnedGroupIdRef.current = pinnedGroupId
+
+  const renderFrameRef = useRef<() => void>(() => undefined)
+  const renderFrameIdRef = useRef<number | null>(null)
+  const scheduleFrame = useCallback(() => {
+    if (renderFrameIdRef.current !== null) return
+    renderFrameIdRef.current = requestAnimationFrame(() => {
+      renderFrameIdRef.current = null
+      renderFrameRef.current()
+    })
+  }, [])
+
+  renderFrameRef.current = () => {
+    const canvas = canvasRef.current
+    const root = rootRef.current
+    if (!canvas || !root) return
+    projectedCardsRef.current = drawDensityFrame({
+      canvas,
+      root,
+      model: modelRef.current,
+      viewport: (() => {
+        const visualViewport = viewportRef.current
+        if (visualViewport) return visualViewport
+        const [x, y, zoom] = storeApi.getState().transform
+        return { x, y, zoom }
+      })(),
+      size: sizeRef.current,
+      progress: progressRef.current,
+      activeGroupId: activeGroupIdRef.current,
+      isDarkMode: isDarkModeRef.current,
+    })
+  }
+
+  useEffect(() => {
+    frameSchedulerRef.current = scheduleFrame
+    return () => {
+      if (frameSchedulerRef.current === scheduleFrame) frameSchedulerRef.current = null
+    }
+  }, [frameSchedulerRef, scheduleFrame])
+
   const activeCards = useMemo(
-    () => activeGroup ? projectedCards.filter(card => card.groupId === activeGroup.id) : [],
-    [activeGroup, projectedCards],
+    () => activeGroup
+      ? projectedCardsRef.current.filter(card => card.groupId === activeGroup.id)
+      : [],
+    [activeGroup, model, projectionRevision],
   )
 
   useEffect(() => {
@@ -92,23 +213,40 @@ export function DensityOverviewLayer({
   }, [])
 
   useEffect(() => {
-    const previous = previousTransformRef.current
-    previousTransformRef.current = transform
-    const changed = previous[0] !== transform[0] || previous[1] !== transform[1] || previous[2] !== transform[2]
-    if (!changed) return
-    setMoving(true)
-    setHoverGroupId(null)
-    if (previous[2] !== transform[2]) setPinnedGroupId(null)
-    if (movementTimerRef.current) clearTimeout(movementTimerRef.current)
-    movementTimerRef.current = setTimeout(() => {
-      setMoving(false)
-      const pointer = pointerRef.current
-      if (pointer) setHoverGroupId(hitTestDensityGroup(projectedCardsRef.current, pointer))
-    }, 120)
+    let previous = storeApi.getState().transform
+    const handleStoreChange = () => {
+      const next = storeApi.getState().transform
+      if (previous[0] === next[0] && previous[1] === next[1] && previous[2] === next[2]) return
+      const zoomChanged = previous[2] !== next[2]
+      previous = next
+      scheduleFrame()
+      setMoving(true)
+      setHoverGroupId(null)
+      if (zoomChanged) setPinnedGroupId(null)
+      if (pinnedGroupIdRef.current !== null) {
+        projectionRevisionRef.current += 1
+        setProjectionRevision(projectionRevisionRef.current)
+      }
+      if (movementTimerRef.current) clearTimeout(movementTimerRef.current)
+      movementTimerRef.current = setTimeout(() => {
+        setMoving(false)
+        const pointer = pointerRef.current
+        if (pointer) setHoverGroupId(hitTestDensityGroup(projectedCardsRef.current, pointer))
+      }, 120)
+    }
+
+    const unsubscribe = storeApi.subscribe(handleStoreChange)
+    scheduleFrame()
     return () => {
+      unsubscribe()
+      if (renderFrameIdRef.current !== null) cancelAnimationFrame(renderFrameIdRef.current)
       if (movementTimerRef.current) clearTimeout(movementTimerRef.current)
     }
-  }, [transform])
+  }, [scheduleFrame, storeApi])
+
+  useEffect(() => {
+    scheduleFrame()
+  }, [activeGroupId, isDarkMode, model, progress, scheduleFrame, size])
 
   useEffect(() => {
     if (progress >= 0.72) return
@@ -116,52 +254,6 @@ export function DensityOverviewLayer({
     setPinnedGroupId(null)
     setActiveCardId(null)
   }, [progress])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const root = rootRef.current
-    if (!canvas || !root) return
-    if (progress <= 0) {
-      canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
-      delete root.dataset.gridSpacing
-      delete root.dataset.renderMs
-      return
-    }
-    if (size.width <= 0 || size.height <= 0) return
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const pixelWidth = Math.round(size.width * dpr)
-    const pixelHeight = Math.round(size.height * dpr)
-    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-      canvas.width = pixelWidth
-      canvas.height = pixelHeight
-    }
-    const context = canvas.getContext('2d')
-    if (!context) return
-    context.setTransform(dpr, 0, 0, dpr, 0, 0)
-    const spacing = getAdaptiveGridSpacing(model.cards.length)
-    const visibleCards = projectedCards.filter(card => (
-      card.screenX + card.radius >= -spacing
-      && card.screenX - card.radius <= size.width + spacing
-      && card.screenY + card.radius >= -spacing
-      && card.screenY - card.radius <= size.height + spacing
-    ))
-    const frame = requestAnimationFrame(() => {
-      const start = performance.now()
-      const grid = buildDensityGrid(visibleCards, size.width, size.height, spacing)
-      drawDensityOverview(
-        context,
-        grid,
-        size.width,
-        size.height,
-        progress,
-        activeGroupId,
-        isDarkMode ? DARK_DENSITY_THEME : LIGHT_DENSITY_THEME,
-      )
-      root.dataset.gridSpacing = spacing.toFixed(1)
-      root.dataset.renderMs = (performance.now() - start).toFixed(2)
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [activeGroupId, isDarkMode, model.cards.length, progress, projectedCards, size])
 
   useEffect(() => {
     const layer = rootRef.current
@@ -176,7 +268,7 @@ export function DensityOverviewLayer({
       const point = pointFromEvent(event as PointerEvent)
       pointerRef.current = point
       if (pinnedGroupId || moving) return
-      setHoverGroupId(hitTestDensityGroup(projectedCards, point))
+      setHoverGroupId(hitTestDensityGroup(projectedCardsRef.current, point))
     }
     const handlePointerLeave = () => {
       pointerRef.current = null
@@ -184,7 +276,7 @@ export function DensityOverviewLayer({
     }
     const handleClick = (event: Event) => {
       if ((event.target as Element | null)?.closest('.density-overview-drawer')) return
-      const groupId = hitTestDensityGroup(projectedCards, pointFromEvent(event as MouseEvent))
+      const groupId = hitTestDensityGroup(projectedCardsRef.current, pointFromEvent(event as MouseEvent))
       setPinnedGroupId(groupId)
       setHoverGroupId(groupId)
       setActiveCardId(null)
@@ -209,14 +301,14 @@ export function DensityOverviewLayer({
       reactFlowRoot.removeEventListener('wheel', handleWheel, { capture: true })
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [moving, pinnedGroupId, progress, projectedCards])
+  }, [moving, pinnedGroupId, progress])
 
   return (
     <div
       ref={rootRef}
       className="density-overview-layer"
       data-testid="density-overview-layer"
-      data-progress={progress.toFixed(3)}
+      data-progress={progressRef.current.toFixed(3)}
       data-card-count={model.cards.length}
       data-group-count={model.groups.length}
       aria-hidden={progress <= 0}

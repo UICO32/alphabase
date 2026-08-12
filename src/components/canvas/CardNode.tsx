@@ -205,13 +205,11 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
       }
       if (card) {
         const preview = target.closest<HTMLElement>('.card-preview-native')
-        // textOffset 不再同步计算：把 preview 元素交给 beginEditingAt，
-        // 由它在下一帧（rAF）计算——长卡片逐字符 layout 扫描会阻塞点击。
+        // 在 preview 被编辑态替换前，用浏览器原生命中测试同步取得文本位置。
         beginEditingAt({
           x: e.clientX,
           y: e.clientY,
           previewElement: preview ?? undefined,
-          nodeElement: target.closest<HTMLElement>('.react-flow__node') ?? undefined,
         })
       }
     },

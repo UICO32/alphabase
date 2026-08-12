@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useReactFlow, useStore, type Node } from '@xyflow/react'
 import { computeBoundingBox } from './utils/alignment'
 
@@ -90,19 +90,20 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
   onScaleStart,
   onScaleEnd,
 }: MultiSelectionScalerProps) {
-  const { setNodes, screenToFlowPosition, flowToScreenPosition } = useReactFlow()
+  const { setNodes, screenToFlowPosition } = useReactFlow()
   // 订阅完整 transform：包围盒/手柄用屏幕坐标渲染在 pane 固定层，
   // pan/zoom 时需跟随画布重新计算位置
   const transform = useStore(s => s.transform)
   // 直接从 store 订阅选中节点的最新状态（而非选择时的快照）：
   // 拖动缩放、图片加载完成、resize 等导致的尺寸变化，包围盒实时跟随
-  const nodes = useStore(s => {
+  const nodeMap = useStore(s => s.nodes)
+  const nodes = useMemo(() => {
     const out: Node[] = []
-    for (const n of s.nodes.values()) {
+    for (const n of nodeMap.values()) {
       if (n.selected && (n.type === 'card' || n.type === 'media' || n.type === 'text')) out.push(n)
     }
     return out
-  })
+  }, [nodeMap])
   const dragRef = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -112,25 +113,25 @@ export const MultiSelectionScaler = memo(function MultiSelectionScaler({
   const invZoom = 1 / transform[2]
   const pad = PAD * invZoom
 
-  // React Flow 的 children 渲染在 pane（固定层），需用 flowToScreenPosition
-  // 把 flow 坐标转成屏幕坐标，否则缩放框会渲染到错误位置（看不到）。
+  // 缩放框渲染在 React Flow 容器内部，必须使用容器内坐标。
+  // flowToScreenPosition 返回包含容器页面偏移的窗口坐标，直接用于 absolute
+  // 定位会让框整体错开；这里直接应用 React Flow 的 viewport transform。
   const left = bounds.minX - pad
   const top = bounds.minY - pad
   const right = bounds.maxX + pad
   const bottom = bounds.maxY + pad
-  const tl = flowToScreenPosition({ x: left, y: top })
-  const br = flowToScreenPosition({ x: right, y: bottom })
-  const boxLeft = tl.x
-  const boxTop = tl.y
-  const boxWidth = br.x - tl.x
-  const boxHeight = br.y - tl.y
+  const [translateX, translateY, zoom] = transform
+  const boxLeft = left * zoom + translateX
+  const boxTop = top * zoom + translateY
+  const boxWidth = (right - left) * zoom
+  const boxHeight = (bottom - top) * zoom
   const lineWidth = 1.5
 
   const cornerPos: Record<Corner, { x: number; y: number }> = {
     nw: { x: boxLeft, y: boxTop },
-    ne: { x: br.x, y: boxTop },
-    sw: { x: boxLeft, y: br.y },
-    se: { x: br.x, y: br.y },
+    ne: { x: boxLeft + boxWidth, y: boxTop },
+    sw: { x: boxLeft, y: boxTop + boxHeight },
+    se: { x: boxLeft + boxWidth, y: boxTop + boxHeight },
   }
 
   const handlePointerDown = useCallback((corner: Corner) => (e: React.PointerEvent) => {

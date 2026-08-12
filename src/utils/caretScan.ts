@@ -10,6 +10,45 @@
 
 const CARET_SCORE_ESCALATION = 4000
 
+type DocumentWithCaretApis = Document & {
+  caretPositionFromPoint?: (x: number, y: number) => {
+    offsetNode: Node
+    offset: number
+  } | null
+  caretRangeFromPoint?: (x: number, y: number) => Range | null
+}
+
+/**
+ * 使用浏览器原生命中测试获取点击处的累计文本偏移。
+ * 这里只遍历文本节点，不读取布局；适合在 pointer 事件中同步执行。
+ */
+export function getNativeTextOffsetAtPoint(
+  root: HTMLElement,
+  x: number,
+  y: number,
+): number | undefined {
+  const doc = root.ownerDocument as DocumentWithCaretApis
+  const position = doc.caretPositionFromPoint?.(x, y)
+  const range = position ? null : doc.caretRangeFromPoint?.(x, y)
+  const offsetNode = position?.offsetNode ?? range?.startContainer
+  const offset = position?.offset ?? range?.startOffset
+
+  if (!offsetNode || offset == null || offsetNode.nodeType !== Node.TEXT_NODE || !root.contains(offsetNode)) {
+    return undefined
+  }
+
+  let consumedText = 0
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let textNode: Text | null
+  while ((textNode = walker.nextNode() as Text | null)) {
+    const len = textNode.textContent?.length ?? 0
+    if (textNode === offsetNode) return consumedText + Math.min(offset, len)
+    consumedText += len
+  }
+
+  return undefined
+}
+
 export function findTextOffsetAtPoint(
   root: HTMLElement,
   x: number,
