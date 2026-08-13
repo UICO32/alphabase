@@ -13,7 +13,9 @@ interface ViewStore {
 
   /** Card created by double-click — auto-deleted on pane click if still empty */
   autoEditCardId: string | null
+  autoEditCardHasUserInput: boolean
   setAutoEditCardId: (cardId: string | null) => void
+  markAutoEditCardInput: (cardId: string) => void
 
   kanbanEditDialogCardId: string | null
   kanbanEditDialogSourceRect: DOMRect | null
@@ -26,6 +28,7 @@ export const useViewStore = create<ViewStore>()(
     viewMode: 'board',
     editingCardId: null,
     autoEditCardId: null,
+    autoEditCardHasUserInput: false,
     kanbanEditDialogCardId: null,
     kanbanEditDialogSourceRect: null,
 
@@ -36,7 +39,15 @@ export const useViewStore = create<ViewStore>()(
     setEditingCardId: (cardId) => set((state) => (
       state.editingCardId === cardId ? state : { editingCardId: cardId }
     )),
-    setAutoEditCardId: (cardId) => set({ autoEditCardId: cardId }),
+    setAutoEditCardId: (cardId) => set({
+      autoEditCardId: cardId,
+      autoEditCardHasUserInput: false,
+    }),
+    markAutoEditCardInput: (cardId) => set((state) => (
+      state.autoEditCardId === cardId && !state.autoEditCardHasUserInput
+        ? { autoEditCardHasUserInput: true }
+        : state
+    )),
 
     openKanbanEditDialog: (cardId, sourceRect) =>
       set({ kanbanEditDialogCardId: cardId, kanbanEditDialogSourceRect: sourceRect }),

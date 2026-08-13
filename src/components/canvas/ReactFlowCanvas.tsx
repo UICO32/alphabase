@@ -88,6 +88,7 @@ export function ReactFlowCanvas() {
   const isLassoMode = useFrameInteraction((s) => s.lassoMode)
   const lassoRect = useFrameInteraction((s) => s.lassoRect)
   const isTextToolMode = useFrameInteraction((s) => s.textToolMode)
+  const pendingAutoEditCardId = useViewStore((s) => s.autoEditCardId)
   const kanbanEditDialogCardId = useViewStore((s) => s.kanbanEditDialogCardId)
   const kanbanEditDialogSourceRect = useViewStore((s) => s.kanbanEditDialogSourceRect)
   const closeKanbanEditDialog = useViewStore((s) => s.closeKanbanEditDialog)
@@ -577,6 +578,41 @@ export function ReactFlowCanvas() {
     [settleVisualViewport],
   )
 
+  const finishPendingAutoEditCard = useCallback(() => {
+    const viewState = useViewStore.getState()
+    const cardId = viewState.autoEditCardId
+    if (!cardId) return
+
+    const shouldDelete = !viewState.autoEditCardHasUserInput
+    viewState.setAutoEditCardId(null)
+    if (!shouldDelete) return
+
+    const cardData = useCardStore.getState().cards[cardId]
+    if (cardData) {
+      emit('remove-card-from-board', { cardId, cardContent: cardData })
+      useCardStore.getState().deleteCard(cardId)
+    }
+    setNodes(nds => nds.filter(node => node.id !== cardId))
+    setEdges(eds => eds.filter(edge => edge.source !== cardId && edge.target !== cardId))
+  }, [setEdges, setNodes])
+
+  useEffect(() => {
+    if (!pendingAutoEditCardId) return
+
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const targetNode = target.closest('.react-flow__node')
+      if (targetNode?.getAttribute('data-id') === pendingAutoEditCardId) return
+      finishPendingAutoEditCard()
+    }
+
+    // Capture runs before React Flow can prevent focus changes. It also covers
+    // clicks on another card or side panel, not only clicks on the pane.
+    document.addEventListener('pointerdown', handleOutsidePointerDown, true)
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown, true)
+  }, [finishPendingAutoEditCard, pendingAutoEditCardId])
+
   const onPaneClick = useCallback((event: React.MouseEvent) => {
     if (event.button !== 0) return
     if (densityOverviewProgress >= OVERVIEW_INTERACTION_PROGRESS) return
@@ -619,20 +655,7 @@ export function ReactFlowCanvas() {
     kanbanDragPreview.clear()
     setSelectionForAlignment({ nodes: [], edges: [] })
 
-    // Auto-delete empty autoEdit card when clicking blank area
-    const { autoEditCardId } = useViewStore.getState()
-    if (autoEditCardId) {
-      useViewStore.getState().setAutoEditCardId(null)
-      const cardData = useCardStore.getState().cards[autoEditCardId]
-      if (cardData) {
-        emit('remove-card-from-board', { cardId: autoEditCardId, cardContent: cardData })
-      }
-      useCardStore.getState().deleteCard(autoEditCardId)
-      setNodes((nds) => nds.filter((n) => n.id !== autoEditCardId).map((n) => ({ ...n, selected: false })))
-      setEdges((eds) => eds.filter((e) => e.source !== autoEditCardId && e.target !== autoEditCardId))
-    } else {
-      setNodes((nds) => nds.map((n) => ({ ...n, selected: false })))
-    }
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })))
 
     editingNodeIdRef.current = null
     useViewStore.getState().setEditingCardId(null)

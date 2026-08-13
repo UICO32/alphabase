@@ -19,14 +19,15 @@ export function useCanvasDoubleClick({ nodes, setNodes, reactFlowInstance, recor
   // Track whether the last mousedown was on a card/frame — if so, the dblclick
   // is a "card → blank" or "blank → card" double-click and should not create a card.
   const lastClickOnNode = useRef(false)
+  const nodeSelector = '.frame-node, .card-node-default, .text-anno-node, .media-node'
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    lastClickOnNode.current = !!(e.target as HTMLElement).closest('.frame-node, .card-node-default')
+    lastClickOnNode.current = !!(e.target as HTMLElement).closest(nodeSelector)
   }, [])
 
   const handleDoubleClick = useCallback((event: React.MouseEvent) => {
     // Either click of the dblclick landed on a card/frame — ignore
-    if (lastClickOnNode.current || (event.target as HTMLElement).closest('.frame-node, .card-node-default')) return
+    if (lastClickOnNode.current || (event.target as HTMLElement).closest(nodeSelector)) return
 
     const instance = reactFlowInstance.current
     if (!instance) return

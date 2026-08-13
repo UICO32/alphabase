@@ -77,13 +77,13 @@ export function useCardNodeEditing({
     (content: string) => {
       clearProseMirrorSuppression(cardId)
       updateCard(cardId, { content })
-      // User typed something — this autoEdit card is now confirmed, won't be auto-deleted
-      if (useViewStore.getState().autoEditCardId === cardId) {
-        useViewStore.getState().setAutoEditCardId(null)
-      }
     },
     [cardId, updateCard],
   )
+
+  const handleUserInput = useCallback(() => {
+    useViewStore.getState().markAutoEditCardInput(cardId)
+  }, [cardId])
 
   const handleEditorFocus = useCallback(() => {
     const content = useCardStore.getState().cards[cardId]?.content
@@ -136,6 +136,7 @@ export function useCardNodeEditing({
     beginEditingAt,
     prepareEditorForReveal,
     handleContentChange,
+    handleUserInput,
     handleEditorFocus,
     handleEditorBlur,
   }

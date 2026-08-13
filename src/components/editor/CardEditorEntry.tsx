@@ -27,6 +27,7 @@ interface CardEditorEntryProps extends Omit<BlockNoteEditorProps, 'onReady'> {
   onBeforeReveal?: () => void
   mountEditor?: boolean
   revealAfterPaint?: boolean
+  onUserInput?: () => void
 }
 
 const ALLOWED_PREVIEW_URI = /^(?:(?:hepta-media|https?|mailto|tel|data):|[^a-zA-Z]|[^a-zA-Z]javascript:)/i
@@ -46,6 +47,7 @@ export function CardEditorEntry({
   onBeforeReveal,
   mountEditor = true,
   revealAfterPaint = false,
+  onUserInput,
   ...editorProps
 }: CardEditorEntryProps) {
   const [state, dispatch] = useReducer(editorEntryReducer, entryKey, createEditorEntryState)
@@ -151,6 +153,11 @@ export function CardEditorEntry({
       data-editor-entry-phase={effectivePhase}
       onPointerDown={event => event.stopPropagation()}
       onMouseDown={event => event.stopPropagation()}
+      onDoubleClick={event => event.stopPropagation()}
+      onInputCapture={() => {
+        const text = rootRef.current?.querySelector('.ProseMirror')?.textContent ?? ''
+        if (text.replace(/[\s\u200b\ufeff]/g, '').length > 0) onUserInput?.()
+      }}
     >
       {effectivePhase !== 'interactive' && (
         <div

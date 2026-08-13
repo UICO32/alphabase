@@ -276,6 +276,8 @@
   display: block;
   line-height: inherit;
   min-height: 0 !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* 空段落 placeholder：缩短为 "Enter text"，颜色更克制 */
@@ -298,4 +300,36 @@
   pointer-events: none;
   cursor: default;
   user-select: none;
+}
+
+.annotation-textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.annotation-textarea[readonly] {
+  pointer-events: none;
+  cursor: inherit;
+  user-select: none;
+}
+
+.annotation-textarea::placeholder {
+  color: var(--fg-tertiary, #9ca3af);
+  opacity: 0.7;
 }

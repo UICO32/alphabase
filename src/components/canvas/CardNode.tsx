@@ -41,6 +41,7 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
     beginEditingAt,
     prepareEditorForReveal,
     handleContentChange,
+    handleUserInput,
     handleEditorFocus,
     handleEditorBlur,
   } = useCardNodeEditing({
@@ -309,6 +310,7 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
             previewHTML={card.previewHTML}
             enforceInitialHeading={card.enforceInitialHeading}
             onChange={handleContentChange}
+            onUserInput={handleUserInput}
             onFocus={handleEditorFocus}
             onBlur={handleEditorBlur}
             onBeforeEditorReveal={prepareEditorForReveal}

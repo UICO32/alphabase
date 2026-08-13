@@ -17,6 +17,7 @@ interface CardContentProps {
   previewHTML?: string
   enforceInitialHeading?: boolean
   onChange: (content: string) => void
+  onUserInput?: () => void
   onFocus?: () => void
   onBlur: () => void
   onBeforeEditorReveal?: () => void
@@ -34,6 +35,7 @@ export const CardContent = memo(function CardContent({
   previewHTML,
   enforceInitialHeading,
   onChange,
+  onUserInput,
   onFocus,
   onBlur,
   onBeforeEditorReveal,
@@ -81,6 +83,7 @@ export const CardContent = memo(function CardContent({
             editorRef={editorRef}
             onBeforeReveal={onBeforeEditorReveal}
             onChange={onChange}
+            onUserInput={onUserInput}
             onFocus={onFocus}
             onBlur={onBlur}
             theme={isDarkMode ? 'dark' : 'light'}

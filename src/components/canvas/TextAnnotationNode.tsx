@@ -18,11 +18,13 @@ import {
   type AnnotationAlign,
 } from '../../types/card'
 import { createAnnotationHeightBatcher } from './annotationHeightBatcher'
+import { normalizeAnnotationContent } from '../../utils/annotationContent'
 
 type TextAnnotationNodeType = Node<TextAnnotationNodeData, 'text'>
 
 const FONT_SIZE_ORDER: AnnotationFontSize[] = ['sm', 'md', 'lg', 'xl']
 const MIN_ANNOTATION_WIDTH = 160
+const MAX_ANNOTATION_WIDTH = 720
 const MIN_ANNOTATION_HEIGHT = DEFAULT_ANNOTATION_HEIGHT
 const ANNOTATION_PADDING_X = 10
 const ANNOTATION_PADDING_Y = 7
@@ -46,8 +48,9 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
   const [isEditing, setIsEditing] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const editorRef = useRef<AnnotationEditorHandle>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
+  const nodeRef = useRef<HTMLDivElement>(null)
   const measuredHeightRef = useRef<number>(data.height ?? DEFAULT_ANNOTATION_HEIGHT)
+  const autoEditConsumedRef = useRef(false)
 
   const color: CardColor = data.color ?? 'white'
   const fontSize: AnnotationFontSize = data.fontSize ?? 'md'
@@ -71,9 +74,12 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
   // 鈹€鈹€ autoEdit锛氬伐鍏锋斁缃悗鑷姩杩涘叆缂栬緫鎬侊紙鍙傝€?CardNode isAutoEdit 妯″紡锛夆攢鈹€
   const isAutoEdit = useFrameInteraction((s) => s.autoEditAnnoId === id)
   useEffect(() => {
-    if (!isAutoEdit) return
+    if (!isAutoEdit || autoEditConsumedRef.current) return
+    autoEditConsumedRef.current = true
     setIsEditing(true)
     // 娑堣垂鏍囪锛岄伩鍏嶉噸澶嶈Е鍙?    useFrameInteraction.setState({ autoEditAnnoId: null })
+    // Keep this frame alive through React Strict Mode's effect replay. The
+    // optional ref access makes it harmless if the node was removed meanwhile.
     requestAnimationFrame(() => editorRef.current?.focus())
   }, [isAutoEdit])
 
@@ -91,9 +97,23 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     })
   }, [isEditing, id, setNodes])
 
+  // React Flow may prevent the pane's pointerdown default, so relying on the
+  // browser to blur the textarea leaves empty annotations behind. Blur from a
+  // capture listener before the canvas handles the same pointer event.
+  useEffect(() => {
+    if (!isEditing) return
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Element && nodeRef.current?.contains(target)) return
+      editorRef.current?.blur()
+    }
+    document.addEventListener('pointerdown', handleOutsidePointerDown, true)
+    return () => document.removeEventListener('pointerdown', handleOutsidePointerDown, true)
+  }, [isEditing])
+
   // 鈹€鈹€ 鑷姩鎾戦珮锛氱洃鍚唴瀹瑰尯楂樺害鍙樺寲鍐欏叆 data.height锛堝弬鑰?CardNode MiniCard 妯″紡锛夆攢鈹€
   useEffect(() => {
-    const el = contentRef.current
+    const el = nodeRef.current
     if (!el) return
     const heightBatcher = createAnnotationHeightBatcher({
       initialHeight: measuredHeightRef.current,
@@ -131,7 +151,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     }
     // 鐐瑰嚮缂栬緫鍣ㄥ唴閮ㄤ笉鎷︽埅
     const target = e.target as HTMLElement
-    if (target.closest('[contenteditable="true"]')) return
+    if (target.closest('textarea, [contenteditable="true"]')) return
     if (isEditing) return
     setIsEditing(true)
     requestAnimationFrame(() => editorRef.current?.focus())
@@ -165,6 +185,17 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id))
   }, [id, setNodes, setEdges])
 
+  const handleEditorBlur = useCallback((finalContent: string) => {
+    setIsEditing(false)
+    const normalized = normalizeAnnotationContent(finalContent)
+    if (normalized.isEmpty) {
+      setNodes(nds => nds.filter(n => n.id !== id))
+      setEdges(eds => eds.filter(edge => edge.source !== id && edge.target !== id))
+      return
+    }
+    if (normalized.content !== finalContent) updateData({ content: normalized.content })
+  }, [id, setEdges, setNodes, updateData])
+
   // 宸ュ叿鏉′粎鍦ㄩ€変腑/缂栬緫/杩炴帴鎬佸嚭鐜帮紱hover 涓嶅脊鍑猴紝閬垮厤骞叉壈闃呰
   const showToolbar = selected || isEditing || isConnecting
   const colorStroke = CARD_COLORS[color]?.stroke ?? CARD_COLORS.white.stroke
@@ -182,6 +213,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
 
   return (
     <div
+      ref={nodeRef}
       className={`text-anno-node relative ${isEditing ? 'text-anno-node--editing' : ''}`}
       style={{
         width: '100%',
@@ -197,16 +229,21 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleNodeClick}
+      onDoubleClick={(event) => event.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* 閫変腑鏃舵樉绀鸿璋冩暣澶у皬鎺т欢 */}
-      {showSelected && (
+      {/* Transparent right-edge hit area: width is user-controlled, height follows content. */}
+      {(isHovered || showSelected) && !multiSelected && (
         <NodeResizeControl
-          position="bottom-right"
+          position="right"
+          variant="line"
+          resizeDirection="horizontal"
           minWidth={MIN_ANNOTATION_WIDTH}
+          maxWidth={MAX_ANNOTATION_WIDTH}
           minHeight={MIN_ANNOTATION_HEIGHT}
-          style={{ width: 10, height: 10, background: 'transparent', border: 'none' }}
+          style={{ width: 20, right: -10, background: 'transparent', border: 'none' }}
           className="!border-0 !bg-transparent !opacity-0"
+          onResizeEnd={(_, params) => updateData({ width: Math.round(params.width) })}
         />
       )}
 
@@ -316,7 +353,6 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
         }}
       >
         <div
-          ref={contentRef}
           style={{ flex: 1, minWidth: 0 }}
           onPointerDown={isEditing ? (e) => e.stopPropagation() : undefined}
           onMouseDown={isEditing ? (e) => e.stopPropagation() : undefined}
@@ -335,30 +371,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
               editable={isEditing}
               onChange={(newContent) => updateData({ content: newContent })}
               onFocus={() => {}}
-              onBlur={(finalContent) => {
-                setIsEditing(false)
-                // 澶辩劍鏃惰嫢鍐呭涓虹┖锛堟棤鏂囨湰锛夊垯鑷姩鍒犻櫎锛岄伩鍏嶉仐鐣欑┖娉ㄩ噴
-                const isContentEmpty = (() => {
-                  try {
-                    const doc = JSON.parse(finalContent)
-                    if (!Array.isArray(doc) || doc.length === 0) return true
-                    const text = doc.map((b: Record<string, unknown>) => {
-                      const content = b.content
-                      if (!Array.isArray(content)) return ''
-                      return content
-                        .map((c: Record<string, unknown>) => (typeof c.text === 'string' ? c.text : ''))
-                        .join('')
-                    }).join('').trim()
-                    return text === ''
-                  } catch {
-                    return true
-                  }
-                })()
-                if (isContentEmpty) {
-                  setNodes(nds => nds.filter(n => n.id !== id))
-                  setEdges(eds => eds.filter(e => e.source !== id && e.target !== id))
-                }
-              }}
+              onBlur={handleEditorBlur}
             />
           </div>
         </div>

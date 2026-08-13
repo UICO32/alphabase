@@ -127,12 +127,11 @@ export function CardNodeChrome({
       onClick={onClick}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {selected && !multiSelected && !collapsed && (
+      {(hovered || selected) && !multiSelected && !collapsed && (
         <NodeResizer
           minWidth={200}
           minHeight={120}
-          keepAspectRatio
-          isVisible={selected}
+          isVisible
           handleClassName="!w-8 !h-8 !bg-transparent !border-0"
           lineClassName="!bg-transparent !border-0 !w-8"
           onResize={(_, params) => onResize(params)}
