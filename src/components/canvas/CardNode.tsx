@@ -24,7 +24,7 @@ import { useCardNodeEditing } from './useCardNodeEditing'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
-export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
+export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) => {
   const isCollapsed = data.collapsed ?? false
   const isInFrame = !!data.frameId
   const isLassoSelected = useFrameInteraction(s => s.lassoSelectedCardIds.has(data.cardId))
@@ -156,7 +156,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
   const handleResize = useCallback((params: { width: number; height: number; x?: number; y?: number }) => {
     setNodes((nds) =>
       nds.map((n) =>
-        n.id === data.cardId
+        n.id === id
           ? {
               ...n,
               // 拖 nw/ne/sw 角时 React Flow 会给出新 position（对角固定）；
@@ -171,7 +171,7 @@ export const CardNode = memo(({ data, selected }: NodeProps<CardNodeType>) => {
           : n,
       ),
     )
-  }, [data.cardId, setNodes])
+  }, [id, setNodes])
 
   const handleNavigateToCard = useCallback((targetCardId: string) => {
     useViewStore.getState().openCardEditor(targetCardId)

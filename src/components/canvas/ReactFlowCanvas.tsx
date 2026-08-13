@@ -1051,9 +1051,12 @@ export function ReactFlowCanvas() {
                     setNodes(currentNodes => [
                       ...currentNodes,
                       {
-                        id: crypto.randomUUID(),
+                        id: card.id,
                         type: 'card',
-                        position: { x: center.x + index * 20, y: center.y + index * 20 },
+                        position: {
+                          x: center.x - DEFAULT_CARD_WIDTH / 2,
+                          y: center.y - DEFAULT_CARD_HEIGHT / 2,
+                        },
                         data: {
                           cardId: card.id,
                           color: card.color || 'white',

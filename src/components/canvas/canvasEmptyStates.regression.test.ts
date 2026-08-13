@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const canvasDirectory = dirname(fileURLToPath(import.meta.url))
 const canvasSource = readFileSync(resolve(canvasDirectory, 'ReactFlowCanvas.tsx'), 'utf8')
+const cardNodeSource = readFileSync(resolve(canvasDirectory, 'CardNode.tsx'), 'utf8')
 const animationsSource = readFileSync(resolve(canvasDirectory, '../../theme/animations.css'), 'utf8')
 
 describe('canvas empty-state regression contract', () => {
@@ -22,9 +23,18 @@ describe('canvas empty-state regression contract', () => {
     expect(canvasSource).toMatch(/isFanView && suggestedCards\.length > 0/)
     expect(canvasSource).toContain('suggestedCards.map((card, index) =>')
     expect(canvasSource).toContain('setFloatingCardId(card.id)')
+    expect(canvasSource).toContain('id: card.id')
+    expect(canvasSource).toContain('x: center.x - DEFAULT_CARD_WIDTH / 2')
+    expect(canvasSource).toContain('y: center.y - DEFAULT_CARD_HEIGHT / 2')
     expect(canvasSource).toContain("suggested-card-floating")
     expect(canvasSource).toContain('--fan-index')
     expect(canvasSource).toContain("className: 'card-node-landing'")
+  })
+
+  it('keeps suggested-card node identity compatible with card resize', () => {
+    expect(canvasSource).toMatch(/id: card\.id,[\s\S]*?cardId: card\.id,/)
+    expect(cardNodeSource).toContain('memo(({ id, data, selected }: NodeProps<CardNodeType>) =>')
+    expect(cardNodeSource).toMatch(/const handleResize[\s\S]*?n\.id === id/)
   })
 
   it('defines the animation classes consumed by dropped and suggested cards', () => {
