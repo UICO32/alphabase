@@ -1,25 +1,14 @@
 import { useEffect } from 'react'
 import { type Node } from '@xyflow/react'
 import type { ReactFlowInstance } from '@xyflow/react'
-import type { MediaNodeData } from '../types/card'
-import { fileToDataUrl, generateId } from '../utils/fileUtils'
+import { storeMediaFileForWorkspace } from '../media/imagePipeline'
+import { createMediaNode } from '../media/createMediaNode'
+import { showToast } from '../utils/toast'
 
 interface UseCanvasPasteOptions {
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void
   lastMousePosRef: React.RefObject<{ x: number; y: number } | null>
-}
-
-function makeMediaNode(url: string, position: { x: number; y: number }): Node<MediaNodeData> {
-  return {
-    id: generateId('media'),
-    type: 'media',
-    position,
-    data: { url, type: 'image' },
-    // 合理默认尺寸（加载完成后 MediaNode 会用自然尺寸更新）
-    width: 320,
-    height: 220,
-  }
 }
 
 export function useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef }: UseCanvasPasteOptions) {
@@ -48,13 +37,18 @@ export function useCanvasPaste({ reactFlowInstance, setNodes, lastMousePosRef }:
       const instance = reactFlowInstance.current
       if (!instance) return
 
-      const url = await fileToDataUrl(file)
+      try {
+        const workspacePath = localStorage.getItem('hepta-last-workspace-path')
+        const asset = await storeMediaFileForWorkspace(workspacePath, file)
 
-      const pos = lastMousePosRef.current
-        ? instance.screenToFlowPosition(lastMousePosRef.current)
-        : instance.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+        const pos = lastMousePosRef.current
+          ? instance.screenToFlowPosition(lastMousePosRef.current)
+          : instance.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
 
-      setNodes((nds) => [...nds, makeMediaNode(url, pos)])
+        setNodes((nds) => [...nds, createMediaNode(asset, pos)])
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : '无法导入剪贴板图片')
+      }
     }
 
     document.addEventListener('paste', handlePaste)

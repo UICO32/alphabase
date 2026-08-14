@@ -18,3 +18,22 @@ export interface StoreMediaResult {
   url: string
   file: StoredMediaFile
 }
+
+export interface MediaVariant {
+  width: number
+  url: string
+}
+
+export interface StoredWorkspaceMedia {
+  assetId: string
+  kind: 'image' | 'video'
+  mimeType: string
+  name: string
+  size: number
+  url: string
+  width?: number
+  height?: number
+  durationMs?: number
+  posterUrl?: string
+  variants: MediaVariant[]
+}

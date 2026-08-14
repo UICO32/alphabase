@@ -8,7 +8,7 @@ delete process.env.ELECTRON_RUN_AS_NODE
 import { app, BrowserWindow, ipcMain, dialog, protocol, shell } from 'electron'
 import { startupLog } from './startupLog'
 import { join, dirname, isAbsolute, relative, resolve } from 'path'
-import { getRegisteredWorkspacePaths, isPathWithinWorkspace, isRegisteredWorkspaceRoot, registerWorkspacePath, isMediaFilenameSafe } from './workspacePaths'
+import { getRegisteredWorkspacePaths, isPathWithinWorkspace, isRegisteredWorkspaceRoot, registerWorkspacePath } from './workspacePaths'
 import { isAllowedMainFrameNavigation, isAllowedWebviewUrl } from './navigationSecurity'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, unlink, readdir as fsReaddir, mkdir as fsMkdirDir, stat as fsStat, access, rename as fsRename, rm } from 'fs/promises'
@@ -19,6 +19,8 @@ import { registerEmbeddingIPC, disposeEmbeddingService } from './embedding'
 import { registerAISummaryIPC } from './ai'
 import { createTray, setIsQuitting, getIsQuitting, destroyTray } from './tray'
 import { auditWorkspaceEvent } from './workspaceAuditLog'
+import { storeWorkspaceMedia, type StoreWorkspaceMediaInput } from './mediaStore'
+import { registerMediaProtocol } from './mediaProtocol'
 import { Md5 } from 'ts-md5'
 import {
   createAutomaticBackup,
@@ -33,6 +35,16 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'hepta-media',
+  privileges: {
+    standard: true,
+    secure: true,
+    supportFetchAPI: true,
+    stream: true,
+  },
+}])
 
 // Disable crashpad to prevent Windows crash on handler disconnect
 app.commandLine.appendSwitch('disable-breakpad')
@@ -289,59 +301,7 @@ if (gotSingleInstanceLock) {
   logInfo(`[startup] app.whenReady: ${__t1 - __t0}ms`)
   startupLog(`app.whenReady: ${__t1 - __t0}ms, userData=${app.getPath('userData')}`)
   await restoreAuthorizedWorkspaces()
-  protocol.handle('hepta-media', async (request) => {
-    try {
-      const url = new URL(request.url)
-      const filename = url.pathname.replace(/^\/+/, '') || url.hostname
-      const requestedWorkspacePath = (url.searchParams.get('workspace') || '').split('/').join('\\')
-
-      if (!isMediaFilenameSafe(filename)) {
-        return new Response('Forbidden', { status: 403 })
-      }
-
-      const candidateWorkspaces = requestedWorkspacePath
-        ? [requestedWorkspacePath]
-        : getRegisteredWorkspacePaths()
-
-      let resolvedFilePath: string | null = null
-      for (const workspacePath of candidateWorkspaces) {
-        const filePath = join(workspacePath, 'media', filename)
-        const resolvedMediaDir = resolve(join(workspacePath, 'media'))
-        const nextResolvedFilePath = resolve(filePath)
-        if (
-          nextResolvedFilePath !== resolvedMediaDir &&
-          !nextResolvedFilePath.startsWith(resolvedMediaDir + '/') &&
-          !nextResolvedFilePath.startsWith(resolvedMediaDir + '\\')
-        ) {
-          continue
-        }
-
-        try {
-          await access(nextResolvedFilePath)
-          resolvedFilePath = nextResolvedFilePath
-          break
-        } catch {
-          continue
-        }
-      }
-
-      if (!resolvedFilePath) {
-        return new Response('Not found', { status: 404 })
-      }
-
-      const data = await readFile(resolvedFilePath)
-      const ext = filename.split('.').pop()?.toLowerCase() || 'jpg'
-      const mimeMap: Record<string, string> = {
-        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-        webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif',
-      }
-      return new Response(data, {
-        headers: { 'content-type': mimeMap[ext] || 'application/octet-stream' },
-      })
-    } catch {
-      return new Response('Not found', { status: 404 })
-    }
-  })
+  registerMediaProtocol()
 
   createWindow()
 
@@ -439,6 +399,12 @@ ipcMain.handle('fs:readFile', async (event, path: string) => {
   assertMainWindowSender(event)
   if (!isPathWithinWorkspace(path)) throw new Error(`Path outside workspace: ${path}`)
   return await readFile(path)
+})
+
+ipcMain.handle('media:store', async (event, workspacePath: string, input: StoreWorkspaceMediaInput) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  return storeWorkspaceMedia(workspacePath, input)
 })
 
 ipcMain.handle('fs:writeFile', async (event, filePath: string, data: Uint8Array | number[] | string) => {

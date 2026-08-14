@@ -22,6 +22,19 @@ declare global {
     safetyBackupPath?: string
     summary?: BackupSummary
   }
+  interface StoredWorkspaceMedia {
+    assetId: string
+    kind: 'image' | 'video'
+    mimeType: string
+    name: string
+    size: number
+    url: string
+    width?: number
+    height?: number
+    durationMs?: number
+    posterUrl?: string
+    variants: Array<{ width: number; url: string }>
+  }
   interface Window {
     electronAPI: {
       fs: {
@@ -35,6 +48,13 @@ declare global {
         exists: (path: string) => Promise<boolean>
         rename: (oldPath: string, newPath: string) => Promise<void>
         rmdir: (path: string) => Promise<void>
+      }
+      media: {
+        store: (workspacePath: string, input: {
+          bytes: Uint8Array
+          mimeType: string
+          name: string
+        }) => Promise<StoredWorkspaceMedia>
       }
       dialog: {
         openDirectory: () => Promise<string | null>

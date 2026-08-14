@@ -236,7 +236,6 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
       {(isHovered || showSelected) && !multiSelected && (
         <NodeResizeControl
           position="right"
-          variant="line"
           resizeDirection="horizontal"
           minWidth={MIN_ANNOTATION_WIDTH}
           maxWidth={MAX_ANNOTATION_WIDTH}

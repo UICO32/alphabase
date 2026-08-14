@@ -11,7 +11,7 @@ import { migrateFromLocalStorageIfNeeded } from '../utils/workspace/migrateFromL
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
-import { getPersistedBoardViewport, type ConflictDiffItem } from '../utils/workspace/types'
+import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type ConflictDiffItem } from '../utils/workspace/types'
 import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup, getFileSystemBackupSummary } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import { setupSubscriptions } from '../sync/subscriptionManager'
@@ -20,6 +20,8 @@ import type { CardColor } from '../types/card'
 import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 import { migrateInlineImagesForWorkspace } from '../media/migrateInlineImages'
+import { hasInlineMediaNodes, migrateInlineMediaNodes } from '../media/migrateInlineMediaNodes'
+import { storeImageDataUrlForWorkspace } from '../media/imagePipeline'
 import { preloadCardEditor } from '../components/editor/cardEditorLoader'
 import { getStartupCapabilities } from '../platform/electronCapabilities'
 import { auditWorkspaceEvent, auditWorkspaceHealth } from '../utils/workspace/audit'
@@ -405,17 +407,40 @@ export function useWorkspaceDataLoader() {
     // Preview generation — defer first batch to next frame so React commits
     // canvas mount first, but previews still land before the first paint.
     requestAnimationFrame(() => useCardStore.getState().schedulePreviewHTMLGeneration())
-    scheduleIdleTask(() => {
+    scheduleIdleTask(async () => {
       const cards = useCardStore.getState().cards
+      const boardStore = useBoardStore.getState()
+      const hasInlineCards = Object.values(cards).some((card) => card.content?.includes('data:image/'))
+      const hasInlineBoards = Object.values(boardStore.boardData).some((data) => hasInlineMediaNodes(data.nodes))
+      if (!hasInlineCards && !hasInlineBoards) return
+
+      const safetyBackupPath = await createFileSystemBackup(workspacePath)
+      if (!safetyBackupPath) return
+
       for (const card of Object.values(cards)) {
         if (!card.content) continue
-        void migrateInlineImagesForWorkspace(workspacePath, card.content)
-          .then((result) => {
-            if (result.changed) {
-              useCardStore.getState().updateCard(card.id, { content: result.content })
-            }
-          })
-          .catch(() => {})
+        try {
+          const result = await migrateInlineImagesForWorkspace(workspacePath, card.content)
+          if (result.changed) useCardStore.getState().updateCard(card.id, { content: result.content })
+        } catch { /* preserve the legacy value and continue */ }
+      }
+
+      for (const [boardId, data] of Object.entries(boardStore.boardData)) {
+        if (!hasInlineMediaNodes(data.nodes)) continue
+        try {
+          const result = await migrateInlineMediaNodes(
+            data.nodes,
+            (dataUrl) => storeImageDataUrlForWorkspace(workspacePath, dataUrl),
+          )
+          if (!result.changed) continue
+          boardStore.saveBoardData(boardId, { ...data, nodes: result.nodes })
+          syncEngine.scheduleWriteBoard(boardId, {
+            version: 2,
+            nodes: result.nodes as Parameters<typeof syncEngine.scheduleWriteBoard>[1]['nodes'],
+            edges: data.edges as Parameters<typeof syncEngine.scheduleWriteBoard>[1]['edges'],
+            viewport: data.viewport ?? DEFAULT_BOARD_VIEWPORT,
+          }, 0)
+        } catch { /* preserve the legacy value and continue */ }
       }
     }, 10000)
 

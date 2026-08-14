@@ -1,5 +1,4 @@
-import { getImageMimeType, shouldStoreAsWorkspaceMedia } from './imagePipeline'
-import { storeMediaDataUrl } from './mediaStore'
+import { getImageMimeType, storeImageDataUrlForWorkspace } from './imagePipeline'
 
 type StoreInlineImage = (dataUrl: string, mimeType: string) => Promise<string>
 
@@ -21,7 +20,7 @@ export async function migrateInlineImagesInContent(content: string, storeInlineI
     const props = (block as { props?: Record<string, unknown> }).props
     if (!props) continue
     const url = props?.url
-    if (typeof url !== 'string' || !shouldStoreAsWorkspaceMedia(url)) continue
+    if (typeof url !== 'string' || !url.startsWith('data:image/')) continue
     props.url = await storeInlineImage(url, getImageMimeType(url))
     changed = true
   }
@@ -34,7 +33,7 @@ export async function migrateInlineImagesInContent(content: string, storeInlineI
 
 export async function migrateInlineImagesForWorkspace(workspacePath: string, content: string) {
   return migrateInlineImagesInContent(content, async (dataUrl, mimeType) => {
-    const result = await storeMediaDataUrl(workspacePath, dataUrl, mimeType)
-    return result.url
+    void mimeType
+    return (await storeImageDataUrlForWorkspace(workspacePath, dataUrl)).url
   })
 }

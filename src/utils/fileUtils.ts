@@ -56,6 +56,11 @@ export function isImageFile(file: File) {
   return /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i.test(file.name)
 }
 
+export function isVideoFile(file: File) {
+  if (file.type.toLowerCase() === 'video/mp4' || file.type.toLowerCase() === 'video/webm') return true
+  return /\.(mp4|webm)$/i.test(file.name)
+}
+
 export function generateId(prefix: string = 'id'): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }

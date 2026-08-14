@@ -18,6 +18,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     rename: (oldPath: string, newPath: string) => ipcRenderer.invoke('fs:rename', oldPath, newPath),
     rmdir: (path: string) => ipcRenderer.invoke('fs:rmdir', path),
   },
+  media: {
+    store: (workspacePath: string, input: { bytes: Uint8Array; mimeType: string; name: string }) =>
+      ipcRenderer.invoke('media:store', workspacePath, input),
+  },
   dialog: {
     openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
   },

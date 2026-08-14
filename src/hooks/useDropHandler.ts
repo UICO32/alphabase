@@ -1,10 +1,12 @@
 import { useCallback } from 'react'
 import { type Node } from '@xyflow/react'
 import type { ReactFlowInstance } from '@xyflow/react'
-import type { MediaNodeData } from '../types/card'
 import type { CardNodeData } from '../types/card'
 import { useCardStore } from '../stores/cardStore'
-import { fileToDataUrl, generateId, isImageFile } from '../utils/fileUtils'
+import { isImageFile, isVideoFile } from '../utils/fileUtils'
+import { storeMediaFileForWorkspace } from '../media/imagePipeline'
+import { createMediaNode } from '../media/createMediaNode'
+import { showToast } from '../utils/toast'
 
 interface UseDropHandlerOptions {
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
@@ -42,23 +44,21 @@ export function useDropHandler({ reactFlowInstance, setNodes }: UseDropHandlerOp
 
       const files = event.dataTransfer?.files
       if (files && files.length > 0) {
-        const imageFiles = Array.from(files).filter(isImageFile)
-        if (imageFiles.length > 0) {
-          imageFiles.forEach((file, i) => {
-            fileToDataUrl(file).then((url) => {
-              const node: Node<MediaNodeData> = {
-                id: generateId('media'),
-                type: 'media',
-                position: { x: position.x + i * 40, y: position.y + i * 40 },
-                data: { url, type: 'image' },
-                // 合理默认尺寸：避免 100x100 的小占位在加载完成前被放大显示（模糊），
-                // 加载完成后 MediaNode 会用图片自然尺寸更新节点
-                width: 320,
-                height: 220,
+        const mediaFiles = Array.from(files).filter((file) => isImageFile(file) || isVideoFile(file))
+        if (mediaFiles.length > 0) {
+          const workspacePath = localStorage.getItem('hepta-last-workspace-path')
+          void (async () => {
+            for (let i = 0; i < mediaFiles.length; i++) {
+              const file = mediaFiles[i]
+              try {
+                const asset = await storeMediaFileForWorkspace(workspacePath, file)
+                const node = createMediaNode(asset, { x: position.x + i * 40, y: position.y + i * 40 })
+                setNodes((nds) => [...nds, node])
+              } catch (error) {
+                showToast(error instanceof Error ? error.message : `无法导入 ${file.name}`)
               }
-              setNodes((nds) => [...nds, node])
-            })
-          })
+            }
+          })()
           return
         }
       }

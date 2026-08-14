@@ -1,11 +1,13 @@
 import { memo, useState, useEffect, useCallback, useContext } from 'react'
-import { NodeResizeControl, useReactFlow, type NodeProps } from '@xyflow/react'
+import { NodeResizeControl, useReactFlow, useStore, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
-import { Copy } from 'lucide-react'
+import { Copy, Play } from 'lucide-react'
 import { CardHandles } from './card/CardHandles'
 import { MultiSelectContext } from './utils/multiSelectContext'
 import { showToast } from '../../utils/toast'
 import type { MediaNodeData } from '../../types/card'
+import { selectMediaVariant } from '../../media/selectMediaVariant'
+import { useMediaPlaybackStore } from '../../stores/mediaPlaybackStore'
 
 type MediaNodeType = Node<MediaNodeData, 'media'>
 
@@ -35,17 +37,27 @@ async function copyImageAsPng(url: string) {
   }
 }
 
-export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>) => {
+export const MediaNode = memo(({ id, data, selected, width: nodeWidth }: NodeProps<MediaNodeType>) => {
   const { setNodes } = useReactFlow()
-  const [loaded, setLoaded] = useState(false)
+  const [loaded, setLoaded] = useState(() => data.type === 'video' || Boolean(data.width && data.height))
   const [hovered, setHovered] = useState(false)
+  const videoActivated = useMediaPlaybackStore((state) => state.activeNodeId === id)
+  const activateVideo = useMediaPlaybackStore((state) => state.activate)
+  const deactivateVideo = useMediaPlaybackStore((state) => state.deactivate)
   // 多选状态由画布统一计算（context），避免每张图各自 filter 节点
   const multiSelected = useContext(MultiSelectContext)
   // 多选时隐藏图片自身的选中态（整体缩放框已代表选中范围）
   const showSelected = selected && !multiSelected
+  const displayUrl = useStore(useCallback((state) => {
+    if (data.type !== 'image') return data.url
+    const zoom = state.transform[2]
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const targetWidth = (nodeWidth ?? data.width ?? MAX_WIDTH) * zoom * dpr
+    return selectMediaVariant(data.url, data.variants, targetWidth)
+  }, [data.height, data.type, data.url, data.variants, data.width, nodeWidth]))
 
   useEffect(() => {
-    if (!data.url || data.type !== 'image') return
+    if (!data.url || data.type !== 'image' || (data.width && data.height)) return
     setLoaded(false)
     const img = new Image()
     img.onload = () => {
@@ -59,6 +71,32 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
     img.onerror = () => setLoaded(true)
     img.src = data.url
   }, [data.url, data.type, id, setNodes])
+
+  useEffect(() => {
+    if (!selected) deactivateVideo(id)
+  }, [deactivateVideo, id, selected])
+
+  useEffect(() => {
+    if (!videoActivated) return
+    const handleVisibility = () => {
+      if (document.hidden) deactivateVideo(id)
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      deactivateVideo(id)
+    }
+  }, [deactivateVideo, id, videoActivated])
+
+  const handleVideoMetadata = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.currentTarget
+    if (!video.videoWidth || !video.videoHeight || (data.width && data.height)) return
+    const width = Math.min(video.videoWidth, MAX_WIDTH)
+    const height = Math.max(1, Math.round(width * video.videoHeight / video.videoWidth))
+    setNodes((nodes) => nodes.map((node) => node.id === id
+      ? { ...node, width, height, data: { ...node.data, width: video.videoWidth, height: video.videoHeight } }
+      : node))
+  }, [data.height, data.width, id, setNodes])
 
   const handleCopy = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -133,28 +171,79 @@ export const MediaNode = memo(({ id, data, selected }: NodeProps<MediaNodeType>)
           <Copy size={14} />
         </button>
       )}
-      {loaded ? (
+      {data.type === 'video' ? (
+        videoActivated ? (
+          <video
+            src={data.url}
+            controls
+            autoPlay
+            preload="metadata"
+            onLoadedMetadata={handleVideoMetadata}
+            onEnded={() => deactivateVideo(id)}
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain', borderRadius: 8, background: '#09090b' }}
+          />
+        ) : (
+          <button
+            type="button"
+            aria-label={`播放${data.name ? ` ${data.name}` : '视频'}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              activateVideo(id)
+            }}
+            style={{
+              display: 'flex',
+              width: '100%',
+              height: '100%',
+              minHeight: 120,
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 0,
+              borderRadius: 8,
+              backgroundColor: '#09090b',
+              backgroundImage: data.posterUrl ? `url("${data.posterUrl}")` : undefined,
+              backgroundSize: 'contain',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              color: 'rgba(255,255,255,0.9)',
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2 }}>
+              <Play size={24} fill="currentColor" />
+              <span style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {data.name || '播放视频'}
+              </span>
+            </span>
+          </button>
+        )
+      ) : (
+        <>
         <img
-          src={data.url}
+          src={displayUrl}
           loading="lazy"
           decoding="async"
           fetchPriority="low"
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
           style={{
             display: 'block',
             width: '100%',
             height: '100%',
             objectFit: 'contain',
             borderRadius: 8,
+            opacity: loaded ? 1 : 0,
           }}
           alt={data.name || ''}
         />
-      ) : (
+        {!loaded ? (
         <div
           className="flex items-center justify-center loading-pulse"
-          style={{ width: '100%', height: '100%', minWidth: 60, minHeight: 60 }}
+          style={{ position: 'absolute', inset: 0, minWidth: 60, minHeight: 60 }}
         >
           <span className="text-xs" style={{ color: 'var(--fg-tertiary)' }}>Loading...</span>
         </div>
+        ) : null}
+        </>
       )}
       <CardHandles />
     </div>

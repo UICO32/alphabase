@@ -63,6 +63,13 @@ export interface MediaNodeData extends Record<string, unknown> {
   url: string
   type: 'image' | 'video' | 'embed'
   name?: string
+  assetId?: string
+  mimeType?: string
+  width?: number
+  height?: number
+  durationMs?: number
+  posterUrl?: string
+  variants?: Array<{ width: number; url: string }>
 }
 
 export interface TextAnnotationNodeData extends Record<string, unknown> {
