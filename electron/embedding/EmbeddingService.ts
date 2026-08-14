@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from 'fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
+import { createHash } from 'node:crypto'
 import { join, basename } from 'path'
 import type { InferenceSession } from 'onnxruntime-node'
 import { extractEmbeddingText } from './textExtractor'
@@ -9,8 +10,11 @@ const TRUNCATED_DIMENSIONS = 256
 const DEFAULT_THRESHOLD = 0.45
 const VECTORS_DIR_NAME = '.vectors'
 const MODEL_FILENAME = 'model_q4f16.onnx'
+const MODEL_DATA_FILENAME = 'model_q4f16.onnx_data'
 const TOKENIZER_FILENAME = 'tokenizer.json'
 const MAX_SEQ_LENGTH = 8192
+export const CURRENT_INDEX_VERSION = 3
+export const CURRENT_MODEL_VERSION = 'jina-embeddings-v5-text-nano-retrieval-q4f16-256'
 
 // --- Error codes ---
 export const EMBEDDING_ERRORS = {
@@ -39,6 +43,22 @@ export interface IndexProgress {
   total: number
 }
 
+export interface IndexAllResult {
+  totalCards: number
+  indexedCount: number
+  newIndexed: number
+  skipped: number
+  empty: number
+  failed: number
+  removed: number
+}
+
+export interface IndexCardResult {
+  indexed: boolean
+  changed: boolean
+  reason?: 'empty' | 'missing'
+}
+
 export interface MetaInfo {
   lastIndexedAt: string
   cardCount: number
@@ -51,11 +71,27 @@ interface VectorDoc {
   id: string
   vector: number[]
   fields: Record<string, string>
-  updatedAt?: number
+  contentHash: string
 }
 
 interface VectorStore {
+  indexVersion: number
+  modelVersion: string
+  dimensions: number
   docs: Record<string, VectorDoc>
+}
+
+function createEmptyStore(): VectorStore {
+  return {
+    indexVersion: CURRENT_INDEX_VERSION,
+    modelVersion: CURRENT_MODEL_VERSION,
+    dimensions: TRUNCATED_DIMENSIONS,
+    docs: {},
+  }
+}
+
+function contentHash(text: string): string {
+  return createHash('sha256').update(text).digest('hex')
 }
 
 export interface TerrainCluster {
@@ -77,7 +113,7 @@ export class EmbeddingService {
   private session: InferenceSession | null = null
   private runtime: typeof import('onnxruntime-node') | null = null
   private tokenizer: JinaTokenizer | null = null
-  private store: VectorStore = { docs: {} }
+  private store: VectorStore = createEmptyStore()
   modelLoaded: boolean = false
   private storePath: string = ''
   private vectorsDir: string = ''
@@ -88,7 +124,7 @@ export class EmbeddingService {
   private threshold: number = DEFAULT_THRESHOLD
   private initializationError: string | null = null
 
-  async init(workspacePath: string, modelDir?: string): Promise<{ modelLoaded: boolean; storeLoaded: boolean; docCount: number }> {
+  async init(workspacePath: string, modelDir?: string): Promise<{ modelLoaded: boolean; storeLoaded: boolean; docCount: number; totalCards: number }> {
     this.initializationError = null
     this.cardsDir = join(workspacePath, 'cards')
     this.vectorsDir = join(workspacePath, VECTORS_DIR_NAME)
@@ -113,7 +149,7 @@ export class EmbeddingService {
     // Clustering only needs vectors, not the model
     this.loadModelInBackground()
 
-    return { modelLoaded: false, storeLoaded, docCount }
+    return { modelLoaded: false, storeLoaded, docCount, totalCards: this.getTotalCardCount() }
   }
 
   private loadModelInBackground(): void {
@@ -178,22 +214,30 @@ export class EmbeddingService {
     if (existsSync(this.storePath)) {
       try {
         const raw = readFileSync(this.storePath, 'utf-8')
-        this.store = JSON.parse(raw)
+        const parsed = JSON.parse(raw) as Partial<VectorStore>
+        const compatible = parsed.indexVersion === CURRENT_INDEX_VERSION
+          && parsed.modelVersion === CURRENT_MODEL_VERSION
+          && parsed.dimensions === TRUNCATED_DIMENSIONS
+          && parsed.docs
+          && typeof parsed.docs === 'object'
+        this.store = compatible ? parsed as VectorStore : createEmptyStore()
       } catch {
-        this.store = { docs: {} }
+        this.store = createEmptyStore()
       }
     } else {
-      this.store = { docs: {} }
+      this.store = createEmptyStore()
     }
   }
 
   private saveStore(): void {
-    writeFileSync(this.storePath, JSON.stringify(this.store), 'utf-8')
+    const tempPath = `${this.storePath}.tmp`
+    writeFileSync(tempPath, JSON.stringify(this.store), 'utf-8')
+    renameSync(tempPath, this.storePath)
   }
 
   async indexAll(
     onProgress?: (done: number, total: number) => void,
-  ): Promise<{ totalCards: number; newIndexed: number; skipped: number; removed: number }> {
+  ): Promise<IndexAllResult> {
     if (this.isIndexing) throw new Error(EMBEDDING_ERRORS.INDEXING_IN_PROGRESS)
     if (!this.session || !this.tokenizer) throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
 
@@ -202,13 +246,17 @@ export class EmbeddingService {
 
     try {
       if (!existsSync(this.cardsDir)) {
-        return { totalCards: 0, newIndexed: 0, skipped: 0, removed: 0 }
+        return { totalCards: 0, indexedCount: 0, newIndexed: 0, skipped: 0, empty: 0, failed: 0, removed: 0 }
       }
 
       const cardFiles = readdirSync(this.cardsDir).filter(f => f.endsWith('.json'))
       const totalCards = cardFiles.length
       let newIndexed = 0
       let skipped = 0
+      let empty = 0
+      let failed = 0
+      let removed = 0
+      let storeChanged = false
 
       for (let i = 0; i < cardFiles.length; i++) {
         if (this.abortController.signal.aborted) break
@@ -217,20 +265,30 @@ export class EmbeddingService {
         const cardId = basename(filename, '.json')
         const filePath = join(this.cardsDir, filename)
 
-        // Incremental: skip cards whose vector is up-to-date
-        const fileMtime = statSync(filePath).mtimeMs
-        const existingDoc = this.store.docs[cardId]
-        if (existingDoc?.updatedAt && existingDoc.updatedAt >= fileMtime) {
-          skipped++
-          onProgress?.(i + 1, totalCards)
-          continue
+        const legacyId = `card_${cardId}`
+        const legacyDoc = this.store.docs[legacyId]
+        if (!this.store.docs[cardId] && legacyDoc) {
+          this.store.docs[cardId] = { ...legacyDoc, id: cardId }
+          delete this.store.docs[legacyId]
+          storeChanged = true
         }
-
         try {
           const raw = readFileSync(filePath, 'utf-8')
           const card = JSON.parse(raw)
-          const text = extractEmbeddingText(card.content ?? '')
+          const text = extractEmbeddingText(card.content ?? '', card.title ?? card.name ?? '')
           if (!text.trim()) {
+            empty++
+            if (this.removeStoredVector(cardId)) {
+              removed++
+              storeChanged = true
+            }
+            onProgress?.(i + 1, totalCards)
+            continue
+          }
+
+          const hash = contentHash(text)
+          if (this.store.docs[cardId]?.contentHash === hash) {
+            skipped++
             onProgress?.(i + 1, totalCards)
             continue
           }
@@ -240,11 +298,17 @@ export class EmbeddingService {
             id: cardId,
             vector,
             fields: { title: card.title ?? card.name ?? '' },
-            updatedAt: Date.now(),
+            contentHash: hash,
           }
           newIndexed++
-        } catch {
-          // Skip unreadable cards
+          storeChanged = true
+        } catch (error) {
+          failed++
+          if (this.removeStoredVector(cardId)) {
+            removed++
+            storeChanged = true
+          }
+          console.warn(`[embedding/indexAll] failed to index ${cardId}:`, error)
         }
 
         onProgress?.(i + 1, totalCards)
@@ -252,45 +316,65 @@ export class EmbeddingService {
 
       // Clean up vectors for deleted cards
       const currentCardIds = new Set(cardFiles.map(f => basename(f, '.json')))
-      const removed = this.cleanStaleVectors(currentCardIds)
+      const staleRemoved = this.cleanStaleVectors(currentCardIds)
+      removed += staleRemoved
+      storeChanged = storeChanged || staleRemoved > 0
 
-      if (newIndexed > 0 || removed > 0) {
+      if (storeChanged) {
         this.saveStore()
       }
 
-      return { totalCards, newIndexed, skipped, removed }
+      return {
+        totalCards,
+        indexedCount: Object.keys(this.store.docs).length,
+        newIndexed,
+        skipped,
+        empty,
+        failed,
+        removed,
+      }
     } finally {
       this.isIndexing = false
       this.abortController = null
     }
   }
 
-  async indexCard(cardId: string): Promise<boolean> {
+  async indexCard(cardId: string): Promise<IndexCardResult> {
     if (!this.session || !this.tokenizer) throw new Error(EMBEDDING_ERRORS.NOT_INITIALIZED)
 
     const filePath = join(this.cardsDir, `${cardId}.json`)
     if (!existsSync(filePath)) {
-      if (this.store.docs[cardId]) {
-        delete this.store.docs[cardId]
+      const changed = this.removeStoredVector(cardId)
+      if (changed) {
         this.saveStore()
       }
-      return false
+      return { indexed: false, changed, reason: 'missing' }
     }
 
     const raw = readFileSync(filePath, 'utf-8')
     const card = JSON.parse(raw)
-    const text = extractEmbeddingText(card.content ?? '')
-    if (!text.trim()) return false
+    const text = extractEmbeddingText(card.content ?? '', card.title ?? card.name ?? '')
+    if (!text.trim()) {
+      const changed = this.removeStoredVector(cardId)
+      if (changed) this.saveStore()
+      return { indexed: false, changed, reason: 'empty' }
+    }
+
+    const hash = contentHash(text)
+    if (this.store.docs[cardId]?.contentHash === hash) {
+      return { indexed: true, changed: false }
+    }
 
     const vector = await this.encodeText(text)
     this.store.docs[cardId] = {
       id: cardId,
       vector,
-      fields: { title: card.title || '' },
-      updatedAt: Date.now(),
+      fields: { title: card.title ?? card.name ?? '' },
+      contentHash: hash,
     }
+    delete this.store.docs[`card_${cardId}`]
     this.saveStore()
-    return true
+    return { indexed: true, changed: true }
   }
 
   /**
@@ -299,16 +383,26 @@ export class EmbeddingService {
    * rendering a ghost house for it. Persists immediately.
    */
   removeVector(cardId: string): boolean {
-    if (!this.store.docs[cardId]) return false
-    delete this.store.docs[cardId]
+    const removed = this.removeStoredVector(cardId)
+    if (!removed) return false
     this.saveStore()
     return true
+  }
+
+  private removeStoredVector(cardId: string): boolean {
+    let removed = false
+    for (const id of [cardId, `card_${cardId}`]) {
+      if (!this.store.docs[id]) continue
+      delete this.store.docs[id]
+      removed = true
+    }
+    return removed
   }
 
   private cleanStaleVectors(currentCardIds: Set<string>): number {
     let removed = 0
     for (const docId of Object.keys(this.store.docs)) {
-      if (!currentCardIds.has(docId)) {
+      if (!currentCardIds.has(docId.replace(/^card_/, ''))) {
         delete this.store.docs[docId]
         removed++
       }
@@ -497,7 +591,8 @@ export class EmbeddingService {
 
   isModelAvailable(): boolean {
     if (!this.modelDir) return false
-    return existsSync(join(this.modelDir, MODEL_FILENAME))
+    return [MODEL_FILENAME, MODEL_DATA_FILENAME, TOKENIZER_FILENAME]
+      .every(filename => existsSync(join(this.modelDir, filename)))
   }
 
   getModelDir(): string {
@@ -513,6 +608,7 @@ export class EmbeddingService {
     modelAvailable: boolean
     indexing: boolean
     docCount: number
+    totalCards: number
     modelDir: string
     initializationError: string | null
   } {
@@ -521,8 +617,18 @@ export class EmbeddingService {
       modelAvailable: this.isModelAvailable(),
       indexing: this.isIndexing,
       docCount: Object.keys(this.store.docs).length,
+      totalCards: this.getTotalCardCount(),
       modelDir: this.modelDir,
       initializationError: this.initializationError,
+    }
+  }
+
+  private getTotalCardCount(): number {
+    if (!this.cardsDir || !existsSync(this.cardsDir)) return 0
+    try {
+      return readdirSync(this.cardsDir).filter(file => file.endsWith('.json')).length
+    } catch {
+      return 0
     }
   }
 

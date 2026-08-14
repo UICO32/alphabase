@@ -10,8 +10,11 @@ export interface SearchResult {
 
 export interface IndexAllResult {
   totalCards: number
+  indexedCount: number
   newIndexed: number
   skipped: number
+  empty: number
+  failed: number
   removed: number
 }
 
@@ -39,6 +42,9 @@ export interface EmbeddingState {
   progress: number
   total: number
   cardCount: number
+  totalCards: number
+  emptyCount: number
+  failedCount: number
   lastIndexedAt: string | null
   modelAvailable: boolean
   modelDir: string
@@ -56,6 +62,7 @@ export interface EmbeddingState {
 
   init: (workspacePath: string) => Promise<void>
   initAndEnsureIndexed: (workspacePath: string, timeoutMs?: number) => Promise<void>
+  retryModelInitialization: () => Promise<void>
   startIndexing: () => Promise<void>
   cancelIndexing: () => Promise<void>
   indexCard: (cardId: string) => Promise<ElectronCapabilitiesResult<boolean>>
@@ -76,12 +83,41 @@ export interface EmbeddingState {
 // store shape so it doesn't trigger re-renders on every keystroke.
 let indexDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const pendingIndexCardIds = new Set<string>()
+const pendingIndexRetryCounts = new Map<string, number>()
 let isFlushing = false
+const MAX_INCREMENTAL_RETRIES = 3
+const INCREMENTAL_RETRY_DELAY = 1000
 
 export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   const getEmbedding = () => {
     const capabilities = getElectronCapabilities()
     return capabilities.ok ? capabilities.value.embedding : null
+  }
+  const schedulePendingIndexFlush = (delay: number) => {
+    if (indexDebounceTimer || pendingIndexCardIds.size === 0) return
+    indexDebounceTimer = setTimeout(() => {
+      void flushPendingIndex()
+    }, delay)
+  }
+  const waitForModelReady = async (timeoutMs = 30000): Promise<boolean> => {
+    const embedding = getEmbedding()
+    if (!embedding) return false
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      const status = await embedding.getStatus()
+      set({
+        initialized: status.initialized,
+        modelLoaded: status.initialized,
+        modelAvailable: status.modelAvailable ?? false,
+        modelDir: status.modelDir ?? '',
+        indexError: status.initializationError ?? null,
+      })
+      if (status.initializationError) return false
+      if (status.initialized) return true
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    set({ indexError: 'model-timeout' })
+    return false
   }
   // Flush all pending incremental index cards, then re-cluster so the 3D
   // view picks up the new vectors. If the model isn't ready yet, the ids
@@ -94,6 +130,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
     pendingIndexCardIds.clear()
     if (ids.length === 0) { isFlushing = false; return }
 
+    let retryDelay: number | null = null
     try {
       const embedding = getEmbedding()
       if (!embedding) {
@@ -102,27 +139,41 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       }
       const status = await embedding.getStatus()
       if (!status.initialized) {
-        // Model not ready yet — put ids back so the next flush retries
+        // Model not ready yet — retain work and retry while initialization is in progress.
         for (const id of ids) pendingIndexCardIds.add(id)
+        if (status.modelAvailable && !status.initializationError) {
+          retryDelay = INCREMENTAL_RETRY_DELAY
+        }
         return
       }
 
-      let anySuccess = false
+      let anyChange = false
       for (const id of ids) {
         try {
           const result = await embedding.indexCard(id)
-          if (result.success) anySuccess = true
-        } catch {
-          // A single card failing shouldn't abort the rest
+          if (!result.success) throw new Error(result.error || 'index-card-failed')
+          pendingIndexRetryCounts.delete(id)
+          if (result.changed) anyChange = true
+        } catch (error) {
+          const attempts = (pendingIndexRetryCounts.get(id) ?? 0) + 1
+          pendingIndexRetryCounts.set(id, attempts)
+          if (attempts <= MAX_INCREMENTAL_RETRIES) {
+            pendingIndexCardIds.add(id)
+            retryDelay = Math.max(retryDelay ?? 0, INCREMENTAL_RETRY_DELAY * attempts)
+          } else {
+            console.warn(`[embeddingStore] incremental index failed for ${id}:`, error)
+            set({ indexError: 'incremental-index-failed' })
+          }
         }
       }
-      if (anySuccess) {
+      if (anyChange) {
         await get().cluster()
       }
     } catch (err) {
       console.warn('[embeddingStore] flush index failed:', err)
     } finally {
       isFlushing = false
+      if (retryDelay !== null) schedulePendingIndexFlush(retryDelay)
     }
   }
 
@@ -135,6 +186,9 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   progress: 0,
   total: 0,
   cardCount: 0,
+  totalCards: 0,
+  emptyCount: 0,
+  failedCount: 0,
   lastIndexedAt: null,
   modelAvailable: false,
   modelDir: '',
@@ -160,6 +214,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
         storeLoaded: result.storeLoaded,
         modelAvailable: result.modelLoaded,
         cardCount: result.docCount,
+        totalCards: result.totalCards ?? result.docCount,
         indexed: result.storeLoaded && result.docCount > 0,
         modelDir: '',
         indexError: null,
@@ -172,7 +227,6 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
 
   initAndEnsureIndexed: async (workspacePath: string, timeoutMs = 30000) => {
     await get().init(workspacePath)
-    if (get().indexed) return
 
     const embedding = getEmbedding()
     if (!embedding) {
@@ -191,8 +245,8 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
           modelDir: status.modelDir ?? '',
           indexed: status.docCount > 0,
           cardCount: status.docCount,
+          totalCards: status.totalCards ?? status.docCount,
         })
-        if (status.docCount > 0) return
         if (status.initializationError) {
           set({ indexError: status.initializationError })
           return
@@ -213,6 +267,24 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
     }
 
     set({ indexError: 'model-timeout' })
+  },
+
+  retryModelInitialization: async () => {
+    const embedding = getEmbedding()
+    if (!embedding) return
+    set({ indexError: null })
+    try {
+      const result = await embedding.retryInit()
+      if (result.error) {
+        set({ indexError: result.error })
+        return
+      }
+      const ready = await waitForModelReady()
+      if (ready) await get().startIndexing()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      set({ indexError: message || 'model-retry-failed' })
+    }
   },
 
   startIndexing: async () => {
@@ -245,9 +317,14 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       set({
         indexing: false,
         indexed: true,
-        cardCount: data.newIndexed,
+        cardCount: data.indexedCount ?? data.newIndexed,
+        totalCards: data.totalCards ?? data.newIndexed,
+        emptyCount: data.empty ?? 0,
+        failedCount: data.failed ?? 0,
         lastIndexedAt: new Date().toISOString(),
+        indexError: (data.failed ?? 0) > 0 ? 'partial-index-failure' : null,
       })
+      schedulePendingIndexFlush(0)
       cleanup()
     })
 
@@ -281,7 +358,8 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
     if (!capabilities.ok) return capabilities
     try {
       const result = await capabilities.value.embedding.indexCard(cardId)
-      return { ok: true, value: result.success }
+      if (!result.success) return { ok: false, reason: 'ipc-error', error: result.error }
+      return { ok: true, value: result.indexed ?? false }
     } catch (error) {
       return { ok: false, reason: 'ipc-error', error }
     }
@@ -349,15 +427,16 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
       const embedding = getEmbedding()
       if (!embedding) return
       const status = await embedding.getStatus()
-      set({
+      set((state) => ({
         initialized: status.initialized,
         modelLoaded: status.initialized,
         modelAvailable: status.modelAvailable ?? false,
         modelDir: status.modelDir ?? '',
         indexed: status.docCount > 0,
         cardCount: status.docCount,
-        indexError: status.initializationError ?? null,
-      })
+        totalCards: status.totalCards ?? status.docCount,
+        indexError: status.initializationError ?? state.indexError,
+      }))
     } catch {
       // checkStatus 失败不影响主流程
     }
@@ -365,10 +444,10 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
 
   indexCardDebounced: (cardId: string, delay = 1500) => {
     pendingIndexCardIds.add(cardId)
+    pendingIndexRetryCounts.delete(cardId)
     if (indexDebounceTimer) clearTimeout(indexDebounceTimer)
-    indexDebounceTimer = setTimeout(() => {
-      void flushPendingIndex()
-    }, delay)
+    indexDebounceTimer = null
+    schedulePendingIndexFlush(delay)
   },
 
   removeVector: async (cardId: string) => {
@@ -391,7 +470,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   downloadModel: async () => {
     const embedding = getEmbedding()
     if (!embedding) return
-    set({ downloading: true, downloadProgress: 0, downloadCurrentFile: '' })
+    set({ downloading: true, downloadProgress: 0, downloadCurrentFile: '', indexError: null })
 
     const offProgress = embedding.onDownloadProgress((data) => {
       set({ downloadProgress: data.progress, downloadCurrentFile: data.currentFile })
@@ -408,7 +487,6 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
 
     const offComplete = embedding.onDownloadComplete((data) => {
       set({ downloading: false, modelAvailable: data.success, downloadProgress: 100 })
-      cleanup()
     })
 
     const offError = embedding.onDownloadError((data) => {
@@ -419,13 +497,20 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
 
     try {
       const result = await embedding.downloadModel()
-      if (!result.error) return
-      console.error('[embeddingStore] downloadModel error:', result.error)
-      set({ downloading: false, downloadProgress: 0 })
+      if (result.error) {
+        console.error('[embeddingStore] downloadModel error:', result.error)
+        set({ downloading: false, downloadProgress: 0, indexError: result.error })
+        cleanup()
+        return
+      }
+
+      set({ downloading: false, modelAvailable: true, downloadProgress: 100 })
+      const ready = await waitForModelReady()
       cleanup()
+      if (ready) await get().startIndexing()
     } catch (error) {
       console.error('[embeddingStore] downloadModel failed:', error)
-      set({ downloading: false, downloadProgress: 0 })
+      set({ downloading: false, downloadProgress: 0, indexError: 'model-download-failed' })
       cleanup()
     }
   },

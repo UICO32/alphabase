@@ -159,6 +159,9 @@ export const useCardStore = create<CardStore>()(
         const merged = dropStoredPreviewHTMLBatch({ ...state.cards, ...cards })
         return { cards: merged }
       })
+      for (const id of Object.keys(cards)) {
+        embeddingStore.getState().indexCardDebounced(id)
+      }
     },
 
     loadCardsFromDB: async (cards) => {

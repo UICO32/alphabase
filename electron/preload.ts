@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   embedding: {
     init: (workspacePath: string) => ipcRenderer.invoke('embedding:init', workspacePath),
+    retryInit: () => ipcRenderer.invoke('embedding:retryInit'),
     indexAll: () => ipcRenderer.invoke('embedding:indexAll'),
     indexCard: (cardId: string) => ipcRenderer.invoke('embedding:indexCard', cardId),
     removeVector: (cardId: string) => ipcRenderer.invoke('embedding:removeVector', cardId),

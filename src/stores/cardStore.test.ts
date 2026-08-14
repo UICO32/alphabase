@@ -164,6 +164,24 @@ describe('CardStore', () => {
       expect(Object.keys(useCardStore.getState().cards)).toContain('a')
       expect(Object.keys(useCardStore.getState().cards)).toContain('b')
     })
+
+    it('应将每张导入卡片加入增量向量索引', () => {
+      const original = embeddingStore.getState().indexCardDebounced
+      const indexCardDebounced = vi.fn()
+      embeddingStore.setState({ indexCardDebounced })
+
+      try {
+        useCardStore.getState().importCards({
+          a: makeCard({ id: 'a' }),
+          b: makeCard({ id: 'b' }),
+        })
+        expect(indexCardDebounced).toHaveBeenCalledTimes(2)
+        expect(indexCardDebounced).toHaveBeenCalledWith('a')
+        expect(indexCardDebounced).toHaveBeenCalledWith('b')
+      } finally {
+        embeddingStore.setState({ indexCardDebounced: original })
+      }
+    })
   })
 
   describe('loadCardsFromDB', () => {

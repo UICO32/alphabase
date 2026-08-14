@@ -146,10 +146,11 @@ export function extractMarkdown(blocksJson: string): string {
  * Extract text from card content for vectorization.
  * Truncates long text (jina v5 max 8192 tokens, conservatively truncate to ~6000 chars)
  */
-export function extractEmbeddingText(blocksJson: string): string {
-  const md = extractMarkdown(blocksJson)
-  if (md.length > 6000) {
-    return md.slice(0, 6000)
+export function extractEmbeddingText(blocksJson: string, title = ''): string {
+  const parts = [title.trim(), extractMarkdown(blocksJson)].filter(Boolean)
+  const text = parts.join('\n\n')
+  if (text.length > 6000) {
+    return text.slice(0, 6000)
   }
-  return md
+  return text
 }

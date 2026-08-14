@@ -90,17 +90,31 @@ declare global {
           modelLoaded: boolean
           storeLoaded: boolean
           docCount: number
+          totalCards: number
           error?: string
         }>
         indexAll: () => Promise<{
           totalCards: number
+          indexedCount: number
           newIndexed: number
           skipped: number
+          empty: number
+          failed: number
           removed: number
+          error?: string
+        }>
+        retryInit: () => Promise<{
+          modelLoaded: boolean
+          storeLoaded: boolean
+          docCount: number
+          totalCards: number
           error?: string
         }>
         indexCard: (cardId: string) => Promise<{
           success: boolean
+          indexed?: boolean
+          changed?: boolean
+          reason?: 'empty' | 'missing'
           error?: string
         }>
         removeVector: (cardId: string) => Promise<{ success: boolean; error?: string }>
@@ -125,6 +139,7 @@ declare global {
           modelAvailable: boolean
           indexing: boolean
           docCount: number
+          totalCards: number
           modelDir: string
           initializationError?: string | null
         }>
@@ -134,7 +149,7 @@ declare global {
         cancelDownload: () => Promise<{ cancelled: boolean }>
         getDownloadConfig: () => Promise<{ configured: boolean; modelDir: string }>
         onProgress: (callback: (data: { current: number; total: number }) => void) => () => void
-        onComplete: (callback: (data: { totalCards: number; newIndexed: number; skipped: number; removed: number }) => void) => () => void
+        onComplete: (callback: (data: { totalCards: number; indexedCount: number; newIndexed: number; skipped: number; empty: number; failed: number; removed: number }) => void) => () => void
         onError: (callback: (data: { message: string }) => void) => () => void
         onDownloadProgress: (callback: (data: { progress: number; currentFile: string }) => void) => () => void
         onDownloadComplete: (callback: (data: { success: boolean }) => void) => () => void

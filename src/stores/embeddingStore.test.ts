@@ -20,17 +20,31 @@ beforeEach(() => {
     progress: 0,
     total: 0,
     cardCount: 0,
+    totalCards: 0,
+    emptyCount: 0,
+    failedCount: 0,
     modelAvailable: false,
     modelDir: '',
     indexError: null,
+    downloading: false,
+    downloadProgress: 0,
+    downloadCurrentFile: '',
   })
 })
 
 describe('embeddingStore.initAndEnsureIndexed', () => {
-  it('restores an existing index without rebuilding it', async () => {
-    const indexAll = vi.fn()
+  it('reconciles an existing partial index instead of trusting docCount alone', async () => {
+    let complete: ((data: { totalCards: number; indexedCount: number; newIndexed: number; skipped: number; empty: number; failed: number; removed: number }) => void) | undefined
+    const indexAll = vi.fn().mockImplementation(async () => {
+      complete?.({ totalCards: 43, indexedCount: 43, newIndexed: 1, skipped: 42, empty: 0, failed: 0, removed: 0 })
+      return { totalCards: 43, indexedCount: 43, newIndexed: 1, skipped: 42, empty: 0, failed: 0, removed: 0 }
+    })
     installEmbeddingApi({
-      init: vi.fn().mockResolvedValue({ storeLoaded: true, modelLoaded: false, docCount: 42 }),
+      init: vi.fn().mockResolvedValue({ storeLoaded: true, modelLoaded: false, docCount: 42, totalCards: 43 }),
+      getStatus: vi.fn().mockResolvedValue({ initialized: true, modelAvailable: true, docCount: 42, totalCards: 43, modelDir: 'D:/model' }),
+      onProgress: vi.fn(() => vi.fn()),
+      onComplete: vi.fn((handler) => { complete = handler; return vi.fn() }),
+      onError: vi.fn(() => vi.fn()),
       indexAll,
     })
 
@@ -38,11 +52,12 @@ describe('embeddingStore.initAndEnsureIndexed', () => {
 
     expect(embeddingStore.getState()).toMatchObject({
       indexed: true,
-      cardCount: 42,
+      cardCount: 43,
+      totalCards: 43,
       storeLoaded: true,
       indexError: null,
     })
-    expect(indexAll).not.toHaveBeenCalled()
+    expect(indexAll).toHaveBeenCalledOnce()
   })
 
   it('starts a full index when the model is ready and the store is empty', async () => {
@@ -128,5 +143,116 @@ describe('embeddingStore.startIndexing', () => {
 
     expect(indexAll).not.toHaveBeenCalled()
     expect(embeddingStore.getState().indexError).toBe('INIT_FAILED: DLL initialization failed')
+  })
+
+  it('retries native initialization and starts indexing when the runtime becomes ready', async () => {
+    const retryInit = vi.fn().mockResolvedValue({
+      modelLoaded: false,
+      storeLoaded: true,
+      docCount: 0,
+      totalCards: 2,
+    })
+    installEmbeddingApi({
+      retryInit,
+      getStatus: vi.fn().mockResolvedValue({
+        initialized: true,
+        modelAvailable: true,
+        initializationError: null,
+        docCount: 0,
+        totalCards: 2,
+        modelDir: 'D:/model',
+      }),
+    })
+    const originalStartIndexing = embeddingStore.getState().startIndexing
+    const startIndexing = vi.fn().mockResolvedValue(undefined)
+    embeddingStore.setState({ startIndexing, indexError: 'INIT_FAILED: DLL initialization failed' })
+
+    try {
+      await embeddingStore.getState().retryModelInitialization()
+
+      expect(retryInit).toHaveBeenCalledOnce()
+      expect(startIndexing).toHaveBeenCalledOnce()
+      expect(embeddingStore.getState()).toMatchObject({
+        initialized: true,
+        modelAvailable: true,
+        indexError: null,
+      })
+    } finally {
+      embeddingStore.setState({ startIndexing: originalStartIndexing })
+    }
+  })
+})
+
+describe('embeddingStore incremental indexing', () => {
+  it('retries queued cards after the model finishes initializing', async () => {
+    vi.useFakeTimers()
+    let initialized = false
+    const indexCard = vi.fn().mockResolvedValue({ success: true, indexed: true, changed: true })
+    installEmbeddingApi({
+      getStatus: vi.fn().mockImplementation(async () => ({
+        initialized,
+        modelAvailable: true,
+        initializationError: null,
+        docCount: 0,
+        totalCards: 1,
+      })),
+      indexCard,
+      cluster: vi.fn().mockResolvedValue({ clusters: [], orphanCards: [], computedAt: 1 }),
+    })
+
+    try {
+      embeddingStore.getState().indexCardDebounced('card-1', 0)
+      await vi.runOnlyPendingTimersAsync()
+      expect(indexCard).not.toHaveBeenCalled()
+
+      initialized = true
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(indexCard).toHaveBeenCalledWith('card-1')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('embeddingStore model download', () => {
+  it('waits for the downloaded model and starts indexing automatically', async () => {
+    const offProgress = vi.fn()
+    const offComplete = vi.fn()
+    const offError = vi.fn()
+    installEmbeddingApi({
+      onDownloadProgress: vi.fn(() => offProgress),
+      onDownloadComplete: vi.fn(() => offComplete),
+      onDownloadError: vi.fn(() => offError),
+      downloadModel: vi.fn().mockResolvedValue({ success: true }),
+      getStatus: vi.fn().mockResolvedValue({
+        initialized: true,
+        modelAvailable: true,
+        initializationError: null,
+        modelDir: 'D:/app-data/embedding',
+        docCount: 0,
+        totalCards: 2,
+      }),
+    })
+    const originalStartIndexing = embeddingStore.getState().startIndexing
+    const startIndexing = vi.fn().mockResolvedValue(undefined)
+    embeddingStore.setState({ startIndexing })
+
+    try {
+      await embeddingStore.getState().downloadModel()
+
+      expect(startIndexing).toHaveBeenCalledOnce()
+      expect(embeddingStore.getState()).toMatchObject({
+        downloading: false,
+        downloadProgress: 100,
+        modelAvailable: true,
+        modelLoaded: true,
+        modelDir: 'D:/app-data/embedding',
+      })
+      expect(offProgress).toHaveBeenCalledOnce()
+      expect(offComplete).toHaveBeenCalledOnce()
+      expect(offError).toHaveBeenCalledOnce()
+    } finally {
+      embeddingStore.setState({ startIndexing: originalStartIndexing })
+    }
   })
 })

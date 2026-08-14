@@ -5,9 +5,15 @@ import { existsSync, mkdirSync, renameSync, unlinkSync, createWriteStream } from
 const MODEL_FILENAME = 'model_q4f16.onnx'
 const MODEL_DATA_FILENAME = 'model_q4f16.onnx_data'
 const TOKENIZER_FILENAME = 'tokenizer.json'
+const REQUIRED_MODEL_FILES = [MODEL_FILENAME, MODEL_DATA_FILENAME, TOKENIZER_FILENAME]
 
 function getEmbeddingDir(): string {
   return join(app.getPath('userData'), 'embedding')
+}
+
+function hasDownloadedModel(): boolean {
+  const dir = getEmbeddingDir()
+  return REQUIRED_MODEL_FILES.every(filename => existsSync(join(dir, filename)))
 }
 
 const MODEL_DOWNLOAD_URLS: Record<string, string> = {
@@ -53,7 +59,7 @@ export function registerEmbeddingIPC(): void {
       return result
     } catch (err: any) {
       console.error('[embedding] init failed:', err.message)
-      return { modelLoaded: false, storeLoaded: false, docCount: 0, error: err.message }
+      return { modelLoaded: false, storeLoaded: false, docCount: 0, totalCards: 0, error: err.message }
     }
   })
 
@@ -82,10 +88,22 @@ export function registerEmbeddingIPC(): void {
   ipcMain.handle('embedding:indexCard', async (_event, cardId: string) => {
     if (!service) return { error: 'Service not initialized' }
     try {
-      const success = await service.indexCard(cardId)
-      return { success }
+      const result = await service.indexCard(cardId)
+      return { success: true, ...result }
     } catch (err: any) {
-      return { error: err.message }
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('embedding:retryInit', async () => {
+    if (!currentWorkspacePath) {
+      return { modelLoaded: false, storeLoaded: false, docCount: 0, totalCards: 0, error: 'WORKSPACE_NOT_INITIALIZED' }
+    }
+    try {
+      const svc = await getService()
+      return await svc.init(currentWorkspacePath, getEmbeddingDir())
+    } catch (err: any) {
+      return { modelLoaded: false, storeLoaded: false, docCount: 0, totalCards: 0, error: err.message }
     }
   })
 
@@ -136,7 +154,7 @@ export function registerEmbeddingIPC(): void {
 
   ipcMain.handle('embedding:getStatus', async () => {
     if (!service) {
-      const modelAvailable = existsSync(join(getEmbeddingDir(), MODEL_FILENAME))
+      const modelAvailable = hasDownloadedModel()
       return {
         initialized: false,
         modelAvailable,
@@ -151,7 +169,7 @@ export function registerEmbeddingIPC(): void {
 
   ipcMain.handle('embedding:checkModel', async () => {
     if (!service) {
-      return { available: existsSync(join(getEmbeddingDir(), MODEL_FILENAME)) }
+      return { available: hasDownloadedModel() }
     }
     return { available: service.isModelAvailable() }
   })
