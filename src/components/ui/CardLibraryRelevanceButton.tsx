@@ -38,11 +38,13 @@ export function CardLibraryRelevanceButton({
   editingCardId,
   onActivate,
 }: CardLibraryRelevanceButtonProps) {
-  const disabledReason = !editingCardId
-    ? '请先选择一张卡片'
-    : !indexed
-      ? getIndexStatus({ indexing, progress, total, indexError })
-      : undefined
+  const disabledReason = active
+    ? undefined
+    : !editingCardId
+      ? '请先选择一张卡片'
+      : !indexed
+        ? getIndexStatus({ indexing, progress, total, indexError })
+        : undefined
 
   return (
     <button
@@ -51,7 +53,7 @@ export function CardLibraryRelevanceButton({
       aria-label={disabledReason ? `相关性：${disabledReason}` : '按当前卡片的相关性排序'}
       disabled={Boolean(disabledReason)}
       title={disabledReason ?? (active ? '已按当前卡片的相关性排序' : '按当前卡片的相关性排序')}
-      onClick={onActivate}
+      onClick={() => onActivate()}
       className={`btn-base flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border px-2 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
         active
           ? 'border-transparent bg-brand text-fg-inverse'

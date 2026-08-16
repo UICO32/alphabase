@@ -22,6 +22,10 @@ import { kanbanDragPreview } from '../components/canvas/utils/kanbanDragPreview'
 import { setDragOverFrameId } from '../components/canvas/utils/frameInteraction'
 import type { CanvasSpatialIndex } from '../components/canvas/utils/canvasSpatialIndex'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
+import { useBoardStore } from '../stores/boardStore'
+import { useProjectStore } from '../stores/projectStore'
+import { embeddingStore } from '../stores/embeddingStore'
+import { topicDropState, isOverTopicBar } from '../components/project/topicDropState'
 
 const SNAP_THRESHOLD_PX = 3
 const FRAME_PADDING = 16
@@ -42,6 +46,8 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
   const dragStartedRef = useRef(false)
   const altPressedRef = useRef(false)
   const snapLocksRef = useRef<{ x: SnapLock | null; y: SnapLock | null }>({ x: null, y: null })
+  // 拖拽起始位置快照（主题栏置入时恢复"原位置保留"）
+  const dragStartPositionsRef = useRef<Map<string, { x: number; y: number }> | null>(null)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -64,6 +70,25 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
       if (!instance) return
       const spatialIndex = spatialIndexRef.current
       if (!spatialIndex) return
+
+      // 主题栏拖拽置入：指针命中展开面板时锁定节点位置（原位置保留），跳过画布内逻辑
+      if (node.type === 'card' || node.type === 'frame') {
+        const ev = _event as { clientX?: number; clientY?: number }
+        if (typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
+          const hovering = isOverTopicBar(ev.clientX, ev.clientY)
+          topicDropState.setHovering(hovering)
+          if (hovering) {
+            const startPos = dragStartPositionsRef.current?.get(node.id)
+            if (startPos) {
+              node.position.x = startPos.x
+              node.position.y = startPos.y
+            }
+            // 提前 return 前必须清理看板插入预览，避免残留虚线
+            kanbanDragPreview.clear()
+            return
+          }
+        }
+      }
 
       // 隐形边缘吸附：Alt 按下时跳过
       if (!altPressedRef.current && (node.type === 'card' || node.type === 'frame' || node.type === 'text' || node.type === 'media')) {
@@ -267,7 +292,30 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
     dragStartedRef.current = true
     snapLocksRef.current = { x: null, y: null }
     getActiveSyncEngine()?.setDragging(true)
-  }, [])
+    // 记录所有选中节点起始位置（供主题栏置入后恢复）
+    const instance = reactFlowInstance.current
+    const positions = new Map<string, { x: number; y: number }>()
+    if (instance) {
+      for (const n of instance.getNodes()) {
+        if (n.selected) positions.set(n.id, { x: n.position.x, y: n.position.y })
+      }
+    }
+    if (!positions.has(_node.id)) positions.set(_node.id, { x: _node.position.x, y: _node.position.y })
+    dragStartPositionsRef.current = positions
+    topicDropState.setHovering(false)
+
+    if (_node.type === 'card' && instance) {
+      const cardId = (_node.data as CardNodeData).cardId
+      const candidateCardIds = instance.getNodes().flatMap((candidate) => {
+        if (candidate.type !== 'card') return []
+        const candidateCardId = (candidate.data as CardNodeData).cardId
+        return candidateCardId ? [candidateCardId] : []
+      })
+      void embeddingStore.getState().previewRelatedForDrag(cardId, candidateCardIds)
+    } else {
+      embeddingStore.getState().clearDragRelated()
+    }
+  }, [reactFlowInstance])
 
   const onNodeDragStop = useCallback((_event: MouseEvent | React.MouseEvent, node: Node) => {
     dragStartedRef.current = false
@@ -276,6 +324,31 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
     kanbanDragPreview.clear()
     setDragOverFrameId(null)
     setEdges((eds) => [...eds])
+    embeddingStore.getState().clearDragRelated()
+
+    // 主题栏拖拽置入：松手时指针命中展开面板 → 置入当前问题并恢复原位置
+    if (node.type === 'card' || node.type === 'frame') {
+      const ev = _event as { clientX?: number; clientY?: number }
+      if (typeof ev.clientX === 'number' && typeof ev.clientY === 'number' && isOverTopicBar(ev.clientX, ev.clientY)) {
+        topicDropState.setHovering(false)
+        const boardId = useBoardStore.getState().activeBoardId
+        const questionId = topicDropState.getQuestionId()
+        if (boardId && questionId) {
+          useProjectStore.getState().addOutcome(boardId, node.id, node.type === 'frame' ? 'frame' : 'card', questionId)
+        }
+        // 原位置保留：恢复所有被拖节点的起始位置
+        const startPositions = dragStartPositionsRef.current
+        if (startPositions && startPositions.size > 0) {
+          setNodes(nds => nds.map(n => {
+            const p = startPositions.get(n.id)
+            return p ? { ...n, position: p } : n
+          }))
+        }
+        dragStartPositionsRef.current = null
+        return
+      }
+    }
+    dragStartPositionsRef.current = null
 
     if (node.type !== 'card') return
 

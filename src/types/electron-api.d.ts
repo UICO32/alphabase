@@ -55,6 +55,7 @@ declare global {
           mimeType: string
           name: string
         }) => Promise<StoredWorkspaceMedia>
+        storeFile?: (workspacePath: string, file: File) => Promise<StoredWorkspaceMedia | null>
       }
       dialog: {
         openDirectory: () => Promise<string | null>
@@ -182,6 +183,7 @@ declare global {
       }
       onFlushBeforeClose: (callback: () => Promise<void>) => () => void
       app: {
+        getVersion: () => Promise<string>
         readChangelog: () => Promise<string>
       }
       workspace: {

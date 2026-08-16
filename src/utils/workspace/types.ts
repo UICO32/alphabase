@@ -15,6 +15,8 @@ export interface BoardMeta {
   name: string
   createdAt: number
   updatedAt: number
+  /** 项目画布标记：该画布同时是一个「项目」，配套 projects/<id>.json */
+  isProject?: boolean
 }
 
 export interface BoardManifest {
@@ -120,4 +122,30 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   theme: 'light',
   confirmDelete: true,
   embeddingThreshold: 0.75,
+}
+
+// ─── 项目画板（Project） ───
+// 项目 = 一块带 isProject 标记的画布 + 一份元数据文件（projects/<boardId>.json）。
+// 成果 = 指向画布节点（卡片或 frame）的锚点，归属显式的问题列表（questions）。
+export interface ProjectQuestion {
+  id: string
+  title: string
+}
+
+export interface ProjectOutcome {
+  id: string
+  /** 画布节点 id：卡片节点即 cardId；frame 节点即 frameId */
+  nodeId: string
+  nodeType: 'card' | 'frame'
+  questionId: string
+  at: number
+}
+
+export interface ProjectData {
+  version: 1
+  boardId: string
+  questions: ProjectQuestion[]
+  outcomes: ProjectOutcome[]
+  createdAt: number
+  updatedAt: number
 }

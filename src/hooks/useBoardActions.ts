@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useBoardStore } from '../stores/boardStore'
 import { useViewStore } from '../stores/viewStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useProjectStore } from '../stores/projectStore'
 import { emit } from '../stores/eventBus'
 
 export function useBoardActions() {
@@ -35,6 +36,17 @@ export function useBoardActions() {
     }
   }, [])
 
+  const convertBoardToProject = useCallback((boardId: string, questionTitles?: string[]) => {
+    // 将现有画布升级为「主题研究」画布（C 端语言为"主题"，内部仍以 project 存储）
+    const board = boards.find(b => b.id === boardId)
+    if (!board || board.isProject) return null
+    useBoardStore.getState().updateBoard(boardId, { isProject: true })
+    useProjectStore.getState().createProject(boardId, questionTitles)
+    if (viewMode !== 'board') setViewMode('board')
+    emit('switch-board', { boardId })
+    return board
+  }, [boards, viewMode, setViewMode, emit])
+
   const deleteBoard = useCallback((boardId: string) => {
     if (boards.length <= 1) {
       alert('至少保留一个画板')
@@ -42,6 +54,10 @@ export function useBoardActions() {
     }
     const board = boards.find(b => b.id === boardId)
     if (window.confirm(`确定删除画板「${board?.name || boardId}」？`)) {
+      // 项目画布：联动删除项目元数据（画布快照文件仍由 boardStore/syncEngine 清理）
+      if (board?.isProject) {
+        useProjectStore.getState().deleteProject(boardId)
+      }
       useBoardStore.getState().deleteBoard(boardId)
       if (activeBoardId === boardId) {
         const remaining = boards.filter(b => b.id !== boardId)
@@ -63,6 +79,8 @@ export function useBoardActions() {
         name: `${board.name} (副本)`,
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        // 项目副本不传播 isProject：避免两个画布指向同一份 projects/<id>.json
+        isProject: false,
       }
       useBoardStore.getState().addBoard(newBoard)
     }
@@ -84,6 +102,7 @@ export function useBoardActions() {
     boards,
     activeBoardId,
     createBoard,
+    convertBoardToProject,
     renameBoard,
     deleteBoard,
     duplicateBoard,

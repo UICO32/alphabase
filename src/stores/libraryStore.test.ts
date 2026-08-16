@@ -32,7 +32,7 @@ describe('libraryStore density overview preference', () => {
 
 describe('libraryStore related sort lifecycle', () => {
   beforeEach(() => {
-    useLibraryStore.setState({ sortBy: 'updatedAt', sortBeforeRelated: 'updatedAt' })
+    useLibraryStore.setState({ sortBy: 'updatedAt', sortBeforeRelated: 'updatedAt', relatedSourceCardId: null })
   })
 
   it('restores the ordinary sort that was active before relevance', () => {
@@ -51,5 +51,22 @@ describe('libraryStore related sort lifecycle', () => {
     useLibraryStore.getState().exitRelatedSort()
 
     expect(useLibraryStore.getState().sortBy).toBe('createdAt')
+  })
+
+  it('keeps an explicit AI source separate from the currently edited card', () => {
+    useLibraryStore.getState().activateRelatedSort('card-ai-source')
+
+    expect(useLibraryStore.getState()).toMatchObject({
+      sortBy: 'related',
+      relatedSourceCardId: 'card-ai-source',
+    })
+
+    useLibraryStore.getState().exitRelatedSort()
+    expect(useLibraryStore.getState().relatedSourceCardId).toBeNull()
+  })
+
+  it('uses the current selection when relevance is activated without an explicit source', () => {
+    useLibraryStore.getState().activateRelatedSort()
+    expect(useLibraryStore.getState().relatedSourceCardId).toBeNull()
   })
 })

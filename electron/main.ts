@@ -19,7 +19,7 @@ import { registerEmbeddingIPC, disposeEmbeddingService } from './embedding'
 import { registerAISummaryIPC } from './ai'
 import { createTray, setIsQuitting, getIsQuitting, destroyTray } from './tray'
 import { auditWorkspaceEvent } from './workspaceAuditLog'
-import { storeWorkspaceMedia, type StoreWorkspaceMediaInput } from './mediaStore'
+import { storeWorkspaceMedia, storeWorkspaceMediaFromPath, type StoreWorkspaceMediaInput, type StoreWorkspaceMediaPathInput } from './mediaStore'
 import { registerMediaProtocol } from './mediaProtocol'
 import { Md5 } from 'ts-md5'
 import {
@@ -407,6 +407,20 @@ ipcMain.handle('media:store', async (event, workspacePath: string, input: StoreW
   return storeWorkspaceMedia(workspacePath, input)
 })
 
+ipcMain.handle('media:storeFile', async (event, workspacePath: string, input: StoreWorkspaceMediaPathInput) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  // sourcePath 来自渲染进程传入，不能信任：必须是绝对路径，且不得指向 workspace 内部
+  //（media:storeFile 语义是导入外部文件；workspace 内文件无需再复制进 media/）。
+  if (!input?.sourcePath || !isAbsolute(input.sourcePath)) {
+    throw new Error('Invalid media source path')
+  }
+  if (isPathWithinWorkspace(input.sourcePath)) {
+    throw new Error('Media source path must be outside the workspace')
+  }
+  return storeWorkspaceMediaFromPath(workspacePath, input)
+})
+
 ipcMain.handle('fs:writeFile', async (event, filePath: string, data: Uint8Array | number[] | string) => {
   assertMainWindowSender(event)
   if (!isPathWithinWorkspace(filePath)) throw new Error(`Path outside workspace: ${filePath}`)
@@ -695,6 +709,8 @@ ipcMain.handle('window:maximize', () => {
 })
 ipcMain.handle('window:close', () => { mainWindow?.close() })
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false)
+
+ipcMain.handle('app:getVersion', () => app.getVersion())
 
 ipcMain.handle('app:readChangelog', async () => {
   try {

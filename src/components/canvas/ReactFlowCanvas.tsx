@@ -248,6 +248,13 @@ export function ReactFlowCanvas() {
       reactFlowInstance.current?.fitView({ nodes: [node], duration: 300, padding: 0.3 })
     }
   })
+  // 主题栏成果定位：按节点 id 聚焦（卡片或 frame）
+  useEvent('focus-node', (detail) => {
+    const node = nodesRef.current.find(n => n.id === detail.nodeId)
+    if (node) {
+      reactFlowInstance.current?.fitView({ nodes: [node], duration: 300, padding: 0.35, maxZoom: 1.15 })
+    }
+  })
   const { onConnect, onReconnect, onReconnectEnd } = useCanvasConnection({ setEdges })
   const { onNodeDrag, onNodeDragStart: snapDragStart, onNodeDragStop: originalOnNodeDragStop } = useCanvasDrag({
     reactFlowInstance,

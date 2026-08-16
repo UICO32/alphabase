@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtemp, readFile, readdir, rm } from 'fs/promises'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import sharp from 'sharp'
-import { getContentAssetId, normalizeMediaMimeType, storeWorkspaceMedia } from './mediaStore'
+import { getContentAssetId, getFileContentAssetId, normalizeMediaMimeType, storeWorkspaceMedia, storeWorkspaceMediaFromPath } from './mediaStore'
 
 const roots: string[] = []
 
@@ -56,5 +56,23 @@ describe('workspace media store', () => {
 
     expect(second.assetId).toBe(first.assetId)
     expect(await readdir(join(root, 'media'))).toHaveLength(3)
+  })
+
+  it('streams a disk-backed video into the workspace without renderer bytes', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'abase-media-'))
+    roots.push(root)
+    const sourcePath = join(root, 'source.mp4')
+    const original = Buffer.from('deterministic-video-fixture')
+    await writeFile(sourcePath, original)
+
+    const result = await storeWorkspaceMediaFromPath(root, {
+      sourcePath,
+      mimeType: 'video/mp4',
+      name: 'clip.mp4',
+    })
+
+    expect(result.kind).toBe('video')
+    expect(result.assetId).toBe(await getFileContentAssetId(sourcePath))
+    expect(await readFile(join(root, 'media', `${result.assetId}.mp4`))).toEqual(original)
   })
 })

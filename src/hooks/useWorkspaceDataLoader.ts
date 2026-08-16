@@ -5,13 +5,14 @@ import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { useTagStore } from '../stores/tagStore'
+import { useProjectStore } from '../stores/projectStore'
 import { useEvent } from './useEvent'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/workspace/migrateFromLocalStorage'
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
-import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type ConflictDiffItem } from '../utils/workspace/types'
+import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type ConflictDiffItem, type ProjectData } from '../utils/workspace/types'
 import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup, getFileSystemBackupSummary } from '../stores/backupStore'
 import { setActiveSyncEngine } from '../sync/syncEngineRef'
 import { setupSubscriptions } from '../sync/subscriptionManager'
@@ -130,10 +131,11 @@ export function useWorkspaceDataLoader() {
     const syncEngine = new WorkspaceSyncEngine()
     await syncEngine.init(workspacePath)
     await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-after-sync-init')
-    const [manifest, cardFiles, metadata] = await Promise.all([
+    const [manifest, cardFiles, metadata, projectFiles] = await Promise.all([
       service.loadManifest(),
       service.loadAllCards(),
       service.loadMetadata(),
+      service.loadAllProjects(),
     ])
     await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-after-read', {
       loadedCards: cardFiles.length,
@@ -168,6 +170,13 @@ export function useWorkspaceDataLoader() {
     // Load cards into store first (without previewHTML generation — deferred to render)
     useBoardStore.getState().setBoards(manifest.boards)
 
+    // Load projects (isProject 画布的配套元数据)；须在 setupSubscriptions 之前写入，避免触发回写
+    const projectsMap: Record<string, ProjectData> = {}
+    for (const [boardId, data] of projectFiles) {
+      projectsMap[boardId] = data
+    }
+    useProjectStore.getState().loadProjects(projectsMap)
+
     // Load cards + board snapshots in parallel — cards go to store, boards to boardData
     const [boardSnapshots] = await Promise.all([
       service.loadAllBoards(),
@@ -187,8 +196,8 @@ export function useWorkspaceDataLoader() {
       const viewport = getPersistedBoardViewport(snapshot.viewport)
       useBoardStore.getState().saveBoardData(boardId, {
         nodes: snapshot.nodes,
-        viewport,
         edges: snapshot.edges,
+        viewport,
       })
     }
 

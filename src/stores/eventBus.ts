@@ -7,6 +7,7 @@ export type EventMap = {
   'select-folder': undefined
   'add-card-node': { cardId: string; color: string }
   'focus-card': { cardId: string }
+  'focus-node': { boardId: string; nodeId: string }
   'remove-card-from-board': { cardId: string; cardContent: unknown }
   'open-in-explorer': { path: string }
   'write-error': { path: string; error: string }

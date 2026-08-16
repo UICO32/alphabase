@@ -1,5 +1,5 @@
 import { readJSON, writeJSON, exists, readdir, readDirFiles, mkdir, deleteFile } from '../utils/workspace/fs'
-import type { BoardManifest, BoardSnapshot, CardFile, TrashFile, WorkspaceMetadata, ConflictDiffItem } from '../utils/workspace/types'
+import type { BoardManifest, BoardSnapshot, CardFile, TrashFile, WorkspaceMetadata, ConflictDiffItem, ProjectData } from '../utils/workspace/types'
 import { listFileSystemBackups, restoreFromBackup } from '../stores/backupStore'
 
 export class WorkspaceService {
@@ -88,6 +88,67 @@ export class WorkspaceService {
 
   async saveBoard(boardId: string, snapshot: BoardSnapshot): Promise<void> {
     await writeJSON(`${this.workspacePath}/boards/${boardId}.json`, snapshot)
+  }
+
+  // --- Projects ---
+  // 项目元数据独立存放于 projects/ 目录，避免 loadAllBoards 把项目文件误当画布快照。
+
+  async loadProject(boardId: string): Promise<ProjectData | null> {
+    const path = `${this.workspacePath}/projects/${boardId}.json`
+    if (!(await exists(path))) return null
+    const data = await readJSON<ProjectData>(path)
+    if ((data as unknown as Record<string, unknown>).version !== 1) return null
+    return data
+  }
+
+  async loadAllProjects(): Promise<Map<string, ProjectData>> {
+    const dir = `${this.workspacePath}/projects`
+    if (!(await exists(dir))) return new Map()
+
+    const batchResult = await readDirFiles(dir)
+    if (batchResult) {
+      const result = new Map<string, ProjectData>()
+      for (const [filename, content] of Object.entries(batchResult)) {
+        if (!filename.endsWith('.json')) continue
+        const boardId = filename.replace('.json', '')
+        try {
+          const data = JSON.parse(content) as ProjectData
+          if (data && data.version === 1 && data.boardId === boardId) {
+            result.set(boardId, data)
+          }
+        } catch { /* skip invalid */ }
+      }
+      return result
+    }
+
+    // Fallback to individual reads
+    if (!(await exists(dir))) return new Map()
+    const files = await readdir(dir)
+    const result = new Map<string, ProjectData>()
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue
+      const boardId = file.replace('.json', '')
+      try {
+        const data = await readJSON<ProjectData>(`${dir}/${file}`)
+        if (data && data.version === 1) {
+          result.set(boardId, data)
+        }
+      } catch { /* skip */ }
+    }
+    return result
+  }
+
+  async saveProject(data: ProjectData): Promise<void> {
+    const dir = `${this.workspacePath}/projects`
+    if (!(await exists(dir))) await mkdir(dir)
+    await writeJSON(`${dir}/${data.boardId}.json`, data)
+  }
+
+  async deleteProject(boardId: string): Promise<void> {
+    const path = `${this.workspacePath}/projects/${boardId}.json`
+    if (await exists(path)) {
+      await deleteFile(path)
+    }
   }
 
   // --- Cards ---

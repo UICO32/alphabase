@@ -2,6 +2,7 @@ import type { WorkspaceSyncEngine } from './syncEngine'
 import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore, type TrashItem } from '../stores/trashStore'
+import { useProjectStore } from '../stores/projectStore'
 import { globalCardToCardFile } from '../converters/cardConverter'
 import type { WorkspaceMetadata } from '../utils/workspace/types'
 
@@ -93,4 +94,28 @@ export function subscribeTrashStore(syncEngine: WorkspaceSyncEngine) {
 
     prevItemsMap = currentMap
   })
+}
+
+export function subscribeProjectStore(syncEngine: WorkspaceSyncEngine) {
+  let prevProjects = useProjectStore.getState().projects
+
+  const unsub = useProjectStore.subscribe((state) => {
+    if (state.projects === prevProjects) return
+    const current = state.projects
+
+    for (const [boardId, data] of Object.entries(current)) {
+      if (prevProjects[boardId] !== data) {
+        syncEngine.scheduleWriteProject(data)
+      }
+    }
+    for (const boardId of Object.keys(prevProjects)) {
+      if (!current[boardId]) {
+        syncEngine.scheduleDeleteProject(boardId)
+      }
+    }
+
+    prevProjects = current
+  })
+
+  return unsub
 }

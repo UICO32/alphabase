@@ -26,6 +26,10 @@ beforeEach(() => {
     modelAvailable: false,
     modelDir: '',
     indexError: null,
+    searchResults: [],
+    searchScores: {},
+    dragRelatedScores: {},
+    searching: false,
     downloading: false,
     downloadProgress: 0,
     downloadCurrentFile: '',
@@ -254,5 +258,43 @@ describe('embeddingStore model download', () => {
     } finally {
       embeddingStore.setState({ startIndexing: originalStartIndexing })
     }
+  })
+})
+
+describe('embeddingStore drag related preview', () => {
+  it('keeps only top related cards that are present on the current canvas', async () => {
+    installEmbeddingApi({
+      search: vi.fn().mockResolvedValue({
+        results: [
+          { cardId: 'outside', score: 0.99, modality: 'text' },
+          { cardId: 'card-2', score: 0.92, modality: 'text' },
+          { cardId: 'card-3', score: 0.88, modality: 'text' },
+        ],
+      }),
+    })
+    embeddingStore.setState({ indexed: true, searchScores: { existing: 0.7 } })
+
+    await embeddingStore.getState().previewRelatedForDrag('card-1', ['card-1', 'card-2', 'card-3'], 2)
+
+    expect(embeddingStore.getState().dragRelatedScores).toEqual({
+      'card-2': 0.92,
+      'card-3': 0.88,
+    })
+    expect(embeddingStore.getState().searchScores).toEqual({ existing: 0.7 })
+  })
+
+  it('clears drag highlights and ignores a stale async response after drag stop', async () => {
+    let resolveSearch: ((value: { results: Array<{ cardId: string; score: number; modality: string }> }) => void) | undefined
+    installEmbeddingApi({
+      search: vi.fn(() => new Promise(resolve => { resolveSearch = resolve })),
+    })
+    embeddingStore.setState({ indexed: true })
+
+    const request = embeddingStore.getState().previewRelatedForDrag('card-1', ['card-1', 'card-2'])
+    embeddingStore.getState().clearDragRelated()
+    resolveSearch?.({ results: [{ cardId: 'card-2', score: 0.9, modality: 'text' }] })
+    await request
+
+    expect(embeddingStore.getState().dragRelatedScores).toEqual({})
   })
 })

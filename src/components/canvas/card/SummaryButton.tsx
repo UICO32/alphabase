@@ -5,6 +5,8 @@ import { useAIStore, type SummaryFormat } from '../../../stores/aiStore'
 import { useCardStore } from '../../../stores/cardStore'
 import { SummaryFormatMenu } from './SummaryFormatMenu'
 import { SummaryBubble } from './SummaryBubble'
+import { useLibraryStore } from '../../../stores/libraryStore'
+import { usePanelStore } from '../../../stores/panelStore'
 
 interface SummaryButtonProps {
   color: CardColor
@@ -86,6 +88,14 @@ export function SummaryButton({ color, visible, cardId }: SummaryButtonProps) {
     doGenerate(fmt)
   }, [doGenerate])
 
+  const handleFindSimilar = useCallback(() => {
+    useLibraryStore.getState().activateRelatedSort(cardId)
+    const panel = usePanelStore.getState()
+    panel.setRightPanelActiveTab('library')
+    panel.setRightPanelCollapsed(false)
+    setMenuOpen(false)
+  }, [cardId])
+
   const strokeColor = CARD_COLORS[color].stroke
   const show = visible || isThisCardStreaming || isThisCardComplete
 
@@ -136,6 +146,7 @@ export function SummaryButton({ color, visible, cardId }: SummaryButtonProps) {
           triggerRef={buttonRef}
           currentFormat={format}
           onSelect={handleSelectFormat}
+          onFindSimilar={handleFindSimilar}
           onClose={() => setMenuOpen(false)}
         />
       )}

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore as useReactFlowStore, useStoreApi, type Edge, type Node, type Viewport } from '@xyflow/react'
 import { useStore as useZustandStore } from 'zustand'
 import { useCardStore } from '../../../stores/cardStore'
-import { embeddingStore } from '../../../stores/embeddingStore'
 import {
   buildDensityOverviewModel,
   getAdaptiveGridSpacing,
@@ -113,7 +112,6 @@ export function DensityOverviewLayer({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const nodeLookup = useReactFlowStore(state => state.nodeLookup)
   const storeApi = useStoreApi()
-  const clusterResult = useZustandStore(embeddingStore, state => state.clusterResult)
   // 在组件内部订阅卡片，避免父级 ReactFlowCanvas 常驻订阅全量 cards
   //（否则编辑时每次内容落盘都会触发画布整树重渲染）。
   const cards = useZustandStore(useCardStore, state => state.cards)
@@ -141,8 +139,9 @@ export function DensityOverviewLayer({
   }), [cards, nodeLookup, nodes])
 
   const model = useMemo(
-    () => buildDensityOverviewModel(sourceCards, edges.map(edge => ({ source: edge.source, target: edge.target })), clusterResult),
-    [clusterResult, edges, sourceCards],
+    // 缩小画布只呈现空间全览，不再用向量相关性重组卡片。
+    () => buildDensityOverviewModel(sourceCards, edges.map(edge => ({ source: edge.source, target: edge.target })), null),
+    [edges, sourceCards],
   )
   const activeGroupId = pinnedGroupId ?? (moving ? null : hoverGroupId)
   const activeGroup = activeGroupId ? model.groupById.get(activeGroupId) ?? null : null

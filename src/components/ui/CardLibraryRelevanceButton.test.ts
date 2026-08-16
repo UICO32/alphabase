@@ -32,6 +32,22 @@ describe('CardLibraryRelevanceButton', () => {
     expect(button.className).toContain('whitespace-nowrap')
   })
 
+  it('allows exiting the selected state when indexing becomes unavailable', () => {
+    const onActivate = vi.fn()
+    render(createElement(CardLibraryRelevanceButton, {
+      ...baseProps,
+      active: true,
+      indexed: false,
+      indexError: 'model-missing',
+      onActivate,
+    }))
+
+    const button = screen.getByRole('button') as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    fireEvent.click(button)
+    expect(onActivate).toHaveBeenCalledOnce()
+  })
+
   it('explains that a reference card is required', () => {
     render(createElement(CardLibraryRelevanceButton, { ...baseProps, editingCardId: null }))
 

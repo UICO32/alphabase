@@ -23,6 +23,8 @@ interface CardNodeChromeProps {
   nearbyTarget: boolean
   lassoSelected: boolean
   darkMode: boolean
+  isOutcome: boolean
+  relatedDragTarget: boolean
   width: number
   height: number
   onMouseEnter: () => void
@@ -51,6 +53,8 @@ export function CardNodeChrome({
   nearbyTarget,
   lassoSelected,
   darkMode,
+  isOutcome,
+  relatedDragTarget,
   width,
   height,
   onMouseEnter,
@@ -72,7 +76,9 @@ export function CardNodeChrome({
     ? 'var(--card-selected-border)'
     : editing
       ? 'var(--card-selected-border)'
-      : getCardStroke(color, darkMode)
+      : isOutcome
+        ? 'var(--brand)'
+        : getCardStroke(color, darkMode)
 
   const hoverOutline = hovered
     ? `0 0 0 3px ${getCardStroke(color, darkMode)}33`
@@ -95,6 +101,7 @@ export function CardNodeChrome({
     connectingSource ? 'card-node-connecting-source' : '',
     nearbyTarget ? 'card-node-nearby-target' : '',
     lassoSelected ? 'card-node-lasso-selected' : '',
+    relatedDragTarget ? 'card-node-related-drag-target' : '',
   ].filter(Boolean).join(' ')
 
   const style: CSSProperties = {
@@ -102,6 +109,8 @@ export function CardNodeChrome({
     height,
     backgroundColor: getCardFill(color, darkMode),
     border: `${borderWidth}px solid ${activeBorderColor}`,
+    outline: relatedDragTarget ? '2px dashed var(--brand)' : undefined,
+    outlineOffset: relatedDragTarget ? 4 : undefined,
     boxShadow: connectingSource
       ? 'var(--shadow-glow-accent)'
       : nearbyTarget

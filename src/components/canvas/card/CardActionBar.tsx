@@ -9,6 +9,7 @@ import { connectionMediator } from '../utils/connectionMediator'
 import { type CardColor } from '../../../types/card'
 import { MoreActionsMenu } from './MoreActionsMenu'
 import { SummaryButton } from './SummaryButton'
+import { OutcomeMenu } from './OutcomeMenu'
 
 interface CardActionBarProps {
   cardId: string
@@ -146,6 +147,7 @@ export const CardActionBar = memo(function CardActionBar({
           }}
           title="侧边编辑"
         />
+        <OutcomeMenu cardId={cardId} />
         <MoreActionsMenu
           color={color}
           onRemoveFromBoard={onRemoveFromBoard}

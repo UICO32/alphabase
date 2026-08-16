@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore } from 'react'
 import { useReactFlow, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
+import { useStore } from 'zustand'
 import { useCardStore, useCard } from '../../stores/cardStore'
 import { useViewStore } from '../../stores/viewStore'
 import { useLibraryStore } from '../../stores/libraryStore'
@@ -21,6 +22,9 @@ import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
 import { useCardNodeActions } from './useCardNodeActions'
 import { useCardNodeEditing } from './useCardNodeEditing'
+import { useBoardStore } from '../../stores/boardStore'
+import { useProjectStore } from '../../stores/projectStore'
+import { embeddingStore } from '../../stores/embeddingStore'
 
 type CardNodeType = Node<CardNodeData, 'card'>
 
@@ -28,6 +32,10 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
   const isCollapsed = data.collapsed ?? false
   const isInFrame = !!data.frameId
   const isLassoSelected = useFrameInteraction(s => s.lassoSelectedCardIds.has(data.cardId))
+  const isRelatedDragTarget = useStore(
+    embeddingStore,
+    (state) => state.dragRelatedScores[data.cardId] !== undefined,
+  )
 
   const [isHovered, setIsHovered] = useState(false)
   const { setNodes, setEdges, getNode } = useReactFlow()
@@ -35,6 +43,11 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
   const card = useCard(data.cardId)
   const updateCard = useCardStore((s) => s.updateCard)
   const hasSummaryBubble = useAIStore(s => s.streamingCardId === data.cardId && (s.isStreaming || !!s.streamingText))
+  // 主题成果状态：当前画布为主题且该卡片被标记为成果
+  const activeBoardId = useBoardStore((s) => s.activeBoardId)
+  const isOutcome = useProjectStore((s) =>
+    activeBoardId ? (s.projects[activeBoardId]?.outcomes.some((o) => o.nodeId === data.cardId) ?? false) : false
+  )
   const {
     isEditing,
     editorRef,
@@ -283,6 +296,8 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
       nearbyTarget={isNearbyTarget}
       lassoSelected={isLassoSelected}
       darkMode={isDarkMode}
+      isOutcome={isOutcome}
+      relatedDragTarget={isRelatedDragTarget}
       width={(data.width ?? DEFAULT_CARD_WIDTH) as number}
       height={nodeHeight}
       onMouseEnter={handleMouseEnter}

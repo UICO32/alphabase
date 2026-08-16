@@ -233,7 +233,9 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
   const setSortBy = useLibraryStore(s => s.setSortBy)
   const activateRelatedSort = useLibraryStore(s => s.activateRelatedSort)
   const exitRelatedSort = useLibraryStore(s => s.exitRelatedSort)
+  const relatedSourceCardId = useLibraryStore(s => s.relatedSourceCardId)
   const editingCardId = useViewStore(s => s.editingCardId)
+  const activeRelatedCardId = relatedSourceCardId ?? editingCardId
   const searchMode = useLibraryStore(s => s.searchMode)
   const setSearchMode = useLibraryStore(s => s.setSearchMode)
   const tagFilter = useLibraryStore(s => s.tagFilter)
@@ -312,18 +314,28 @@ export function CardLibraryView({ onOpenSettings, compact = false }: CardLibrary
 
   useEffect(() => {
     if (sortBy === 'related') {
-      if (!indexed || !editingCardId) {
+      if (!activeRelatedCardId) {
         exitRelatedSort()
         return
       }
-      if (lastRelatedId.current === editingCardId) return
-      lastRelatedId.current = editingCardId
-      searchRelated(editingCardId)
+      if (!indexed) {
+        lastRelatedId.current = null
+        clearResults()
+        return
+      }
+      // 源卡片已删除（如 persist 恢复后指向已删卡片）：清除引用并回退排序，避免空查询
+      if (!cards[activeRelatedCardId]) {
+        exitRelatedSort()
+        return
+      }
+      if (lastRelatedId.current === activeRelatedCardId) return
+      lastRelatedId.current = activeRelatedCardId
+      searchRelated(activeRelatedCardId)
     } else {
       lastRelatedId.current = null
       clearResults()
     }
-  }, [sortBy, editingCardId, indexed, searchRelated, clearResults, exitRelatedSort])
+  }, [sortBy, activeRelatedCardId, cards, indexed, searchRelated, clearResults, exitRelatedSort])
 
   useEffect(() => {
     if (searchMode === 'keyword') {
@@ -733,7 +745,7 @@ if (searchQuery.trim()) {
             progress={progress}
             total={total}
             indexError={indexError}
-            editingCardId={editingCardId}
+            editingCardId={activeRelatedCardId}
             onActivate={sortBy === 'related' ? exitRelatedSort : activateRelatedSort}
           />
           </div>
@@ -787,8 +799,12 @@ if (searchQuery.trim()) {
             text={
               tagFilter
                 ? `没有带 #${tagFilter} 标签的卡片`
-                : sortBy === 'related' && !editingCardId
+                : sortBy === 'related' && !activeRelatedCardId
                   ? '请先选中一张卡片'
+                  : sortBy === 'related' && !indexed
+                    ? '请先在设置中向量化卡片'
+                    : sortBy === 'related'
+                      ? '未找到相似卡片'
                   : (searchQuery ? '未找到匹配的卡片' : '暂无卡片')
             }
           />

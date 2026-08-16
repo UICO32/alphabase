@@ -52,6 +52,7 @@ export interface EmbeddingState {
   searchResults: SearchResult[]
   searchScores: Record<string, number>
   searching: boolean
+  dragRelatedScores: Record<string, number>
   threshold: number
   clusterResult: ClusterResult | null
 
@@ -71,6 +72,8 @@ export interface EmbeddingState {
   cluster: (minClusterSize?: number, clusterThreshold?: number) => Promise<ClusterResult | null>
   searchRelated: (cardId: string, topK?: number) => Promise<void>
   searchByText: (query: string, topK?: number) => Promise<void>
+  previewRelatedForDrag: (cardId: string, candidateCardIds: string[], topK?: number) => Promise<void>
+  clearDragRelated: () => void
   clearResults: () => void
   setThreshold: (value: number) => Promise<void>
   checkStatus: () => Promise<void>
@@ -85,6 +88,7 @@ let indexDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const pendingIndexCardIds = new Set<string>()
 const pendingIndexRetryCounts = new Map<string, number>()
 let isFlushing = false
+let dragRelatedRequestId = 0
 const MAX_INCREMENTAL_RETRIES = 3
 const INCREMENTAL_RETRY_DELAY = 1000
 
@@ -196,6 +200,7 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
   searchResults: [],
   searchScores: {},
   searching: false,
+  dragRelatedScores: {},
   threshold: 0.45,
   clusterResult: null,
 
@@ -412,6 +417,40 @@ export const embeddingStore = createStore<EmbeddingState>()((set, get) => {
     } catch {
       set({ searchResults: [], searchScores: {}, searching: false })
     }
+  },
+
+  previewRelatedForDrag: async (cardId: string, candidateCardIds: string[], topK = 4) => {
+    const requestId = ++dragRelatedRequestId
+    if (!get().indexed || candidateCardIds.length === 0) {
+      set({ dragRelatedScores: {} })
+      return
+    }
+
+    try {
+      const embedding = getEmbedding()
+      if (!embedding) throw new Error('unavailable')
+      const candidateSet = new Set(candidateCardIds)
+      candidateSet.delete(cardId)
+      const { results } = await embedding.search(cardId, Math.max(topK * 3, 12))
+      if (requestId !== dragRelatedRequestId) return
+
+      const scores: Record<string, number> = {}
+      let accepted = 0
+      for (const result of results || []) {
+        if (!candidateSet.has(result.cardId)) continue
+        scores[result.cardId] = result.score
+        accepted += 1
+        if (accepted >= topK) break
+      }
+      set({ dragRelatedScores: scores })
+    } catch {
+      if (requestId === dragRelatedRequestId) set({ dragRelatedScores: {} })
+    }
+  },
+
+  clearDragRelated: () => {
+    dragRelatedRequestId += 1
+    set({ dragRelatedScores: {} })
   },
 
   clearResults: () => set({ searchResults: [], searchScores: {}, searching: false }),

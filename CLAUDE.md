@@ -2,6 +2,10 @@
 
 React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.6 + Vite 5 + React Flow + BlockNote + Zustand 5 + Electron 35 + Tailwind CSS 4
 
+## 项目进度
+
+当前功能状态、已完成事项、进行中改动与验证记录统一维护在 [docs/project-progress.md](docs/project-progress.md)。
+
 ## 开发规范
 
 ### 构建与运行

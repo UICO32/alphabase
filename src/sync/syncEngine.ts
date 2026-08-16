@@ -1,5 +1,5 @@
 import { writeFile, deleteFile, exists, mkdir, rename } from '../utils/workspace/fs'
-import type { CardFile, BoardSnapshot, BoardManifest, TrashFile, WorkspaceMetadata } from '../utils/workspace/types'
+import type { CardFile, BoardSnapshot, BoardManifest, TrashFile, WorkspaceMetadata, ProjectData } from '../utils/workspace/types'
 import { useEventBus } from '../stores/eventBus'
 import { auditWorkspaceEvent, auditWorkspaceHealth } from '../utils/workspace/audit'
 
@@ -7,6 +7,7 @@ export class WorkspaceSyncEngine {
   private cardsDir: string = ''
   private boardsDir: string = ''
   private trashDir: string = ''
+  private projectsDir: string = ''
   private workspacePath: string = ''
   private pendingWrites = new Map<string, { data: string; timer: ReturnType<typeof setTimeout> }>()
   private running = false
@@ -23,9 +24,10 @@ export class WorkspaceSyncEngine {
     this.cardsDir = joinPath(workspacePath, 'cards')
     this.boardsDir = joinPath(workspacePath, 'boards')
     this.trashDir = joinPath(workspacePath, 'trash')
+    this.projectsDir = joinPath(workspacePath, 'projects')
 
     await auditWorkspaceHealth(workspacePath, 'sync-init-before-directory-check')
-    for (const dir of [this.cardsDir, this.boardsDir, this.trashDir]) {
+    for (const dir of [this.cardsDir, this.boardsDir, this.trashDir, this.projectsDir]) {
       if (!(await exists(dir))) {
         auditWorkspaceEvent({
           action: 'sync-init-create-missing-directory',
@@ -144,6 +146,15 @@ export class WorkspaceSyncEngine {
 
   scheduleDeleteTrashFile(cardId: string) {
     this.scheduleDelete(this.trashDir, `${cardId}.trash.json`)
+  }
+
+  scheduleWriteProject(data: ProjectData, debounceMs = 300) {
+    const path = joinPath(this.projectsDir, `${data.boardId}.json`)
+    this.scheduleWrite(path, this.stringify(data), debounceMs)
+  }
+
+  scheduleDeleteProject(boardId: string) {
+    this.scheduleDelete(this.projectsDir, `${boardId}.json`)
   }
 
   private scheduleWrite(path: string, data: string, debounceMs: number) {

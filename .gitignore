@@ -80,3 +80,6 @@ package-lock.json
 .heptabase/
 abase*/
 .claude/settings.local.json
+
+# Reasonix agent session data
+.reasonix/

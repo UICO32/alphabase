@@ -25,6 +25,7 @@ import { LazyCardLibraryView } from './components/ui/lazyCardLibraryView'
 import { setupAIListeners } from './stores/aiStore'
 import { Toaster } from '@/components/ui/shadcn/sonner'
 import { useWorkspaceLayout } from './hooks/useWorkspaceLayout'
+import { TopicBar } from './components/project/TopicBar'
 
 const LEFT_PANEL_WIDTH = 260
 const TITLE_BAR_HEIGHT = 24
@@ -168,7 +169,6 @@ function App() {
   const embeddedCanvas = isBoardView && !immersiveCanvas
   const titleBarVisible = !isBoardView || embeddedCanvas
   const contentTop = titleBarVisible ? TITLE_BAR_HEIGHT : 0
-  const mainTop = isBoardView ? -contentTop : 0
   const chromeInsets = {
     top: CANVAS_CHROME_GAP,
     right: workspaceLayout.mode === 'narrow' || !workspaceLayout.rightOpen ? CANVAS_CHROME_GAP : rightPanelWidth + CANVAS_CHROME_GAP,
@@ -218,14 +218,16 @@ function App() {
         />
 
         <main
-          className="absolute left-0 right-0 bottom-0 overflow-hidden"
+          className="absolute left-0 right-0 bottom-0 top-0 overflow-hidden"
           style={{
-            top: mainTop,
             backgroundColor: (isBoardView && showTopography) ? '#0a0f2e' : 'var(--surface-app)',
-            transition: 'top 0.16s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease, padding-left 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: 'background-color 0.4s ease, padding-left 0.16s cubic-bezier(0.4, 0, 0.2, 1)',
             paddingLeft: mainPaddingLeft,
           }}
         >
+          {/* 顶部主题栏：悬浮按钮方案——悬浮胶囊浮在画布上方，不占布局，画布圆角完整保留 */}
+          {isBoardView && !showTopography && <TopicBar />}
+
           {renderMainContent()}
         </main>
 

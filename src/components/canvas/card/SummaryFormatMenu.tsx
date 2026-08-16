@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { FileText, List, Table, MessageSquare } from 'lucide-react'
+import { FileText, List, Table, MessageSquare, Search } from 'lucide-react'
 import { CARD_COLORS, type CardColor } from '../../../types/card'
 import { type SummaryFormat } from '../../../stores/aiStore'
 
@@ -9,6 +9,7 @@ interface SummaryFormatMenuProps {
   triggerRef: React.RefObject<HTMLElement | null>
   currentFormat: SummaryFormat
   onSelect: (format: SummaryFormat) => void
+  onFindSimilar: () => void
   onClose: () => void
 }
 
@@ -24,6 +25,7 @@ export function SummaryFormatMenu({
   triggerRef,
   currentFormat,
   onSelect,
+  onFindSimilar,
   onClose,
 }: SummaryFormatMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -98,6 +100,14 @@ export function SummaryFormatMenu({
           </button>
         )
       })}
+      <div className="mx-2 my-1 border-t border-line-default" />
+      <button onClick={onFindSimilar} className="floating-menu-item">
+        <span style={{ color: strokeColor, display: 'flex' }}><Search size={14} /></span>
+        <div className="flex-1">
+          <div className="text-[13px] text-fg-primary">寻找相似卡片</div>
+          <div className="text-[10px] text-fg-tertiary">在右侧卡片库按相关性查看</div>
+        </div>
+      </button>
     </div>
   )
 

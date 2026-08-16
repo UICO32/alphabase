@@ -37,9 +37,8 @@ export async function storeMediaFileForWorkspace(
 ): Promise<StoredWorkspaceMedia> {
   const mediaStore = getMediaStore()
   if (workspacePath && mediaStore) {
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    const asset = await mediaStore.store(workspacePath, {
-      bytes,
+    const asset = await mediaStore.storeFile?.(workspacePath, file) ?? await mediaStore.store(workspacePath, {
+      bytes: new Uint8Array(await file.arrayBuffer()),
       mimeType: file.type,
       name: file.name,
     })

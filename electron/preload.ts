@@ -3,7 +3,7 @@
 // built-in module, causing contextBridge/ipcRenderer to be undefined.
 delete process.env.ELECTRON_RUN_AS_NODE
 
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   fs: {
@@ -21,6 +21,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   media: {
     store: (workspacePath: string, input: { bytes: Uint8Array; mimeType: string; name: string }) =>
       ipcRenderer.invoke('media:store', workspacePath, input),
+    storeFile: (workspacePath: string, file: File) => {
+      const sourcePath = webUtils.getPathForFile(file)
+      if (!sourcePath) return Promise.resolve(null)
+      return ipcRenderer.invoke('media:storeFile', workspacePath, {
+        sourcePath,
+        mimeType: file.type,
+        name: file.name,
+      })
+    },
   },
   dialog: {
     openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
@@ -132,6 +141,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
   app: {
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
     readChangelog: () => ipcRenderer.invoke('app:readChangelog'),
   },
   workspace: {

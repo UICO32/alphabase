@@ -1,5 +1,5 @@
 import type { WorkspaceSyncEngine } from './syncEngine'
-import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore } from './subscribeStores'
+import { subscribeCardStore, subscribeBoardStore, subscribeTrashStore, subscribeProjectStore } from './subscribeStores'
 
 // store→磁盘的订阅必须独立于任何组件生命周期。
 // 之前放在 ReactFlowCanvas/useWorkspaceLifecycle 里，视图切换导致组件卸载时订阅被清理且永不重建。
@@ -12,6 +12,7 @@ export function setupSubscriptions(syncEngine: WorkspaceSyncEngine): void {
     subscribeCardStore(syncEngine),
     subscribeBoardStore(syncEngine),
     subscribeTrashStore(syncEngine),
+    subscribeProjectStore(syncEngine),
   ]
 }
 

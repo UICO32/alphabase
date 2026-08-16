@@ -50,6 +50,7 @@ interface Board {
   name: string
   createdAt: number
   updatedAt: number
+  isProject?: boolean
 }
 
 interface BoardListProps {
@@ -174,8 +175,8 @@ export function BoardList({
                   onClick={() => onSwitchBoard(board.id)}
                   onDoubleClick={() => handleBoardDoubleClick(board.id, board.name)}
                 >
-                  <div className="flex items-center gap-2">
-                    <Layers2 size={14} />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Layers2 size={14} className="shrink-0" />
                     <span className="text-sm truncate">{board.name}</span>
                   </div>
                   <DropdownMenu>

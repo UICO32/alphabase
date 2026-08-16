@@ -12,8 +12,9 @@ export type SearchMode = 'hybrid' | 'keyword' | 'semantic'
 interface LibraryStore {
   sortBy: SortBy
   sortBeforeRelated: StandardSortBy
+  relatedSourceCardId: string | null
   setSortBy: (sortBy: SortBy) => void
-  activateRelatedSort: () => void
+  activateRelatedSort: (sourceCardId?: string) => void
   exitRelatedSort: () => void
 
   searchMode: SearchMode
@@ -46,6 +47,7 @@ export const useLibraryStore = create<LibraryStore>()(
   persist((set) => ({
     sortBy: 'updatedAt',
     sortBeforeRelated: 'updatedAt',
+    relatedSourceCardId: null,
     searchMode: 'hybrid',
     webviewUrl: null,
     webviewSourceCardId: null,
@@ -58,18 +60,20 @@ export const useLibraryStore = create<LibraryStore>()(
 
     setSortBy: (sortBy) => set(
       sortBy === 'related'
-        ? { sortBy }
-        : { sortBy, sortBeforeRelated: sortBy }
+        ? { sortBy, relatedSourceCardId: null }
+        : { sortBy, sortBeforeRelated: sortBy, relatedSourceCardId: null }
     ),
-    activateRelatedSort: () => set((state) => (
-      state.sortBy === 'related'
-        ? state
-        : { sortBy: 'related', sortBeforeRelated: state.sortBy }
-    )),
+    activateRelatedSort: (sourceCardId) => set((state) => ({
+      sortBy: 'related',
+      sortBeforeRelated: state.sortBy === 'related' ? state.sortBeforeRelated : state.sortBy,
+      relatedSourceCardId: sourceCardId ?? null,
+    })),
     exitRelatedSort: () => set((state) => (
       state.sortBy === 'related'
-        ? { sortBy: state.sortBeforeRelated }
-        : state
+        ? { sortBy: state.sortBeforeRelated, relatedSourceCardId: null }
+        : state.relatedSourceCardId === null
+          ? state
+          : { relatedSourceCardId: null }
     )),
     setSearchMode: (mode) => set({ searchMode: mode }),
 
