@@ -43,7 +43,9 @@ function buildByteEncoder(): Map<number, string> {
 }
 
 // LLaMA pre-tokenizer regex
-const PRE_TOKENIZE_REGEX = /(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+/gu
+// 注意：原 Python 版用 (?i:...) 内联修饰符，那是 ES2025 语法，Node 22/rollup 解析会报
+// Invalid group。该正则其他分支无字面字母，改为整体 i flag 语义完全等价。
+const PRE_TOKENIZE_REGEX = /('s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+/giu
 
 export class JinaTokenizer {
   private vocab: Map<string, number>
