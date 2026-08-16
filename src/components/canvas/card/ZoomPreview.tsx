@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react'
 import { useCardStore } from '../../../stores/cardStore'
+import { useLibraryStore } from '../../../stores/libraryStore'
 import { extractTitleFromJSON, extractPreviewTextFromHTML } from '../utils/cardPreview'
 import './zoomPreview.css'
 
@@ -10,6 +11,18 @@ interface ZoomPreviewProps {
 }
 
 export const ZoomPreview = memo(function ZoomPreview({
+  cardId,
+  content,
+  previewHTML,
+}: ZoomPreviewProps) {
+  const isVisible = useLibraryStore(state => state.isZoomPreviewVisible)
+
+  return isVisible
+    ? <VisibleZoomPreview cardId={cardId} content={content} previewHTML={previewHTML} />
+    : null
+})
+
+const VisibleZoomPreview = memo(function VisibleZoomPreview({
   cardId,
   content,
   previewHTML,

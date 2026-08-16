@@ -188,7 +188,7 @@ export function ReactFlowCanvas() {
   const updateVisualViewport = useCallback((viewport: BoardViewport) => {
     densityOverviewViewportRef.current = viewport
     const overviewProgress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
-    const previewVisible = viewport.zoom <= previewZoomThreshold
+    const previewVisible = viewport.zoom <= previewZoomThreshold && overviewProgress < 1
     densityOverviewProgressRef.current = overviewProgress
 
     const canvas = canvasRef.current
@@ -544,10 +544,11 @@ export function ReactFlowCanvas() {
     if (!el) return
     el.style.setProperty('--zoom-preview-threshold', String(previewZoomThreshold))
     const zoom = useLibraryStore.getState().zoom
-    const previewVisible = zoom <= previewZoomThreshold
+    const overviewProgress = getDensityOverviewProgress(zoom, densityOverviewZoomThreshold)
+    const previewVisible = zoom <= previewZoomThreshold && overviewProgress < 1
     el.dataset.zoomPreviewVisible = String(previewVisible)
     useLibraryStore.getState().setZoomPreviewVisible(previewVisible)
-  }, [previewZoomThreshold])
+  }, [densityOverviewZoomThreshold, previewZoomThreshold])
 
   useEffect(() => {
     const viewport = densityOverviewViewportRef.current

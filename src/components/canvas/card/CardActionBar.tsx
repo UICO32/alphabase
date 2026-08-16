@@ -70,7 +70,9 @@ export const CardActionBar = memo(function CardActionBar({
           transition: 'opacity 0.3s',
         }}
       >
-        <SummaryButton color={color} visible={showIcons} cardId={cardId} />
+        {showSummary
+          ? <SummaryButton color={color} visible={showIcons} cardId={cardId} />
+          : null}
       </div>
 
       <div
@@ -80,86 +82,102 @@ export const CardActionBar = memo(function CardActionBar({
           transition: 'opacity 0.15s',
         }}
       >
-        <ActionBarButton
-          icon={<ChevronDown
-            size={14}
-            style={{
-              transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)',
-              transition: 'transform 0.2s',
-            }}
-          />}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleCollapse()
-          }}
-          title="折叠/展开"
-        />
-        {collapsed && collapsedTitle && (
-          <span
-            data-testid="collapsed-card-title"
-            className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg-primary"
-            title={collapsedTitle}
-          >
-            {collapsedTitle}
-          </span>
-        )}
+        {collapsed || showIcons
+          ? (
+              <>
+                <ActionBarButton
+                  icon={<ChevronDown
+                    size={14}
+                    style={{
+                      transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s',
+                    }}
+                  />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleCollapse()
+                  }}
+                  title="折叠/展开"
+                />
+                {collapsed && collapsedTitle
+                  ? (
+                      <span
+                        data-testid="collapsed-card-title"
+                        className="min-w-0 flex-1 truncate text-[13px] font-semibold text-fg-primary"
+                        title={collapsedTitle}
+                      >
+                        {collapsedTitle}
+                      </span>
+                    )
+                  : null}
+              </>
+            )
+          : null}
       </div>
 
       <div className="flex items-center gap-0.5" style={{ opacity: showIcons ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
-        <ActionBarButton
-          icon={<ArrowUpRight size={14} />}
-          onClick={(e) => {
-            e.stopPropagation()
-            connectionMediator.start(cardId, 'top')
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          title="发起连接"
-        />
-        {isClipCard && (
-          <ActionBarButton
-            icon={<Globe size={14} />}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (webviewUrl) {
-                setWebviewUrl(null)
-                updateCard(cardId, { viewMode: 'editor' })
-              } else {
-                setWebviewUrl(card!.sourceUrl!, cardId)
-                updateCard(cardId, { viewMode: 'web' })
-              }
-            }}
-            title="网页预览"
-          />
-        )}
-        <ActionBarButton
-          icon={<PanelRight size={14} />}
-          onClick={(e) => {
-            e.stopPropagation()
-            const viewState = useViewStore.getState()
-            const panelState = usePanelStore.getState()
-            if (viewState.editingCardId === cardId && !panelState.rightPanelCollapsed) {
-              panelState.setRightPanelCollapsed(true)
-            } else {
-              viewState.setEditingCardId(cardId)
-              panelState.setRightPanelActiveTab('editor')
-              panelState.setRightPanelCollapsed(false)
-            }
-          }}
-          title="侧边编辑"
-        />
-        <OutcomeMenu cardId={cardId} />
-        <MoreActionsMenu
-          color={color}
-          onRemoveFromBoard={onRemoveFromBoard}
-          onMoveToBoard={onMoveToBoard}
-          onColorChange={onColorChange}
-        >
-          <ActionBarButton
-            icon={<MoreHorizontal size={14} />}
-            onClick={(e) => e.stopPropagation()}
-            title="更多操作"
-          />
-        </MoreActionsMenu>
+        {showIcons
+          ? (
+              <>
+                <ActionBarButton
+                  icon={<ArrowUpRight size={14} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    connectionMediator.start(cardId, 'top')
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  title="发起连接"
+                />
+                {isClipCard
+                  ? (
+                      <ActionBarButton
+                        icon={<Globe size={14} />}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (webviewUrl) {
+                            setWebviewUrl(null)
+                            updateCard(cardId, { viewMode: 'editor' })
+                          } else {
+                            setWebviewUrl(card!.sourceUrl!, cardId)
+                            updateCard(cardId, { viewMode: 'web' })
+                          }
+                        }}
+                        title="网页预览"
+                      />
+                    )
+                  : null}
+                <ActionBarButton
+                  icon={<PanelRight size={14} />}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const viewState = useViewStore.getState()
+                    const panelState = usePanelStore.getState()
+                    if (viewState.editingCardId === cardId && !panelState.rightPanelCollapsed) {
+                      panelState.setRightPanelCollapsed(true)
+                    } else {
+                      viewState.setEditingCardId(cardId)
+                      panelState.setRightPanelActiveTab('editor')
+                      panelState.setRightPanelCollapsed(false)
+                    }
+                  }}
+                  title="侧边编辑"
+                />
+                <OutcomeMenu cardId={cardId} />
+                <MoreActionsMenu
+                  color={color}
+                  onRemoveFromBoard={onRemoveFromBoard}
+                  onMoveToBoard={onMoveToBoard}
+                  onColorChange={onColorChange}
+                >
+                  <ActionBarButton
+                    icon={<MoreHorizontal size={14} />}
+                    onClick={(e) => e.stopPropagation()}
+                    title="更多操作"
+                  />
+                </MoreActionsMenu>
+              </>
+            )
+          : null}
       </div>
     </div>
   )
