@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-const DEV_URL = 'http://localhost:5173'
+
 
 function createTmpWorkspace(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'hepta-checkbox-'))
@@ -152,7 +152,7 @@ test.describe('Checkbox 单击切换', () => {
     tmpDir = createTmpWorkspace()
     seedWorkspace(tmpDir)
     await installTestFs(page, tmpDir)
-    await page.goto(DEV_URL)
+    await page.goto('/')
     await waitForCanvas(page)
   })
 

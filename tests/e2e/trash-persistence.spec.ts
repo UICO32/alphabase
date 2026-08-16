@@ -27,7 +27,7 @@ test.describe('卡片删除与回收站数据持久化', () => {
   }
 
   test('softDelete 后 trashStore 包含完整卡片数据', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await setupDemoMode(page)
 
     const testResult = await page.evaluate(() => {
@@ -72,7 +72,7 @@ test.describe('卡片删除与回收站数据持久化', () => {
   })
 
   test('恢复卡片后 deletedAt 清除且 trashStore 项移除', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await setupDemoMode(page)
 
     const testResult = await page.evaluate(() => {
@@ -124,7 +124,7 @@ test.describe('卡片删除与回收站数据持久化', () => {
   })
 
   test('永久删除后卡片和回收站记录均移除', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await setupDemoMode(page)
 
     const testResult = await page.evaluate(() => {

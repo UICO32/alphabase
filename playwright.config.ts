@@ -1,7 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const port = process.env.PLAYWRIGHT_PORT ?? '5173'
-const baseURL = `http://localhost:${port}`
+// 统一使用 127.0.0.1：CI 上 localhost 可能只解析到 IPv6 ::1，
+// 导致硬编码 127.0.0.1 的测试（如 canvas-density-overview）ERR_CONNECTION_REFUSED。
+const baseURL = `http://127.0.0.1:${port}`
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -22,11 +24,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       // Electron 专用 spec 由 electron-e2e job（windows）单独运行；
       // chromium 浏览器环境跑它们会因 electron 二进制缺失而误报失败。
-      testIgnore: ['**/electron-*.spec.ts'],
+      // blocknote-dnd 断言 BlockNote SideMenu 拖拽手柄，而应用自 2026-05-25
+      // 起刻意禁用 sideMenu（用自定义 CardFormattingToolbar 替代），断言已过期。
+      testIgnore: ['**/electron-*.spec.ts', '**/blocknote-dnd.spec.ts'],
     },
   ],
   webServer: {
-    command: `pnpm dev --port ${port}`,
+    command: `pnpm dev --port ${port} --host 127.0.0.1`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
   },

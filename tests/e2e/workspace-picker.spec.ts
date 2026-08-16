@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test('workspace picker: select folder, create card, verify persistence', async ({ page }) => {
-  await page.goto('http://localhost:5173/')
+  await page.goto('/')
 
   // 1. 首次进入应弹出工作区选择器
   await expect(page.getByText('选择工作区', { exact: true })).toBeVisible({ timeout: 5000 })
@@ -36,7 +36,7 @@ test('workspace picker: select folder, create card, verify persistence', async (
 })
 
 test('workspace picker: should not show duplicate dialogs', async ({ page }) => {
-  await page.goto('http://localhost:5173/')
+  await page.goto('/')
 
   // 1. 首次进入应只弹出一个工作区选择器
   const pickerCount = await page.getByText('选择工作区', { exact: true }).count()
@@ -47,7 +47,7 @@ test('workspace picker: should not show duplicate dialogs', async ({ page }) => 
   expect(createDialogCount).toBe(0)
 
   // 3. 点击遮罩层关闭弹窗
-  await page.locator('.fixed.inset-0.z-50').first().click({ position: { x: 10, y: 10 } })
+  await page.locator('.ui-dialog-overlay').first().click({ position: { x: 10, y: 10 } })
   await page.waitForTimeout(2000)
 
   // 4. 关闭后不应再自动弹出
@@ -63,10 +63,10 @@ test('workspace picker: should not show duplicate dialogs', async ({ page }) => 
 })
 
 test('workspace picker: click workspace name to reopen picker', async ({ page }) => {
-  await page.goto('http://localhost:5173/')
+  await page.goto('/')
 
   // 1. 点击遮罩层关闭初始弹窗
-  await page.locator('.fixed.inset-0.z-50').first().click({ position: { x: 10, y: 10 } })
+  await page.locator('.ui-dialog-overlay').first().click({ position: { x: 10, y: 10 } })
   await expect(page.getByText('选择工作区', { exact: true })).not.toBeVisible()
 
   // 2. 点击左侧面板的工作区名称

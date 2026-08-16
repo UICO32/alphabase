@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test('smoke: page loads with React Flow canvas', async ({ page }) => {
-  await page.goto('http://localhost:5173/')
+  await page.goto('/')
 
   // Wait for React Flow to mount
   await page.waitForSelector('.react-flow', { timeout: 10000 })

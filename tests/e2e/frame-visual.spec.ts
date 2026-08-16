@@ -112,7 +112,7 @@ test.describe('Frame 视觉与交互截图测试', () => {
 
   test('frame 标签位置与缩放正确性', async ({ page }) => {
     // 1. 打开应用，等待 React Flow 加载
-    await page.goto('http://localhost:5177/')
+    await page.goto('/')
     await page.waitForSelector('main', { timeout: 15000 })
     await page.waitForTimeout(3000)
 

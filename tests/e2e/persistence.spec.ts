@@ -111,7 +111,7 @@ test.describe('文件持久化集成测试', () => {
   })
 
   test('创建卡片后文件写入磁盘', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await page.waitForSelector('main', { timeout: 15000 })
     await page.waitForTimeout(3000)
 
@@ -142,7 +142,7 @@ test.describe('文件持久化集成测试', () => {
   })
 
   test('softDelete后trash文件和card文件同时存在', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await page.waitForSelector('main', { timeout: 15000 })
     await page.waitForTimeout(3000)
 
@@ -183,7 +183,7 @@ test.describe('文件持久化集成测试', () => {
   })
 
   test('恢复后trash文件删除且card文件更新', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await page.waitForSelector('main', { timeout: 15000 })
     await page.waitForTimeout(3000)
 
@@ -228,7 +228,7 @@ test.describe('文件持久化集成测试', () => {
   })
 
   test('永久删除后文件全部清除', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await page.waitForSelector('main', { timeout: 15000 })
     await page.waitForTimeout(3000)
 
@@ -268,7 +268,7 @@ test.describe('文件持久化集成测试', () => {
   })
 
   test('重启应用后数据从磁盘恢复', async ({ page }) => {
-    await page.goto('http://localhost:5173/')
+    await page.goto('/')
     await page.waitForSelector('main', { timeout: 15000 })
     await page.waitForTimeout(3000)
 

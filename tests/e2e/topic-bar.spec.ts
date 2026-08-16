@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-const DEV_URL = 'http://localhost:5173'
+
 
 function createTmpWorkspace(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'hepta-topic-'))
@@ -145,7 +145,7 @@ test.describe('顶部主题栏', () => {
     tmpDir = createTmpWorkspace()
     seedWorkspace(tmpDir)
     await installTestFs(page, tmpDir)
-    await page.goto(DEV_URL)
+    await page.goto('/')
     await page.locator('#splash').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => undefined)
     await page.locator('.react-flow').first().waitFor({ state: 'visible', timeout: 20000 })
   })

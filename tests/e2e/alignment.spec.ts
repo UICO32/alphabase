@@ -4,7 +4,6 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 
-const DEV_URL = 'http://localhost:5173'
 
 function createTmpWorkspace(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'hepta-alignment-'))
@@ -209,6 +208,11 @@ async function getNodePositions(page: Page): Promise<NodePos[]> {
 async function selectCard(page: Page, nodeId: string) {
   const node = page.locator(`.react-flow__node[data-id="${nodeId}"]`)
   await node.click({ modifiers: ['Control'], force: true })
+  // React Flow 受控模式下 selection 经 onNodesChange→React state→props 回写 store，
+  // 连点太快时下一次点击发生在回写完成前，选中会被覆盖丢失（实测 <50ms 必失败、
+  // ≥250ms 稳定成功）。toHaveClass 保证选中已渲染，额外等待保证 store 已同步。
+  await expect(node).toHaveClass(/selected/)
+  await page.waitForTimeout(250)
 }
 
 async function clickAlignButton(page: Page, title: string) {
@@ -235,7 +239,7 @@ test.describe('Card Alignment', () => {
     tmpDir = createTmpWorkspace()
     seedWorkspace(tmpDir)
     await installTestFs(page, tmpDir)
-    await page.goto(DEV_URL)
+    await page.goto('/')
     await waitForCanvas(page)
   })
 

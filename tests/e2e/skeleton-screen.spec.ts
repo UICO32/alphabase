@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Splash skeleton screen', () => {
   test('should show splash with skeleton layout on startup', async ({ page }) => {
-    await page.goto('http://localhost:5175')
+    await page.goto('/')
 
     // Splash visible with logo
     const splash = page.locator('#splash')
@@ -34,7 +34,7 @@ test.describe('Splash skeleton screen', () => {
   })
 
   test('should have correct panel dimensions', async ({ page }) => {
-    await page.goto('http://localhost:5175')
+    await page.goto('/')
 
     const splash = page.locator('#splash')
     await expect(splash).toBeVisible({ timeout: 5000 })
@@ -51,7 +51,7 @@ test.describe('Splash skeleton screen', () => {
   })
 
   test('should have shimmer animation on skeleton bars', async ({ page }) => {
-    await page.goto('http://localhost:5175')
+    await page.goto('/')
 
     const splash = page.locator('#splash')
     await expect(splash).toBeVisible({ timeout: 5000 })
@@ -64,7 +64,7 @@ test.describe('Splash skeleton screen', () => {
   })
 
   test('should dismiss splash after at least 2 seconds', async ({ page }) => {
-    await page.goto('http://localhost:5175')
+    await page.goto('/')
 
     const splash = page.locator('#splash')
     await expect(splash).toBeVisible({ timeout: 5000 })
