@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-08-16
+
+### 品牌与发布
+- 统一项目、桌面应用、API、文档和测试中的产品名称为 Alphabase
+- 生成 Alphabase Windows x64 NSIS 安装包
+- 修正 release notes 的 Markdown 换行
+
 ## [0.2.0] - 2026-08-16
 
 ### 主题研究画布（Project）

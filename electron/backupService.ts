@@ -14,7 +14,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { isMediaFilenameSafe } from './workspacePaths'
 
 export const BACKUP_FORMAT_VERSION = 1
-export const BACKUP_APP_ID = 'com.heptabase.canvas-v2'
+export const BACKUP_APP_ID = 'com.alphabase.canvas-v2'
 export const BACKUP_DIRECTORY_NAME = 'Abase Backups'
 
 const DATA_DIRECTORIES = ['cards', 'boards', 'trash', 'media'] as const

@@ -12,7 +12,7 @@ function getLogPath(): string {
       dir = join(app.getPath('userData'), 'logs')
     } else {
       // Fallback before app.ready: use standard Electron userData location
-      const appName = 'heptabase-canvas-v2'
+      const appName = 'alphabase-canvas-v2'
       dir = join(homedir(), 'AppData', 'Roaming', appName, 'logs')
     }
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })

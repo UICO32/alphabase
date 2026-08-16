@@ -26,7 +26,7 @@ vi.mock('../utils/workspace/fs', () => {
 vi.mock('../stores/backupStore', () => ({
   listFileSystemBackups: vi.fn(),
   restoreFromBackup: vi.fn(),
-  getBackupBasePath: vi.fn(() => '/parent/.heptabase-backups/ws'),
+  getBackupBasePath: vi.fn(() => '/parent/.alphabase-backups/ws'),
   createFileSystemBackup: vi.fn(),
   startAutoBackup: vi.fn(),
   stopAutoBackup: vi.fn(),

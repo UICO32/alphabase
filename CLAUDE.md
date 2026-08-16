@@ -1,4 +1,4 @@
-# Heptabase Canvas v2
+# Alphabase v2
 
 React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.6 + Vite 5 + React Flow + BlockNote + Zustand 5 + Electron 35 + Tailwind CSS 4
 

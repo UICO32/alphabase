@@ -117,7 +117,7 @@ test('zoom reveals a board-local density field and pinned cluster drawer', async
   })
 
   const seeded = await page.evaluate(() => {
-    const api = (window as any).heptabaseAPI
+    const api = (window as any).alphabaseAPI
     const result = api.canvas.seedPerformanceBoard({ count: 5, columns: 3, prefix: 'density-e2e' })
     api.cards.update('density-e2e-card-0', { tags: ['alpha'] })
     api.cards.update('density-e2e-card-1', { tags: ['alpha'] })
@@ -161,7 +161,7 @@ test('zoom reveals a board-local density field and pinned cluster drawer', async
 
 test('orphan fields stay visible without opening a semantic drawer', async ({ page }) => {
   const seeded = await page.evaluate(() => {
-    const api = (window as any).heptabaseAPI
+    const api = (window as any).alphabaseAPI
     const result = api.canvas.seedPerformanceBoard({ count: 3, columns: 3, prefix: 'density-orphan' })
     api.cards.update('density-orphan-card-0', { tags: ['paired'] })
     api.cards.update('density-orphan-card-1', { tags: ['paired'] })

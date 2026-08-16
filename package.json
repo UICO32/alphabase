@@ -1,6 +1,6 @@
 {
-  "name": "heptabase-canvas-v2",
-  "version": "0.2.0",
+  "name": "alphabase-canvas-v2",
+  "version": "0.2.1",
   "private": true,
   "main": "dist-electron/main.cjs",
   "scripts": {
@@ -90,8 +90,8 @@
     "vitest": "^1.6.1"
   },
   "build": {
-    "appId": "com.heptabase.canvas-v2",
-    "productName": "Heptabase Canvas",
+    "appId": "com.alphabase.canvas-v2",
+    "productName": "Alphabase",
     "directories": {
       "output": "release"
     },

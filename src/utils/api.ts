@@ -37,11 +37,11 @@ interface SeedPerformanceBoardOptions {
 
 declare global {
   interface Window {
-    heptabaseAPI: typeof heptabaseAPI
+    alphabaseAPI: typeof alphabaseAPI
   }
 }
 
-export const heptabaseAPI = {
+export const alphabaseAPI = {
   cards: {
     list: (): APIResponse<GlobalCard[]> => {
       try {
@@ -203,7 +203,7 @@ export const heptabaseAPI = {
           return { success: false, error: 'Editor not available' }
         }
 
-        const cardResult = heptabaseAPI.cards.create(options)
+        const cardResult = alphabaseAPI.cards.create(options)
         if (!cardResult.success || !cardResult.data) {
           return { success: false, error: cardResult.error || 'Failed to create card' }
         }
@@ -323,29 +323,29 @@ export const heptabaseAPI = {
   },
 
   info: () => ({
-    name: 'Heptabase Canvas API',
-    version: '0.1.0',
+    name: 'Alphabase API',
+    version: '0.2.1',
     commands: [
-      'heptabaseAPI.cards.list()',
-      'heptabaseAPI.cards.get(id)',
-      'heptabaseAPI.cards.create(options)',
-      'heptabaseAPI.cards.update(id, props)',
-      'heptabaseAPI.cards.delete(id)',
-      'heptabaseAPI.cards.softDelete(id)',
-      'heptabaseAPI.cards.restore(id)',
-      'heptabaseAPI.cards.clear()',
-      'heptabaseAPI.trash.list()',
-      'heptabaseAPI.trash.permanentDelete(cardId)',
-      'heptabaseAPI.canvas.getShapes()',
-      'heptabaseAPI.canvas.createCardShape(options)',
-      'heptabaseAPI.canvas.seedPerformanceBoard(options)',
-      'heptabaseAPI.canvas.exportSnapshot()',
+      'alphabaseAPI.cards.list()',
+      'alphabaseAPI.cards.get(id)',
+      'alphabaseAPI.cards.create(options)',
+      'alphabaseAPI.cards.update(id, props)',
+      'alphabaseAPI.cards.delete(id)',
+      'alphabaseAPI.cards.softDelete(id)',
+      'alphabaseAPI.cards.restore(id)',
+      'alphabaseAPI.cards.clear()',
+      'alphabaseAPI.trash.list()',
+      'alphabaseAPI.trash.permanentDelete(cardId)',
+      'alphabaseAPI.canvas.getShapes()',
+      'alphabaseAPI.canvas.createCardShape(options)',
+      'alphabaseAPI.canvas.seedPerformanceBoard(options)',
+      'alphabaseAPI.canvas.exportSnapshot()',
     ],
   }),
 }
 
 export function initAPI() {
   if (typeof window !== 'undefined') {
-    window.heptabaseAPI = heptabaseAPI
+    window.alphabaseAPI = alphabaseAPI
   }
 }

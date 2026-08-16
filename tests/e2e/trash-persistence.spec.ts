@@ -31,7 +31,7 @@ test.describe('卡片删除与回收站数据持久化', () => {
     await setupDemoMode(page)
 
     const testResult = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
 
       const createResult = api.cards.create({
         content: '[{"type":"heading","props":{"level":2},"content":[{"type":"text","text":"同步测试"}]}]',
@@ -76,7 +76,7 @@ test.describe('卡片删除与回收站数据持久化', () => {
     await setupDemoMode(page)
 
     const testResult = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
 
       const createResult = api.cards.create({
         content: '[{"type":"heading","props":{"level":2},"content":[{"type":"text","text":"恢复测试"}]}]',
@@ -128,7 +128,7 @@ test.describe('卡片删除与回收站数据持久化', () => {
     await setupDemoMode(page)
 
     const testResult = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
 
       const createResult = api.cards.create({
         content: '[]',

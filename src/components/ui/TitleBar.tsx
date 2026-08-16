@@ -38,7 +38,7 @@ export function TitleBar() {
     >
       <div className="flex items-center gap-2 px-4 min-w-0" style={{ width: 260 }}>
         <span className="text-xs truncate text-fg-secondary">
-          {currentWorkspace?.name || 'Heptabase'}
+          {currentWorkspace?.name || 'Alphabase'}
         </span>
         {activeBoardName && (
           <>

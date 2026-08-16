@@ -114,7 +114,7 @@ test.describe('canvas large-board baselines', () => {
       })
 
       const seed = await page.evaluate((count) => {
-        const api = (window as any).heptabaseAPI
+        const api = (window as any).alphabaseAPI
         return api.canvas.seedPerformanceBoard({
           count,
           columns: Math.ceil(Math.sqrt(count)),

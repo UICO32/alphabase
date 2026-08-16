@@ -116,7 +116,7 @@ test.describe('文件持久化集成测试', () => {
     await page.waitForTimeout(3000)
 
     const cardId = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
       const result = api.cards.create({
         content: '[{"type":"heading","props":{"level":2},"content":[{"type":"text","text":"持久化测试"}]}]',
         color: 'blue',
@@ -147,7 +147,7 @@ test.describe('文件持久化集成测试', () => {
     await page.waitForTimeout(3000)
 
     const cardId = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
       const result = api.cards.create({
         content: '[]',
         color: 'pink',
@@ -160,7 +160,7 @@ test.describe('文件持久化集成测试', () => {
     await page.waitForTimeout(2000)
 
     await page.evaluate((id) => {
-      (window as any).heptabaseAPI.cards.softDelete(id)
+      (window as any).alphabaseAPI.cards.softDelete(id)
     }, cardId)
 
     await page.waitForTimeout(2000)
@@ -188,7 +188,7 @@ test.describe('文件持久化集成测试', () => {
     await page.waitForTimeout(3000)
 
     const cardId = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
       const result = api.cards.create({
         content: '[]',
         color: 'green',
@@ -202,14 +202,14 @@ test.describe('文件持久化集成测试', () => {
 
     // Soft delete
     await page.evaluate((id) => {
-      (window as any).heptabaseAPI.cards.softDelete(id)
+      (window as any).alphabaseAPI.cards.softDelete(id)
     }, cardId)
 
     await page.waitForTimeout(2000)
 
     // Restore
     await page.evaluate((id) => {
-      (window as any).heptabaseAPI.cards.restore(id)
+      (window as any).alphabaseAPI.cards.restore(id)
     }, cardId)
 
     await page.waitForTimeout(2000)
@@ -233,7 +233,7 @@ test.describe('文件持久化集成测试', () => {
     await page.waitForTimeout(3000)
 
     const cardId = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
       const result = api.cards.create({
         content: '[]',
         color: 'red',
@@ -247,14 +247,14 @@ test.describe('文件持久化集成测试', () => {
 
     // Soft delete then permanent delete
     await page.evaluate((id) => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
       api.cards.softDelete(id)
     }, cardId)
 
     await page.waitForTimeout(2000)
 
     await page.evaluate((id) => {
-      (window as any).heptabaseAPI.trash.permanentDelete(id)
+      (window as any).alphabaseAPI.trash.permanentDelete(id)
     }, cardId)
 
     await page.waitForTimeout(2000)
@@ -274,7 +274,7 @@ test.describe('文件持久化集成测试', () => {
 
     // Phase 1: Create cards and manipulate them
     const ids = await page.evaluate(() => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
       const card1 = api.cards.create({
         content: '[{"type":"heading","props":{"level":2},"content":[{"type":"text","text":"保留的卡片"}]}]',
         color: 'blue',
@@ -295,7 +295,7 @@ test.describe('文件持久化集成测试', () => {
 
     // Soft delete card2
     await page.evaluate((card2Id) => {
-      (window as any).heptabaseAPI.cards.softDelete(card2Id)
+      (window as any).alphabaseAPI.cards.softDelete(card2Id)
     }, ids.card2Id)
 
     // Wait for trash write
@@ -330,7 +330,7 @@ test.describe('文件持久化集成测试', () => {
 
     // Phase 3: Verify store data recovered from disk
     const result = await page.evaluate((expectedIds) => {
-      const api = (window as any).heptabaseAPI
+      const api = (window as any).alphabaseAPI
 
       const card1 = api.cards.get(expectedIds.card1Id)
       const card2 = api.cards.get(expectedIds.card2Id)

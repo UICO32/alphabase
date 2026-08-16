@@ -10,7 +10,7 @@ function aiLogPath(): string {
   if (!_aiLogPath) {
     const dir = app.isReady()
       ? join(app.getPath('userData'), 'logs')
-      : join(homedir(), 'AppData', 'Roaming', 'heptabase-canvas-v2', 'logs')
+      : join(homedir(), 'AppData', 'Roaming', 'alphabase-canvas-v2', 'logs')
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     _aiLogPath = join(dir, 'ai.log')
   }

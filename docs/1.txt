@@ -111,7 +111,7 @@ export function createTray(mainWindow: BrowserWindow): void {
   if (tray) return
   const icon = nativeImage.createEmpty() // 简化：实际从 build/ 加载
   tray = new Tray(icon)
-  tray.setToolTip('Heptabase Canvas')
+  tray.setToolTip('Alphabase')
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Show', click: () => { mainWindow.show(); mainWindow.focus() } },
     { type: 'separator' },

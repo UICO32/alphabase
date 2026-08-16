@@ -23,7 +23,7 @@ export interface WorkspaceAuditEvent {
 
 function getAuditLogPath(): string {
   if (!auditLogPath) {
-    const appName = 'heptabase-canvas-v2'
+    const appName = 'alphabase-canvas-v2'
     const baseDir = app.isReady()
       ? app.getPath('userData')
       : join(homedir(), 'AppData', 'Roaming', appName)

@@ -78,7 +78,7 @@ docs/superpowers/
 package-lock.json
 
 # Media (user data)
-.heptabase/
+.alphabase/
 abase*/
 .claude/settings.local.json
 

@@ -27,7 +27,7 @@ export function createTray(mainWindow: BrowserWindow): void {
   }
 
   tray = new Tray(icon)
-  tray.setToolTip('Heptabase Canvas')
+  tray.setToolTip('Alphabase')
 
   const contextMenu = Menu.buildFromTemplate([
     {
