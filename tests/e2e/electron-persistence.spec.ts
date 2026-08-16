@@ -1,9 +1,13 @@
 import { test, expect, _electron as electron } from '@playwright/test'
 import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
+import { fileURLToPath } from 'url'
 
-const TEST_WORKSPACE_1 = 'D:\\USE\\save\\abasesave1'
-const TEST_WORKSPACE_2 = 'D:\\USE\\save\\abasesave2'
+const ROOT_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const TEST_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'alphabase-electron-persistence-'))
+const TEST_WORKSPACE_1 = path.join(TEST_ROOT, 'workspace-1')
+const TEST_WORKSPACE_2 = path.join(TEST_ROOT, 'workspace-2')
 
 // Ensure test directories exist
 function ensureTestDirs() {
@@ -28,7 +32,7 @@ test.describe('Electron 文件持久化测试', () => {
     ensureTestDirs()
     electronApp = await electron.launch({
       args: ['.'],
-      cwd: 'D:\\USE\\save\\code\\abase',
+      cwd: ROOT_DIRECTORY,
     })
   })
 
@@ -36,6 +40,7 @@ test.describe('Electron 文件持久化测试', () => {
     if (electronApp) {
       await electronApp.close()
     }
+    fs.rmSync(TEST_ROOT, { recursive: true, force: true })
   })
 
   test('选择工作区后卡片应写入磁盘', async () => {

@@ -104,11 +104,15 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Build Electron test app
+        run: pnpm electron:build
+
       - name: Run Electron security & persistence E2E
         env:
           CI: 'true'
           ELECTRON_E2E: 'true'
-        run: pnpm exec playwright test tests/e2e/electron-security.spec.ts tests/e2e/electron-persistence.spec.ts
+          ELECTRON_E2E_PREBUILT: 'true'
+        run: pnpm exec playwright test tests/e2e/electron-security.spec.ts tests/e2e/electron-persistence.spec.ts --workers=1
 
       - name: Upload Electron E2E artifacts on failure
         if: failure()

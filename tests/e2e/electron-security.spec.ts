@@ -82,6 +82,8 @@ async function closeElectronApp(electronApp: Awaited<ReturnType<typeof electron.
 
 test.describe('Electron workspace security', () => {
   test.beforeAll(() => {
+    if (process.env.ELECTRON_E2E_PREBUILT === 'true') return
+
     const command = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : 'pnpm'
     const args = process.platform === 'win32'
       ? ['/d', '/s', '/c', 'pnpm electron:build']

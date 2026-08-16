@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 
 const CRT_DIRECTORY = 'Microsoft.VC143.CRT'
 const VISUAL_STUDIO_EDITIONS = ['Community', 'BuildTools', 'Professional', 'Enterprise']
+const VISUAL_STUDIO_VERSIONS = ['18', '2022']
 
 async function findLatestCrtUnder(redistRoot) {
   if (!redistRoot || !existsSync(redistRoot)) return null
@@ -30,18 +31,20 @@ export async function findWindowsCrtDirectory(env = process.env) {
 
   const programFilesRoots = [env.ProgramFiles, env['ProgramFiles(x86)']].filter(Boolean)
   for (const programFiles of programFilesRoots) {
-    for (const edition of VISUAL_STUDIO_EDITIONS) {
-      const redistRoot = join(
-        programFiles,
-        'Microsoft Visual Studio',
-        '2022',
-        edition,
-        'VC',
-        'Redist',
-        'MSVC',
-      )
-      const candidate = await findLatestCrtUnder(redistRoot)
-      if (candidate) return candidate
+    for (const version of VISUAL_STUDIO_VERSIONS) {
+      for (const edition of VISUAL_STUDIO_EDITIONS) {
+        const redistRoot = join(
+          programFiles,
+          'Microsoft Visual Studio',
+          version,
+          edition,
+          'VC',
+          'Redist',
+          'MSVC',
+        )
+        const candidate = await findLatestCrtUnder(redistRoot)
+        if (candidate) return candidate
+      }
     }
   }
 
@@ -54,7 +57,7 @@ export async function copyWindowsCrt(targetDirectory, env = process.env) {
   const sourceDirectory = await findWindowsCrtDirectory(env)
   if (!sourceDirectory) {
     throw new Error(
-      'Microsoft VC143 runtime files were not found. Install Visual Studio 2022 Build Tools with the C++ runtime before building the Windows app.',
+      'Microsoft VC143 runtime files were not found. Install Visual Studio with the C++ runtime before building the Windows app.',
     )
   }
 
