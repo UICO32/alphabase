@@ -697,7 +697,8 @@ ipcMain.handle('shell:openExternal', async (_event, url: string) => {
       throw new Error(`Disallowed protocol: ${parsed.protocol}`)
     }
   } catch (err) {
-    throw new Error(`Invalid or disallowed URL: ${url}`)
+    // ES2020 lib 无 ErrorOptions 类型，用 Object.assign 附加 cause（运行时等价）
+    throw Object.assign(new Error(`Invalid or disallowed URL: ${url}`), { cause: err })
   }
   await shell.openExternal(url)
 })

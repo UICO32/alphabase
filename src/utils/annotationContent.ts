@@ -1,6 +1,7 @@
 import { DEFAULT_ANNOTATION_CONTENT } from '../types/card'
 
-const INVISIBLE_TEXT = /[\s\u00a0\u200b\u200c\u200d\ufeff]/g
+// 字符类中相邻的 ZWNJ/ZWJ（\u200c\u200d）会被视为误导性组合序列，改用 alternation 表达
+const INVISIBLE_TEXT = /(?:\s|\u00a0|\u200b|\u200c|\u200d|\ufeff)/g
 
 function collectText(value: unknown): string {
   if (typeof value === 'string') return value

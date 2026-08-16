@@ -16,6 +16,8 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       'debug/**',
+      // 其他分支的独立工作区，不属于当前分支代码
+      '.worktrees/**',
     ],
   },
   js.configs.recommended,
