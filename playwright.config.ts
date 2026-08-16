@@ -20,6 +20,9 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // Electron 专用 spec 由 electron-e2e job（windows）单独运行；
+      // chromium 浏览器环境跑它们会因 electron 二进制缺失而误报失败。
+      testIgnore: ['**/electron-*.spec.ts'],
     },
   ],
   webServer: {
