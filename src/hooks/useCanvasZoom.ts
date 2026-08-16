@@ -45,11 +45,9 @@ export function useCanvasZoom({
     const el = canvasRef.current
     if (!el) return
 
-    const paneEl = el.querySelector('.react-flow__pane') as HTMLElement | null
-    if (!paneEl) return
-
-    const d3ZoomEl = paneEl.parentElement
-    if (!d3ZoomEl) return
+    // 注意：不能依赖 pane 存在——React Flow 内部二次渲染后才挂载 pane，
+    // effect 首跑时 querySelector 返回 null 会导致整个监听永不绑定。
+    // wheel 监听改绑到始终存在的画布容器 el（capture 阶段仍先于 pane 上的 d3-zoom）。
     const viewportEl = el.querySelector('.react-flow__viewport') as HTMLElement | null
 
     // Allow right-click pan on nodes by temporarily removing 'nopan' class.
@@ -167,11 +165,11 @@ export function useCanvasZoom({
       scheduleAnimation()
     }
 
-    d3ZoomEl.addEventListener('wheel', smoothWheel, { capture: true, passive: false })
+    el.addEventListener('wheel', smoothWheel, { capture: true, passive: false })
     el.addEventListener('mousedown', onRightDown, true)
     window.addEventListener('mouseup', onRightUp, true)
     return () => {
-      d3ZoomEl.removeEventListener('wheel', smoothWheel, true)
+      el.removeEventListener('wheel', smoothWheel, true)
       if (animationFrame !== null) cancelAnimationFrame(animationFrame)
       if (commitTimer !== null) window.clearTimeout(commitTimer)
       targetViewport = null
