@@ -107,6 +107,7 @@ jobs:
       - name: Run Electron security & persistence E2E
         env:
           CI: 'true'
+          ELECTRON_E2E: 'true'
         run: pnpm exec playwright test tests/e2e/electron-security.spec.ts tests/e2e/electron-persistence.spec.ts
 
       - name: Upload Electron E2E artifacts on failure

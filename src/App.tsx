@@ -23,9 +23,7 @@ import { useAppEvents } from './hooks/useAppEvents'
 import { preloadCardEditor } from './components/editor/cardEditorLoader'
 import { LazyCardLibraryView } from './components/ui/lazyCardLibraryView'
 import { setupAIListeners } from './stores/aiStore'
-import { Toaster } from '@/components/ui/shadcn/sonner'
 import { useWorkspaceLayout } from './hooks/useWorkspaceLayout'
-import { TopicBar } from './components/project/TopicBar'
 
 const LEFT_PANEL_WIDTH = 260
 const TITLE_BAR_HEIGHT = 24
@@ -37,6 +35,8 @@ const SettingsDialog = lazy(() => import('./components/ui/SettingsDialog').then(
 const WorkspacePicker = lazy(() => import('./components/ui/WorkspacePicker').then(m => ({ default: m.WorkspacePicker })))
 const WorkspaceConflictDialog = lazy(() => import('./components/ui/WorkspaceConflictDialog').then(m => ({ default: m.WorkspaceConflictDialog })))
 const TopographyView = lazy(() => import('./components/topography/TopographyView').then(m => ({ default: m.TopographyView })))
+const TopicBar = lazy(() => import('./components/project/TopicBar').then(m => ({ default: m.TopicBar })))
+const Toaster = lazy(() => import('@/components/ui/shadcn/sonner').then(m => ({ default: m.Toaster })))
 
 function App() {
   const viewMode = useViewStore(s => s.viewMode)
@@ -191,7 +191,9 @@ function App() {
   return (
     <ErrorBoundary>
     <div className="relative w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--surface-panel)' }}>
-      <Toaster position="bottom-center" richColors visibleToasts={1} duration={5000} />
+      <Suspense fallback={null}>
+        <Toaster position="bottom-center" richColors visibleToasts={1} duration={5000} />
+      </Suspense>
       <div
         className={`group absolute left-0 right-0 top-0 z-50 overflow-visible transition-[height] duration-150 ${immersiveCanvas ? 'h-2 hover:h-6' : 'h-6 workspace-chrome-piece'}`}
       >
@@ -226,7 +228,11 @@ function App() {
           }}
         >
           {/* 顶部主题栏：悬浮按钮方案——悬浮胶囊浮在画布上方，不占布局，画布圆角完整保留 */}
-          {isBoardView && !showTopography && <TopicBar />}
+          {isBoardView && !showTopography && (
+            <Suspense fallback={null}>
+              <TopicBar />
+            </Suspense>
+          )}
 
           {renderMainContent()}
         </main>

@@ -756,7 +756,7 @@ if (searchQuery.trim()) {
             title={accessToken ? '同步 Flomo' : '连接 Flomo'}
             onClick={handleSyncClick}
             disabled={syncing}
-            className="btn-base flex size-8 shrink-0 items-center justify-center rounded-lg border border-line-default bg-surface-card text-fg-secondary hover:bg-surface-card-hover disabled:opacity-50"
+            className="btn-base flex size-8 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-line-default bg-surface-card text-fg-secondary hover:bg-surface-card-hover disabled:opacity-50"
           >
             <RefreshCw size={14} aria-hidden="true" className={syncing ? 'animate-spin' : ''} />
           </button>

@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
-import { toast } from 'sonner'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { emit, on } from '../stores/eventBus'
 import { auditWorkspaceHealth } from '../utils/workspace/audit'
+import { notifyError } from '../utils/notify'
 
 interface UseAppEventsOptions {
   dataReady: boolean
@@ -70,7 +70,7 @@ export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEvents
       lastToast = now
       const count = errorCount
       errorCount = 0
-      toast.error(
+      notifyError(
         count > 1
           ? `${count} 个文件写入失败，数据可能未保存`
           : `文件写入失败：${error}`,

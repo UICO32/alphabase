@@ -87,12 +87,16 @@ test('260px card library keeps its controls on one scrollable track and compacts
   })
   await expect(header).toHaveAttribute('data-compact', 'true')
 
-  const compactCenters = await Promise.all([header.getByRole('heading', { name: '卡片库' }), search]
-    .map(async (element) => {
-      const box = (await element.boundingBox())!
-      return box.y + box.height / 2
-    }))
-  expect(Math.max(...compactCenters) - Math.min(...compactCenters)).toBeLessThanOrEqual(4)
+  // data-compact changes at the start of a 200ms layout transition. Wait for
+  // the rendered geometry rather than sampling an arbitrary animation frame.
+  await expect.poll(async () => {
+    const compactCenters = await Promise.all([header.getByRole('heading', { name: '卡片库' }), search]
+      .map(async (element) => {
+        const box = (await element.boundingBox())!
+        return box.y + box.height / 2
+      }))
+    return Math.max(...compactCenters) - Math.min(...compactCenters)
+  }).toBeLessThanOrEqual(4)
 
   await scrollRoot.evaluate((element) => {
     element.scrollTop = 20

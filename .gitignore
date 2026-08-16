@@ -53,6 +53,7 @@ coverage/
 .tmp/
 *.tsbuildinfo
 .superpowers/
+.worktrees/
 
 # AI / tooling artifacts
 .claude/

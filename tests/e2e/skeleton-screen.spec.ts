@@ -28,9 +28,11 @@ test.describe('Splash skeleton screen', () => {
     const rightPanel = page.locator('.sp-right')
     await expect(rightPanel).toHaveClass(/entered/, { timeout: 5000 })
 
-    // Card skeletons in canvas
-    const cardSkeletons = page.locator('.sp-card')
-    await expect(cardSkeletons).toHaveCount(7)
+    // The current splash keeps the canvas visually quiet while both side panels
+    // communicate that the application is loading.
+    await expect(page.locator('.sp-canvas')).toBeVisible()
+    await expect(page.locator('.sp-lp-item')).toHaveCount(4)
+    await expect(page.locator('.sp-rp-editor')).toHaveCount(1)
   })
 
   test('should have correct panel dimensions', async ({ page }) => {

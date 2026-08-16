@@ -56,7 +56,7 @@ test('card library controls wrap without collapsing labels vertically', async ({
 
   const recent = page.getByRole('button', { name: '最近修改' })
   const relevance = page.getByRole('button', { name: '相关性' })
-  const sync = page.getByRole('button', { name: '同步 Flomo' })
+  const sync = page.getByTestId('card-library-flomo-sync')
   await expect(recent).toBeVisible()
   await expect(relevance).toBeVisible()
   await expect(sync).toBeVisible()
@@ -71,9 +71,12 @@ test('card library controls wrap without collapsing labels vertically', async ({
 
   for (const control of geometry) {
     expect(control.whiteSpace).toBe('nowrap')
-    expect(control.box!.width).toBeGreaterThan(control.box!.height)
   }
-  expect(geometry[2].box!.y).toBeGreaterThanOrEqual(geometry[0].box!.y)
+  for (const labeledControl of geometry.slice(0, 2)) {
+    expect(labeledControl.box!.width).toBeGreaterThan(labeledControl.box!.height)
+  }
+  expect(geometry[2].box!.width).toBe(geometry[2].box!.height)
+  expect(Math.abs(geometry[2].box!.y - geometry[0].box!.y)).toBeLessThanOrEqual(1)
 })
 
 test('narrow card library drag reaches the canvas through the drawer overlay', async ({ page }) => {
@@ -84,6 +87,16 @@ test('narrow card library drag reaches the canvas through the drawer overlay', a
   const initialNodeCount = await canvasNodes.count()
   await page.locator('button[aria-label="添加卡片"]').click()
   await expect(canvasNodes).toHaveCount(initialNodeCount + 1)
+
+  // A card already on the canvas is intentionally not draggable from the
+  // library. Move it off the board first so the drag test exercises a valid
+  // library source card.
+  await page.keyboard.press('Escape')
+  const addedNode = canvasNodes.last()
+  await addedNode.hover()
+  await page.getByTitle('更多操作').click()
+  await page.getByRole('menuitem', { name: '移出白板' }).click()
+  await expect(canvasNodes).toHaveCount(initialNodeCount)
 
   const openRightPanel = page.locator('button[aria-label="打开右侧面板"]')
   if (await openRightPanel.isVisible().catch(() => false)) await openRightPanel.click()
@@ -136,5 +149,5 @@ test('narrow card library drag reaches the canvas through the drawer overlay', a
     overlayPointerEvents: 'none',
     targetInsideCanvas: true,
   })
-  await expect(canvasNodes).toHaveCount(initialNodeCount + 2)
+  await expect(canvasNodes).toHaveCount(initialNodeCount + 1)
 })

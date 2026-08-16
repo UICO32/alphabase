@@ -122,6 +122,8 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return
+            if (id.includes('/sonner/')) return 'notifications'
+            if (id.includes('/dompurify/')) return 'sanitizer'
             if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-core'
             if (id.includes('@blocknote/mantine') || id.includes('@mantine/')) return 'mantine'
             if (id.includes('@blocknote/') || id.includes('@mantine/tiptap/') || id.includes('@tiptap/') || id.includes('prosemirror-')) {

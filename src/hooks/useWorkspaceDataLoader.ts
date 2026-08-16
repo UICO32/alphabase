@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react'
-import { toast } from 'sonner'
 import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
@@ -10,6 +9,7 @@ import { useEvent } from './useEvent'
 import { WorkspaceService } from '../services/WorkspaceService'
 import { migrateFromLocalStorageIfNeeded } from '../utils/workspace/migrateFromLocalStorage'
 import { WorkspaceSyncEngine } from '../sync/syncEngine'
+import { notifyError } from '../utils/notify'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
 import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type ConflictDiffItem, type ProjectData } from '../utils/workspace/types'
@@ -161,7 +161,7 @@ export function useWorkspaceDataLoader() {
       }
     }
     if (corruptCardCount > 0) {
-      toast.error(
+      notifyError(
         `${corruptCardCount} 张卡片读取失败已跳过，可用「从备份恢复」找回`,
         { duration: 8000 }
       )

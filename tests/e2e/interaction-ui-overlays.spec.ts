@@ -56,10 +56,20 @@ test('command bar and card editor remain viewport-safe and dismiss with Escape',
   await expect(commandBar).toHaveCount(0)
 
   await page.getByRole('button', { name: '添加卡片' }).click()
+  // New cards open the narrow editor drawer. Close it, then move the card off
+  // the board so the library click opens the card-edit dialog instead of
+  // following the "already on canvas" locate behavior.
+  await page.keyboard.press('Escape')
+  const canvasCard = page.locator('.react-flow__node').last()
+  await canvasCard.hover()
+  await page.getByTitle('更多操作').click()
+  await page.getByRole('menuitem', { name: '移出白板' }).click()
+
   const openRight = page.getByRole('button', { name: '打开右侧面板' })
   if (await openRight.isVisible().catch(() => false)) await openRight.click()
-  await page.getByRole('tab', { name: '卡片库' }).click()
-  const card = page.locator('[draggable="true"]').first()
+  const rightPanel = page.getByRole('dialog', { name: '右侧工作区面板' })
+  await rightPanel.getByRole('tab', { name: '卡片库' }).click()
+  const card = rightPanel.locator('[data-on-canvas="false"]').first()
   await expect(card).toBeVisible()
   expect(await page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(false)
   await card.click()
@@ -81,9 +91,9 @@ test('command bar and card editor remain viewport-safe and dismiss with Escape',
   })
   expect(cardDialogMotion).toEqual({
     contentAnimationName: 'card-edit-dialog-source-morph',
-    contentAnimationDuration: '0.5s',
+    contentAnimationDuration: '0.36s',
     overlayAnimationName: 'card-edit-dialog-backdrop-in',
-    overlayAnimationDuration: '0.25s',
+    overlayAnimationDuration: '0.18s',
     sourceTransform: expect.stringContaining('scale('),
   })
   await expect.poll(() => editorDialog.evaluate((element) =>

@@ -116,39 +116,20 @@ test.describe('Frame 视觉与交互截图测试', () => {
     await page.waitForSelector('main', { timeout: 15000 })
     await page.waitForTimeout(3000)
 
-    // 2. 通过全局暴露的 React Flow 实例直接添加 3 个卡片
-    await page.evaluate(() => {
-      const instance = (window as any).__reactFlowInstance
-      if (!instance) throw new Error('React Flow instance not found')
-
-      const cardIds = ['card-1', 'card-2', 'card-3']
-      const positions = [
-        { x: 200, y: 150 },
-        { x: 500, y: 150 },
-        { x: 350, y: 350 },
-      ]
-
-      for (let i = 0; i < 3; i++) {
-        instance.addNodes({
-          id: cardIds[i],
-          type: 'card',
-          position: positions[i],
-          data: { cardId: cardIds[i], color: 'white', width: 280, height: 200 },
-          zIndex: 10,
-        })
-      }
-    })
-    await page.waitForTimeout(1000)
+    // 2. Use the public UI contract instead of relying on a private React Flow
+    // instance on window (the application deliberately does not expose one).
+    const addCard = page.getByRole('button', { name: '添加卡片' })
+    const cardNodes = page.locator('.react-flow__node')
+    const initialCardCount = await cardNodes.count()
+    for (let i = 0; i < 3; i++) await addCard.click()
 
     // 确认卡片已创建
-    const cardNodes = page.locator('.react-flow__node[type="card"]')
-    const cardCount = await cardNodes.count()
-    console.log(`Card count: ${cardCount}`)
-    expect(cardCount).toBe(3)
+    await expect(cardNodes).toHaveCount(initialCardCount + 3)
 
     // 3. 进入框选模式
-    await page.getByTitle('框选创建 Frame').click()
-    await page.waitForTimeout(300)
+    const frameTool = page.getByRole('button', { name: '框选创建 Frame' })
+    await frameTool.click()
+    await expect(frameTool).toHaveAttribute('aria-pressed', 'true')
 
     // 4. 用鼠标拖拽框选所有卡片
     const pane = page.locator('.react-flow__pane')
@@ -160,16 +141,20 @@ test.describe('Frame 视觉与交互截图测试', () => {
     const endX = box.x + box.width - 50
     const endY = box.y + box.height - 50
 
-    await page.mouse.move(startX, startY)
-    await page.mouse.down()
+    await page.evaluate(({ x, y }) => {
+      window.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: x, clientY: y }))
+    }, { x: startX, y: startY })
     await page.waitForTimeout(100)
-    await page.mouse.move(endX, endY, { steps: 10 })
+    await page.evaluate(({ x, y }) => {
+      window.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, button: 0, clientX: x, clientY: y }))
+    }, { x: endX, y: endY })
     await page.waitForTimeout(100)
-    await page.mouse.up()
-    await page.waitForTimeout(1500)
+    await page.evaluate(({ x, y }) => {
+      window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: x, clientY: y }))
+    }, { x: endX, y: endY })
 
     // 5. 等待 frame 创建完成
-    const frameNode = page.locator('.react-flow__node.frame')
+    const frameNode = page.locator('.react-flow__node-frame')
     await expect(frameNode.first()).toBeVisible({ timeout: 8000 })
     await page.waitForTimeout(500)
 
@@ -177,24 +162,24 @@ test.describe('Frame 视觉与交互截图测试', () => {
     await page.screenshot({ path: 'test-results/frame-default-zoom.png', fullPage: false })
 
     // 7. 放大截图
-    await page.getByTitle('放大').click()
+    await page.getByRole('button', { name: '放大' }).click()
     await page.waitForTimeout(600)
     await page.screenshot({ path: 'test-results/frame-zoom-in.png', fullPage: false })
 
     // 8. 再放大一次
-    await page.getByTitle('放大').click()
+    await page.getByRole('button', { name: '放大' }).click()
     await page.waitForTimeout(600)
     await page.screenshot({ path: 'test-results/frame-zoom-in-2x.png', fullPage: false })
 
     // 9. 缩小截图
-    await page.getByTitle('缩小').click()
-    await page.getByTitle('缩小').click()
-    await page.getByTitle('缩小').click()
+    await page.getByRole('button', { name: '缩小' }).click()
+    await page.getByRole('button', { name: '缩小' }).click()
+    await page.getByRole('button', { name: '缩小' }).click()
     await page.waitForTimeout(600)
     await page.screenshot({ path: 'test-results/frame-zoom-out.png', fullPage: false })
 
     // 10. Fit view 截图
-    await page.getByTitle('适应视图').click()
+    await page.getByRole('button', { name: '适应视图' }).click()
     await page.waitForTimeout(600)
     await page.screenshot({ path: 'test-results/frame-fit-view.png', fullPage: false })
   })
