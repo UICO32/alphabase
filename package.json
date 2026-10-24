@@ -4,6 +4,7 @@
   "private": true,
   "main": "dist-electron/main.cjs",
   "scripts": {
+    "board": "python board.py",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
