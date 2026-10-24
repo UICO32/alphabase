@@ -2,37 +2,28 @@
 
 React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.9 + Vite 5 + React Flow 12 + BlockNote 0.31 + Zustand 5 + Electron 42 + Tailwind CSS 4
 
-## 项目进度
+## 入口
 
-当前状态、路线图、命令、可启动项与结构统一维护在 [PROJECT.md](PROJECT.md)（唯一事实源）。
-可视化查看：`python board.py`（或双击 `board.cmd`）启动本地看板，默认 http://127.0.0.1:7788 。
+- 项目状态、路线图、目录/命令/可启动项总表：[PROJECT.md](PROJECT.md)（唯一事实源，可视化用 `board.py`）
+- 工具链用法与坑（调试、打包、索引、归档恢复）：[docs/TOOLS.md](docs/TOOLS.md)，涉及这些操作前先读
+- 踩坑历史：[docs/lessons-learned.md](docs/lessons-learned.md)，排查疑难 bug 前先查
 
-## 开发规范
+## 功能开发
 
-### 构建与运行
+引入新功能前必须用 `superpowers:brainstorming` 确认细节；简单 bug 修复/配置微调不触发。
+3+ 个功能或 1 周开发后主动提醒 review：React.memo、重复样式/逻辑、状态管理、未用依赖、类型完整性。
 
-- 看板：`python board.py`（`--no-open` 只起服务，`--port` 换端口）
-- 开发调试：`pnpm dev`（浏览器）/ `pnpm electron:dev`（桌面壳）
-- **无用户明确要求，不执行 build 命令**
-- 打包流程：确认版本号 → 更新 CHANGELOG → `pnpm electron:pack`/`electron:dist` → 验证
-- 打包陷阱：`ELECTRON_RUN_AS_NODE=1` 会导致 exe 静默退出，需 `unset` 或用 PowerShell `Start-Process`
+## 验证要求
 
-### 功能开发
+- 改完必须跑：`pnpm typecheck`、`pnpm lint`，以及受影响的单测；涉及交互/画布再跑对应 E2E
+- 自主验证优先：能用 Playwright 复现/验证的，不要只靠推理下结论
+- **无用户明确要求，不执行 `pnpm build`**；打包只在用户要求时进行
 
-引入新功能前必须用 `superpowers:brainstorming` 确认细节。简单 bug 修复/配置微调不触发。
+## Git 规范
 
-### 调试与验证
-
-自主验证优先，使用 Playwright、Chrome DevTools MCP 进行交互测试。
-
-### Git 分支
-
-`feature/<名>` | `fix/<名>` | `refactor/<名>` | `experiment/<描述>`
-提交规范：`<type>(<scope>): <subject>`，scope: canvas|editor|workspace|ui|sync|electron
-
-### Review 提醒
-
-3+ 个功能或 1 周开发后提醒 review：React.memo、重复样式/逻辑、状态管理、未用依赖、类型完整性。
+- 分支：`feature/<名>` | `fix/<名>` | `refactor/<名>` | `experiment/<描述>`
+- 提交：`<type>(<scope>): <subject>`，scope: canvas|editor|workspace|ui|sync|electron
+- 不自动 push；提交前确认工作区只包含本次改动
 
 ## 数据格式兼容
 
@@ -50,51 +41,8 @@ React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.9 + Vite
 ## 代码原则
 
 - 优先编辑现有文件，不主动创建文档或添加注释
-- 搜索默认在 `src/`、`electron/`、`tests/` 目录，避免全项目搜索
-- 简体中文助手，优先使用 Playwright 调试，不支持截图
-
----
-
-## 索引工具分工
-
-**CodeGraph**（毫秒级）→ 日常结构查询 | **GitNexus**（秒级）→ 深度分析
-
-| 场景 | 用 CodeGraph | 用 GitNexus |
-|------|-------------|-------------|
-| 查找符号定义 | `codegraph_search` | - |
-| 快速上下文 | `codegraph_context` | - |
-| 调用链追踪 | `codegraph_trace` | - |
-| 几个符号源码 | `codegraph_explore` | - |
-| 影响分析/blast radius | - | `impact` |
-| 执行流/业务流程 | - | `query` |
-| 跨模块重命名 | - | `rename` |
-| 提交前变更检查 | - | `detect_changes` |
-| API 契约/路由分析 | - | `api_impact` / `route_map` |
-
-### CodeGraph 速查
-
-`codegraph_search` 查符号 | `codegraph_context` 任务上下文 | `codegraph_trace` 追踪流 | `codegraph_explore` 多符号源码 | `codegraph_impact` 改动影响
-
-索引刷新：Claude Code 内编辑自动 sync，外部修改需 `codegraph sync`
-
-### GitNexus 速查
-
-MUST：编辑前 `impact` 分析 | 提交前 `detect_changes` | HIGH/CRITICAL 风险必须警告 | 重命名用 `rename` 不用 find-replace
-
-资源：`gitnexus://repo/base/context` 概览 | `gitnexus://repo/base/processes` 执行流 | `gitnexus://repo/base/process/{name}` 执行追踪
-
-索引刷新：`node .gitnexus/run.cjs analyze`
-
----
-
-## 文档归档
-
-- 历史计划、规格与评审已归档到本地 `docs/archive/`（已 gitignore，不跟踪）；旧路径仍可在 git 历史中查到。
-- 更早的未跟踪文档保存在 `archive/untracked-docs` 分支（`docs/refer/` 等），需要时 `git checkout archive/untracked-docs -- docs/<path>` 恢复。
-
-## 踩坑总结
-
-`docs/lessons-learned.md` — 记录了已修复的疑难 bug 的根因和教训，排查类似问题时先查阅。
+- 搜索默认在 `src/`、`electron/`、`tests/`，避免全项目搜索
+- 简体中文沟通；结论先行，不确定就明说
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

@@ -51,6 +51,7 @@ release/               打包产物（不入库）
 - **[PROJECT.md](PROJECT.md)**：当前状态、路线图、结构、命令、可启动项、文档索引，改动只改这一处。
 - `python board.py`：把 PROJECT.md 渲染成只读看板，同时扫描仓库给出 git 状态、目录规模与测试健康摘要。
 - [CLAUDE.md](CLAUDE.md)：开发规范（分支、提交、数据格式、性能红线）。
+- [docs/TOOLS.md](docs/TOOLS.md)：工具手册（调试、打包、索引、归档恢复）。
 - [CHANGELOG.md](CHANGELOG.md)：版本变更；[docs/lessons-learned.md](docs/lessons-learned.md)：踩坑记录；[docs/performance.md](docs/performance.md)：性能规则。
 - `docs/archive/`：历史计划、规格与评审（本地归档，不跟踪）。
 

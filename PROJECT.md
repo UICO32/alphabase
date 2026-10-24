@@ -45,7 +45,7 @@ Alphabase 0.2.1 已完成品牌统一并产出 Windows x64 安装包（2026-08-1
 | `tests/` | Playwright E2E（浏览器 + Electron）与跨模块单测 |
 | `scripts/` | 构建、打包、ONNX 运行时准备、包体积预算 |
 | `prototype/` | 静态原型：项目板、3D 地形、落地页（不参与构建） |
-| `docs/` | 踩坑总结、性能规则、历史文档归档 |
+| `docs/` | 工具手册、踩坑总结、性能规则、历史文档归档 |
 | `release/` | 打包产物（不入库） |
 | `.github/workflows/` | CI：质量门禁、浏览器 E2E、Windows Electron E2E |
 
@@ -88,5 +88,6 @@ Alphabase 0.2.1 已完成品牌统一并产出 Windows x64 安装包（2026-08-1
 | `PROJECT.md` | 本文件，唯一跟踪事实源 |
 | `docs/lessons-learned.md` | 踩坑总结，排查类似问题先查 |
 | `docs/performance.md` | 性能目标、热点路径与剩余工作 |
+| `docs/TOOLS.md` | 工具手册：调试、打包、索引、归档恢复 |
 | `docs/archive/` | 历史计划、规格与评审（本地归档，不跟踪） |
 | `.github/workflows/ci.yml` | CI 质量门禁定义 |
