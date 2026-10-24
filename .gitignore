@@ -52,6 +52,8 @@ coverage/
 .cache/
 .tmp/
 *.tsbuildinfo
+__pycache__/
+*.pyc
 .superpowers/
 .worktrees/
 
@@ -73,6 +75,9 @@ tests/manual/
 # AI test artifacts
 docs/test-ai/
 docs/superpowers/
+
+# Historical design docs (local archive only)
+docs/archive/
 
 # Lock files (we use pnpm)
 package-lock.json
