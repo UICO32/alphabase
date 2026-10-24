@@ -1,16 +1,18 @@
 # Alphabase v2
 
-React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.6 + Vite 5 + React Flow + BlockNote + Zustand 5 + Electron 35 + Tailwind CSS 4
+React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.9 + Vite 5 + React Flow 12 + BlockNote 0.31 + Zustand 5 + Electron 42 + Tailwind CSS 4
 
 ## 项目进度
 
-当前功能状态、已完成事项、进行中改动与验证记录统一维护在 [docs/project-progress.md](docs/project-progress.md)。
+当前状态、路线图、命令、可启动项与结构统一维护在 [PROJECT.md](PROJECT.md)（唯一事实源）。
+可视化查看：`python board.py`（或双击 `board.cmd`）启动本地看板，默认 http://127.0.0.1:7788 。
 
 ## 开发规范
 
 ### 构建与运行
 
-- 开发调试：`pnpm dev:skip`（跳过开屏），普通启动：`pnpm dev`
+- 看板：`python board.py`（`--no-open` 只起服务，`--port` 换端口）
+- 开发调试：`pnpm dev`（浏览器）/ `pnpm electron:dev`（桌面壳）
 - **无用户明确要求，不执行 build 命令**
 - 打包流程：确认版本号 → 更新 CHANGELOG → `pnpm electron:pack`/`electron:dist` → 验证
 - 打包陷阱：`ELECTRON_RUN_AS_NODE=1` 会导致 exe 静默退出，需 `unset` 或用 PowerShell `Start-Process`
@@ -37,6 +39,8 @@ React Flow 画布知识管理桌面应用。技术栈：React 18 + TS 5.6 + Vite
 - 卡片：`cards/<uuid>.json`
 - 画板清单：`boards/_manifest.json`
 - 画板快照：`boards/<uuid>.json`（version: 2）
+- 主题研究元数据：`projects/<boardId>.json`
+- 媒体资产：`media/`（原文件 + 变体 + 索引，内容哈希去重）
 - 回收站：`trash/<uuid>.trash.json`
 
 ## 性能要求
@@ -83,9 +87,10 @@ MUST：编辑前 `impact` 分析 | 提交前 `detect_changes` | HIGH/CRITICAL �
 
 ---
 
-## 归档分支
+## 文档归档
 
-已归档的文档保存在 `archive/untracked-docs` 分支，包括 `docs/refer/`、`docs/superpowers/` 等。需要时 `git checkout archive/untracked-docs -- docs/<path>` 恢复。
+- 历史计划、规格与评审已归档到本地 `docs/archive/`（已 gitignore，不跟踪）；旧路径仍可在 git 历史中查到。
+- 更早的未跟踪文档保存在 `archive/untracked-docs` 分支（`docs/refer/` 等），需要时 `git checkout archive/untracked-docs -- docs/<path>` 恢复。
 
 ## 踩坑总结
 
