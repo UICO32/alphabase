@@ -22,8 +22,8 @@ test('workspace picker: select folder and create a card', async ({ page }) => {
   // 1. 首次进入应弹出工作区选择器
   await expect(page.getByText('选择工作区', { exact: true })).toBeVisible({ timeout: 5000 })
 
-  // 2. 点击"创建工作区"按钮触发预先安装的浏览器测试桥
-  await page.getByText('创建工作区').click()
+  // 2. 点击「选择文件夹作为工作区」触发预先安装的浏览器测试桥
+  await page.getByText('选择文件夹作为工作区').click()
 
   // 3. 等待工作区选择器关闭
   await expect(page.getByText('选择工作区', { exact: true })).not.toBeVisible({ timeout: 3000 })
@@ -53,8 +53,8 @@ test('workspace picker: should not show duplicate dialogs', async ({ page }) => 
   expect(pickerCount).toBe(1)
 
   // 2. 确保没有多余的中间弹层
-  const createDialogCount = await page.getByText('选择一个文件夹作为工作区').count()
-  expect(createDialogCount).toBe(0)
+  const subtitleCount = await page.getByText('打开已有文件夹里的卡片与画板').count()
+  expect(subtitleCount).toBe(1)
 
   // 3. 通过稳定的无障碍入口关闭弹窗
   await page.getByRole('button', { name: '关闭工作区选择' }).click()

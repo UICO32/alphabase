@@ -31,3 +31,13 @@ export async function stopActiveSyncEngine() {
     await engine.stop()
   }
 }
+
+/** 丢弃当前引擎的挂起写入并摘除引用，不产生磁盘写入。 */
+export function discardActiveSyncEngine() {
+  if (activeEngine) {
+    const engine = activeEngine
+    activeEngine = null
+    ;(window as any).__activeSyncEngine = null
+    engine.discard()
+  }
+}

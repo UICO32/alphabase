@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useCardStore } from '../stores/cardStore'
 import { useBoardStore } from '../stores/boardStore'
 import { useTrashStore } from '../stores/trashStore'
@@ -14,11 +14,10 @@ import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
 import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type ConflictDiffItem, type ProjectData } from '../utils/workspace/types'
 import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup, getFileSystemBackupSummary } from '../stores/backupStore'
-import { setActiveSyncEngine } from '../sync/syncEngineRef'
-import { setupSubscriptions } from '../sync/subscriptionManager'
+import { setActiveSyncEngine, discardActiveSyncEngine } from '../sync/syncEngineRef'
+import { setupSubscriptions, cleanupSubscriptions } from '../sync/subscriptionManager'
 import { embeddingStore } from '../stores/embeddingStore'
 import type { CardColor } from '../types/card'
-import { DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
 import { migrateInlineImagesForWorkspace } from '../media/migrateInlineImages'
 import { hasInlineMediaNodes, migrateInlineMediaNodes } from '../media/migrateInlineMediaNodes'
@@ -26,6 +25,7 @@ import { storeImageDataUrlForWorkspace } from '../media/imagePipeline'
 import { preloadCardEditor } from '../components/editor/cardEditorLoader'
 import { getStartupCapabilities } from '../platform/electronCapabilities'
 import { auditWorkspaceEvent, auditWorkspaceHealth } from '../utils/workspace/audit'
+import { isWorkspaceActive } from '../sync/workspaceGuard'
 
 const LAST_WORKSPACE_KEY = 'hepta-last-workspace-path'
 
@@ -48,66 +48,20 @@ function stepTime(name: string) {
   console.log(`[startup-renderer] ${name}: ${Math.round(now - __t.start)}ms`)
 }
 
-function createDemoCardContent(title: string) {
-  return `[{"type":"heading","props":{"level":2},"content":[{"type":"text","text":"${title}"}]}]`
-}
-
-function scheduleIdleTask(callback: () => void, timeout?: number) {
+/** 返回取消函数，供工作区切换时清理未执行的空闲任务。 */
+function scheduleIdleTask(callback: () => void, timeout?: number): () => void {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-    window.requestIdleCallback(() => callback(), timeout ? { timeout } : undefined)
-    return
+    const id = window.requestIdleCallback(() => callback(), timeout ? { timeout } : undefined)
+    return () => window.cancelIdleCallback(id)
   }
-  globalThis.setTimeout(callback, timeout ?? 0)
+  const id = globalThis.setTimeout(callback, timeout ?? 0)
+  return () => globalThis.clearTimeout(id)
 }
 
-function ensureGlobalDemoCards() {
-  const cards = useCardStore.getState().cards
-  if (Object.keys(cards).length > 0) return
-
-  const demos = [
-    { id: 'card-demo-1', title: '欢迎使用', color: 'blue' as const },
-    { id: 'card-demo-2', title: '功能特性', color: 'green' as const },
-    { id: 'card-demo-3', title: '快速开始', color: 'yellow' as const },
-  ]
-
-  demos.forEach(d => {
-    useCardStore.getState().addCard({
-      id: d.id,
-      content: createDemoCardContent(d.title),
-      color: d.color,
-      createdAt: Date.now(),
-      title: d.title,
-    })
-  })
+function describeLoadError(error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error)
+  return `工作区加载失败：${detail}`
 }
-
-function ensureDefaultBoard() {
-  const boardStore = useBoardStore.getState()
-  if (boardStore.boards.length > 0) return
-
-  const id = 'board-default'
-  boardStore.addBoard({
-    id,
-    name: '默认画板',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-  boardStore.setActiveBoard(id)
-
-  boardStore.saveBoardData(id, {
-    nodes: [
-      { id: 'card-demo-1', type: 'card' as const, position: { x: 100, y: 100 }, data: { cardId: 'card-demo-1', color: 'blue', width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT }, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
-      { id: 'card-demo-2', type: 'card' as const, position: { x: 500, y: 150 }, data: { cardId: 'card-demo-2', color: 'green', width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT }, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
-      { id: 'card-demo-3', type: 'card' as const, position: { x: 300, y: 400 }, data: { cardId: 'card-demo-3', color: 'yellow', width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT }, width: DEFAULT_CARD_WIDTH, height: DEFAULT_CARD_HEIGHT },
-    ],
-    edges: [
-      { id: `edge-board-default-a`, source: 'card-demo-1', target: 'card-demo-2', type: 'connection' as const },
-      { id: `edge-board-default-b`, source: 'card-demo-2', target: 'card-demo-3', type: 'connection' as const },
-    ],
-  })
-  boardStore.setLoaded(true)
-}
-
 export function useWorkspaceDataLoader() {
   const [initKey, setInitKey] = useState(0)
   const [dataReady, setDataReady] = useState(false)
@@ -115,8 +69,42 @@ export function useWorkspaceDataLoader() {
   const [pendingWorkspacePath, setPendingWorkspacePath] = useState<string | null>(null)
   const [hasBackup, setHasBackup] = useState(false)
   const [latestBackupSummary, setLatestBackupSummary] = useState<ConflictData['latestBackup']>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const backupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelIdleRef = useRef<(() => void) | null>(null)
+
+  // 延迟任务（自动备份、内联媒体迁移）属于当前加载的工作区，切换时必须取消。
+  const cancelDeferredWork = useCallback(() => {
+    if (backupTimerRef.current !== null) {
+      clearTimeout(backupTimerRef.current)
+      backupTimerRef.current = null
+    }
+    if (cancelIdleRef.current) {
+      cancelIdleRef.current()
+      cancelIdleRef.current = null
+    }
+  }, [])
+
+  // 放弃当前工作区：停掉订阅并丢弃挂起写入，保证取消/失败路径不落盘。
+  const abortActiveWorkspace = useCallback(() => {
+    cleanupSubscriptions()
+    discardActiveSyncEngine()
+  }, [])
+
+  const retry = useCallback(() => {
+    cancelDeferredWork()
+    abortActiveWorkspace()
+    setLoadError(null)
+    setDataReady(false)
+    setConflict(null)
+    setPendingWorkspacePath(null)
+    setInitKey(key => key + 1)
+  }, [cancelDeferredWork, abortActiveWorkspace])
 
   const loadWorkspaceData = useCallback(async (workspacePath: string, skipValidation: boolean = false) => {
+    cancelDeferredWork()
+    setLoadError(null)
     __t.start = 0; __t.steps = []
     stepTime('loadWorkspaceData-enter')
     const service = new WorkspaceService()
@@ -385,8 +373,11 @@ export function useWorkspaceDataLoader() {
       }).catch(() => {}),
     ])
 
-    // Delay backup + autoBackup 5s to avoid competing with startup
-    setTimeout(() => {
+    // Delay backup + autoBackup 5s to avoid competing with startup.
+    // 5 秒内可能已经切换工作区：执行前确认归属，避免给旧目录备份、或顶掉新工作区的自动备份。
+    backupTimerRef.current = setTimeout(() => {
+      backupTimerRef.current = null
+      if (!isWorkspaceActive(workspacePath)) return
       createFileSystemBackup(workspacePath).catch(() => {})
       startAutoBackup(workspacePath)
     }, 5000)
@@ -416,7 +407,9 @@ export function useWorkspaceDataLoader() {
     // Preview generation — defer first batch to next frame so React commits
     // canvas mount first, but previews still land before the first paint.
     requestAnimationFrame(() => useCardStore.getState().schedulePreviewHTMLGeneration())
-    scheduleIdleTask(async () => {
+    cancelIdleRef.current = scheduleIdleTask(async () => {
+      cancelIdleRef.current = null
+      if (!isWorkspaceActive(workspacePath)) return
       const cards = useCardStore.getState().cards
       const boardStore = useBoardStore.getState()
       const hasInlineCards = Object.values(cards).some((card) => card.content?.includes('data:image/'))
@@ -424,10 +417,12 @@ export function useWorkspaceDataLoader() {
       if (!hasInlineCards && !hasInlineBoards) return
 
       const safetyBackupPath = await createFileSystemBackup(workspacePath)
-      if (!safetyBackupPath) return
+      if (!safetyBackupPath || !isWorkspaceActive(workspacePath)) return
 
       for (const card of Object.values(cards)) {
         if (!card.content) continue
+        // 每次迁移前都校验归属：切换工作区后不能再改当前卡片列表。
+        if (!isWorkspaceActive(workspacePath)) return
         try {
           const result = await migrateInlineImagesForWorkspace(workspacePath, card.content)
           if (result.changed) useCardStore.getState().updateCard(card.id, { content: result.content })
@@ -436,6 +431,7 @@ export function useWorkspaceDataLoader() {
 
       for (const [boardId, data] of Object.entries(boardStore.boardData)) {
         if (!hasInlineMediaNodes(data.nodes)) continue
+        if (!isWorkspaceActive(workspacePath)) return
         try {
           const result = await migrateInlineMediaNodes(
             data.nodes,
@@ -460,81 +456,71 @@ export function useWorkspaceDataLoader() {
         console.error('[workspace] embedding init failed:', err)
       })
     }
-  }, [])
+  }, [cancelDeferredWork])
 
-  const handleConflictChoice = useCallback(async (choice: 'backup' | 'continue' | 'merge' | 'cancel') => {
+  const handleConflictChoice = useCallback(async (choice: 'backup' | 'continue' | 'cancel') => {
+    const workspacePath = pendingWorkspacePath
     setConflict(null)
-    if (pendingWorkspacePath) {
+    setPendingWorkspacePath(null)
+
+    if (workspacePath) {
       auditWorkspaceEvent({
         action: 'workspace-conflict-choice',
-        workspacePath: pendingWorkspacePath,
+        workspacePath,
         details: { choice },
       })
-      await auditWorkspaceHealth(pendingWorkspacePath, 'conflict-choice-before', { choice })
+      await auditWorkspaceHealth(workspacePath, 'conflict-choice-before', { choice })
     }
 
     if (choice === 'cancel') {
-      setPendingWorkspacePath(null)
-      ensureGlobalDemoCards()
-      ensureDefaultBoard()
-      setDataReady(true)
+      // 取消必须保持只读：丢弃挂起写入、不创建演示卡片/默认画板。
+      abortActiveWorkspace()
+      useWorkspaceStore.getState().setCurrentWorkspace(null)
+      if (workspacePath && localStorage.getItem(LAST_WORKSPACE_KEY) === workspacePath) {
+        localStorage.removeItem(LAST_WORKSPACE_KEY)
+      }
+      setDataReady(false)
+      setLoadError('已取消加载该工作区，磁盘上的数据没有被修改。请重新选择工作区。')
       notifyDataReady()
       return
     }
 
-    if (choice === 'backup' && pendingWorkspacePath) {
-      const backups = await listFileSystemBackups(pendingWorkspacePath)
+    if (!workspacePath) return
+    setDataReady(false)
+
+    if (choice === 'backup') {
+      const backups = await listFileSystemBackups(workspacePath)
       if (backups.length > 0) {
         const latestBackup = backups[0] // sorted newest-first by listFileSystemBackups
-        const result = await restoreFromBackup(latestBackup.timestamp, pendingWorkspacePath)
-        if (result.success) {
-          await auditWorkspaceHealth(pendingWorkspacePath, 'conflict-choice-backup-restored', { timestamp: latestBackup.timestamp })
-          loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
-            console.error('[workspace] loadWorkspaceData after backup restore failed:', err)
-            ensureGlobalDemoCards()
-            ensureDefaultBoard()
-            setDataReady(true)
-            notifyDataReady()
-          })
-        } else {
-          console.error('[workspace] restoreFromBackup failed:', result.error)
-          loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
-            console.error('[workspace] loadWorkspaceData after failed restore:', err)
-            ensureGlobalDemoCards()
-            ensureDefaultBoard()
-            setDataReady(true)
-            notifyDataReady()
-          })
+        const result = await restoreFromBackup(latestBackup.timestamp, workspacePath)
+        if (!result.success) {
+          setLoadError(`恢复备份失败：${result.error || '未知错误'}。磁盘数据没有被修改。`)
+          notifyDataReady()
+          return
         }
-        return
+        await auditWorkspaceHealth(workspacePath, 'conflict-choice-backup-restored', { timestamp: latestBackup.timestamp })
       }
     }
 
-    if (choice === 'merge') {
-      console.warn('[workspace] ignored deprecated merge conflict choice')
-      setPendingWorkspacePath(null)
-      return
+    try {
+      await loadWorkspaceData(workspacePath, true)
+    } catch (error) {
+      abortActiveWorkspace()
+      console.error('[workspace] loadWorkspaceData after conflict choice failed:', error)
+      setLoadError(describeLoadError(error))
+      notifyDataReady()
     }
-
-    // Continue loading: proceed with the workspace
-    if (pendingWorkspacePath) {
-      loadWorkspaceData(pendingWorkspacePath, true).catch((err) => {
-        console.error('[workspace] loadWorkspaceData after conflict choice failed:', err)
-        ensureGlobalDemoCards()
-        ensureDefaultBoard()
-        setDataReady(true)
-        notifyDataReady()
-      })
-    }
-  }, [pendingWorkspacePath, loadWorkspaceData])
+  }, [pendingWorkspacePath, loadWorkspaceData, abortActiveWorkspace])
 
   useEvent('reinit-workspace', () => {
+    cancelDeferredWork()
     setInitKey(k => k + 1)
     setDataReady(false)
+    setLoadError(null)
     setConflict(null)
     setPendingWorkspacePath(null)
     setLatestBackupSummary(null)
-  })
+  }, [cancelDeferredWork])
 
   useEffect(() => {
     let cancelled = false
@@ -582,19 +568,23 @@ if (!workspacePath) {
           await loadWorkspaceData(workspacePath)
         }
       } catch (err) {
+        abortActiveWorkspace()
         console.error('[workspace] loadWorkspaceData failed:', err)
-        ensureGlobalDemoCards()
-        ensureDefaultBoard()
-        if (!cancelled) { setDataReady(true); notifyDataReady() }
+        if (!cancelled) {
+          setDataReady(false)
+          setLoadError(describeLoadError(err))
+          notifyDataReady()
+        }
       }
     })()
 
     return () => {
       cancelled = true
+      cancelDeferredWork()
       stopAutoBackup()
       if (preloadTimer) clearTimeout(preloadTimer)
     }
-  }, [initKey, loadWorkspaceData])
+  }, [initKey, loadWorkspaceData, cancelDeferredWork, abortActiveWorkspace])
 
-  return { dataReady, conflict, hasBackup, latestBackupSummary, handleConflictChoice }
+  return { dataReady, conflict, hasBackup, latestBackupSummary, handleConflictChoice, loadError, retry }
 }

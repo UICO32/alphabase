@@ -1,5 +1,6 @@
 import { AlertTriangle, Database, HardDrive } from 'lucide-react'
 import type { ConflictDiffItem } from '../../utils/workspace/types'
+import { isDiskAhead, recommendedConflictChoice } from '../../utils/workspace/conflict'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './shadcn/dialog'
 
 export interface BackupSummary {
@@ -38,7 +39,56 @@ function formatDate(timestamp?: number): string {
 export function WorkspaceConflictDialog({ conflict, hasBackup, latestBackup, onChoice }: WorkspaceConflictDialogProps) {
   const missingCards = Math.max(conflict.expectedCards - conflict.actualCards, 0)
   const missingBoards = Math.max(conflict.expectedBoards - conflict.actualBoards, 0)
+  const extraCards = Math.max(conflict.actualCards - conflict.expectedCards, 0)
+  const extraBoards = Math.max(conflict.actualBoards - conflict.expectedBoards, 0)
+  const diskAhead = isDiskAhead(conflict)
+  const recommended = recommendedConflictChoice(conflict, hasBackup)
   const backup = latestBackup ?? conflict.latestBackup ?? null
+
+  const backupButton = hasBackup && backup ? (
+    <button
+      key="backup"
+      onClick={() => onChoice('backup')}
+      className="w-full rounded-lg border border-line-focus bg-surface-card px-4 py-3 text-left transition-colors hover:bg-surface-card-active"
+    >
+      <div className="flex items-start gap-3">
+        <Database size={18} className="mt-0.5 shrink-0 text-brand" />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-fg-primary">
+            {diskAhead ? '回滚到最近备份' : '恢复最近备份'}
+            {recommended === 'backup' ? '（推荐）' : ''}
+          </div>
+          <div className="text-xs text-fg-secondary mt-1 leading-5">
+            {diskAhead
+              ? `会丢弃磁盘上比记录更新的 ${extraCards} 张卡片、${extraBoards} 个画板，回滚前会自动备份当前磁盘，可再恢复。`
+              : `恢复 ${backup.cardCount} 张卡片、${backup.boardCount} 个画板。恢复前会先保存当前磁盘状态，所以这一步可回退。`}
+          </div>
+          <div className="text-xs text-fg-tertiary mt-1">备份时间：{formatDate(backup.createdAt)}</div>
+        </div>
+      </div>
+    </button>
+  ) : null
+
+  const continueButton = (
+    <button
+      key="continue"
+      onClick={() => onChoice('continue')}
+      className="w-full rounded-lg border border-line-default bg-transparent px-4 py-3 text-left transition-colors hover:bg-surface-card"
+    >
+      <div className="flex items-start gap-3">
+        <HardDrive size={18} className="mt-0.5 shrink-0 text-fg-secondary" />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-fg-primary">
+            继续使用当前磁盘数据
+            {recommended === 'continue' ? '（推荐）' : ''}
+          </div>
+          <div className="text-xs text-fg-secondary mt-1 leading-5">
+            保留当前的 {conflict.actualCards} 张卡片、{conflict.actualBoards} 个画板。不恢复缺失文件，后续自动备份可能会保存这个状态。
+          </div>
+        </div>
+      </div>
+    </button>
+  )
 
   return (
     <Dialog open>
@@ -79,45 +129,19 @@ export function WorkspaceConflictDialog({ conflict, hasBackup, latestBackup, onC
             </div>
           </div>
 
-          {(missingCards > 0 || missingBoards > 0) && (
+          {missingCards > 0 || missingBoards > 0 ? (
             <div className="rounded-lg p-3 text-sm" style={{ backgroundColor: 'hsla(0, 75%, 50%, 0.08)', color: 'var(--fg-danger)' }}>
               当前磁盘比记录少了 {missingCards} 张卡片、{missingBoards} 个画板。这个状态看起来像数据目录被清空或重建过。
             </div>
-          )}
+          ) : diskAhead ? (
+            <div className="rounded-lg bg-surface-card p-3 text-sm text-fg-secondary">
+              磁盘比记录多出 {extraCards} 张卡片、{extraBoards} 个画板。常见原因是上次退出时元数据还没写完，
+              这些通常是更新的数据，恢复旧备份会把它们丢掉。
+            </div>
+          ) : null}
 
           <div className="space-y-3">
-            {hasBackup && backup && (
-              <button
-                onClick={() => onChoice('backup')}
-                className="w-full rounded-lg border border-line-focus bg-surface-card px-4 py-3 text-left transition-colors hover:bg-surface-card-active"
-              >
-                <div className="flex items-start gap-3">
-                  <Database size={18} className="mt-0.5 shrink-0 text-brand" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-fg-primary">恢复最近备份（推荐）</div>
-                    <div className="text-xs text-fg-secondary mt-1 leading-5">
-                      恢复 {backup.cardCount} 张卡片、{backup.boardCount} 个画板。恢复前会先保存当前磁盘状态，所以这一步可回退。
-                    </div>
-                    <div className="text-xs text-fg-tertiary mt-1">备份时间：{formatDate(backup.createdAt)}</div>
-                  </div>
-                </div>
-              </button>
-            )}
-
-            <button
-              onClick={() => onChoice('continue')}
-              className="w-full rounded-lg border border-line-default bg-transparent px-4 py-3 text-left transition-colors hover:bg-surface-card"
-            >
-              <div className="flex items-start gap-3">
-                <HardDrive size={18} className="mt-0.5 shrink-0 text-fg-secondary" />
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-fg-primary">继续使用当前磁盘数据</div>
-                  <div className="text-xs text-fg-secondary mt-1 leading-5">
-                    保留当前的 {conflict.actualCards} 张卡片、{conflict.actualBoards} 个画板。不恢复缺失文件，后续自动备份可能会保存这个状态。
-                  </div>
-                </div>
-              </div>
-            </button>
+            {diskAhead ? <>{continueButton}{backupButton}</> : <>{backupButton}{continueButton}</>}
           </div>
 
           {!hasBackup && (

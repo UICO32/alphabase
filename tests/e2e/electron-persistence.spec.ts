@@ -56,8 +56,8 @@ test.describe('Electron 文件持久化测试', () => {
     const hasWorkspacePicker = await page.locator('text=选择工作区').isVisible().catch(() => false)
 
     if (hasWorkspacePicker) {
-      // Click "创建工作区" button
-      await page.click('text=创建工作区')
+      // Click the workspace folder-selection button
+      await page.click('text=选择文件夹作为工作区')
       await page.waitForTimeout(500)
 
       // Electron dialog should open - we need to handle it

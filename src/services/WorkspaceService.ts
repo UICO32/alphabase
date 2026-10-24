@@ -1,6 +1,7 @@
-import { readJSON, writeJSON, exists, readdir, readDirFiles, mkdir, deleteFile } from '../utils/workspace/fs'
-import type { BoardManifest, BoardSnapshot, CardFile, TrashFile, WorkspaceMetadata, ConflictDiffItem, ProjectData } from '../utils/workspace/types'
+import { readJSON, writeJSON, exists, readdir, readDirFiles, mkdir, deleteFile, stat } from '../utils/workspace/fs'
+import type { BoardManifest, BoardMeta, BoardSnapshot, CardFile, TrashFile, WorkspaceMetadata, ConflictDiffItem, ProjectData } from '../utils/workspace/types'
 import { listFileSystemBackups, restoreFromBackup } from '../stores/backupStore'
+import { auditWorkspaceEvent } from '../utils/workspace/audit'
 
 export class WorkspaceService {
   private workspacePath: string = ''
@@ -16,15 +17,47 @@ export class WorkspaceService {
   // --- Board Manifest ---
 
   async loadManifest(): Promise<BoardManifest> {
-    const path = `${this.workspacePath}/boards/_manifest.json`
-    if (!(await exists(path))) {
-      const boardsDir = `${this.workspacePath}/boards`
-      if (!(await exists(boardsDir))) await mkdir(boardsDir)
-      const empty: BoardManifest = { boards: [] }
-      await writeJSON(path, empty)
-      return empty
+    const manifestPath = `${this.workspacePath}/boards/_manifest.json`
+    if (await exists(manifestPath)) {
+      return await readJSON<BoardManifest>(manifestPath)
     }
-    return await readJSON<BoardManifest>(path)
+
+    const boardsDir = `${this.workspacePath}/boards`
+    if (!(await exists(boardsDir))) await mkdir(boardsDir)
+
+    // manifest 丢失但画板快照还在：按文件名重建，先救回画板列表。
+    // 直接写空 manifest 会让这些画板文件永远不可见，用户会以为画布丢了。
+    const boardFiles = (await readdir(boardsDir))
+      .filter(name => name.endsWith('.json') && name !== '_manifest.json')
+    if (boardFiles.length > 0) {
+      const rebuilt: BoardMeta[] = []
+      for (const file of boardFiles) {
+        const id = file.replace(/\.json$/, '')
+        let mtimeMs = Date.now()
+        try { mtimeMs = (await stat(`${boardsDir}/${file}`)).mtimeMs } catch { /* keep fallback */ }
+        rebuilt.push({
+          id,
+          // 画板名只存在 manifest 里，已经丢失；用 id 兜底，用户可自行重命名。
+          name: id === 'board-default' ? '默认画板' : id,
+          createdAt: mtimeMs,
+          updatedAt: mtimeMs,
+        })
+      }
+      rebuilt.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+      const manifest: BoardManifest = { boards: rebuilt }
+      await writeJSON(manifestPath, manifest)
+      auditWorkspaceEvent({
+        level: 'warn',
+        action: 'board-manifest-rebuilt',
+        workspacePath: this.workspacePath,
+        details: { boardCount: rebuilt.length, boardIds: rebuilt.map(board => board.id) },
+      })
+      return manifest
+    }
+
+    const empty: BoardManifest = { boards: [] }
+    await writeJSON(manifestPath, empty)
+    return empty
   }
 
   async saveManifest(manifest: BoardManifest): Promise<void> {

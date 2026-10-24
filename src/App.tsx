@@ -18,6 +18,7 @@ import { useEvent } from './hooks/useEvent'
 import { flushActiveSyncEngine, stopActiveSyncEngine } from './sync/syncEngineRef'
 import { cleanupSubscriptions } from './sync/subscriptionManager'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
+import { notifyError } from './utils/notify'
 import { useAppDialogs } from './hooks/useAppDialogs'
 import { useAppEvents } from './hooks/useAppEvents'
 import { preloadCardEditor } from './components/editor/cardEditorLoader'
@@ -51,7 +52,7 @@ function App() {
     showWorkspacePicker, setShowWorkspacePicker,
     showClipUrlBar, setShowClipUrlBar,
   } = useAppDialogs()
-  const { dataReady, conflict, hasBackup, latestBackupSummary, handleConflictChoice } = useWorkspaceDataLoader()
+  const { dataReady, conflict, hasBackup, latestBackupSummary, handleConflictChoice, loadError, retry } = useWorkspaceDataLoader()
 
   useAppEvents({ dataReady, setShowWorkspacePicker })
 
@@ -78,40 +79,29 @@ function App() {
 
   useEvent('select-folder', async () => {
     try {
-      let folderPath: string | null = null
-
       const electronAPI = window.electronAPI
-      if (electronAPI?.dialog?.openDirectory) {
-        const result = await electronAPI.dialog.openDirectory()
-        if (result) {
-          folderPath = result
-        }
+      if (!electronAPI?.dialog?.openDirectory) {
+        notifyError('浏览器预览无法访问本地工作区，请使用桌面版（pnpm electron:dev）')
+        return
       }
 
-      if (!folderPath && typeof (window as unknown as { showDirectoryPicker?: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker === 'function') {
-        try {
-          const dirHandle = await (window as unknown as { showDirectoryPicker: (options?: { mode?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker({ mode: 'readwrite' })
-          folderPath = dirHandle.name
-        } catch {
-          // User cancelled
-        }
-      }
+      const folderPath = await electronAPI.dialog.openDirectory()
+      if (!folderPath) return
 
-      if (folderPath) {
-        const name = folderPath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
-        const workspaceMeta = {
-          path: folderPath,
-          name,
-          lastOpened: Date.now(),
-        }
-        useWorkspaceStore.getState().setCurrentWorkspace(workspaceMeta)
-        useWorkspaceStore.getState().addRecentWorkspace(workspaceMeta)
-        localStorage.setItem('hepta-last-workspace-path', folderPath)
-        setShowWorkspacePicker(false)
-        emit('workspace-changed', { path: folderPath })
+      const name = folderPath.split(/[\\/]/).filter(Boolean).pop() || '未命名工作区'
+      const workspaceMeta = {
+        path: folderPath,
+        name,
+        lastOpened: Date.now(),
       }
+      useWorkspaceStore.getState().setCurrentWorkspace(workspaceMeta)
+      useWorkspaceStore.getState().addRecentWorkspace(workspaceMeta)
+      localStorage.setItem('hepta-last-workspace-path', folderPath)
+      setShowWorkspacePicker(false)
+      emit('workspace-changed', { path: folderPath })
     } catch (e) {
       console.error('Failed to select folder:', e)
+      notifyError(`无法打开工作区：${e instanceof Error ? e.message : String(e)}`)
     }
   })
 
@@ -186,7 +176,39 @@ function App() {
     return () => clearTimeout(timer)
   }, [dataReady])
 
-  if (!dataReady) return null
+  if (!dataReady) {
+    if (!loadError) return null
+    return (
+      <ErrorBoundary>
+        <div className="flex h-full w-full items-center justify-center bg-surface-app p-6">
+          <div className="w-full max-w-md rounded-2xl border border-line-default bg-surface-card p-6">
+            <h1 className="text-base font-semibold text-fg-primary">工作区加载失败</h1>
+            <p className="mt-2 break-words text-sm text-fg-secondary">{loadError}</p>
+            <p className="mt-2 text-xs text-fg-tertiary">数据文件仍保留在原目录，没有被删除或覆盖。</p>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setShowWorkspacePicker(true)}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-fg-inverse transition-colors hover:bg-brand-hover"
+              >
+                选择工作区
+              </button>
+              <button
+                onClick={retry}
+                className="rounded-lg border border-line-default px-4 py-2 text-sm text-fg-secondary transition-colors hover:bg-surface-card"
+              >
+                重试
+              </button>
+            </div>
+            {showWorkspacePicker && (
+              <Suspense fallback={null}>
+                <WorkspacePicker onClose={() => setShowWorkspacePicker(false)} />
+              </Suspense>
+            )}
+          </div>
+        </div>
+      </ErrorBoundary>
+    )
+  }
 
   return (
     <ErrorBoundary>

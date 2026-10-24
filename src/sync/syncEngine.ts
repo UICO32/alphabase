@@ -47,6 +47,13 @@ export class WorkspaceSyncEngine {
     return this.flushAll()
   }
 
+  /** 丢弃所有未写盘的挂起写入。取消加载工作区时用，保证不产生任何磁盘写入。 */
+  discard(): void {
+    for (const { timer } of this.pendingWrites.values()) clearTimeout(timer)
+    this.pendingWrites.clear()
+    this.running = false
+  }
+
   // 提取共享的 drainPending 逻辑，flushNow 和 flushAll 都复用
   private drainPending(parallel: boolean): Promise<void> | void {
     const entries = [...this.pendingWrites.entries()]
@@ -96,6 +103,8 @@ export class WorkspaceSyncEngine {
   }
 
   isRunning() { return this.running }
+
+  getWorkspacePath() { return this.workspacePath }
 
   private stringify(data: unknown, pretty = true) {
     return JSON.stringify(data, null, pretty ? 2 : undefined)

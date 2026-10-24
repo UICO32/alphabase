@@ -51,10 +51,10 @@ export function WorkspacePicker({ onClose }: WorkspacePickerProps) {
             </div>
             <div className="text-left">
               <div className="text-sm font-medium text-fg-primary">
-                创建工作区
+                选择文件夹作为工作区
               </div>
               <div className="text-xs text-fg-tertiary">
-                选择一个文件夹作为新的工作区
+                打开已有文件夹里的卡片与画板，不会移动或删除其中的文件
               </div>
             </div>
           </button>
