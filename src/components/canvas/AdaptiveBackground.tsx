@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { useStore, type Viewport } from '@xyflow/react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useStoreApi, type Viewport } from '@xyflow/react'
 
 export type GridPattern = 'cross' | 'dot' | 'circle' | 'triangle'
 
@@ -69,19 +69,30 @@ interface AdaptiveBackgroundProps {
   frameSchedulerRef?: { current: (() => void) | null }
 }
 
-export function AdaptiveBackground({
+interface GridRendererProps extends AdaptiveBackgroundProps {
+  /** 首帧需要的缩放；之后所有视口属性由命令式 renderViewport 写入。 */
+  initialZoom: number
+}
+
+const patternId = 'hepta-grid-pattern'
+
+/**
+ * 只做绘制的网格层。
+ *
+ * 这里不订阅 React Flow 的 transform：平移/缩放的每一帧由画布通过 frameSchedulerRef
+ * 调 renderViewport 直接改 SVG 属性。React 只在 color/pattern/初始缩放变化时重渲染，
+ * 避免视口每帧变化都带着整棵 SVG 树重渲染。
+ */
+const GridRenderer = memo(function GridRenderer({
   color,
   pattern = 'cross',
   visualViewportRef,
   frameSchedulerRef,
-}: AdaptiveBackgroundProps) {
-  const transform = useStore((s) => s.transform)
-  const patternId = 'hepta-grid-pattern'
+  initialZoom,
+}: GridRendererProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const patternRefs = useRef<Array<SVGPatternElement | null>>([])
   const shapeRefs = useRef<Array<SVGGElement | null>>([])
-
-  const [tx, ty, z] = transform
 
   const renderViewport = useCallback((viewport: Viewport) => {
     const svg = svgRef.current
@@ -107,8 +118,8 @@ export function AdaptiveBackground({
   }, [])
 
   useEffect(() => {
-    renderViewport(visualViewportRef?.current ?? { x: tx, y: ty, zoom: z })
-  }, [renderViewport, tx, ty, z, visualViewportRef])
+    renderViewport(visualViewportRef?.current ?? { x: 0, y: 0, zoom: initialZoom })
+  }, [renderViewport, initialZoom, visualViewportRef])
 
   useEffect(() => {
     if (!frameSchedulerRef) return
@@ -122,6 +133,7 @@ export function AdaptiveBackground({
     }
   }, [frameSchedulerRef, renderViewport, visualViewportRef])
 
+  const z = initialZoom
   const containerStyle = useMemo(() => ({
     position: 'absolute' as const,
     top: 0,
@@ -173,4 +185,11 @@ export function AdaptiveBackground({
       ))}
     </svg>
   )
+})
+
+export function AdaptiveBackground(props: AdaptiveBackgroundProps) {
+  // 用 store API 读一次初始缩放：不订阅 transform，平移/缩放期间容器不重渲染。
+  const store = useStoreApi()
+  const initialZoomRef = useRef(store.getState().transform[2])
+  return <GridRenderer {...props} initialZoom={initialZoomRef.current} />
 }
