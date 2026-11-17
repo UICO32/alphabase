@@ -21,6 +21,7 @@ import type { FrameNodeData } from '../components/canvas/FrameNode'
 import { kanbanDragPreview } from '../components/canvas/utils/kanbanDragPreview'
 import { setDragOverFrameId } from '../components/canvas/utils/frameInteraction'
 import type { CanvasSpatialIndex } from '../components/canvas/utils/canvasSpatialIndex'
+import { createCanvasSpatialIndex } from '../components/canvas/utils/canvasSpatialIndex'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
 import { useBoardStore } from '../stores/boardStore'
 import { useProjectStore } from '../stores/projectStore'
@@ -48,6 +49,10 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
   const snapLocksRef = useRef<{ x: SnapLock | null; y: SnapLock | null }>({ x: null, y: null })
   // 拖拽起始位置快照（主题栏置入时恢复"原位置保留"）
   const dragStartPositionsRef = useRef<Map<string, { x: number; y: number }> | null>(null)
+  // 拖拽开始时冻结的空间索引（排除被拖动/多选节点），避免拖拽每帧重建整棵索引。
+  const frozenIndexRef = useRef<CanvasSpatialIndex | null>(null)
+  // 拖拽期间被移动的节点 id（拖拽过程中选中集合不会变），避免每帧重新筛选中节点。
+  const draggedIdsRef = useRef<Set<string> | null>(null)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -68,8 +73,11 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
     (_event, node) => {
       const instance = reactFlowInstance.current
       if (!instance) return
-      const spatialIndex = spatialIndexRef.current
+      // 拖拽期间用开始时的冻结索引：静态节点不会移动，没必要每帧重建。
+      const spatialIndex = frozenIndexRef.current ?? spatialIndexRef.current
       if (!spatialIndex) return
+      // 每次拖拽事件只取一次节点快照，吸附、看板预览、连线句柄、悬停判断共用。
+      const allNodes = instance.getNodes()
 
       // 主题栏拖拽置入：指针命中展开面板时锁定节点位置（原位置保留），跳过画布内逻辑
       if (node.type === 'card' || node.type === 'frame') {
@@ -95,9 +103,8 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
         const zoom = instance.getViewport().zoom
         const threshold = SNAP_THRESHOLD_PX / zoom
 
-        const allNodes = instance.getNodes()
-        const selectedIds = new Set(allNodes.filter(n => n.selected).map(n => n.id))
-        const idsToNudge = selectedIds.size > 0 ? selectedIds : new Set([node.id])
+        const draggedIds = draggedIdsRef.current
+        const idsToNudge = draggedIds && draggedIds.size > 0 ? draggedIds : new Set([node.id])
 
         // node.position 是 React Flow 给的未经吸附的"鼠标真实位置"
         const dragData = node.data as CardNodeData
@@ -164,7 +171,6 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
           node.position.x += nudgeX
           node.position.y += nudgeY
           // 同步偏移其他选中节点（直接修改引用，避免 setNodes 与 React Flow 内部状态冲突）
-          const allNodes = instance.getNodes()
           for (const n of allNodes) {
             if (n.id !== node.id && idsToNudge.has(n.id)) {
               n.position.x += nudgeX
@@ -179,7 +185,7 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
         const nd = node.data as Record<string, unknown>
         const frameId = nd.frameId as string | undefined
         if (frameId) {
-          const frameNode = instance.getNode(frameId)
+          const frameNode = allNodes.find(n => n.id === frameId)
           if (frameNode && (frameNode.data as Record<string, unknown>).layout === 'kanban') {
             const fd = frameNode.data as Record<string, unknown>
             const frameW = (fd.width as number) ?? 600
@@ -198,7 +204,6 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
             const colX = FRAME_PADDING + colIdx * (colWidth + KANBAN_COL_GAP)
             const startY = FRAME_HEADER_HEIGHT + FRAME_PADDING + KANBAN_COL_HEADER_H + 4
 
-            const allNodes = instance.getNodes()
             const siblings = allNodes.filter(n => {
               if (n.id === node.id) return false
               const d = n.data as Record<string, unknown>
@@ -260,13 +265,14 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
         setDragOverFrameId(hoveredFrame ? hoveredFrame.id : null)
       }
 
+      const nodeById = new Map(allNodes.map(n => [n.id, n]))
       setEdges((eds) => {
         let changed = false
         const next = eds.map((e) => {
           if (e.source !== node.id && e.target !== node.id) return e
           changed = true
-          const sourceNode = instance.getNode(e.source)
-          const targetNode = instance.getNode(e.target)
+          const sourceNode = nodeById.get(e.source)
+          const targetNode = nodeById.get(e.target)
           if (!sourceNode || !targetNode) return e
           const sd = sourceNode.data as CardNodeData
           const sw = sd.width ?? DEFAULT_CARD_WIDTH
@@ -295,18 +301,23 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
     // 记录所有选中节点起始位置（供主题栏置入后恢复）
     const instance = reactFlowInstance.current
     const positions = new Map<string, { x: number; y: number }>()
-    if (instance) {
-      for (const n of instance.getNodes()) {
-        if (n.selected) positions.set(n.id, { x: n.position.x, y: n.position.y })
-      }
+    const allNodes = instance ? instance.getNodes() : []
+    for (const n of allNodes) {
+      if (n.selected) positions.set(n.id, { x: n.position.x, y: n.position.y })
     }
     if (!positions.has(_node.id)) positions.set(_node.id, { x: _node.position.x, y: _node.position.y })
     dragStartPositionsRef.current = positions
     topicDropState.setHovering(false)
 
+    // 冻结静态节点索引（排除本次被拖动的节点），拖拽过程中不再重建；
+    // 选中集合在拖拽期间不会变化，一并记下来避免每帧重算。
+    const draggedIds = new Set(positions.keys())
+    draggedIdsRef.current = draggedIds
+    frozenIndexRef.current = createCanvasSpatialIndex(allNodes.filter(n => !draggedIds.has(n.id)))
+
     if (_node.type === 'card' && instance) {
       const cardId = (_node.data as CardNodeData).cardId
-      const candidateCardIds = instance.getNodes().flatMap((candidate) => {
+      const candidateCardIds = allNodes.flatMap((candidate) => {
         if (candidate.type !== 'card') return []
         const candidateCardId = (candidate.data as CardNodeData).cardId
         return candidateCardId ? [candidateCardId] : []
@@ -320,6 +331,8 @@ export function useCanvasDrag({ reactFlowInstance, spatialIndexRef, setEdges, se
   const onNodeDragStop = useCallback((_event: MouseEvent | React.MouseEvent, node: Node) => {
     dragStartedRef.current = false
     snapLocksRef.current = { x: null, y: null }
+    frozenIndexRef.current = null
+    draggedIdsRef.current = null
     getActiveSyncEngine()?.setDragging(false)
     kanbanDragPreview.clear()
     setDragOverFrameId(null)

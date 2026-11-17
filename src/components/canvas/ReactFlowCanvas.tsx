@@ -54,7 +54,7 @@ import { connectionMediator } from './utils/connectionMediator'
 import { kanbanDragPreview } from './utils/kanbanDragPreview'
 import { useFrameInteraction, exitLassoMode, setLassoRect, setLassoSelectedCardIds, exitTextToolMode, setAutoEditAnnoId } from './utils/frameInteraction'
 import { CardNodeData, DEFAULT_CARD_WIDTH, DEFAULT_CARD_HEIGHT, DEFAULT_ANNOTATION_WIDTH, DEFAULT_ANNOTATION_HEIGHT, DEFAULT_ANNOTATION_CONTENT } from '../../types/card'
-import { createCanvasSpatialIndex, isBoundsCenterInsideRect } from './utils/canvasSpatialIndex'
+import { createCanvasSpatialIndex, isBoundsCenterInsideRect, type CanvasSpatialIndex } from './utils/canvasSpatialIndex'
 import { getVisibleCanvasEdges } from './utils/visibleCanvasEdges'
 import { getDensityOverviewProgress, OVERVIEW_INTERACTION_PROGRESS } from './densityOverview/densityOverviewModel'
 import { MultiSelectionScaler, MultiSelectWatcher } from './MultiSelectionScaler'
@@ -114,8 +114,14 @@ export function ReactFlowCanvas() {
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
   const edgesRef = useRef<Edge[]>(edges)
-  const spatialIndex = useMemo(() => createCanvasSpatialIndex(nodes), [nodes])
-  const spatialIndexRef = useRef(spatialIndex)
+  // 拖拽期间冻结空间索引：拖动节点位置每帧变化，但静态索引在拖拽开始时已由
+  // useCanvasDrag 单独建立，这里不必每帧重建（松手后 nodes 再变化时恢复更新）。
+  const spatialIndexRef = useRef<CanvasSpatialIndex>(createCanvasSpatialIndex([]))
+  const [isDraggingNode, setIsDraggingNode] = useState(false)
+  const spatialIndex = useMemo(() => {
+    if (isDraggingNode && spatialIndexRef.current) return spatialIndexRef.current
+    return createCanvasSpatialIndex(nodes)
+  }, [nodes, isDraggingNode])
   const presenceBoardIdRef = useRef<string | null>(null)
   const canvasViewportRef = useRef<BoardViewport | null>(null)
   const [boardViewportRequest, setBoardViewportRequest] = useState<{
@@ -744,7 +750,6 @@ export function ReactFlowCanvas() {
     return [...frames, ...others]
   }, [nodes])
 
-  const [isDraggingNode, setIsDraggingNode] = useState(false)
   const selectedNodesForAlignment = useMemo(() => {
     if (isDraggingNode) return []
     const nodeIds = new Set(nodes.map(n => n.id))
