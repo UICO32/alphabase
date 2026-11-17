@@ -3,6 +3,8 @@ import type { Edge, Node, ReactFlowInstance } from '@xyflow/react'
 import { useBoardStore } from '../../stores/boardStore'
 import { emit } from '../../stores/eventBus'
 import { useCardStore, type GlobalCard } from '../../stores/cardStore'
+import { getActiveSyncEngine } from '../../sync/syncEngineRef'
+import { DEFAULT_BOARD_VIEWPORT, type BoardEdge, type BoardNode } from '../../utils/workspace/types'
 import {
   COLLAPSED_CARD_HEIGHT,
   DEFAULT_CARD_HEIGHT,
@@ -13,6 +15,7 @@ import {
 type SetNodes = ReactFlowInstance<Node, Edge>['setNodes']
 type SetEdges = ReactFlowInstance<Node, Edge>['setEdges']
 type GetNode = ReactFlowInstance<Node, Edge>['getNode']
+type GetEdges = ReactFlowInstance<Node, Edge>['getEdges']
 type UpdateCard = (id: string, props: Partial<GlobalCard>) => void
 
 interface UseCardNodeActionsArgs {
@@ -22,6 +25,7 @@ interface UseCardNodeActionsArgs {
   setNodes: SetNodes
   setEdges: SetEdges
   getNode: GetNode
+  getEdges: GetEdges
 }
 
 export function useCardNodeActions({
@@ -31,6 +35,7 @@ export function useCardNodeActions({
   setNodes,
   setEdges,
   getNode,
+  getEdges,
 }: UseCardNodeActionsArgs) {
   const handleToggleCollapse = useCallback(() => {
     const newCollapsed = !isCollapsed
@@ -81,37 +86,53 @@ export function useCardNodeActions({
     if (!node) return
 
     const nodeData = node.data as CardNodeData
-    const nodeWidth = nodeData.width
-    const nodeHeight = nodeData.height
+    const currentEdges = getEdges()
+    const relatedEdges = currentEdges.filter((e) => e.source === cardId || e.target === cardId)
+    const remainingEdges = currentEdges.filter((e) => e.source !== cardId && e.target !== cardId)
 
-    setNodes((nds) => nds.filter((n) => n.id !== cardId))
-    setEdges((eds) => {
-      const relatedEdges = eds.filter((e) => e.source === cardId || e.target === cardId)
-      const remainingEdges = eds.filter((e) => e.source !== cardId && e.target !== cardId)
+    const boardStore = useBoardStore.getState()
+    const targetData = boardStore.getBoardData(boardId) ?? { nodes: [], edges: [] }
 
-      const boardStore = useBoardStore.getState()
-      const targetData = boardStore.getBoardData(boardId) || { nodes: [], edges: [] }
-      targetData.nodes.push({
-        id: node.id,
-        type: (node.type || 'card') as 'card' | 'frame' | 'media',
-        position: { x: node.position.x, y: node.position.y },
-        data: { ...node.data },
-        width: nodeWidth,
-        height: nodeHeight,
-      })
-      targetData.edges.push(...relatedEdges.map((e) => ({
+    // 目标画板可能已有同一节点/边（重复触发或并发重放）：按 id 去重，保证幂等。
+    const targetNodeIds = new Set(targetData.nodes.map((n) => n.id))
+    const targetEdgeIds = new Set(targetData.edges.map((e) => e.id))
+    const nodesToAdd: BoardNode[] = targetNodeIds.has(node.id)
+      ? []
+      : [{
+          id: node.id,
+          type: (node.type as BoardNode['type']) ?? 'card',
+          position: { x: node.position.x, y: node.position.y },
+          data: { ...node.data },
+          width: nodeData.width,
+          height: nodeData.height,
+        }]
+    const edgesToAdd: BoardEdge[] = relatedEdges
+      .filter((e) => !targetEdgeIds.has(e.id))
+      .map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
+        type: 'connection',
         sourceHandle: e.sourceHandle ?? undefined,
         targetHandle: e.targetHandle ?? undefined,
-        type: e.type,
-      })))
-      boardStore.saveBoardData(boardId, targetData)
+      }))
 
-      return remainingEdges
+    // 不可变更新：从稳定快照构造目标画板的新数组，不修改 store 里取出的对象。
+    const nextTargetNodes = [...(targetData.nodes as BoardNode[]), ...nodesToAdd]
+    const nextTargetEdges = [...(targetData.edges as BoardEdge[]), ...edgesToAdd]
+    boardStore.saveBoardData(boardId, { nodes: nextTargetNodes, edges: nextTargetEdges })
+    // boardData 不在 store 订阅里自动落盘：目标画板不在前台时也要显式排一次快照写入，
+    // 否则移动到别的画板的卡片要等下次切到那块画板才可能写盘。
+    getActiveSyncEngine()?.scheduleWriteBoard(boardId, {
+      version: 2,
+      nodes: nextTargetNodes,
+      edges: nextTargetEdges,
+      viewport: targetData.viewport ?? DEFAULT_BOARD_VIEWPORT,
     })
-  }, [cardId, getNode, setNodes, setEdges])
+
+    setNodes((nds) => nds.filter((n) => n.id !== cardId))
+    setEdges(remainingEdges)
+  }, [cardId, getEdges, getNode, setEdges, setNodes])
 
   return {
     handleToggleCollapse,

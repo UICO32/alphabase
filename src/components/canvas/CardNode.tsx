@@ -38,7 +38,7 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
   )
 
   const [isHovered, setIsHovered] = useState(false)
-  const { setNodes, setEdges, getNode } = useReactFlow()
+  const { setNodes, setEdges, getNode, getEdges } = useReactFlow()
   const isDarkMode = useIsDarkMode()
   const card = useCard(data.cardId)
   const updateCard = useCardStore((s) => s.updateCard)
@@ -242,6 +242,7 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
     setNodes,
     setEdges,
     getNode,
+    getEdges,
   })
 
   // SummaryButton/SummaryBubble 通过 zustand selector 直接读 cardStore，
