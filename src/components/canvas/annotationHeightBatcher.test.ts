@@ -47,4 +47,53 @@ describe('createAnnotationHeightBatcher', () => {
     expect(cancelFrame).toHaveBeenCalledWith(23)
     expect(onCommit).not.toHaveBeenCalled()
   })
+
+  it('treats the threshold itself as noise and the next pixel as a change', () => {
+    const frameCallbacks: FrameRequestCallback[] = []
+    const onCommit = vi.fn()
+    const batcher = createAnnotationHeightBatcher({
+      initialHeight: 100,
+      threshold: 4,
+      onCommit,
+      requestFrame: callback => {
+        frameCallbacks.push(callback)
+        return frameCallbacks.length
+      },
+    })
+
+    batcher.schedule(104)
+    expect(frameCallbacks).toHaveLength(0)
+
+    batcher.schedule(105)
+    expect(frameCallbacks).toHaveLength(1)
+    frameCallbacks[0](0)
+    expect(onCommit).toHaveBeenCalledWith(105)
+  })
+
+  it('measures noise against the last committed height, not the last observed one', () => {
+    const frameCallbacks: FrameRequestCallback[] = []
+    const onCommit = vi.fn()
+    const batcher = createAnnotationHeightBatcher({
+      initialHeight: 100,
+      threshold: 4,
+      onCommit,
+      requestFrame: callback => {
+        frameCallbacks.push(callback)
+        return frameCallbacks.length
+      },
+    })
+
+    batcher.schedule(120)
+    frameCallbacks[0](0)
+    expect(onCommit).toHaveBeenCalledWith(120)
+
+    // 相对已提交的 120 只差 2：属于抖动，不再排帧。
+    batcher.schedule(122)
+    expect(frameCallbacks).toHaveLength(1)
+
+    batcher.schedule(130)
+    expect(frameCallbacks).toHaveLength(2)
+    frameCallbacks[1](0)
+    expect(onCommit).toHaveBeenLastCalledWith(130)
+  })
 })
