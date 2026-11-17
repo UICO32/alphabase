@@ -18,6 +18,16 @@
   display: flex;
 }
 
+/*
+ * 缩放预览态下卡片正文已被标题/摘要完整遮住，却仍在逐帧排版和重栅格化：
+ * 上百张长文本卡片合计上万个文本节点，是缩小画布时卡顿的主要来源。
+ * 直接不参与布局与绘制即可，放大回预览阈值以上会自动恢复。
+ * 只作用于卡片正文（card-preview-content），不影响编辑器挂载时的占位预览。
+ */
+[data-zoom-preview-visible='true'] .card-preview-content {
+  display: none;
+}
+
 .zoom-preview::before {
   content: attr(data-title);
   min-height: min(calc(26px * var(--rf-inv-zoom, 1)), 93.6px);

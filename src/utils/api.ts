@@ -33,6 +33,8 @@ interface SeedPerformanceBoardOptions {
   height?: number
   spacingX?: number
   spacingY?: number
+  /** 循环使用的卡片内容模板；不传时用单段短文本。 */
+  contentTemplates?: string[]
 }
 
 declare global {
@@ -252,6 +254,7 @@ export const alphabaseAPI = {
         const spacingY = options.spacingY ?? height + 40
         const columns = Math.max(1, Math.floor(options.columns ?? Math.ceil(Math.sqrt(count))))
         const prefix = options.prefix ?? `perf-${count}`
+        const contentTemplates = options.contentTemplates?.length ? options.contentTemplates : null
         const now = Date.now()
         const boardId = `${prefix}-board-${now}`
 
@@ -271,7 +274,9 @@ export const alphabaseAPI = {
           const y = Math.floor(i / columns) * spacingY
           cards[id] = {
             id,
-            content: `[{"type":"paragraph","content":[{"type":"text","text":"Perf card ${i + 1}"}]}]`,
+            content: contentTemplates
+              ? contentTemplates[i % contentTemplates.length]
+              : `[{"type":"paragraph","content":[{"type":"text","text":"Perf card ${i + 1}"}]}]`,
             color: 'white',
             createdAt: now,
             title: `Perf card ${i + 1}`,

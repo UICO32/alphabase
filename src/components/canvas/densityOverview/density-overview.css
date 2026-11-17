@@ -1,5 +1,4 @@
 .density-overview-enabled {
-  --density-overview-progress: 0;
   position: relative;
 }
 
@@ -7,11 +6,11 @@
   z-index: 20;
 }
 
-.density-overview-enabled .react-flow__node,
-.density-overview-enabled .react-flow__edge,
-.density-overview-enabled .react-flow__background,
-.density-overview-enabled .canvas-alignment-toolbar {
-  opacity: calc(1 - var(--density-overview-progress));
+/* 淡出由 ReactFlowCanvas 直接写这三个容器的 opacity（见 applyOverviewFade）：
+   不用继承的 CSS 变量控制每个节点，避免每次缩放都让全量节点重算样式。 */
+.density-overview-enabled .react-flow__nodes,
+.density-overview-enabled .react-flow__edges,
+.density-overview-enabled .react-flow__background {
   transition: opacity 140ms linear;
 }
 

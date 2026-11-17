@@ -75,6 +75,35 @@ const edgeTypes = {
   connection: MemoizedConnectionEdge,
 }
 
+/**
+ * 逆缩放变量只写到真正使用它的元素上。
+ *
+ * 以前把 --rf-inv-zoom 写在画布根节点上：自定义属性会继承，缩放提交时浏览器
+ * 要把根节点下上万个卡片文本节点全部重算样式（120 张长文本卡实测约 94ms）。
+ * 现在只写 Frame 节点：它用该变量做标签/边框的逆向缩放。
+ */
+function applyInverseZoom(canvas: HTMLElement, zoom: number) {
+  const value = String(1 / zoom)
+  for (const element of canvas.querySelectorAll<HTMLElement>('.frame-node')) {
+    element.style.setProperty('--rf-inv-zoom', value)
+  }
+}
+
+/**
+ * 密度总览的淡出直接给三个容器写 opacity。
+ *
+ * 不再通过继承的 --density-overview-progress 控制每个节点：那会触发全量样式重算，
+ * 而 opacity 只影响绘制/合成，不进入布局与子节点样式计算。
+ */
+function applyOverviewFade(canvas: HTMLElement, progress: number) {
+  const opacity = String(1 - progress)
+  for (const element of canvas.querySelectorAll<HTMLElement>(
+    '.react-flow__nodes, .react-flow__edges, .react-flow__background',
+  )) {
+    element.style.opacity = opacity
+  }
+}
+
 export function ReactFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -114,14 +143,10 @@ export function ReactFlowCanvas() {
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
   const nodesRef = useRef<Node[]>(nodes)
   const edgesRef = useRef<Edge[]>(edges)
-  // 拖拽期间冻结空间索引：拖动节点位置每帧变化，但静态索引在拖拽开始时已由
-  // useCanvasDrag 单独建立，这里不必每帧重建（松手后 nodes 再变化时恢复更新）。
+  // 拖拽期间冻结空间索引：被拖动节点的位置每帧变化，但吸附/悬停用的索引在拖拽开始时
+  // 已由 useCanvasDrag 单独冻结，这里跳过重建；松手后 nodes 的最后一轮变化会补上。
   const spatialIndexRef = useRef<CanvasSpatialIndex>(createCanvasSpatialIndex([]))
   const [isDraggingNode, setIsDraggingNode] = useState(false)
-  const spatialIndex = useMemo(() => {
-    if (isDraggingNode && spatialIndexRef.current) return spatialIndexRef.current
-    return createCanvasSpatialIndex(nodes)
-  }, [nodes, isDraggingNode])
   const presenceBoardIdRef = useRef<string | null>(null)
   const canvasViewportRef = useRef<BoardViewport | null>(null)
   const [boardViewportRequest, setBoardViewportRequest] = useState<{
@@ -147,7 +172,10 @@ export function ReactFlowCanvas() {
 
   useEffect(() => { nodesRef.current = nodes }, [nodes])
   useEffect(() => { edgesRef.current = edges }, [edges])
-  useEffect(() => { spatialIndexRef.current = spatialIndex }, [spatialIndex])
+  useEffect(() => {
+    if (isDraggingNode) return
+    spatialIndexRef.current = createCanvasSpatialIndex(nodes)
+  }, [nodes, isDraggingNode])
   useEffect(() => { setNodesRef(nodes) }, [nodes])
   useLayoutEffect(() => {
     const presenceStore = useCanvasPresenceStore.getState()
@@ -207,13 +235,11 @@ export function ReactFlowCanvas() {
       if (canvas.dataset.zoomPreviewVisible !== previewVisibility) {
         canvas.dataset.zoomPreviewVisible = previewVisibility
       }
-      // These inherited variables affect every visible card. Set them once
-      // for the current committed viewport; changing them on every animation
-      // frame would force a style recalculation across the whole board.
+      // 逆缩放变量只在每次视口提交时写一次（不是每帧）：写到消费它的 Frame 节点上，
+      // 避免改画布根上的自定义属性导致整棵卡片树重算样式。
       if (!nodeZoomVariablesRef.current) {
         nodeZoomVariablesRef.current = true
-        canvas.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
-        canvas.style.setProperty('--rf-zoom', String(viewport.zoom))
+        applyInverseZoom(canvas, viewport.zoom)
       }
     }
     backgroundFrameSchedulerRef.current?.()
@@ -234,9 +260,7 @@ export function ReactFlowCanvas() {
     const canvas = canvasRef.current
     if (canvas) {
       canvas.dataset.densityOverviewProgress = progress.toFixed(3)
-      canvas.style.setProperty('--density-overview-progress', String(progress))
-      canvas.style.setProperty('--rf-inv-zoom', String(1 / viewport.zoom))
-      canvas.style.setProperty('--rf-zoom', String(viewport.zoom))
+      applyOverviewFade(canvas, progress)
     }
     nodeZoomVariablesRef.current = true
     setDensityOverviewProgress(progress)
@@ -544,7 +568,8 @@ export function ReactFlowCanvas() {
     updateVisualViewport(viewport)
     const progress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
     densityOverviewProgressRef.current = progress
-    canvasRef.current?.style.setProperty('--density-overview-progress', String(progress))
+    const canvas = canvasRef.current
+    if (canvas) applyOverviewFade(canvas, progress)
     setDensityOverviewProgress(progress)
     applyBoardViewport()
   }, [applyBoardViewport, densityOverviewZoomThreshold, updateVisualViewport])

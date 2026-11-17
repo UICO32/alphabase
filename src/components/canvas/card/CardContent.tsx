@@ -98,7 +98,7 @@ export const CardContent = memo(function CardContent({
       ) : (
         <div className="h-full overflow-y-auto px-6" style={{ fontSize: '13px', lineHeight: '1.5' }}>
           <div
-            className="bn-editor bn-default-styles card-preview-native"
+            className="bn-editor bn-default-styles card-preview-native card-preview-content"
             style={{ wordBreak: 'break-word', whiteSpace: 'break-spaces' }}
             dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
             onClickCapture={(e) => {

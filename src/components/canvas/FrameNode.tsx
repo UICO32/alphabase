@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
+import { memo, useState, useCallback, useEffect, useMemo, useRef, useSyncExternalStore, type CSSProperties } from 'react'
 import { type NodeProps, type Node, useReactFlow } from '@xyflow/react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
@@ -8,6 +8,7 @@ import type { CardNodeData } from '../../types/card'
 import { kanbanDragPreview } from './utils/kanbanDragPreview'
 import { useFrameInteraction, setResizingFrameId } from './utils/frameInteraction'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
+import { useLibraryStore } from '../../stores/libraryStore'
 
 const FRAME_COLORS: { value: string; label: string }[] = [
   { value: '#6366f1', label: '靛蓝' },
@@ -58,8 +59,10 @@ const LAYOUT_OPTIONS: { value: FrameLayout; label: string }[] = [
 export const FrameNode = memo(({ id, data, selected, positionAbsoluteX, positionAbsoluteY }: NodeProps<FrameNodeType>) => {
   const { setNodes, getViewport } = useReactFlow()
   // 注意：这里不再订阅 React Flow 的 transform。
-  // 标签/边框等逆缩放尺寸改用 CSS 变量 --rf-inv-zoom（由 ReactFlowCanvas.onMove
-  // 每帧更新），浏览器原生处理，避免缩放时整个 FrameNode 每帧重渲染。
+  // 标签/边框等逆缩放尺寸改用 CSS 变量 --rf-inv-zoom，浏览器原生处理，
+  // 避免缩放时整个 FrameNode 每帧重渲染。变量由画布在视口提交时命令式写到
+  // .frame-node 元素上（不写画布根，避免整棵卡片树重算样式）；这里给出挂载时的初值。
+  const committedZoom = useLibraryStore.getState().zoom
   const isDarkMode = useIsDarkMode()
   const isDragOver = useFrameInteraction(s => s.dragOverFrameId === id)
 
@@ -550,6 +553,7 @@ export const FrameNode = memo(({ id, data, selected, positionAbsoluteX, position
     <div
       className="frame-node relative"
       style={{
+        '--rf-inv-zoom': String(1 / committedZoom),
         width: size.width,
         height: size.height,
         background: isDarkMode
@@ -560,7 +564,7 @@ export const FrameNode = memo(({ id, data, selected, positionAbsoluteX, position
         boxShadow,
         pointerEvents: 'none',
         transition: 'border-color 0.15s, box-shadow 0.15s',
-      }}
+      } as CSSProperties}
     >
       {/* 标签区域 — 拖拽 + hover + 双击编辑，放在 Frame 上方避免被卡片遮挡 */}
       <div
