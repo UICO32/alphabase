@@ -2,7 +2,7 @@ export type EventMap = {
   'data-ready': undefined
   'switch-board': { boardId: string }
   'save-current-board': undefined
-  'reinit-workspace': undefined
+  'reinit-workspace': { path?: string }
   'workspace-changed': { path: string }
   'select-folder': undefined
   'add-card-node': { cardId: string; color: string }

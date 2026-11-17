@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     selectExternal: () => ipcRenderer.invoke('backup:selectExternal'),
     createAutomatic: (workspacePath: string) => ipcRenderer.invoke('backup:createAutomatic', workspacePath),
     listRecent: (workspacePath: string) => ipcRenderer.invoke('backup:listRecent', workspacePath),
+    inspectResidue: (workspacePath: string) => ipcRenderer.invoke('backup:inspectResidue', workspacePath),
     exportCurrent: (workspacePath: string) => ipcRenderer.invoke('backup:exportCurrent', workspacePath),
     exportRecent: (workspacePath: string, timestamp: string) => ipcRenderer.invoke('backup:exportRecent', workspacePath, timestamp),
     restoreExternal: (workspacePath: string, sourcePath: string) => ipcRenderer.invoke('backup:restoreExternal', workspacePath, sourcePath),

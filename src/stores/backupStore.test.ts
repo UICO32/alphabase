@@ -70,6 +70,7 @@ describe('backupStore', () => {
         selectExternal: vi.fn(),
         createAutomatic,
         listRecent: vi.fn(),
+        inspectResidue: vi.fn(),
         exportCurrent: vi.fn(),
         exportRecent: vi.fn(),
         restoreExternal: vi.fn(),
@@ -98,6 +99,7 @@ describe('backupStore', () => {
         selectExternal: vi.fn(),
         createAutomatic: vi.fn(),
         listRecent,
+        inspectResidue: vi.fn(),
         exportCurrent: vi.fn(),
         exportRecent: vi.fn(),
         restoreExternal: vi.fn(),
@@ -112,3 +114,4 @@ describe('backupStore', () => {
     })
   })
 })
+

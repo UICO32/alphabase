@@ -44,6 +44,7 @@ export function getBackupCapabilities(): ElectronCapabilitiesResult<ElectronAPI[
     || typeof backup.selectExternal !== 'function'
     || typeof backup.createAutomatic !== 'function'
     || typeof backup.listRecent !== 'function'
+    || typeof backup.inspectResidue !== 'function'
     || typeof backup.exportCurrent !== 'function'
     || typeof backup.exportRecent !== 'function'
     || typeof backup.restoreExternal !== 'function'

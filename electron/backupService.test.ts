@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
@@ -7,6 +7,7 @@ import {
   BACKUP_FORMAT_VERSION,
   createAutomaticBackup,
   exportCurrentWorkspace,
+  inspectRestoreResidue,
   restoreBackup,
   validateBackupFolder,
 } from './backupService'
@@ -155,5 +156,97 @@ describe('backup service', () => {
 
     expect(result).toMatchObject({ success: false, stage: 'validation' })
     expect(JSON.parse(await readFile(join(workspace, 'cards', 'card-1.json'), 'utf8'))).toEqual({ id: 'card-1' })
+  })
+
+  describe('恢复中断残留检测', () => {
+    async function createRollbackResidue(workspace: string, nonce: string): Promise<string> {
+      // 模拟替换阶段被杀：原目录已被 rename 进 rollback，工作区里暂时没有 cards。
+      const rollback = join(workspace, `.backup-restore-rollback-${nonce}`)
+      await mkdir(join(rollback, 'cards'), { recursive: true })
+      await mkdir(join(rollback, 'boards'), { recursive: true })
+      await writeFile(join(rollback, 'cards', 'card-1.json'), JSON.stringify({ id: 'card-1' }))
+      await writeFile(join(rollback, 'boards', '_manifest.json'), JSON.stringify({ boards: [{ id: 'board-1' }] }))
+      return rollback
+    }
+
+    async function createStageResidue(workspace: string, nonce: string): Promise<string> {
+      const stage = join(workspace, `.backup-restore-stage-${nonce}`)
+      await mkdir(join(stage, 'cards'), { recursive: true })
+      await mkdir(join(stage, 'boards'), { recursive: true })
+      await writeFile(join(stage, 'cards', 'card-1.json'), JSON.stringify({ id: 'card-1' }))
+      await writeFile(join(stage, 'cards', 'card-2.json'), JSON.stringify({ id: 'card-2' }))
+      await writeFile(join(stage, 'boards', '_manifest.json'), JSON.stringify({ boards: [] }))
+      await writeFile(join(stage, 'boards', 'board-1.json'), JSON.stringify({ version: 2 }))
+      return stage
+    }
+
+    it('检测 rollback 残留并报告来源时间与内容规模', async () => {
+      const root = await temporaryRoot()
+      const workspace = await createWorkspace(root)
+      await createRollbackResidue(workspace, '1700000000123-abc')
+
+      const residues = await inspectRestoreResidue(workspace)
+
+      expect(residues).toHaveLength(1)
+      expect(residues[0]).toMatchObject({
+        kind: 'rollback',
+        startedAt: 1_700_000_000_123,
+        cardCount: 1,
+        boardCount: 0,
+      })
+      expect(residues[0].topLevelEntries).toEqual(['boards', 'cards'])
+    })
+
+    it('检测 stage 残留并区分于 rollback', async () => {
+      const root = await temporaryRoot()
+      const workspace = await createWorkspace(root)
+      await createStageResidue(workspace, '1700000000456-def')
+
+      const residues = await inspectRestoreResidue(workspace)
+
+      expect(residues.map(residue => residue.kind)).toEqual(['stage'])
+      expect(residues[0]).toMatchObject({ startedAt: 1_700_000_000_456, cardCount: 2, boardCount: 1 })
+    })
+
+    it('多个残留按时间倒序排列，且不把普通目录当成残留', async () => {
+      const root = await temporaryRoot()
+      const workspace = await createWorkspace(root)
+      await createRollbackResidue(workspace, '1700000000100-a')
+      await createStageResidue(workspace, '1700000000900-b')
+      await mkdir(join(workspace, '.backup-restore-not-a-nonce'))
+
+      const residues = await inspectRestoreResidue(workspace)
+
+      expect(residues.map(residue => residue.kind)).toEqual(['stage', 'rollback'])
+    })
+
+    it('工作区缺目录时检测结果可用于提示，且不自动回滚或删除残留', async () => {
+      const root = await temporaryRoot()
+      const workspace = await createWorkspace(root)
+      const rollback = await createRollbackResidue(workspace, '1700000000200-c')
+      await rm(join(workspace, 'cards'), { recursive: true, force: true })
+
+      // 磁盘已不完整：正常加载会失败。
+      await expect(validateBackupFolder(workspace)).rejects.toThrow('Missing required directory: cards')
+
+      // 检测只读：不恢复、不删除。
+      const residues = await inspectRestoreResidue(workspace)
+      expect(residues).toHaveLength(1)
+      expect(await readFile(join(rollback, 'cards', 'card-1.json'), 'utf8')).toContain('card-1')
+      expect(await readdir(join(workspace, '.backup-restore-rollback-1700000000200-c'))).toBeDefined()
+    })
+
+    it('一次成功的恢复不会清理或回滚无关的历史残留', async () => {
+      const root = await temporaryRoot()
+      const workspace = await createWorkspace(root)
+      const source = await createAutomaticBackup(workspace, 1_700_000_000_300)
+      const historical = await createRollbackResidue(workspace, '1700000000001-old')
+
+      const restored = await restoreBackup(workspace, source.path!)
+
+      expect(restored.success).toBe(true)
+      const residues = await inspectRestoreResidue(workspace)
+      expect(residues.map(residue => residue.path)).toEqual([historical])
+    })
   })
 })

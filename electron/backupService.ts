@@ -509,3 +509,61 @@ export function intendedExportDirectory(downloadsPath: string): string {
 export function backupParent(path: string): string {
   return dirname(path)
 }
+
+// ─── 恢复中断残留 ───
+// restoreBackup 的替换阶段会先把现有目录 rename 到 .backup-restore-rollback-*，
+// 再把 stage 目录 rename 进来；进程若在这两步之间被杀，工作区会缺目录。
+// 这里只做检测与审计，绝不自动回滚——回滚需要用户确认，且要基于安全备份。
+
+export type RestoreResidueKind = 'stage' | 'rollback'
+
+export interface RestoreResidue {
+  kind: RestoreResidueKind
+  path: string
+  name: string
+  /** 目录名 nonce 里的毫秒时间戳；无法解析为 null */
+  startedAt: number | null
+  modifiedAt: number
+  topLevelEntries: string[]
+  cardCount: number
+  boardCount: number
+}
+
+const RESTORE_RESIDUE_PATTERN = /^\.backup-restore-(stage|rollback)-(\d+)-/
+
+async function countJsonFiles(directory: string, exclude?: string): Promise<number> {
+  const entries = await readdir(directory).catch(() => [] as string[])
+  return entries.filter(name => name.endsWith('.json') && name !== exclude).length
+}
+
+export async function inspectRestoreResidue(workspacePath: string): Promise<RestoreResidue[]> {
+  const rootPath = resolve(workspacePath)
+  const entries = await readdir(rootPath, { withFileTypes: true }).catch(() => [])
+  const residues: RestoreResidue[] = []
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const match = RESTORE_RESIDUE_PATTERN.exec(entry.name)
+    if (!match) continue
+    const path = join(rootPath, entry.name)
+    const entryStat = await lstat(path).catch(() => null)
+    if (!entryStat?.isDirectory() || entryStat.isSymbolicLink()) continue
+
+    const children = (await readdir(path).catch(() => [] as string[])).sort()
+    const startedAt = Number(match[2])
+    residues.push({
+      kind: match[1] as RestoreResidueKind,
+      path,
+      name: entry.name,
+      startedAt: Number.isFinite(startedAt) ? startedAt : null,
+      modifiedAt: entryStat.mtimeMs,
+      topLevelEntries: children,
+      cardCount: children.includes('cards') ? await countJsonFiles(join(path, 'cards')) : 0,
+      boardCount: children.includes('boards')
+        ? await countJsonFiles(join(path, 'boards'), '_manifest.json')
+        : 0,
+    })
+  }
+
+  return residues.sort((a, b) => (b.startedAt ?? b.modifiedAt) - (a.startedAt ?? a.modifiedAt))
+}

@@ -17,6 +17,7 @@ import { emit } from './stores/eventBus'
 import { useEvent } from './hooks/useEvent'
 import { flushActiveSyncEngine, stopActiveSyncEngine } from './sync/syncEngineRef'
 import { cleanupSubscriptions } from './sync/subscriptionManager'
+import { enqueueWorkspaceSwitch, isCurrentWorkspaceRun } from './sync/workspaceSwitchController'
 import { useWorkspaceDataLoader } from './hooks/useWorkspaceDataLoader'
 import { notifyError } from './utils/notify'
 import { useAppDialogs } from './hooks/useAppDialogs'
@@ -62,19 +63,28 @@ function App() {
     }
   })
 
-  useEvent('workspace-changed', async () => {
-    emit('save-current-board', undefined)
+  // 切换流程串行执行，并且每一步之后确认自己仍是最新运行：
+  // 上一次切换未完成时再次选择工作区，旧流程必须停下，不能把旧工作区的挂起写入带到新工作区。
+  useEvent('workspace-changed', (detail) => {
+    void enqueueWorkspaceSwitch(async (run) => {
+      emit('save-current-board', undefined)
 
-    await new Promise(r => setTimeout(r, 50))
-    await flushActiveSyncEngine()
-    cleanupSubscriptions()
+      await new Promise(r => setTimeout(r, 50))
+      if (!isCurrentWorkspaceRun(run)) return
 
-    useViewStore.getState().setViewMode('board')
-    await stopActiveSyncEngine()
-    useCardStore.setState({ cards: {}, isLoaded: false })
-    useBoardStore.setState({ boards: [], activeBoardId: null, isLoaded: false, boardData: {} })
-    useTrashStore.setState({ items: [] })
-    emit('reinit-workspace', undefined)
+      await flushActiveSyncEngine()
+      if (!isCurrentWorkspaceRun(run)) return
+
+      cleanupSubscriptions()
+      useViewStore.getState().setViewMode('board')
+      await stopActiveSyncEngine()
+      if (!isCurrentWorkspaceRun(run)) return
+
+      useCardStore.setState({ cards: {}, isLoaded: false })
+      useBoardStore.setState({ boards: [], activeBoardId: null, isLoaded: false, boardData: {} })
+      useTrashStore.setState({ items: [] })
+      emit('reinit-workspace', { path: detail.path })
+    })
   })
 
   useEvent('select-folder', async () => {

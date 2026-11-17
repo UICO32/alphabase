@@ -22,6 +22,16 @@ declare global {
     safetyBackupPath?: string
     summary?: BackupSummary
   }
+  interface RestoreResidue {
+    kind: 'stage' | 'rollback'
+    path: string
+    name: string
+    startedAt: number | null
+    modifiedAt: number
+    topLevelEntries: string[]
+    cardCount: number
+    boardCount: number
+  }
   interface StoredWorkspaceMedia {
     assetId: string
     kind: 'image' | 'video'
@@ -64,6 +74,7 @@ declare global {
         selectExternal: () => Promise<BackupOperationResult | null>
         createAutomatic: (workspacePath: string) => Promise<BackupOperationResult>
         listRecent: (workspacePath: string) => Promise<BackupSummary[]>
+        inspectResidue: (workspacePath: string) => Promise<RestoreResidue[]>
         exportCurrent: (workspacePath: string) => Promise<BackupOperationResult>
         exportRecent: (workspacePath: string, timestamp: string) => Promise<BackupOperationResult>
         restoreExternal: (workspacePath: string, sourcePath: string) => Promise<BackupOperationResult>

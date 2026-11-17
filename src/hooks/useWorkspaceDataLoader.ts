@@ -13,9 +13,10 @@ import { notifyError } from '../utils/notify'
 import { initElectronFSAdapter, cardFileToGlobalCard } from '../utils/workspace'
 import { exists } from '../utils/workspace/fs'
 import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type ConflictDiffItem, type ProjectData } from '../utils/workspace/types'
-import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup, getFileSystemBackupSummary } from '../stores/backupStore'
-import { setActiveSyncEngine, discardActiveSyncEngine } from '../sync/syncEngineRef'
+import { createFileSystemBackup, startAutoBackup, stopAutoBackup, listFileSystemBackups, restoreFromBackup, getFileSystemBackupSummary, listRestoreResidues } from '../stores/backupStore'
+import { setActiveSyncEngine, discardActiveSyncEngine, getActiveSyncEngine } from '../sync/syncEngineRef'
 import { setupSubscriptions, cleanupSubscriptions } from '../sync/subscriptionManager'
+import { beginWorkspaceRun, isCurrentWorkspaceRun } from '../sync/workspaceSwitchController'
 import { embeddingStore } from '../stores/embeddingStore'
 import type { CardColor } from '../types/card'
 import type { ConflictData } from '../components/ui/WorkspaceConflictDialog'
@@ -62,6 +63,42 @@ function describeLoadError(error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error)
   return `工作区加载失败：${detail}`
 }
+
+/**
+ * 恢复替换阶段被打断时会在工作区根目录留下 .backup-restore-stage-* / -rollback-*：
+ * 那时原有 cards/boards 已被移走、新的还没装进来，磁盘数据可能不完整。
+ * 这里只检测 + 审计 + 提示用户，绝不自动回滚——回滚必须基于安全备份并由用户确认。
+ */
+async function reportRestoreResidue(workspacePath: string): Promise<void> {
+  try {
+    const residues = await listRestoreResidues(workspacePath)
+    if (residues.length === 0) return
+    const latest = residues[0]
+    const startedAt = latest.startedAt ?? latest.modifiedAt
+    const when = startedAt > 0 ? new Date(startedAt).toLocaleString() : '未知时间'
+    auditWorkspaceEvent({
+      level: 'warn',
+      action: 'restore-residue-detected',
+      workspacePath,
+      path: latest.path,
+      details: {
+        count: residues.length,
+        residues: residues.map(({ kind, name, startedAt: started, modifiedAt, cardCount, boardCount }) => ({
+          kind, name, startedAt: started, modifiedAt, cardCount, boardCount,
+        })),
+      },
+    })
+    const latestKind = latest.kind === 'rollback' ? '被移走的旧数据暂存目录' : '待安装的暂存目录'
+    notifyError(
+      `检测到 ${residues.length} 个未完成的备份恢复残留（最近一次 ${when}，${latestKind}）。`
+      + '磁盘数据可能不完整，应用不会自动回滚；请在 设置 → 导入与导出 中选择备份恢复。',
+      { duration: 15000 },
+    )
+  } catch (error) {
+    console.error('[workspace] 恢复残留检测失败', error)
+  }
+}
+
 export function useWorkspaceDataLoader() {
   const [initKey, setInitKey] = useState(0)
   const [dataReady, setDataReady] = useState(false)
@@ -73,6 +110,9 @@ export function useWorkspaceDataLoader() {
 
   const backupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cancelIdleRef = useRef<(() => void) | null>(null)
+  // 切换目标路径：由 workspace-changed → reinit-workspace 显式传递。
+  // 不能只依赖 localStorage——在途的旧加载收尾时会把 localStorage 写回旧路径。
+  const nextWorkspacePathRef = useRef<string | null>(null)
 
   // 延迟任务（自动备份、内联媒体迁移）属于当前加载的工作区，切换时必须取消。
   const cancelDeferredWork = useCallback(() => {
@@ -95,6 +135,8 @@ export function useWorkspaceDataLoader() {
   const retry = useCallback(() => {
     cancelDeferredWork()
     abortActiveWorkspace()
+    // 立即作废在途加载：新加载要等 effect 重跑才开始，期间旧流程不得继续写 store。
+    beginWorkspaceRun()
     setLoadError(null)
     setDataReady(false)
     setConflict(null)
@@ -105,11 +147,15 @@ export function useWorkspaceDataLoader() {
   const loadWorkspaceData = useCallback(async (workspacePath: string, skipValidation: boolean = false) => {
     cancelDeferredWork()
     setLoadError(null)
+    // 每次加载都是新运行；更新的切换会让本次运行过期，过期后不得再写 store 或建立订阅。
+    const run = beginWorkspaceRun()
     __t.start = 0; __t.steps = []
     stepTime('loadWorkspaceData-enter')
     const service = new WorkspaceService()
     service.setWorkspacePath(workspacePath)
     await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-enter')
+    // 非阻塞：检测上次恢复是否被中断，只审计并提示，不改变任何磁盘数据。
+    void reportRestoreResidue(workspacePath)
 
     emitStartupProgress('加载数据...', 0, 4)
 
@@ -118,6 +164,19 @@ export function useWorkspaceDataLoader() {
     // 并行执行在首次加载（目录不存在）时必然竞态，init 必须先于读完成。
     const syncEngine = new WorkspaceSyncEngine()
     await syncEngine.init(workspacePath)
+    const abandonIfStale = () => {
+      // 只清理本次运行自己创建的引擎与订阅，不能动更新运行已经接管的部分。
+      if (getActiveSyncEngine() === syncEngine) {
+        cleanupSubscriptions()
+        discardActiveSyncEngine()
+      } else {
+        syncEngine.discard()
+      }
+    }
+    if (!isCurrentWorkspaceRun(run)) {
+      abandonIfStale()
+      return
+    }
     await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-after-sync-init')
     const [manifest, cardFiles, metadata, projectFiles] = await Promise.all([
       service.loadManifest(),
@@ -125,15 +184,22 @@ export function useWorkspaceDataLoader() {
       service.loadMetadata(),
       service.loadAllProjects(),
     ])
+    if (!isCurrentWorkspaceRun(run)) {
+      abandonIfStale()
+      return
+    }
     await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-after-read', {
       loadedCards: cardFiles.length,
       manifestBoards: manifest.boards.length,
       metadataCards: metadata?.cardCount ?? null,
       metadataBoards: metadata?.boardCount ?? null,
     })
+    if (!isCurrentWorkspaceRun(run)) {
+      abandonIfStale()
+      return
+    }
     setActiveSyncEngine(syncEngine)
     stepTime('data-loaded')
-
     emitStartupProgress('处理卡片...', 1, 4)
 
     const globalCards: Record<string, ReturnType<typeof cardFileToGlobalCard>> = {}
@@ -171,6 +237,10 @@ export function useWorkspaceDataLoader() {
       useCardStore.getState().reloadFromDB(globalCards),
     ])
     stepTime('cards+boards-loaded')
+    if (!isCurrentWorkspaceRun(run)) {
+      abandonIfStale()
+      return
+    }
 
     // 订阅在 reloadFromDB 之后设置
     setupSubscriptions(syncEngine)
@@ -215,6 +285,10 @@ export function useWorkspaceDataLoader() {
         for (const { id, exists: fileExists } of existsResults) {
           if (!fileExists) missingBoards.push(id)
         }
+      }
+      if (!isCurrentWorkspaceRun(run)) {
+        abandonIfStale()
+        return
       }
 
       if (missingBoards.length > 0 || cardCountMismatch || boardCountMismatch) {
@@ -358,6 +432,11 @@ export function useWorkspaceDataLoader() {
       /* noop */
     }
 
+    if (!isCurrentWorkspaceRun(run)) {
+      abandonIfStale()
+      return
+    }
+
     stepTime('trash-loaded')
 
     emitStartupProgress('启动完成', 4, 4)
@@ -401,6 +480,10 @@ export function useWorkspaceDataLoader() {
       const capabilities = getStartupCapabilities()
       if (capabilities.ok) await capabilities.value.log({ totalMs, steps: __t.steps })
     } catch { /* noop */ }
+    if (!isCurrentWorkspaceRun(run)) {
+      abandonIfStale()
+      return
+    }
     setDataReady(true)
     notifyDataReady()
     await auditWorkspaceHealth(workspacePath, 'loadWorkspaceData-ready')
@@ -512,7 +595,10 @@ export function useWorkspaceDataLoader() {
     }
   }, [pendingWorkspacePath, loadWorkspaceData, abortActiveWorkspace])
 
-  useEvent('reinit-workspace', () => {
+  useEvent('reinit-workspace', (detail) => {
+    // 让在途加载立即过期，避免旧流程在 effect 重跑前继续写 store。
+    nextWorkspacePathRef.current = detail?.path ?? null
+    beginWorkspaceRun()
     cancelDeferredWork()
     setInitKey(k => k + 1)
     setDataReady(false)
@@ -528,7 +614,7 @@ export function useWorkspaceDataLoader() {
 
     ;(async () => {
       try {
-        const workspacePath = localStorage.getItem(LAST_WORKSPACE_KEY)
+        const workspacePath = nextWorkspacePathRef.current ?? localStorage.getItem(LAST_WORKSPACE_KEY)
 
 if (!workspacePath) {
 	          emitStartupProgress('初始化工作区...', 0, 4)

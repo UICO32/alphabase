@@ -39,6 +39,7 @@ function backupAPI() {
     selectExternal: vi.fn().mockResolvedValue({ success: true, summary, path: summary.path }),
     createAutomatic: vi.fn(),
     listRecent: vi.fn().mockResolvedValue([summary]),
+    inspectResidue: vi.fn().mockResolvedValue([]),
     exportCurrent: vi.fn().mockResolvedValue({ success: true, path: 'C:/Downloads/Abase Backups/export-1', summary }),
     exportRecent: vi.fn().mockResolvedValue({ success: true, path: 'C:/Downloads/Abase Backups/export-2', summary }),
     restoreExternal: vi.fn(),

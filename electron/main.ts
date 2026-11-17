@@ -26,6 +26,7 @@ import {
   createAutomaticBackup,
   exportCurrentWorkspace,
   exportExistingBackup,
+  inspectRestoreResidue,
   intendedExportDirectory,
   listAutomaticBackups,
   recentBackupPath,
@@ -598,6 +599,28 @@ ipcMain.handle('backup:listRecent', async (event, workspacePath: string) => {
   assertMainWindowSender(event)
   assertWorkspaceRoot(workspacePath)
   return listAutomaticBackups(workspacePath)
+})
+
+ipcMain.handle('backup:inspectResidue', async (event, workspacePath: string) => {
+  assertMainWindowSender(event)
+  assertWorkspaceRoot(workspacePath)
+  const residues = await inspectRestoreResidue(workspacePath)
+  if (residues.length > 0) {
+    auditWorkspaceEvent({
+      level: 'warn',
+      source: 'main',
+      action: 'backup-restore-residue-detected',
+      workspacePath,
+      caller: getIpcCaller(event),
+      details: {
+        count: residues.length,
+        residues: residues.map(({ kind, name, startedAt, modifiedAt, cardCount, boardCount }) => ({
+          kind, name, startedAt, modifiedAt, cardCount, boardCount,
+        })),
+      },
+    })
+  }
+  return residues
 })
 
 ipcMain.handle('backup:exportCurrent', async (event, workspacePath: string) => {

@@ -107,6 +107,14 @@ export async function listFileSystemBackups(workspacePath: string): Promise<{ ti
     .sort((a, b) => b.createdAt - a.createdAt)
 }
 
+/** 检测恢复替换阶段被中断留下的残留目录。只做检测，不自动回滚。 */
+export async function listRestoreResidues(workspacePath: string): Promise<RestoreResidue[]> {
+  const capabilities = getBackupCapabilities()
+  if (capabilities.ok) return capabilities.value.inspectResidue(workspacePath)
+  // 浏览器模式没有恢复替换流程，也就不可能有残留。
+  return []
+}
+
 export async function getFileSystemBackupSummary(
   timestamp: string,
   workspacePath: string,

@@ -58,7 +58,7 @@ async function reloadWorkspaceAfterRestore(): Promise<void> {
       unsubscribe()
       resolve()
     })
-    emit('reinit-workspace', undefined)
+    emit('reinit-workspace', { path: localStorage.getItem(LAST_WORKSPACE_KEY) ?? undefined })
   })
 }
 
