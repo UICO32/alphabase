@@ -122,6 +122,9 @@ export function ReactFlowCanvas() {
     boardId: string
     viewport: BoardViewport | undefined
   } | null>(null)
+  // 已提交的视口快照：只给对齐工具栏这类需要跟随平移/缩放的浮层当低频信号，
+  // 避免它们直接订阅每帧变化的 transform。
+  const [settledViewport, setSettledViewport] = useState<BoardViewport | null>(null)
   const appliedViewportBoardIdRef = useRef<string | null>(null)
   const scheduledViewportRef = useRef<{ boardId: string; raf: number } | null>(null)
   const handleBoardLoaded = useCallback((boardId: string, viewport: BoardViewport | undefined) => {
@@ -219,6 +222,7 @@ export function ReactFlowCanvas() {
   const settleVisualViewport = useCallback((viewport: BoardViewport) => {
     nodeZoomVariablesRef.current = false
     updateVisualViewport(viewport)
+    setSettledViewport({ x: viewport.x, y: viewport.y, zoom: viewport.zoom })
     const progress = getDensityOverviewProgress(viewport.zoom, densityOverviewZoomThreshold)
     densityOverviewProgressRef.current = progress
     const canvas = canvasRef.current
@@ -983,6 +987,7 @@ export function ReactFlowCanvas() {
           selectedNodes={selectedNodesForAlignment}
           selectedEdges={selectedEdgesForAlignment}
           reactFlowInstance={reactFlowInstance}
+          viewport={settledViewport}
           onApplyAlignment={onApplyAlignment}
           onApplyScale={onApplyScale}
           isDraggingNode={isDraggingNode}

@@ -14,11 +14,18 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import { computeAlignment, computeBoundingBox, type AlignmentMode } from './utils/alignment'
+import type { BoardViewport } from '../../utils/workspace/types'
 
 interface AlignmentToolbarProps {
   selectedNodes: Node[]
   selectedEdges?: Edge[]
   reactFlowInstance: React.RefObject<ReactFlowInstance | null>
+  /**
+   * 画布已提交的视口快照（平移/缩放结束时更新）。
+   * 只作为重算触发信号：屏幕坐标必须用画布实例换算（含画布容器偏移），
+   * 但工具栏不能每帧订阅 transform，否则高频视口变化会带着它一起重渲染。
+   */
+  viewport?: BoardViewport | null
   onApplyAlignment: (updates: Map<string, { x: number; y: number }>) => void
   onApplyScale?: (updates: Map<string, { x: number; y: number; width: number; height: number }>) => void
   isDraggingNode?: boolean
@@ -43,6 +50,7 @@ export function AlignmentToolbar({
   selectedNodes,
   selectedEdges = [],
   reactFlowInstance,
+  viewport = null,
   onApplyAlignment,
   onApplyScale,
   isDraggingNode = false,
@@ -53,6 +61,7 @@ export function AlignmentToolbar({
     if (!selectedNodes.every(isAlignableNode)) return []
     return selectedNodes
   }, [selectedEdges.length, selectedNodes])
+  const viewportKey = viewport ? `${viewport.x}|${viewport.y}|${viewport.zoom}` : 'live'
   const position = useMemo(() => {
     const rf = reactFlowInstance.current
     if (!rf || isDraggingNode || alignableNodes.length < 2) return null
@@ -67,7 +76,7 @@ export function AlignmentToolbar({
     const y = aboveY >= 48 ? aboveY : belowY
 
     return { x: centerX, y, placeAbove: aboveY >= 48 }
-  }, [alignableNodes, isDraggingNode, reactFlowInstance])
+  }, [alignableNodes, isDraggingNode, reactFlowInstance, viewportKey])
 
   const handleClick = useCallback((mode: AlignmentMode) => {
     const updates = computeAlignment(alignableNodes, mode)
