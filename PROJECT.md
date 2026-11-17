@@ -3,15 +3,16 @@
 > 唯一事实源：项目状态、路线图、结构、命令、可启动项和文档索引都在这里维护。
 > `python board.py` 会把本文渲染成本地可视化看板。
 >
-> 最后更新：2026-10-24 · 版本 0.2.1 · 分支 main
+> 最后更新：2026-11-17 · 版本 0.2.1 · 分支 main
 
 ## 当前状态
 
 Alphabase 0.2.1 已完成品牌统一并产出 Windows x64 安装包（2026-08-16），随后项目暂停约两个月。
 2026-10-24 重启：本轮先收敛仓库（清理过期产物、归档历史设计文档、建立单一跟踪源与本地面板），再按路线图推进功能。
 
-仓库现状：`main` 分支干净、与 `origin/main` 同步；`pnpm typecheck`、`pnpm lint`、`pnpm test:unit`（105 文件 / 599 用例）、全量 Chromium E2E（60/60 通过，5.8 分钟）与包体积预算均通过。
+仓库现状：`main` 分支干净、与 `origin/main` 同步；`pnpm typecheck`、`pnpm lint`、`pnpm test:unit`（111 文件 / 626 用例）、全量 Chromium E2E（60/60 通过，5.8 分钟）与包体积预算均通过。
 2026-10-24 完成一轮工作区数据安全修复：切换工作区不再写错目录、画板清单丢失可重建、冲突取消保持只读、加载失败给出明确错误页。
+2026-11-17 完成 [修复计划](docs/26-10-25修复计划.md) 阶段 A/B：画板持久化缺口、工作区切换运行代号、恢复中断残留检测、文本注释自动编辑清理、跨画板移动不可变更新、Frame 缩放原点偏移、对齐工具栏跟随视口；并补上工作区引用完整性检查脚本（`node scripts/verify-workspace-integrity.mjs`）。阶段 C/D/E 需要先测量或单独设计，未动。
 历史设计文档已归档到本地 `docs/archive/`（不跟踪，旧路径仍可在 git 历史中查到）。
 
 ## 路线图
@@ -23,6 +24,8 @@ Alphabase 0.2.1 已完成品牌统一并产出 Windows x64 安装包（2026-08-1
 | 重启收敛 | 已完成 | 清理过期产物、归档历史文档、建立 PROJECT.md + board.py，同步 README 与 CLAUDE.md |
 | E2E 回归 | 已完成 | 2026-10-24 全量 Chromium E2E 60/60 通过（5.8 分钟），覆盖画布性能、持久化、媒体粘贴与主题栏 |
 | 工作区数据安全修复 | 已完成 | 切换工作区延迟任务护栏、manifest 缺失重建、冲突取消只读、加载失败显式错误态、目录选择修正；新增 15 项单测 + 2 项 E2E |
+| 修复计划阶段 A/B | 已完成 | 2026-11-17：画板持久化缺口、工作区切换运行代号、恢复残留检测、文本注释自动编辑清理、跨画板移动不可变更新、Frame 缩放原点偏移、对齐工具栏跟随视口；新增 24 项单测与完整性检查脚本。详见 `docs/26-10-25修复计划.md` |
+| 修复计划阶段 C/D/E | 待办 | 需要先测量（批量导入、预览调度、渲染热点）或单独设计（节点状态所有权、文本高度逻辑统一） |
 | 真实使用回归 | 待办 | 用 0.2.1 安装包跑真实工作区，记录问题清单，作为下一轮功能优先级依据 |
 | 媒体管道收尾 | 待办 | 旧内联图片迁移、孤儿资源隔离回收、打包后 sharp 与媒体协议验证（见 `docs/archive/plans/2026-08-13-scalable-canvas-media-pipeline.md`） |
 | 分支与 worktree 清理 | 待办 | 3 个未合并分支、4 个外部 worktree 待决定去留；旧品牌包已清理 |
@@ -59,8 +62,8 @@ Alphabase 0.2.1 已完成品牌统一并产出 Windows x64 安装包（2026-08-1
 | `pnpm dev` | 浏览器开发模式（Vite，127.0.0.1:5173） |
 | `pnpm electron:dev` | Electron 开发模式（含主进程热重建） |
 | `pnpm electron:start` | 启动已构建的 Electron 应用（需先 `pnpm electron:build`） |
-| `pnpm test:unit` | Vitest 单测（101 个文件 / 586 个用例） |
-| `pnpm test:e2e` | Playwright E2E（20 个 spec，自动起 dev server） |
+| `pnpm test:unit` | Vitest 单测 |
+| `pnpm test:e2e` | Playwright E2E（自动起 dev server） |
 | `pnpm typecheck` | TypeScript 类型检查 |
 | `pnpm lint` | ESLint |
 | `pnpm check:bundle` | 入口包体积预算检查 |

@@ -23,6 +23,7 @@
 - 需要看图时用 Playwright 截图（`pnpm exec playwright screenshot --full-page URL out.png`），临时图放 `.tmp/`（已 gitignore）
 - 单测：`pnpm test:unit`（Vitest）；聚焦单文件：`pnpm exec vitest run src/xxx.test.ts`
 - 类型/lint：`pnpm typecheck`、`pnpm lint`；包体积：`pnpm check:bundle`
+- 工作区引用完整性（卡片/画板/媒体/项目互相引用）：`node scripts/verify-workspace-integrity.mjs <工作区路径>`，加 `--json` 输出机器可读报告；有断链时退出码为 1
 - 浏览器自动化也可用 agent-browser 技能；Electron 专属 spec 在 Chromium 项目里会被忽略
 
 ## 打包

@@ -61,8 +61,8 @@ release/               打包产物（不入库）
 | --- | --- |
 | `pnpm typecheck` | TypeScript 类型检查 |
 | `pnpm lint` | ESLint |
-| `pnpm test:unit` | Vitest 单测（101 个文件 / 586 个用例） |
-| `pnpm test:e2e` | Playwright E2E（20 个 spec） |
+| `pnpm test:unit` | Vitest 单测 |
+| `pnpm test:e2e` | Playwright E2E |
 | `pnpm check:bundle` | 入口包体积预算 |
 
 CI 见 [.github/workflows/ci.yml](.github/workflows/ci.yml)：Linux 质量门禁、Chromium E2E、Windows Electron E2E 三个 job。
