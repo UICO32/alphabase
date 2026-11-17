@@ -4,6 +4,7 @@ import { useBoardStore } from '../stores/boardStore'
 import { useEvent } from './useEvent'
 import { serializeBoardData } from '../sync/boardSnapshot'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
+import { markBoardHydrated } from '../sync/boardHydration'
 import { DEFAULT_BOARD_VIEWPORT, getPersistedBoardViewport, type BoardViewport } from '../utils/workspace/types'
 
 interface UseWorkspaceLifecycleOptions {
@@ -108,6 +109,8 @@ export function useWorkspaceLifecycle({
       }))
     })
     setEdges(boardData.edges as Edge[])
+    // 标记本次 nodes/edges 来自水合，useBoardSync 不应把它当作用户改动排盘。
+    markBoardHydrated()
     onBoardLoaded?.(boardId, viewport)
   }, [setNodes, setEdges, nodesRef, edgesRef, viewportRef, onBoardLoaded])
 

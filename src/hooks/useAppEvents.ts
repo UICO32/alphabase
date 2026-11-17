@@ -80,9 +80,12 @@ export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEvents
     return () => unsub()
   }, [])
 
-  // Flush sync engine before window closes to prevent data loss
+  // Flush sync engine before window closes to prevent data loss.
+  // 顺序很重要：先让画布把当前 nodes/edges 序列化进 store 并排入引擎（save-current-board），
+  // 再 flush 引擎；只 flush 会漏掉“节点/边已改动但尚未排盘”的窗口。
   useEffect(() => {
     const syncFlush = async () => {
+      emit('save-current-board', undefined)
       const workspacePath = localStorage.getItem('hepta-last-workspace-path')
       if (workspacePath) await auditWorkspaceHealth(workspacePath, 'flush-before-close-before')
       const engine = (window as any).__activeSyncEngine
@@ -94,6 +97,7 @@ export function useAppEvents({ dataReady, setShowWorkspacePicker }: UseAppEvents
 
     // Quick flush for beforeunload/pagehide (may not complete)
     const quickFlush = () => {
+      emit('save-current-board', undefined)
       const workspacePath = localStorage.getItem('hepta-last-workspace-path')
       if (workspacePath) void auditWorkspaceHealth(workspacePath, 'quick-flush-before-unload')
       const engine = (window as any).__activeSyncEngine

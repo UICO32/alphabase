@@ -3,6 +3,7 @@ import { type Node, type Edge } from '@xyflow/react'
 import { useBoardStore } from '../stores/boardStore'
 import { useEvent } from './useEvent'
 import { getActiveSyncEngine } from '../sync/syncEngineRef'
+import { getBoardHydrationSeq } from '../sync/boardHydration'
 import { serializeBoardData } from '../sync/boardSnapshot'
 import { DEFAULT_BOARD_VIEWPORT, type BoardViewport } from '../utils/workspace/types'
 
@@ -38,6 +39,8 @@ export function useBoardSync({
   const edgesRef = useRef(edges)
   const lastSerializedRef = useRef<ReturnType<typeof serializeBoardData> | null>(null)
   const lastViewportRef = useRef<BoardViewport | null>(null)
+  // 初值 -1：挂载后的第一次渲染视为水合结果（画布可能在数据就绪后才挂载），不排盘。
+  const lastHydrationSeqRef = useRef(-1)
 
   isLoadedRef.current = isLoaded
   nodesRef.current = nodes
@@ -83,15 +86,25 @@ export function useBoardSync({
     }
   }, [activeBoardId])
 
+  // 节点与边本身的改动不排盘（旧实现只由视口变化/切板/卸载触发），这里用同一 600ms
+  // 合并防抖补上：拖拽过程中 nodes 每帧变化会不断重置定时器，松手后只写一次最终快照。
+  // 水合完成后的第一次变化不是用户改动，跳过；isLoaded 之前同样不排盘。
   useEffect(() => {
-    if (!isLoaded) return
+    if (!isLoaded || !activeBoardId) return
+
+    const hydrationSeq = getBoardHydrationSeq()
+    if (hydrationSeq !== lastHydrationSeqRef.current) {
+      lastHydrationSeqRef.current = hydrationSeq
+      lastSerializedRef.current = null
+      return
+    }
+
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(syncToStore, 600)
-
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [isLoaded, syncToStore])
+  }, [nodes, edges, isLoaded, activeBoardId, syncToStore])
 
   useEffect(() => {
     return () => {

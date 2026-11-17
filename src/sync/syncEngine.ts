@@ -10,6 +10,8 @@ export class WorkspaceSyncEngine {
   private projectsDir: string = ''
   private workspacePath: string = ''
   private pendingWrites = new Map<string, { data: string; timer: ReturnType<typeof setTimeout> }>()
+  /** 拖拽期间被抑制的画板快照：不排盘，但保留最新值供 flush（关闭窗口/切工作区）使用。 */
+  private deferredBoardWrites = new Map<string, string>()
   private running = false
   private isDragging = false
 
@@ -17,6 +19,8 @@ export class WorkspaceSyncEngine {
 
   setDragging(isDragging: boolean): void {
     this.isDragging = isDragging
+    // 松手后由节点/边变化的防抖写最终快照，拖拽期间的中间快照不必再写。
+    if (!isDragging) this.deferredBoardWrites.clear()
   }
 
   async init(workspacePath: string) {
@@ -51,28 +55,33 @@ export class WorkspaceSyncEngine {
   discard(): void {
     for (const { timer } of this.pendingWrites.values()) clearTimeout(timer)
     this.pendingWrites.clear()
+    this.deferredBoardWrites.clear()
     this.running = false
   }
 
   // 提取共享的 drainPending 逻辑，flushNow 和 flushAll 都复用
   private drainPending(parallel: boolean): Promise<void> | void {
-    const entries = [...this.pendingWrites.entries()]
-    for (const [, { timer }] of entries) {
+    const entries: Array<[string, string]> = []
+    for (const [key, { data, timer }] of this.pendingWrites) {
       clearTimeout(timer)
+      entries.push([key, data])
     }
+    // 拖拽中被抑制的快照也一起排空：进程要关闭时，中间快照也比丢失好。
+    for (const [path, data] of this.deferredBoardWrites) entries.push([path, data])
     this.pendingWrites.clear()
+    this.deferredBoardWrites.clear()
 
     if (parallel) {
       // flushAll: 并行写入，返回 Promise
       const promises: Promise<void>[] = []
-      for (const [key, { data }] of entries) {
+      for (const [key, data] of entries) {
         const path = key.startsWith('delete:') ? key.slice(7) : key
         promises.push(this.writeEntry(path, data))
       }
       return Promise.all(promises).then(() => {})
     } else {
       // flushNow: 同步依次写入
-      for (const [key, { data }] of entries) {
+      for (const [key, data] of entries) {
         const path = key.startsWith('delete:') ? key.slice(7) : key
         this.writeEntry(path, data).catch(() => { /* noop */ })
       }
@@ -133,9 +142,14 @@ export class WorkspaceSyncEngine {
   }
 
   scheduleWriteBoard(boardId: string, snapshot: BoardSnapshot, debounceMs = 600) {
-    if (this.isDragging) return
     const path = joinPath(this.boardsDir, `${boardId}.json`)
-    this.scheduleWrite(path, this.stringify(snapshot, false), debounceMs)
+    const data = this.stringify(snapshot, false)
+    if (this.isDragging) {
+      // 拖拽期间不排盘（避免每帧写盘），但保留最新快照供 flush 使用。
+      this.deferredBoardWrites.set(path, data)
+      return
+    }
+    this.scheduleWrite(path, data, debounceMs)
   }
 
   scheduleWriteManifest(manifest: BoardManifest, debounceMs = 300) {

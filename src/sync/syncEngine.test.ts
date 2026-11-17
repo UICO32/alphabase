@@ -113,7 +113,7 @@ describe('WorkspaceSyncEngine', () => {
       expect(boardWrites.length).toBe(0)
     })
 
-    it('re-schedules skipped board writes after dragging stops', async () => {
+    it('flushes the latest suppressed board snapshot instead of dropping it', async () => {
       engine.setDragging(true)
       engine.scheduleWriteBoard('board-1', {
         version: 2, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 },
@@ -121,22 +121,26 @@ describe('WorkspaceSyncEngine', () => {
 
       await engine.flushAll()
 
-      let boardWrites = mockWriteFile.mock.calls.filter(
+      // 拖拽中不按防抖排盘，但 flush（关闭窗口/切工作区）会写出最新快照。
+      const boardWrites = mockWriteFile.mock.calls.filter(
         (c: string[]) => c[0].includes('board-1'),
       )
-      expect(boardWrites.length).toBe(0)
+      expect(boardWrites.length).toBe(1)
+    })
 
-      engine.setDragging(false)
+    it('does not write the suppressed snapshot after dragging stops without a new change', async () => {
+      engine.setDragging(true)
       engine.scheduleWriteBoard('board-1', {
         version: 2, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 },
       }, 0)
 
-      await engine.flushAll()
+      engine.setDragging(false)
+      await new Promise(r => setTimeout(r, 100))
 
-      boardWrites = mockWriteFile.mock.calls.filter(
+      const boardWrites = mockWriteFile.mock.calls.filter(
         (c: string[]) => c[0].includes('board-1'),
       )
-      expect(boardWrites.length).toBe(1)
+      expect(boardWrites.length).toBe(0)
     })
 
     it('still writes cards while dragging', async () => {
