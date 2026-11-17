@@ -228,6 +228,7 @@ async function isNodeSelected(page: Page, nodeId: string): Promise<boolean> {
 async function selectCards(page: Page, nodeIds: string[]) {
   await waitForViewportSettled(page)
   const wanted = new Set(nodeIds)
+  let lastError: unknown = null
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       for (const id of await selectedNodeIds(page)) {
@@ -250,12 +251,13 @@ async function selectCards(page: Page, nodeIds: string[]) {
         await page.waitForTimeout(150)
         return
       }
-    } catch {
-      // 点击可能撞上视口动画或 React 提交窗口，等一拍后整轮重试。
+    } catch (error) {
+      // 点击可能撞上视口动画或 React 提交窗口，等一拍后整轮重试；保留最后一次错误便于定位。
+      lastError = error
     }
     await page.waitForTimeout(300)
   }
-  throw new Error(`无法稳定选中节点：${nodeIds.join(', ')}`)
+  throw lastError ?? new Error(`无法稳定选中节点：${nodeIds.join(', ')}`)
 }
 
 async function waitForViewportSettled(page: Page) {

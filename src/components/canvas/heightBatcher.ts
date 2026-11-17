@@ -1,4 +1,4 @@
-interface AnnotationHeightBatcherOptions {
+interface HeightBatcherOptions {
   initialHeight: number
   threshold: number
   onCommit: (height: number) => void
@@ -6,13 +6,14 @@ interface AnnotationHeightBatcherOptions {
   cancelFrame?: (frameId: number) => void
 }
 
-export function createAnnotationHeightBatcher({
+/** 把同一帧内多次观测到的高度合并成一次提交；threshold 内的抖动不提交。 */
+export function createHeightBatcher({
   initialHeight,
   threshold,
   onCommit,
   requestFrame = requestAnimationFrame,
   cancelFrame = cancelAnimationFrame,
-}: AnnotationHeightBatcherOptions) {
+}: HeightBatcherOptions) {
   let committedHeight = initialHeight
   let pendingHeight = initialHeight
   let frameId: number | null = null

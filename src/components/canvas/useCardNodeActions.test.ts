@@ -139,6 +139,11 @@ describe('useCardNodeActions.handleMoveToBoard', () => {
 
     const target = useBoardStore.getState().getBoardData(TARGET_BOARD)!
     expect(target.nodes).toHaveLength(1)
-    expect(target.nodes[0]).toMatchObject({ id: CARD_ID, type: 'card', width: 280, height: 200 })
+    expect(target.nodes[0]).toMatchObject({
+      id: CARD_ID,
+      type: 'card',
+      position: { x: 40, y: 60 },
+      data: { cardId: CARD_ID, width: 280, height: 200 },
+    })
   })
 })

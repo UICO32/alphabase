@@ -4,6 +4,7 @@ import { useBoardStore } from '../../stores/boardStore'
 import { emit } from '../../stores/eventBus'
 import { useCardStore, type GlobalCard } from '../../stores/cardStore'
 import { getActiveSyncEngine } from '../../sync/syncEngineRef'
+import { serializeBoardData } from '../../sync/boardSnapshot'
 import { DEFAULT_BOARD_VIEWPORT, type BoardEdge, type BoardNode } from '../../utils/workspace/types'
 import {
   COLLAPSED_CARD_HEIGHT,
@@ -85,41 +86,25 @@ export function useCardNodeActions({
     const node = getNode(cardId)
     if (!node) return
 
-    const nodeData = node.data as CardNodeData
     const currentEdges = getEdges()
     const relatedEdges = currentEdges.filter((e) => e.source === cardId || e.target === cardId)
     const remainingEdges = currentEdges.filter((e) => e.source !== cardId && e.target !== cardId)
 
+    // 与常规落盘共用同一套序列化，保证移动过去的节点/边和目标画板自己保存的形态一致。
+    const moved = serializeBoardData([node], relatedEdges)
     const boardStore = useBoardStore.getState()
     const targetData = boardStore.getBoardData(boardId) ?? { nodes: [], edges: [] }
 
     // 目标画板可能已有同一节点/边（重复触发或并发重放）：按 id 去重，保证幂等。
-    const targetNodeIds = new Set(targetData.nodes.map((n) => n.id))
-    const targetEdgeIds = new Set(targetData.edges.map((e) => e.id))
-    const nodesToAdd: BoardNode[] = targetNodeIds.has(node.id)
-      ? []
-      : [{
-          id: node.id,
-          type: (node.type as BoardNode['type']) ?? 'card',
-          position: { x: node.position.x, y: node.position.y },
-          data: { ...node.data },
-          width: nodeData.width,
-          height: nodeData.height,
-        }]
-    const edgesToAdd: BoardEdge[] = relatedEdges
-      .filter((e) => !targetEdgeIds.has(e.id))
-      .map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: 'connection',
-        sourceHandle: e.sourceHandle ?? undefined,
-        targetHandle: e.targetHandle ?? undefined,
-      }))
+    // boardData 里存的本来就是序列化后的 BoardNode/BoardEdge，只是 store 类型写宽了。
+    const previousNodes = targetData.nodes as BoardNode[]
+    const previousEdges = targetData.edges as BoardEdge[]
+    const targetNodeIds = new Set(previousNodes.map((n) => n.id))
+    const targetEdgeIds = new Set(previousEdges.map((e) => e.id))
+    const nextTargetNodes: BoardNode[] = [...previousNodes, ...moved.nodes.filter((n) => !targetNodeIds.has(n.id))]
+    const nextTargetEdges: BoardEdge[] = [...previousEdges, ...moved.edges.filter((e) => !targetEdgeIds.has(e.id))]
 
     // 不可变更新：从稳定快照构造目标画板的新数组，不修改 store 里取出的对象。
-    const nextTargetNodes = [...(targetData.nodes as BoardNode[]), ...nodesToAdd]
-    const nextTargetEdges = [...(targetData.edges as BoardEdge[]), ...edgesToAdd]
     boardStore.saveBoardData(boardId, { nodes: nextTargetNodes, edges: nextTargetEdges })
     // boardData 不在 store 订阅里自动落盘：目标画板不在前台时也要显式排一次快照写入，
     // 否则移动到别的画板的卡片要等下次切到那块画板才可能写盘。

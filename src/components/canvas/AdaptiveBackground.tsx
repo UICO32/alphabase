@@ -1,10 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStoreApi, type Viewport } from '@xyflow/react'
 
 export type GridPattern = 'cross' | 'dot' | 'circle' | 'triangle'
 
 const BASE_GAP = 25
-const MAX_OPACITY = 1
 
 const gridSteps = [
   { min: -1,   mid: 0.15, step: 27 },
@@ -13,24 +12,25 @@ const gridSteps = [
   { min: 0.7,  mid: 4,    step: 1 },
 ]
 
-function modulate(value: number, rangeA: number[], rangeB: number[]) {
-  const [fromLow, fromHigh] = rangeA
-  const [v0, v1] = rangeB
-  return v0 + ((value - fromLow) / (fromHigh - fromLow)) * (v1 - v0)
-}
-
 function stepOpacity(z: number, min: number, mid: number) {
   if (z < min) return 0
   if (z >= mid) return 1
-  return modulate(z, [min, mid], [0, 1])
+  return (z - min) / (mid - min)
 }
 
-function PatternShape({ pattern, color, cx, cy, size: _size }: {
+/** 每层网格在给定缩放下的间距/半格偏移/透明度。 */
+function getGridLayers(zoom: number) {
+  return gridSteps.map((gs) => {
+    const gap = gs.step * BASE_GAP * zoom
+    return { gap, offset: gap / 2, opacity: stepOpacity(zoom, gs.min, gs.mid) }
+  })
+}
+
+function PatternShape({ pattern, color, cx, cy }: {
   pattern: GridPattern
   color: string
   cx: number
   cy: number
-  size: number
 }) {
   switch (pattern) {
     case 'cross': {
@@ -69,27 +69,28 @@ interface AdaptiveBackgroundProps {
   frameSchedulerRef?: { current: (() => void) | null }
 }
 
-interface GridRendererProps extends AdaptiveBackgroundProps {
-  /** 首帧需要的缩放；之后所有视口属性由命令式 renderViewport 写入。 */
-  initialZoom: number
-}
-
 const patternId = 'hepta-grid-pattern'
 
 /**
  * 只做绘制的网格层。
  *
  * 这里不订阅 React Flow 的 transform：平移/缩放的每一帧由画布通过 frameSchedulerRef
- * 调 renderViewport 直接改 SVG 属性。React 只在 color/pattern/初始缩放变化时重渲染，
+ * 调 renderViewport 直接改 SVG 属性。React 只在 color/pattern 变化时重渲染，
  * 避免视口每帧变化都带着整棵 SVG 树重渲染。
  */
-const GridRenderer = memo(function GridRenderer({
+export const AdaptiveBackground = memo(function AdaptiveBackground({
   color,
   pattern = 'cross',
   visualViewportRef,
   frameSchedulerRef,
-  initialZoom,
-}: GridRendererProps) {
+}: AdaptiveBackgroundProps) {
+  // 不订阅 transform，只在挂载时读一次首帧需要的视口。
+  const store = useStoreApi()
+  const [initialViewport] = useState<Viewport>(() => {
+    const [x, y, zoom] = store.getState().transform
+    return { x, y, zoom }
+  })
+  const initialLayers = useMemo(() => getGridLayers(initialViewport.zoom), [initialViewport.zoom])
   const svgRef = useRef<SVGSVGElement>(null)
   const patternRefs = useRef<Array<SVGPatternElement | null>>([])
   const shapeRefs = useRef<Array<SVGGElement | null>>([])
@@ -98,28 +99,24 @@ const GridRenderer = memo(function GridRenderer({
     const svg = svgRef.current
     if (!svg) return
 
-    gridSteps.forEach((gs, index) => {
+    getGridLayers(viewport.zoom).forEach((layer, index) => {
       const patternElement = patternRefs.current[index]
       const shapeElement = shapeRefs.current[index]
       if (!patternElement || !shapeElement) return
 
-      const opacity = stepOpacity(viewport.zoom, gs.min, gs.mid) * MAX_OPACITY
-      const scaledGap = gs.step * BASE_GAP * viewport.zoom
-      const scaledOffset = scaledGap / 2
-
-      patternElement.setAttribute('x', String(viewport.x % scaledGap))
-      patternElement.setAttribute('y', String(viewport.y % scaledGap))
-      patternElement.setAttribute('width', String(scaledGap))
-      patternElement.setAttribute('height', String(scaledGap))
-      patternElement.setAttribute('patternTransform', `translate(-${scaledOffset},-${scaledOffset})`)
-      shapeElement.setAttribute('transform', `translate(${scaledOffset},${scaledOffset})`)
-      shapeElement.setAttribute('opacity', String(opacity))
+      patternElement.setAttribute('x', String(viewport.x % layer.gap))
+      patternElement.setAttribute('y', String(viewport.y % layer.gap))
+      patternElement.setAttribute('width', String(layer.gap))
+      patternElement.setAttribute('height', String(layer.gap))
+      patternElement.setAttribute('patternTransform', `translate(-${layer.offset},-${layer.offset})`)
+      shapeElement.setAttribute('transform', `translate(${layer.offset},${layer.offset})`)
+      shapeElement.setAttribute('opacity', String(layer.opacity))
     })
   }, [])
 
   useEffect(() => {
-    renderViewport(visualViewportRef?.current ?? { x: 0, y: 0, zoom: initialZoom })
-  }, [renderViewport, initialZoom, visualViewportRef])
+    renderViewport(visualViewportRef?.current ?? initialViewport)
+  }, [renderViewport, initialViewport, visualViewportRef])
 
   useEffect(() => {
     if (!frameSchedulerRef) return
@@ -133,7 +130,6 @@ const GridRenderer = memo(function GridRenderer({
     }
   }, [frameSchedulerRef, renderViewport, visualViewportRef])
 
-  const z = initialZoom
   const containerStyle = useMemo(() => ({
     position: 'absolute' as const,
     top: 0,
@@ -146,33 +142,35 @@ const GridRenderer = memo(function GridRenderer({
 
   return (
     <svg ref={svgRef} className="react-flow__background" style={containerStyle}>
-      {gridSteps.map((gs, index) => (
-        <pattern
-          key={`${patternId}-grid-${index}`}
-          ref={(element) => { patternRefs.current[index] = element }}
-          id={`${patternId}-grid-${index}`}
-          x="0"
-          y="0"
-          width={BASE_GAP * gs.step * z}
-          height={BASE_GAP * gs.step * z}
-          patternUnits="userSpaceOnUse"
-          patternTransform={`translate(-${BASE_GAP * gs.step * z / 2},-${BASE_GAP * gs.step * z / 2})`}
-        >
-          <g
-            ref={(element) => { shapeRefs.current[index] = element }}
-            transform={`translate(${BASE_GAP * gs.step * z / 2},${BASE_GAP * gs.step * z / 2})`}
-            opacity={stepOpacity(z, gs.min, gs.mid) * MAX_OPACITY}
+      {gridSteps.map((_gs, index) => {
+        const layer = initialLayers[index]
+        return (
+          <pattern
+            key={`${patternId}-grid-${index}`}
+            ref={(element) => { patternRefs.current[index] = element }}
+            id={`${patternId}-grid-${index}`}
+            x={String(initialViewport.x % layer.gap)}
+            y={String(initialViewport.y % layer.gap)}
+            width={layer.gap}
+            height={layer.gap}
+            patternUnits="userSpaceOnUse"
+            patternTransform={`translate(-${layer.offset},-${layer.offset})`}
           >
-            <PatternShape
-              pattern={pattern}
-              color={color}
-              cx={0}
-              cy={0}
-              size={BASE_GAP * gs.step * z}
-            />
-          </g>
-        </pattern>
-      ))}
+            <g
+              ref={(element) => { shapeRefs.current[index] = element }}
+              transform={`translate(${layer.offset},${layer.offset})`}
+              opacity={layer.opacity}
+            >
+              <PatternShape
+                pattern={pattern}
+                color={color}
+                cx={0}
+                cy={0}
+              />
+            </g>
+          </pattern>
+        )
+      })}
       {gridSteps.map((_gs, index) => (
         <rect
           key={`${patternId}-grid-${index}-rect`}
@@ -186,10 +184,3 @@ const GridRenderer = memo(function GridRenderer({
     </svg>
   )
 })
-
-export function AdaptiveBackground(props: AdaptiveBackgroundProps) {
-  // 用 store API 读一次初始缩放：不订阅 transform，平移/缩放期间容器不重渲染。
-  const store = useStoreApi()
-  const initialZoomRef = useRef(store.getState().transform[2])
-  return <GridRenderer {...props} initialZoom={initialZoomRef.current} />
-}

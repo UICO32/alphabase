@@ -18,7 +18,7 @@ import { CollapsedContent } from './card/CollapsedContent'
 import { extractCollapsedCardText } from './card/collapsedCardText'
 import { MiniCard } from './card/MiniCard'
 import { ZoomPreview } from './card/ZoomPreview'
-import { createAnnotationHeightBatcher } from './annotationHeightBatcher'
+import { createHeightBatcher } from './heightBatcher'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
 import { useCardNodeActions } from './useCardNodeActions'
@@ -79,7 +79,7 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
     const el = miniCardRef.current
     measuredHeightRef.current = data.height ?? 0
     // 看板高度抖动可能在一帧内回调多次：合并成每帧一次 store 更新，避免反复生成新的根数组。
-    const heightBatcher = createAnnotationHeightBatcher({
+    const heightBatcher = createHeightBatcher({
       initialHeight: measuredHeightRef.current,
       threshold: 0,
       onCommit: (measuredH) => {

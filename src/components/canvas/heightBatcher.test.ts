@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createAnnotationHeightBatcher } from './annotationHeightBatcher'
+import { createHeightBatcher } from './heightBatcher'
 
-describe('createAnnotationHeightBatcher', () => {
+describe('createHeightBatcher', () => {
   it('commits only the latest observed height once per animation frame', () => {
     const frameCallbacks: FrameRequestCallback[] = []
     const onCommit = vi.fn()
-    const batcher = createAnnotationHeightBatcher({
+    const batcher = createHeightBatcher({
       initialHeight: 100,
       threshold: 4,
       onCommit,
@@ -30,7 +30,7 @@ describe('createAnnotationHeightBatcher', () => {
     const cancelFrame = vi.fn()
     const requestFrame = vi.fn(() => 23)
     const onCommit = vi.fn()
-    const batcher = createAnnotationHeightBatcher({
+    const batcher = createHeightBatcher({
       initialHeight: 100,
       threshold: 4,
       onCommit,
@@ -51,7 +51,7 @@ describe('createAnnotationHeightBatcher', () => {
   it('treats the threshold itself as noise and the next pixel as a change', () => {
     const frameCallbacks: FrameRequestCallback[] = []
     const onCommit = vi.fn()
-    const batcher = createAnnotationHeightBatcher({
+    const batcher = createHeightBatcher({
       initialHeight: 100,
       threshold: 4,
       onCommit,
@@ -73,7 +73,7 @@ describe('createAnnotationHeightBatcher', () => {
   it('measures noise against the last committed height, not the last observed one', () => {
     const frameCallbacks: FrameRequestCallback[] = []
     const onCommit = vi.fn()
-    const batcher = createAnnotationHeightBatcher({
+    const batcher = createHeightBatcher({
       initialHeight: 100,
       threshold: 4,
       onCommit,

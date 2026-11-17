@@ -61,7 +61,9 @@ export function AlignmentToolbar({
     if (!selectedNodes.every(isAlignableNode)) return []
     return selectedNodes
   }, [selectedEdges.length, selectedNodes])
-  const viewportKey = viewport ? `${viewport.x}|${viewport.y}|${viewport.zoom}` : 'live'
+  const viewportX = viewport?.x
+  const viewportY = viewport?.y
+  const viewportZoom = viewport?.zoom
   const position = useMemo(() => {
     const rf = reactFlowInstance.current
     if (!rf || isDraggingNode || alignableNodes.length < 2) return null
@@ -76,7 +78,7 @@ export function AlignmentToolbar({
     const y = aboveY >= 48 ? aboveY : belowY
 
     return { x: centerX, y, placeAbove: aboveY >= 48 }
-  }, [alignableNodes, isDraggingNode, reactFlowInstance, viewportKey])
+  }, [alignableNodes, isDraggingNode, reactFlowInstance, viewportX, viewportY, viewportZoom])
 
   const handleClick = useCallback((mode: AlignmentMode) => {
     const updates = computeAlignment(alignableNodes, mode)
