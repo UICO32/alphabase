@@ -18,6 +18,7 @@ import { CollapsedContent } from './card/CollapsedContent'
 import { extractCollapsedCardText } from './card/collapsedCardText'
 import { MiniCard } from './card/MiniCard'
 import { ZoomPreview } from './card/ZoomPreview'
+import { createAnnotationHeightBatcher } from './annotationHeightBatcher'
 import type { FrameNodeData } from './FrameNode'
 import { computeLayout, type FrameLayout } from './utils/frameLayouts'
 import { useCardNodeActions } from './useCardNodeActions'
@@ -77,55 +78,65 @@ export const CardNode = memo(({ id, data, selected }: NodeProps<CardNodeType>) =
     if (!showMiniCard || !miniCardRef.current || !data.frameId) return
     const el = miniCardRef.current
     measuredHeightRef.current = data.height ?? 0
+    // 看板高度抖动可能在一帧内回调多次：合并成每帧一次 store 更新，避免反复生成新的根数组。
+    const heightBatcher = createAnnotationHeightBatcher({
+      initialHeight: measuredHeightRef.current,
+      threshold: 0,
+      onCommit: (measuredH) => {
+        setNodes(nds => {
+          const frameNode = nds.find(n => n.id === data.frameId)
+          if (!frameNode) return nds
+          const fd = frameNode.data as FrameNodeData
+          if (fd.layout !== 'kanban') return nds
+
+          const updated = nds.map(n =>
+            n.id === data.cardId
+              ? { ...n, data: { ...n.data, height: measuredH } }
+              : n
+          )
+
+          const uf = updated.find(n => n.id === data.frameId)!
+          const children = updated.filter(n => {
+            const nd = n.data as Record<string, unknown>
+            return nd.frameId === data.frameId && n.id !== data.frameId
+          })
+          const result = computeLayout(uf, children, 'kanban')
+
+          return updated.map(n => {
+            if (n.id === data.frameId) return n
+            const pos = result.positions[n.id]
+            if (pos) {
+              return {
+                ...n,
+                position: { x: uf.position.x + pos.x, y: uf.position.y + pos.y },
+                data: {
+                  ...n.data,
+                  localX: pos.x,
+                  localY: pos.y,
+                  ...(pos.width ? { width: pos.width } : {}),
+                },
+              }
+            }
+            return n
+          })
+        })
+      },
+    })
     const observer = new ResizeObserver(entries => {
       for (const entry of entries) {
         const measuredH = Math.round(entry.contentRect.height)
         if (measuredH < 10) return
         const currentH = measuredHeightRef.current
-        if (Math.abs(measuredH - currentH) > 5) {
-          measuredHeightRef.current = measuredH
-          setNodes(nds => {
-            const frameNode = nds.find(n => n.id === data.frameId)
-            if (!frameNode) return nds
-            const fd = frameNode.data as FrameNodeData
-            if (fd.layout !== 'kanban') return nds
-
-            const updated = nds.map(n =>
-              n.id === data.cardId
-                ? { ...n, data: { ...n.data, height: measuredH } }
-                : n
-            )
-
-            const uf = updated.find(n => n.id === data.frameId)!
-            const children = updated.filter(n => {
-              const nd = n.data as Record<string, unknown>
-              return nd.frameId === data.frameId && n.id !== data.frameId
-            })
-            const result = computeLayout(uf, children, 'kanban')
-
-            return updated.map(n => {
-              if (n.id === data.frameId) return n
-              const pos = result.positions[n.id]
-              if (pos) {
-                return {
-                  ...n,
-                  position: { x: uf.position.x + pos.x, y: uf.position.y + pos.y },
-                  data: {
-                    ...n.data,
-                    localX: pos.x,
-                    localY: pos.y,
-                    ...(pos.width ? { width: pos.width } : {}),
-                  },
-                }
-              }
-              return n
-            })
-          })
-        }
+        if (Math.abs(measuredH - currentH) <= 5) continue
+        measuredHeightRef.current = measuredH
+        heightBatcher.schedule(measuredH)
       }
     })
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      heightBatcher.dispose()
+    }
   }, [showMiniCard, data.frameId, data.cardId, setNodes])
 
   useEffect(() => {

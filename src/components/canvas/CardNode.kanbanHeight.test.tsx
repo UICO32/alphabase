@@ -164,6 +164,24 @@ describe('CardNode 看板 MiniCard 高度回调', () => {
     expect(h.state.updates).toBe(updatesAfterMount)
   })
 
+  it('同一帧内的多次高度变化合并成一次 store 更新', () => {
+    renderMiniCard(100)
+    const updatesAfterMount = h.state.updates
+
+    act(() => {
+      for (const observer of h.observers) {
+        for (const height of [150, 160, 170, 180, 190]) {
+          observer.callback([{ contentRect: { height } }])
+        }
+      }
+      for (const frame of h.frames.splice(0)) frame(0)
+    })
+
+    // 基线：不合并时 5 次回调 = 5 次 store 更新；合并后只写最后一帧的最新高度。
+    expect(h.state.updates).toBe(updatesAfterMount + 1)
+    expect(cardHeight()).toBe(190)
+  })
+
   it('Frame 不是看板布局时忽略高度回调', () => {
     renderMiniCard(100, 'free')
     const updatesAfterMount = h.state.updates
