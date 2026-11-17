@@ -97,4 +97,31 @@ describe('AlignmentToolbar', () => {
     const after = (screen.getByTestId('alignment-toolbar') as HTMLElement).style.left
     expect(after).toBe('420px')
   })
+
+  it('无关重渲染不重算屏幕坐标（视口快照未变）', () => {
+    const flowToScreenPosition = vi.fn(({ x, y }: { x: number; y: number }) => ({ x, y }))
+    const instance = { current: { flowToScreenPosition } as unknown as ReactFlowInstance }
+    const selectedNodes = [node('a', 20, 0), node('b', 200, 100)]
+    const renderWith = (viewport: { x: number; y: number; zoom: number } | null) => (
+      React.createElement(AlignmentToolbar, {
+        selectedNodes,
+        selectedEdges: [],
+        reactFlowInstance: instance,
+        viewport,
+        onApplyAlignment: vi.fn(),
+      })
+    )
+
+    const view = render(renderWith({ x: 0, y: 0, zoom: 1 }))
+    const callsAfterMount = flowToScreenPosition.mock.calls.length
+    expect(callsAfterMount).toBe(2)
+
+    // 同一视口快照下的普通重渲染：位置 useMemo 命中缓存，不再做坐标换算。
+    view.rerender(renderWith({ x: 0, y: 0, zoom: 1 }))
+    expect(flowToScreenPosition.mock.calls.length).toBe(callsAfterMount)
+
+    // 视口快照变化才重算。
+    view.rerender(renderWith({ x: 50, y: 0, zoom: 1 }))
+    expect(flowToScreenPosition.mock.calls.length).toBe(callsAfterMount + 2)
+  })
 })
