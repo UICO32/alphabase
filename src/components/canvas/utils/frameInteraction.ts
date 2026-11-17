@@ -16,6 +16,12 @@ interface FrameInteractionState {
   textToolMode: boolean
   /** 刚创建的文本注释节点 id，用于自动进入编辑态（消费后清空） */
   autoEditAnnoId: string | null
+  /**
+   * 正在拖拽缩放手柄的 Frame id。
+   * 缩放西/北边会移动 Frame 原点，useFrameSync 会把“原点变化”当成拖动 Frame 而平移子卡；
+   * 缩放期间必须跳过这次平移，子卡位置由 FrameNode 的缩放逻辑自己维护。
+   */
+  resizingFrameId: string | null
 }
 
 export const useFrameInteraction = create<FrameInteractionState>(() => ({
@@ -25,6 +31,7 @@ export const useFrameInteraction = create<FrameInteractionState>(() => ({
   dragOverFrameId: null,
   textToolMode: false,
   autoEditAnnoId: null,
+  resizingFrameId: null,
 }))
 
 export function enterLassoMode() {
@@ -57,4 +64,8 @@ export function exitTextToolMode() {
 
 export function setAutoEditAnnoId(id: string | null) {
   useFrameInteraction.setState({ autoEditAnnoId: id })
+}
+
+export function setResizingFrameId(id: string | null) {
+  useFrameInteraction.setState({ resizingFrameId: id })
 }

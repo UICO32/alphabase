@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { type Node } from '@xyflow/react'
 import type { CardNodeData } from '../types/card'
+import { useFrameInteraction } from '../components/canvas/utils/frameInteraction'
 
 interface UseFrameSyncOptions {
   nodes: Node[]
@@ -12,6 +13,7 @@ export function useFrameSync({ nodes, setNodes }: UseFrameSyncOptions) {
 
   useEffect(() => {
     const prevNodes = prevNodesRef.current
+    const resizingFrameId = useFrameInteraction.getState().resizingFrameId
     const frameNodesById = new Map(
       nodes.filter(n => n.type === 'frame').map(frame => [frame.id, frame]),
     )
@@ -21,6 +23,9 @@ export function useFrameSync({ nodes, setNodes }: UseFrameSyncOptions) {
     const updatedNodes = nodes.map(node => {
       const nodeData = node.data as CardNodeData
       if (!nodeData.frameId) return node
+
+      // 缩放 Frame 时原点变化来自缩放本身，子卡位置由 FrameNode 维护，这里不能重复平移。
+      if (nodeData.frameId === resizingFrameId) return node
 
       const frameNode = frameNodesById.get(nodeData.frameId)
       if (!frameNode) {

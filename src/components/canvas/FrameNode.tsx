@@ -6,7 +6,7 @@ import { computeLayout, saveCardSnapshots, saveFrameSnapshot, restoreOrComputePo
 import { computeResize, type ResizeDir } from './utils/frameResize'
 import type { CardNodeData } from '../../types/card'
 import { kanbanDragPreview } from './utils/kanbanDragPreview'
-import { useFrameInteraction } from './utils/frameInteraction'
+import { useFrameInteraction, setResizingFrameId } from './utils/frameInteraction'
 import { useIsDarkMode } from '../../hooks/useIsDarkMode'
 
 const FRAME_COLORS: { value: string; label: string }[] = [
@@ -55,7 +55,7 @@ const LAYOUT_OPTIONS: { value: FrameLayout; label: string }[] = [
   { value: 'kanban', label: '看板' },
 ]
 
-export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>) => {
+export const FrameNode = memo(({ id, data, selected, positionAbsoluteX, positionAbsoluteY }: NodeProps<FrameNodeType>) => {
   const { setNodes, getViewport } = useReactFlow()
   // 注意：这里不再订阅 React Flow 的 transform。
   // 标签/边框等逆缩放尺寸改用 CSS 变量 --rf-inv-zoom（由 ReactFlowCanvas.onMove
@@ -269,21 +269,29 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       const startY = e.clientY
       const startW = size.width
       const startH = size.height
+      const startPosition = { x: positionAbsoluteX, y: positionAbsoluteY }
       // 动态取当前缩放（不订阅 transform，避免每帧重渲染）
       const currentZoom = getViewport().zoom
       const frameLayout = currentLayout
+      setResizingFrameId(id)
 
       const handleMouseMove = (ev: MouseEvent) => {
         ev.preventDefault()
         const dx = (ev.clientX - startX) / currentZoom
         const dy = (ev.clientY - startY) / currentZoom
-        const { width: newW, height: newH } = computeResize(dir, dx, dy, startW, startH)
+        const { width: newW, height: newH, offsetX, offsetY } = computeResize(dir, dx, dy, startW, startH)
+        // 西/北边拖动时原点跟随被拖动的边，否则框会朝反方向增长。
+        const nextPosition = { x: startPosition.x + offsetX, y: startPosition.y + offsetY }
         setSize({ width: newW, height: newH })
         setNodes((nds) => {
           const frameIdx = nds.findIndex((n) => n.id === id)
           if (frameIdx === -1) return nds
           const frameNode = nds[frameIdx]
-          const updatedFrame = { ...frameNode, data: { ...frameNode.data, width: newW, height: newH } }
+          const updatedFrame = {
+            ...frameNode,
+            position: nextPosition,
+            data: { ...frameNode.data, width: newW, height: newH },
+          }
 
           if (frameLayout === 'free') {
             const next = [...nds]
@@ -300,7 +308,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
             if (pos) {
               return {
                 ...n,
-                position: { x: frameNode.position.x + pos.x, y: frameNode.position.y + pos.y },
+                position: { x: nextPosition.x + pos.x, y: nextPosition.y + pos.y },
                 data: { ...n.data, localX: pos.x, localY: pos.y, ...(pos.width ? { width: pos.width } : {}), ...(pos.height ? { height: pos.height } : {}) },
               }
             }
@@ -312,6 +320,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       const handleMouseUp = () => {
         window.removeEventListener('mousemove', handleMouseMove)
         window.removeEventListener('mouseup', handleMouseUp)
+        setResizingFrameId(null)
         // save snapshot + bump version (invalidates other layout snapshots)
         setNodes((nds) =>
           nds.map((n) => {
@@ -335,7 +344,7 @@ export const FrameNode = memo(({ id, data, selected }: NodeProps<FrameNodeType>)
       window.addEventListener('mousemove', handleMouseMove)
       window.addEventListener('mouseup', handleMouseUp)
     },
-    [id, size, setNodes, getViewport, currentLayout],
+    [id, size, setNodes, getViewport, currentLayout, positionAbsoluteX, positionAbsoluteY],
   )
 
   const kanbanColumns: KanbanColumn[] = useMemo(() => {
