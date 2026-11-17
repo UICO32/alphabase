@@ -205,14 +205,51 @@ async function getNodePositions(page: Page): Promise<NodePos[]> {
   })
 }
 
-async function selectCard(page: Page, nodeId: string) {
-  const node = page.locator(`.react-flow__node[data-id="${nodeId}"]`)
-  await node.click({ modifiers: ['Control'], force: true })
-  // React Flow 受控模式下 selection 经 onNodesChange→React state→props 回写 store，
-  // 连点太快时下一次点击发生在回写完成前，选中会被覆盖丢失（实测 <50ms 必失败、
-  // ≥250ms 稳定成功）。toHaveClass 保证选中已渲染，额外等待保证 store 已同步。
-  await expect(node).toHaveClass(/selected/)
-  await page.waitForTimeout(250)
+async function selectedNodeIds(page: Page): Promise<string[]> {
+  return page.locator('.react-flow__node.selected').evaluateAll(nodes =>
+    nodes.map(node => node.getAttribute('data-id') ?? ''),
+  )
+}
+
+async function isNodeSelected(page: Page, nodeId: string): Promise<boolean> {
+  return page
+    .locator(`.react-flow__node[data-id="${nodeId}"]`)
+    .evaluate(node => node.classList.contains('selected'))
+}
+
+/**
+ * 稳定地选中一组节点。
+ *
+ * React Flow 受控模式下 selection 经 onNodesChange → React state → props 回写内部 store；
+ * 连点太快时后一次点击会基于旧选中集重算，把前一次选中覆盖掉（实测 <50ms 必失败）。
+ * 画布在选中后会排一次防抖落盘，磁盘写入与 React 提交叠加时更容易撞上这个窗口，
+ * 所以这里不依赖固定 sleep，而是按“最终选中集合”收敛：缺哪个补点哪个、多选了去掉，最多 3 轮。
+ */
+async function selectCards(page: Page, nodeIds: string[]) {
+  const wanted = new Set(nodeIds)
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (const id of await selectedNodeIds(page)) {
+      if (wanted.has(id)) continue
+      await page.locator(`.react-flow__node[data-id="${id}"]`).click({ modifiers: ['Control'], force: true })
+      await page.waitForTimeout(100)
+    }
+
+    for (const id of nodeIds) {
+      if (await isNodeSelected(page, id)) continue
+      const node = page.locator(`.react-flow__node[data-id="${id}"]`)
+      await node.click({ modifiers: ['Control'], force: true })
+      await expect(node).toHaveClass(/selected/)
+      await page.waitForTimeout(150)
+    }
+
+    const selected = await selectedNodeIds(page)
+    if (selected.length === nodeIds.length && nodeIds.every(id => selected.includes(id))) {
+      // 让 onSelectionChange → React state 落定，工具栏读到的是最终选中集。
+      await page.waitForTimeout(150)
+      return
+    }
+  }
+  throw new Error(`无法稳定选中节点：${nodeIds.join(', ')}`)
 }
 
 async function clickAlignButton(page: Page, title: string) {
@@ -251,8 +288,7 @@ test.describe('Card Alignment', () => {
     const positions = await getNodePositions(page)
     expect(positions.length).toBeGreaterThanOrEqual(2)
 
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     const toolbar = page.locator('button[title="左对齐"]')
     await expect(toolbar).toBeVisible()
@@ -260,8 +296,7 @@ test.describe('Card Alignment', () => {
 
   test('toolbar disappears when clicking blank area', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     await expect(page.locator('button[title="左对齐"]')).toBeVisible()
 
@@ -271,8 +306,7 @@ test.describe('Card Alignment', () => {
 
   test('distribute buttons disabled with 2 cards', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     const btnH = page.locator('button[title="水平等间距（需要至少 3 张卡片）"]')
     const btnV = page.locator('button[title="垂直等间距（需要至少 3 张卡片）"]')
@@ -284,9 +318,7 @@ test.describe('Card Alignment', () => {
     const positions = await getNodePositions(page)
     if (positions.length < 3) return
 
-    for (const p of positions) {
-      await selectCard(page, p.id)
-    }
+    await selectCards(page, positions.map(p => p.id))
 
     const btnH = page.locator('button[title="水平等间距"]')
     const btnV = page.locator('button[title="垂直等间距"]')
@@ -296,8 +328,7 @@ test.describe('Card Alignment', () => {
 
   test('left align', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     await clickAlignButton(page, '左对齐')
 
@@ -307,8 +338,7 @@ test.describe('Card Alignment', () => {
 
   test('right align', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     await clickAlignButton(page, '右对齐')
 
@@ -320,8 +350,7 @@ test.describe('Card Alignment', () => {
 
   test('horizontal center align', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     await clickAlignButton(page, '水平居中')
 
@@ -333,8 +362,7 @@ test.describe('Card Alignment', () => {
 
   test('top align', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     await clickAlignButton(page, '上对齐')
 
@@ -344,8 +372,7 @@ test.describe('Card Alignment', () => {
 
   test('bottom align', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     await clickAlignButton(page, '下对齐')
 
@@ -357,8 +384,7 @@ test.describe('Card Alignment', () => {
 
   test('vertical center align', async ({ page }) => {
     const positions = await getNodePositions(page)
-    await selectCard(page, positions[0].id)
-    await selectCard(page, positions[1].id)
+    await selectCards(page, [positions[0].id, positions[1].id])
 
     await clickAlignButton(page, '垂直居中')
 
@@ -372,9 +398,7 @@ test.describe('Card Alignment', () => {
     const positions = await getNodePositions(page)
     if (positions.length < 3) return
 
-    for (const p of positions) {
-      await selectCard(page, p.id)
-    }
+    await selectCards(page, positions.map(p => p.id))
 
     await clickAlignButton(page, '水平等间距')
 
@@ -390,9 +414,7 @@ test.describe('Card Alignment', () => {
     const positions = await getNodePositions(page)
     if (positions.length < 3) return
 
-    for (const p of positions) {
-      await selectCard(page, p.id)
-    }
+    await selectCards(page, positions.map(p => p.id))
 
     await clickAlignButton(page, '垂直等间距')
 
@@ -409,8 +431,7 @@ test.describe('Card Alignment', () => {
     const id0 = positions[0].id
     const id1 = positions[1].id
 
-    await selectCard(page, id0)
-    await selectCard(page, id1)
+    await selectCards(page, [id0, id1])
 
     const beforeAlign = await getNodePositions(page)
     const beforeY0 = beforeAlign.find(p => p.id === id0)?.y ?? 0
