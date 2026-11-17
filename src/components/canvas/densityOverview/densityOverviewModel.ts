@@ -128,6 +128,53 @@ export function extractCardDensityStats(card: Pick<GlobalCard, 'content' | 'titl
   }
 }
 
+type CardDensityStats = ReturnType<typeof extractCardDensityStats>
+
+// 密度统计要 JSON.parse + 正则扫全文，拖拽/缩放时节点位置每帧变化都会重建模型。
+// 统计只依赖内容/标题/标签，按这三个字段的签名缓存，位置变化不再触发重算。
+const DENSITY_STATS_CACHE_LIMIT = 512
+const densityStatsCache = new Map<string, CardDensityStats>()
+const densityStatsCacheCounters = { hits: 0, misses: 0 }
+
+function densityStatsCacheKey(card: Pick<GlobalCard, 'content' | 'title' | 'tags'>): string {
+  return `${card.title ?? ''}\u0000${(card.tags ?? []).join('\u0001')}\u0000${card.content ?? ''}`
+}
+
+export function extractCardDensityStatsCached(
+  card: Pick<GlobalCard, 'content' | 'title' | 'tags'>,
+): CardDensityStats {
+  const key = densityStatsCacheKey(card)
+  const cached = densityStatsCache.get(key)
+  if (cached) {
+    // 近似 LRU：命中后挪到末尾。
+    densityStatsCache.delete(key)
+    densityStatsCache.set(key, cached)
+    densityStatsCacheCounters.hits += 1
+    return cached
+  }
+
+  const stats = extractCardDensityStats(card)
+  densityStatsCache.set(key, stats)
+  densityStatsCacheCounters.misses += 1
+  if (densityStatsCache.size > DENSITY_STATS_CACHE_LIMIT) {
+    const oldestKey = densityStatsCache.keys().next().value
+    if (oldestKey !== undefined) densityStatsCache.delete(oldestKey)
+  }
+  return stats
+}
+
+/** 测试用：读取累计命中/未命中计数（不清空缓存）。 */
+export function getDensityStatsCacheCounters(): { hits: number; misses: number } {
+  return { ...densityStatsCacheCounters }
+}
+
+/** 测试与工作区切换用：清空缓存并重置累计计数。 */
+export function clearDensityStatsCache(): void {
+  densityStatsCache.clear()
+  densityStatsCacheCounters.hits = 0
+  densityStatsCacheCounters.misses = 0
+}
+
 export function calculateInformationDensity(
   stats: { textChars: number; blockCount: number; mediaCount: number; tagCount: number },
   edgeDegree: number,
@@ -265,7 +312,7 @@ export function buildDensityOverviewModel(
   }
 
   const cards = sourceCards.map((sourceCard) => {
-    const stats = extractCardDensityStats(sourceCard.card)
+    const stats = extractCardDensityStatsCached(sourceCard.card)
     const edgeDegree = degreeByNodeId.get(sourceCard.nodeId) ?? 0
     const member = membership.get(sourceCard.cardId)
     return {
