@@ -1,4 +1,4 @@
-﻿import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore, useContext } from 'react'
+import { memo, useState, useCallback, useRef, useEffect, useSyncExternalStore, useContext } from 'react'
 import { useReactFlow, NodeResizeControl, type NodeProps } from '@xyflow/react'
 import type { Node } from '@xyflow/react'
 import { ArrowUpRight, Trash2, AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
@@ -56,7 +56,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
   const fontSize: AnnotationFontSize = data.fontSize ?? 'md'
   const align: AnnotationAlign = data.align ?? 'left'
 
-  // 鈹€鈹€ 杩炴帴鐘舵€佽闃咃紙澶嶅埢 CardNode 妯″紡锛夆攢鈹€
+  // ── 连接状态订阅（复刻 CardNode 模式）──
   const isConnecting = useSyncExternalStore(
     connectionMediator.subscribe.bind(connectionMediator),
     connectionMediator.isConnecting.bind(connectionMediator),
@@ -71,19 +71,20 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     () => connectionMediator.getNearbyTarget() === id,
   )
 
-  // 鈹€鈹€ autoEdit锛氬伐鍏锋斁缃悗鑷姩杩涘叆缂栬緫鎬侊紙鍙傝€?CardNode isAutoEdit 妯″紡锛夆攢鈹€
+  // ── autoEdit：工具放置后自动进入编辑态（参考 CardNode isAutoEdit 模式）──
   const isAutoEdit = useFrameInteraction((s) => s.autoEditAnnoId === id)
   useEffect(() => {
     if (!isAutoEdit || autoEditConsumedRef.current) return
     autoEditConsumedRef.current = true
     setIsEditing(true)
-    // 娑堣垂鏍囪锛岄伩鍏嶉噸澶嶈Е鍙?    useFrameInteraction.setState({ autoEditAnnoId: null })
+    // 消费标记，避免重复触发；清理必须独立成句，不能写进注释行尾。
+    useFrameInteraction.setState({ autoEditAnnoId: null })
     // Keep this frame alive through React Strict Mode's effect replay. The
     // optional ref access makes it harmless if the node was removed meanwhile.
     requestAnimationFrame(() => editorRef.current?.focus())
   }, [isAutoEdit])
 
-  // 鈹€鈹€ 缂栬緫鎬佽 dragHandle锛岄伩鍏嶆嫋鎷戒笌缂栬緫鍐茬獊锛堝弬鑰?CardNode 妯″紡锛夆攢鈹€
+  // ── 编辑态设 dragHandle，避免拖拽与编辑冲突（参考 CardNode 模式）──
   useEffect(() => {
     setNodes((nds) => {
       const idx = nds.findIndex((n) => n.id === id)
@@ -111,7 +112,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     return () => document.removeEventListener('pointerdown', handleOutsidePointerDown, true)
   }, [isEditing])
 
-  // 鈹€鈹€ 鑷姩鎾戦珮锛氱洃鍚唴瀹瑰尯楂樺害鍙樺寲鍐欏叆 data.height锛堝弬鑰?CardNode MiniCard 妯″紡锛夆攢鈹€
+  // ── 自动撑高：监听内容区高度变化写入 data.height（参考 CardNode MiniCard 模式）──
   useEffect(() => {
     const el = nodeRef.current
     if (!el) return
@@ -139,7 +140,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     }
   }, [id, setNodes])
 
-  // 鈹€鈹€ 鐐瑰嚮锛氳繛鎺ュ畬鎴?or 杩涘叆缂栬緫锛堝鍒?CardNode.handleCardClick 鏍稿績锛夆攢鈹€
+  // ── 点击：连接完成 or 进入编辑（复刻 CardNode.handleCardClick 核心）──
   const handleNodeClick = useCallback((e: React.MouseEvent) => {
     if (isConnectionTarget || isNearbyTarget) {
       e.stopPropagation()
@@ -149,7 +150,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
       }
       return
     }
-    // 鐐瑰嚮缂栬緫鍣ㄥ唴閮ㄤ笉鎷︽埅
+    // 点击编辑器内部不拦截
     const target = e.target as HTMLElement
     if (target.closest('textarea, [contenteditable="true"]')) return
     if (isEditing) return
@@ -196,7 +197,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
     if (normalized.content !== finalContent) updateData({ content: normalized.content })
   }, [id, setEdges, setNodes, updateData])
 
-  // 宸ュ叿鏉′粎鍦ㄩ€変腑/缂栬緫/杩炴帴鎬佸嚭鐜帮紱hover 涓嶅脊鍑猴紝閬垮厤骞叉壈闃呰
+  // 工具条仅在选中/编辑/连接态出现；hover 不弹出，避免干扰阅读
   const showToolbar = selected || isEditing || isConnecting
   const colorStroke = CARD_COLORS[color]?.stroke ?? CARD_COLORS.white.stroke
   const fontPx = ANNOTATION_FONT_SIZES[fontSize]
@@ -246,7 +247,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
         />
       )}
 
-      {/* 娴姩宸ュ叿鏉★紙浠呴€変腑/缂栬緫/杩炴帴鎬侊級 */}
+      {/* 浮动工具条（仅选中/编辑/连接态） */}
       {showToolbar && (
         <div
           className="ui-floating-surface ui-floating-content"
@@ -265,19 +266,19 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
             whiteSpace: 'nowrap',
           }}
         >
-          {/* 瀛楀彿鍒囨崲 */}
+          {/* 字号切换 */}
           <button
             onClick={handleFontSizeToggle}
             className="action-icon-btn"
             style={{ width: 26, height: 24, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
-            title={`瀛楀彿 ${fontSize.toUpperCase()}`}
+            title={`字号 ${fontSize.toUpperCase()}`}
           >
             {fontPx}
           </button>
 
           <div style={{ width: 1, height: 14, background: isDarkMode ? '#3f3f46' : '#e4e4e7' }} />
 
-          {/* 瀵归綈 */}
+          {/* 对齐 */}
           {ALIGN_OPTIONS.map(({ value, Icon, title }) => (
             <button
               key={value}
@@ -296,34 +297,34 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
 
           <div style={{ width: 1, height: 14, background: isDarkMode ? '#3f3f46' : '#e4e4e7' }} />
 
-          {/* 鑹叉澘锛氬皬鍦嗙偣 */}
+          {/* 色板：小圆点 */}
           <ColorDotPicker color={color} onChange={handleColorChange} />
 
           <div style={{ width: 1, height: 14, background: isDarkMode ? '#3f3f46' : '#e4e4e7' }} />
 
-          {/* 鍙戣捣杩炴帴 */}
+          {/* 发起连接 */}
           <button
             onClick={handleStartConnection}
             className="action-icon-btn"
             style={{ width: 24, height: 24, cursor: 'pointer' }}
-            title="鍙戣捣杩炴帴"
+            title="发起连接"
           >
             <ArrowUpRight size={13} />
           </button>
 
-          {/* 鍒犻櫎 */}
+          {/* 删除 */}
           <button
             onClick={handleDelete}
             className="action-icon-btn"
             style={{ width: 24, height: 24, cursor: 'pointer', color: 'var(--destructive, #ef4444)' }}
-            title="鍒犻櫎娉ㄩ噴"
+            title="删除注释"
           >
             <Trash2 size={13} />
           </button>
         </div>
       )}
 
-      {/* 鍐呭鍖猴細鎷栨嫿 handle + 鍙€夊渾鐐?+ 缂栬緫鍣?*/}
+      {/* 内容区：拖拽 handle + 可选圆点 + 编辑器 */}
       {color !== 'white' && (
         <div
           className={isEditing ? 'text-anno-drag-handle' : undefined}
@@ -383,7 +384,7 @@ export const TextAnnotationNode = memo(({ id, data, selected }: NodeProps<TextAn
 
 TextAnnotationNode.displayName = 'TextAnnotationNode'
 
-// 鈹€鈹€ 鑹叉澘灏忓渾鐐归€夋嫨鍣?鈹€鈹€
+// ── 色板小圆点选择器 ──
 const ColorDotPicker = memo(function ColorDotPicker({
   color,
   onChange,
@@ -398,7 +399,7 @@ const ColorDotPicker = memo(function ColorDotPicker({
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}
         className="action-icon-btn"
         style={{ width: 24, height: 24, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-        title="棰滆壊"
+        title="颜色"
       >
         <span style={{
           display: 'block',
