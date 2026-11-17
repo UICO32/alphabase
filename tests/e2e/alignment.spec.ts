@@ -222,34 +222,52 @@ async function isNodeSelected(page: Page, nodeId: string): Promise<boolean> {
  *
  * React Flow 受控模式下 selection 经 onNodesChange → React state → props 回写内部 store；
  * 连点太快时后一次点击会基于旧选中集重算，把前一次选中覆盖掉（实测 <50ms 必失败）。
- * 画布在选中后会排一次防抖落盘，磁盘写入与 React 提交叠加时更容易撞上这个窗口，
- * 所以这里不依赖固定 sleep，而是按“最终选中集合”收敛：缺哪个补点哪个、多选了去掉，最多 3 轮。
+ * 画布刚加载完时 fitView/setViewport 可能还在收尾，此时点击会落在移动中的节点外，
+ * 所以先等视口静止，再按“最终选中集合”收敛：缺哪个补点哪个、多选了去掉，失败整轮重试。
  */
 async function selectCards(page: Page, nodeIds: string[]) {
+  await waitForViewportSettled(page)
   const wanted = new Set(nodeIds)
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    for (const id of await selectedNodeIds(page)) {
-      if (wanted.has(id)) continue
-      await page.locator(`.react-flow__node[data-id="${id}"]`).click({ modifiers: ['Control'], force: true })
-      await page.waitForTimeout(100)
-    }
+    try {
+      for (const id of await selectedNodeIds(page)) {
+        if (wanted.has(id)) continue
+        await page.locator(`.react-flow__node[data-id="${id}"]`).click({ modifiers: ['Control'], force: true })
+        await page.waitForTimeout(100)
+      }
 
-    for (const id of nodeIds) {
-      if (await isNodeSelected(page, id)) continue
-      const node = page.locator(`.react-flow__node[data-id="${id}"]`)
-      await node.click({ modifiers: ['Control'], force: true })
-      await expect(node).toHaveClass(/selected/)
-      await page.waitForTimeout(150)
-    }
+      for (const id of nodeIds) {
+        if (await isNodeSelected(page, id)) continue
+        const node = page.locator(`.react-flow__node[data-id="${id}"]`)
+        await node.click({ modifiers: ['Control'], force: true })
+        await expect(node).toHaveClass(/selected/, { timeout: 2000 })
+        await page.waitForTimeout(150)
+      }
 
-    const selected = await selectedNodeIds(page)
-    if (selected.length === nodeIds.length && nodeIds.every(id => selected.includes(id))) {
-      // 让 onSelectionChange → React state 落定，工具栏读到的是最终选中集。
-      await page.waitForTimeout(150)
-      return
+      const selected = await selectedNodeIds(page)
+      if (selected.length === nodeIds.length && nodeIds.every(id => selected.includes(id))) {
+        // 让 onSelectionChange → React state 落定，工具栏读到的是最终选中集。
+        await page.waitForTimeout(150)
+        return
+      }
+    } catch {
+      // 点击可能撞上视口动画或 React 提交窗口，等一拍后整轮重试。
     }
+    await page.waitForTimeout(300)
   }
   throw new Error(`无法稳定选中节点：${nodeIds.join(', ')}`)
+}
+
+async function waitForViewportSettled(page: Page) {
+  const readTransform = () => page.evaluate(() => {
+    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement | null
+    return viewport?.style.transform ?? ''
+  })
+  await expect.poll(async () => {
+    const before = await readTransform()
+    await page.waitForTimeout(80)
+    return before === await readTransform()
+  }, { timeout: 5000 }).toBe(true)
 }
 
 async function clickAlignButton(page: Page, title: string) {
