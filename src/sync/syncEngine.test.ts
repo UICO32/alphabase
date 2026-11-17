@@ -128,6 +128,33 @@ describe('WorkspaceSyncEngine', () => {
       expect(boardWrites.length).toBe(1)
     })
 
+    it('flushes once with the drag-time snapshot when an older write is still pending', async () => {
+      // 拖拽前已排队但还没触发的旧快照。
+      engine.scheduleWriteBoard('board-1', {
+        version: 2,
+        nodes: [{ id: 'old', type: 'card', position: { x: 0, y: 0 }, data: {} }],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      }, 5000)
+
+      engine.setDragging(true)
+      engine.scheduleWriteBoard('board-1', {
+        version: 2,
+        nodes: [{ id: 'new', type: 'card', position: { x: 40, y: 0 }, data: {} }],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      })
+
+      await engine.flushAll()
+
+      // 同一画板只写一次，且写的是拖拽期间的最新快照（并行写入时旧快照不能后落盘覆盖）。
+      const boardWrites = mockWriteFile.mock.calls.filter(
+        (c: string[]) => c[0].includes('board-1.json.tmp'),
+      )
+      expect(boardWrites.length).toBe(1)
+      expect(JSON.parse(boardWrites[0][1]).nodes[0].id).toBe('new')
+    })
+
     it('does not write the suppressed snapshot after dragging stops without a new change', async () => {
       engine.setDragging(true)
       engine.scheduleWriteBoard('board-1', {

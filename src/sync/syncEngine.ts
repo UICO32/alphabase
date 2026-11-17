@@ -61,30 +61,25 @@ export class WorkspaceSyncEngine {
 
   // 提取共享的 drainPending 逻辑，flushNow 和 flushAll 都复用
   private drainPending(parallel: boolean): Promise<void> | void {
-    const entries: Array<[string, string]> = []
+    // 按最终路径归并：同一文件只有最新一份数据（后写入的覆盖先排队的），
+    // 否则 flushAll 并行写入时旧快照可能后落盘，把拖拽期间的最新快照覆盖掉。
+    const entries = new Map<string, string>()
     for (const [key, { data, timer }] of this.pendingWrites) {
       clearTimeout(timer)
-      entries.push([key, data])
+      entries.set(key.startsWith('delete:') ? key.slice(7) : key, data)
     }
     // 拖拽中被抑制的快照也一起排空：进程要关闭时，中间快照也比丢失好。
-    for (const [path, data] of this.deferredBoardWrites) entries.push([path, data])
+    for (const [path, data] of this.deferredBoardWrites) entries.set(path, data)
     this.pendingWrites.clear()
     this.deferredBoardWrites.clear()
 
     if (parallel) {
       // flushAll: 并行写入，返回 Promise
-      const promises: Promise<void>[] = []
-      for (const [key, data] of entries) {
-        const path = key.startsWith('delete:') ? key.slice(7) : key
-        promises.push(this.writeEntry(path, data))
-      }
-      return Promise.all(promises).then(() => {})
-    } else {
-      // flushNow: 同步依次写入
-      for (const [key, data] of entries) {
-        const path = key.startsWith('delete:') ? key.slice(7) : key
-        this.writeEntry(path, data).catch(() => { /* noop */ })
-      }
+      return Promise.all([...entries].map(([path, data]) => this.writeEntry(path, data))).then(() => {})
+    }
+    // flushNow: 同步依次写入
+    for (const [path, data] of entries) {
+      this.writeEntry(path, data).catch(() => { /* noop */ })
     }
   }
 
