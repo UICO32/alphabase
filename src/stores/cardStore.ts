@@ -35,6 +35,9 @@ function cachePreviewHTML(content: string, html: string) {
   }
 }
 
+/** 预览生成任务的运行代号：新的调度会作废旧循环，避免重复计算同一批卡片。 */
+let previewGenerationToken = 0
+
 function scheduleIdle(callback: () => void) {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
     window.requestIdleCallback(() => callback())
@@ -224,9 +227,11 @@ export const useCardStore = create<CardStore>()(
     },
 
     // Schedule background generation of all missing previewHTML
-    // Generates first BATCH_SIZE immediately, then yields via requestIdleCallback
+    // Generates first BATCH_SIZE immediately, then yields via requestIdleCallback.
+    // 每次调度递增代号：新的调度会作废旧循环，避免同一批卡片被重复计算。
     schedulePreviewHTMLGeneration: () => {
       const BATCH_SIZE = 4
+      const token = ++previewGenerationToken
       const state = get()
       const missingIds = Object.keys(state.cards).filter(
         id => !state.cards[id].previewHTML && state.cards[id].content
@@ -243,6 +248,7 @@ export const useCardStore = create<CardStore>()(
 
       let idx = 0
       const generateNext = () => {
+        if (token !== previewGenerationToken) return
         const batch = remaining.slice(idx, idx + BATCH_SIZE)
         if (batch.length === 0) return
         idx += BATCH_SIZE
